@@ -101,6 +101,7 @@ kbd{font:10px 'Geist Mono',monospace;border:1px solid #ffffff40;border-radius:4p
 .foot .sp{flex:1}
 .foot .msg{font-size:11.5px;color:var(--muted-foreground);flex-basis:100%;order:-1}
 .foot .msg.warn{color:var(--warn)}
+    .log.fresh{box-shadow:0 0 0 2px color-mix(in srgb,var(--note) 70%,transparent)}
 .log{font:10.5px/15px 'Geist Mono',monospace;background:var(--pane);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--muted-foreground);white-space:pre;overflow:hidden;max-height:76px}
 .toast{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--input);border-radius:9px;padding:8px 11px;font-size:12.5px;box-shadow:0 8px 24px #0005}
 .toast .ok{color:var(--ok)}
@@ -156,7 +157,7 @@ const T = {
     cancel:'Annuler', create:'Créer l’issue', creating:'Création…', openGh:'Ouvrir sur GitHub',
     noGh:'gh n’est pas connecté sur cette machine : GitHub s’ouvre avec le signalement prérempli, vous le validez là-bas.',
     created:n=>`Issue ${n} créée sur kl-ledge/ledge.`, open:'Ouvrir',
-    titleEmpty:'Donnez un titre au signalement.',
+    titleEmpty:'Donnez un titre au signalement.', logStale:'L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue.',
     agentAsk:(n)=>`${n} signale un bug`, agentIdea:(n)=>`${n} propose une idée`, from:'session', proj:'projet',
     approve:'Créer l’issue', edit:'Modifier avant', ignore:'Ignorer', pillReport:'signalement',
     agentWhy:'Rien ne part sur GitHub sans votre clic. « Modifier avant » ouvre le formulaire prérempli.',
@@ -177,7 +178,7 @@ const T = {
     cancel:'Cancel', create:'Create the issue', creating:'Creating…', openGh:'Open on GitHub',
     noGh:'gh isn’t signed in on this machine: GitHub opens with the report prefilled, you confirm it there.',
     created:n=>`Issue ${n} created on kl-ledge/ledge.`, open:'Open',
-    titleEmpty:'Give the report a title.',
+    titleEmpty:'Give the report a title.', logStale:'The log excerpt was refreshed: read it again, then create the issue.',
     agentAsk:(n)=>`${n} reports a bug`, agentIdea:(n)=>`${n} suggests an idea`, from:'session', proj:'project',
     approve:'Create the issue', edit:'Edit first', ignore:'Ignore', pillReport:'report',
     agentWhy:'Nothing goes to GitHub without your click. “Edit first” opens the form prefilled.',
@@ -229,11 +230,12 @@ function cards(){
     scene: dlg(`${kind('idea')}${f(x.tTitle, F?'Voir toutes mes MR, pas seulement celles des sessions':'See all my MRs, not only the sessions’ ones', x.tTitlePh)}${f(x.need, F?'Je ne vois pas les PR où je suis relecteur.':'I can’t see the PRs I’m a reviewer on.', x.needPh, {ta:true})}${f(x.context, '', x.contextPh)}${f(x.proposal, '', x.proposalPh, {opt:true})}
       <div class="att"><div class="ah">${x.attached}<small>${x.attachedSub}</small></div><div class="chips"><span class="chip"><span class="k">${x.desktop}</span>0.60.1<span class="x">${svg(I.x,10)}</span></span><span class="chip"><span class="k">${x.daemon}</span>0.60.1<span class="x">${svg(I.x,10)}</span></span><span class="chip"><span class="k">${x.system}</span>Windows 11 · WSL<span class="x">${svg(I.x,10)}</span></span></div><span class="mut" style="font-size:11px">${x.never}</span></div>${dest('idea')}`, foot({}))});
   C.push({title:F?'Envoi : créée, titre manquant, gh absent':'Sending: created, missing title, gh absent',
-    why:`<b>Créer l’issue</b> (Ctrl ↵) : le daemon la crée avec <code>gh</code> déjà connecté ; la fenêtre se ferme et un toast dit « Issue #14 créée sur kl-ledge/ledge » avec <b>Ouvrir</b>. Sans titre : le clic n’envoie pas et dit quoi faire, comme les autres formulaires. <b>gh pas connecté</b> (ou refus de GitHub) : le bouton devient <b>Ouvrir sur GitHub</b>, qui ouvre la page « new issue » préremplie (titre, corps, label) ; l’utilisateur valide là-bas. Ce qui a été saisi n’est jamais perdu : en cas d’échec, la fenêtre reste ouverte.`,
-    keys:F?'Nouveaux : report.created(n), report.titleEmpty, report.noGh, report.openGh':'New: report.created(n), report.titleEmpty, report.noGh, report.openGh',
+    why:`<b>Créer l’issue</b> (Ctrl ↵) : le daemon la crée avec <code>gh</code> déjà connecté ; la fenêtre se ferme et un toast dit « Issue #14 créée sur kl-ledge/ledge » avec <b>Ouvrir</b>. Sans titre : le clic n’envoie pas et dit quoi faire, comme les autres formulaires. <b>gh pas connecté</b> (ou refus de GitHub) : le bouton devient <b>Ouvrir sur GitHub</b>, qui ouvre la page « new issue » préremplie (titre, corps, label) ; l’utilisateur valide là-bas. Ce qui a été saisi n’est jamais perdu : en cas d’échec, la fenêtre reste ouverte. <b>Extrait du journal expiré</b> (refus <code>log_stale</code>) : rien n’est créé ; la fenêtre relit l’extrait, le montre entouré à la place de l’ancien et dit en ambre « L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue. » ; le bouton reste « Créer l’issue » (complément du 17/11, texte nouveau).`,
+    keys:F?'Nouveaux : report.created(n), report.titleEmpty, report.noGh, report.openGh, report.logStale':'New: report.created(n), report.titleEmpty, report.noGh, report.openGh, report.logStale',
     scene: `<div class="toast"><span class="ok">✓</span>${x.created('#14')}<button class="btn sm">${x.open}</button></div>
       <div>${dlg(`${kind('bug')}${f(x.tTitle,'',x.tTitlePh,{err:x.titleEmpty})}${f(x.happened, F?'Le chat revient agrandi.':'The chat comes back enlarged.', x.happenedPh, {ta:true})}`, foot({}))}<div class="cap">${F?'Sans titre : rien ne part':'No title: nothing is sent'}</div></div>
-      <div>${dlg(`${kind('bug')}${f(x.tTitle, F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/', x.tTitlePh)}<div class="mut" style="font-size:11.5px">…</div>`, foot({gh:true, msg:x.noGh, warn:true}))}<div class="cap">${F?'gh absent : repli sur la page GitHub préremplie':'gh absent: fallback to the prefilled GitHub page'}</div></div>`});
+      <div>${dlg(`${kind('bug')}${f(x.tTitle, F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/', x.tTitlePh)}<div class="mut" style="font-size:11.5px">…</div>`, foot({gh:true, msg:x.noGh, warn:true}))}<div class="cap">${F?'gh absent : repli sur la page GitHub préremplie':'gh absent: fallback to the prefilled GitHub page'}</div></div>
+      <div>${dlg(`${kind('bug')}${f(x.tTitle, F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/', x.tTitlePh)}<div class="mut" style="font-size:11.5px">…</div>${attached({log:true}).replace('class="log"','class="log fresh"')}`, foot({msg:x.logStale, warn:true}))}<div class="cap">${F?'Extrait expiré (plus d’une heure, daemon redémarré) : rien n’est créé, l’extrait est relu et montré, à relire avant de recréer':'Excerpt expired (over an hour, daemon restarted): nothing is created, the excerpt is read again and shown, to check before creating'}</div></div>`});
   C.push({title:F?'Le signalement d’un agent, à approuver':'An agent’s report, to approve',
     why:`<code>ledge report bug|feature "titre" "détail"</code> ne crée rien sur GitHub : il dépose une <b>demande</b> qui arrive dans <b>À toi › Décisions</b> (et en notification à l’île et au téléphone, comme une décision). La carte dit qui signale (session, projet), le titre, le détail, et ce qui sera joint. <b>Créer l’issue</b> l’envoie tel quel ; <b>Modifier avant</b> ouvre la fenêtre de la carte 2 préremplie ; <b>Ignorer</b> la range. L’agent reçoit la réponse (créée avec son numéro, ou ignorée). Rien ne part sans le clic de l’utilisateur.`,
     keys:F?'Nouveaux : report.agentAsk(n), report.agentIdea(n), report.approve, .edit, .ignore, report.agentWhy':'New: report.agentAsk(n), report.agentIdea(n), report.approve, .edit, .ignore, report.agentWhy',
