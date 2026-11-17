@@ -18,7 +18,8 @@ export function phoneForgeState(m: ForgeStateMessage): PhoneForgeState {
   return {
     prs: m.prs.slice(0, PHONE_FORGE_PRS_MAX),
     forges: m.forges.slice(0, 20).map(({ message: _m, ...f }) => f),
-    followed: (m.followed ?? []).slice(0, PHONE_FORGE_FOLLOWED_MAX)
+    followed: (m.followed ?? []).slice(0, PHONE_FORGE_FOLLOWED_MAX),
+    ...(m.mine ? { mine: m.mine.slice(0, PHONE_FORGE_PRS_MAX) } : {})
   };
 }
 

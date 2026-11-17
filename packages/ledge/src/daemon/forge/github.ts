@@ -1,6 +1,7 @@
-import { prIdOf, type ForgeAction, type PipeStatus, type PrFile, type PrJob, type PrReviewer, type PrState, type PrThread } from '@ledge/protocol';
-import { logTail, type ForgeRepo, type ForgeRun } from './run.js';
-import { blockersOf, mergeBlockersOf, pickFor, ForgeError, ForgeRefusal, iso, JOB_ID, lastLine, notFound, ok, okJson, PATCH_BUDGET, seconds, SHA, shellJoin, THREAD_ID, type ForgeReader, type PrCore, type ReadDetail, type ReadPr } from './types.js';
+import { prIdOf, type ForgeAction, type PrRole, type PipeStatus, type PrFile, type PrJob, type PrReviewer, type PrState, type PrThread } from '@ledge/protocol';
+import { logTail, SAFE_PATH, type ForgeRepo, type ForgeRun } from './run.js';
+import { log } from '../../log.js';
+import { blockersOf, mergeBlockersOf, mergeMine, pickFor, ForgeError, ForgeRefusal, iso, JOB_ID, lastLine, notFound, ok, okJson, PATCH_BUDGET, seconds, SHA, shellJoin, THREAD_ID, type ForgeReader, type MinePr, type PrCore, type ReadDetail, type ReadPr } from './types.js';
 
 /**
  * GitHub pull requests through `gh` (R3): `pr list/view --json`, `run list/view`, and `gh api graphql` for the review threads
@@ -36,6 +37,28 @@ interface GqlPr {
   reviewRequests?: { nodes: Array<{ requestedReviewer?: GhReviewer | null }> }; latestReviews?: { nodes: Array<{ author?: { login?: string } | null; state?: string }> };
   reviewThreads?: { nodes: Array<{ isResolved: boolean }> };
   commits?: { nodes: Array<{ commit?: { statusCheckRollup?: GqlRollup | null } }> };
+}
+
+/**
+ * The account's own requests (issue #3): one GitHub search per role, open ones whatever their age and closed or merged ones since a
+ * date, all six in one GraphQL query per host. `@me` is the CLI's signed-in account. Archived repositories are left out.
+ */
+const MINE_SEARCHES: ReadonlyArray<{ role: PrRole; q: string }> = [
+  { role: 'author', q: 'author:@me' }, { role: 'assignee', q: 'assignee:@me' }, { role: 'reviewer', q: 'review-requested:@me' }
+];
+/** The most requests each search gives (GitHub's page maximum); past it, the oldest are left out and the log says so. */
+export const MINE_PER_SEARCH = 100;
+type GqlSearch = { issueCount?: number; pageInfo?: { hasNextPage: boolean }; nodes: Array<Partial<GqlPr> & { repository?: { nameWithOwner: string } | null }> };
+export function mineQuery(since: string): { query: string; variables: Record<string, string> } {
+  const day = since.slice(0, 10);
+  const variables: Record<string, string> = {};
+  const fields: string[] = [];
+  MINE_SEARCHES.forEach((s, i) => {
+    variables[`o${i}`] = `is:pr archived:false is:open ${s.q}`;
+    variables[`c${i}`] = `is:pr archived:false is:closed closed:>=${day} ${s.q}`;
+    for (const k of [`o${i}`, `c${i}`]) fields.push(`${k}: search(type: ISSUE, query: $${k}, first: ${MINE_PER_SEARCH}) { issueCount pageInfo { hasNextPage } nodes { ... on PullRequest { repository { nameWithOwner } ${LIST_NODE} } } }`);
+  });
+  return { query: `query(${Object.keys(variables).map(k => `$${k}: String!`).join(', ')}) { ${fields.join(' ')} }`, variables };
 }
 
 interface GhCheck { __typename?: string; status?: string; conclusion?: string; state?: string }
@@ -168,8 +191,37 @@ export function githubReader(run: ForgeRun): ForgeReader {
     return out;
   }
 
+  /** A request as the list's query reads it (LIST_NODE). `head`: its head repository's path, '' for a deleted fork. */
+  function fromNode(repo: ForgeRepo, n: GqlPr, open: boolean, head: string): ReadPr {
+    const pr: GhPr = { ...n, reviewDecision: n.reviewDecision ?? undefined,
+      reviewRequests: (n.reviewRequests?.nodes ?? []).flatMap(r => (r.requestedReviewer ? [r.requestedReviewer] : [])),
+      latestReviews: (n.latestReviews?.nodes ?? []).map(r => ({ author: r.author ?? undefined, state: r.state })) };
+    const threads = open ? (n.reviewThreads?.nodes ?? []).filter(x => !x.isResolved).length : 0;
+    return core(repo, pr, threads, head, pipelineOf(n.commits?.nodes[0]?.commit?.statusCheckRollup));
+  }
+
   return {
     async defaultBranch(repo) { return (await info(repo)).defaultBranch; },
+
+    async mine(host, since) {
+      const args = host === 'github.com' ? ['api', 'graphql', '--input', '-'] : ['api', '--hostname', host, 'graphql', '--input', '-'];
+      const j = noErrors(okJson<{ data?: Record<string, GqlSearch | null> | null; errors?: Array<{ message?: string }> }>(await run('gh', args, { input: JSON.stringify(mineQuery(since)) }), 'gh'));
+      const found: Array<{ pr: ReadPr; repo: ForgeRepo; role: PrRole }> = [];
+      MINE_SEARCHES.forEach((s, i) => {
+        for (const k of [`o${i}`, `c${i}`]) {
+          const conn = j.data?.[k];
+          if (!conn) throw new ForgeError('error', `incomplete answer for ${host}`);
+          if (conn.pageInfo?.hasNextPage) log(`forge: ${host}: more than ${MINE_PER_SEARCH} requests for ${s.q} (${k.startsWith('o') ? 'open' : 'closed'}), the oldest left out`);
+          for (const n of conn.nodes) {
+            const path = n.repository?.nameWithOwner;
+            if (!path || !SAFE_PATH.test(path) || typeof n.number !== 'number') continue;
+            const repo: ForgeRepo = { cli: 'gh', host, path, repo: host === 'github.com' ? path : `${host}/${path}` };
+            found.push({ pr: fromNode(repo, n as GqlPr, n.state === 'OPEN', n.headRepository?.nameWithOwner ?? ''), repo, role: s.role });
+          }
+        }
+      });
+      return mergeMine(found);
+    },
 
     async hasCi(repo) {
       const branch = (await info(repo)).defaultBranch;
@@ -209,12 +261,7 @@ export function githubReader(run: ForgeRun): ForgeReader {
       for (const t of targets) {
         const hit = pickFor(t, all);
         if (!hit) continue;
-        const n = hit.n;
-        const pr: GhPr = { ...n, reviewDecision: n.reviewDecision ?? undefined,
-          reviewRequests: (n.reviewRequests?.nodes ?? []).flatMap(r => (r.requestedReviewer ? [r.requestedReviewer] : [])),
-          latestReviews: (n.latestReviews?.nodes ?? []).map(r => ({ author: r.author ?? undefined, state: r.state })) };
-        const open = hit.open ? (n.reviewThreads?.nodes ?? []).filter(x => !x.isResolved).length : 0;
-        if (!out.some(o => o.number === n.number)) out.push(core(repo, pr, open, hit.head, pipelineOf(n.commits?.nodes[0]?.commit?.statusCheckRollup)));
+        if (!out.some(o => o.number === hit.n.number)) out.push(fromNode(repo, hit.n, hit.open, hit.head));
       }
       return out;
     },
@@ -313,4 +360,4 @@ function mergeArgs(repo: ForgeRepo, n: number, method: RepoInfo['method'], headS
   return ['pr', 'merge', String(Math.trunc(n)), '-R', repo.repo, `--${method}`, '--match-head-commit', headSha];
 }
 
-export type { ForgeAction, PrCore };
+export type { ForgeAction, MinePr, PrCore };

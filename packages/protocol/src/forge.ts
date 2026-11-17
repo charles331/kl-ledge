@@ -22,6 +22,16 @@ const PR_STATES = ['draft', 'open', 'review', 'merged', 'closed'] as const;
 export const PrStateSchema = z.enum(PR_STATES);
 export type PrState = z.infer<typeof PrStateSchema>;
 
+/**
+ * What the machine's signed-in account is to a request (issue #3): its author, an assignee, or a reviewer asked for. Read on each
+ * forge the CLI is signed in to, whatever the repository.
+ */
+const PR_ROLES = ['author', 'assignee', 'reviewer'] as const;
+export const PrRoleSchema = z.enum(PR_ROLES);
+export type PrRole = z.infer<typeof PrRoleSchema>;
+/** Tolerance for a front older than its daemon: a role it does not know is dropped, not the request. */
+const dropUnknownRoles = (raw: unknown): unknown => (Array.isArray(raw) ? raw.filter(r => known(PR_ROLES, r)) : raw);
+
 /** The longest comment or reply a front may send (64 KiB). */
 export const FORGE_BODY_MAX = 65536;
 
@@ -54,7 +64,12 @@ export const PullRequestSchema = z.object({
   openThreads: z.number().int().min(0),
   updatedAt: z.string().datetime(),
   /** The daemon's sessions on that branch, most recently active first (R12); the fleet qualifies them `machine:id`. */
-  sessions: z.array(z.string())
+  sessions: z.array(z.string()),
+  /**
+   * The account's roles on the request (issue #3), in the order author, assignee, reviewer; absent when it has none, and from a daemon
+   * older than this field.
+   */
+  roles: z.preprocess(dropUnknownRoles, z.array(PrRoleSchema)).optional()
 });
 export type PullRequest = z.infer<typeof PullRequestSchema>;
 
@@ -96,6 +111,11 @@ export const ForgeStateMessageSchema = z.object({
   forges: z.preprocess(dropUnknownForges, z.array(ForgeStatusSchema)),
   /** Absent from a daemon older than this field. */
   followed: z.preprocess(dropUnknownForges, z.array(FollowedSessionSchema)).optional(),
+  /**
+   * The account's own requests no session follows (issue #3): `sessions` empty, `roles` set. A request is in `prs` or here, never in
+   * both; a followed one carries its `roles` in `prs`. Absent from a daemon older than this field.
+   */
+  mine: z.preprocess(dropUnknownPrs, z.array(PullRequestSchema)).optional(),
   machineId: z.string().optional()
 });
 export type ForgeStateMessage = z.infer<typeof ForgeStateMessageSchema>;

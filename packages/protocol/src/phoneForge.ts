@@ -43,7 +43,9 @@ export const PhoneForgeStateSchema = z.object({
   /** Newest change first. A request whose forge, state or pipeline an older phone does not know is dropped, not the message. */
   prs: z.preprocess(dropUnknownPrs, z.array(PullRequestSchema).max(PHONE_FORGE_PRS_MAX)),
   forges: z.preprocess(dropUnknownForges, z.array(PhoneForgeStatusSchema).max(20)),
-  followed: z.preprocess(dropUnknownForges, z.array(FollowedSessionSchema).max(PHONE_FORGE_FOLLOWED_MAX))
+  followed: z.preprocess(dropUnknownForges, z.array(FollowedSessionSchema).max(PHONE_FORGE_FOLLOWED_MAX)),
+  /** The account's own requests no session follows (issue #3), newest change first; absent from an older daemon. */
+  mine: z.preprocess(dropUnknownPrs, z.array(PullRequestSchema).max(PHONE_FORGE_PRS_MAX)).optional()
 });
 export type PhoneForgeState = z.infer<typeof PhoneForgeStateSchema>;
 

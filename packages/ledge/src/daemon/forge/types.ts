@@ -1,4 +1,4 @@
-import type { ForgeAction, PipeStatus, PrDetail, PrState, PullRequest, RefusalCode } from '@ledge/protocol';
+import type { ForgeAction, PipeStatus, PrDetail, PrRole, PrState, PullRequest, RefusalCode } from '@ledge/protocol';
 import { classify, errorText, type ForgeRepo, type ForgeRunResult } from './run.js';
 
 /** A request as a reader gives it: no sessions yet, and why it could not be merged apart from its pipeline (R5). */
@@ -24,6 +24,25 @@ export function pickFor<T extends { branch: string; head: string; open: boolean;
   return best;
 }
 export type ReadDetail = Omit<PrDetail, 'pr'> & { pr: ReadPr };
+/** One of the account's own requests (issue #3): the request, the repository it is in, and the account's roles on it. */
+export interface MinePr { pr: ReadPr; repo: ForgeRepo; roles: PrRole[] }
+/** The roles in their fixed order (author, assignee, reviewer), each once. */
+export const ROLE_ORDER: readonly PrRole[] = ['author', 'assignee', 'reviewer'];
+export const sortRoles = (roles: Iterable<PrRole>): PrRole[] => { const set = new Set(roles); return ROLE_ORDER.filter(r => set.has(r)); };
+/**
+ * Merges the requests read under each role into one per request (by its id: host, repository, number), with all its roles. A request
+ * read twice under the same role keeps the latest read.
+ */
+export function mergeMine(found: ReadonlyArray<{ pr: ReadPr; repo: ForgeRepo; role: PrRole }>): MinePr[] {
+  const out = new Map<string, { pr: ReadPr; repo: ForgeRepo; roles: Set<PrRole> }>();
+  for (const f of found) {
+    const had = out.get(f.pr.id);
+    if (!had) { out.set(f.pr.id, { pr: f.pr, repo: f.repo, roles: new Set([f.role]) }); continue; }
+    had.roles.add(f.role);
+    if (Date.parse(f.pr.updatedAt) > Date.parse(had.pr.updatedAt)) had.pr = f.pr;
+  }
+  return [...out.values()].map(m => ({ pr: m.pr, repo: m.repo, roles: sortRoles(m.roles) }));
+}
 
 /**
  * Why a merge is refused (R5), as `mergeBlockers` carries them: not open (merged or closed), a draft, the pipeline not green,
@@ -71,6 +90,11 @@ export interface ForgeReader {
    * (`.gitlab-ci.yml`, or the project's own CI config path). Throws when the forge cannot tell (the caller then assumes CI).
    */
   hasCi(repo: ForgeRepo): Promise<boolean>;
+  /**
+   * The account's own requests on one signed-in host (issue #3), whatever their repository: those it authored, is assigned or is
+   * asked to review. Open ones whatever their age; merged and closed ones only since `since` (ISO date). One query per host.
+   */
+  mine(host: string, since: string): Promise<MinePr[]>;
 }
 
 /** A refusal before anything ran on the forge. */

@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ForgeAction, Session } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
-import { CI_TTL_MS, createForgeService, FAST_MS, SLOW_MS } from '../src/daemon/forge/service.js';
-import { ForgeError, type BranchTarget, type ForgeReader, type PrCore, type ReadPr } from '../src/daemon/forge/types.js';
+import { CI_TTL_MS, createForgeService, FAST_MS, MINE_KEEP_MS, MINE_MS, SLOW_MS } from '../src/daemon/forge/service.js';
+import { ForgeError, type BranchTarget, type ForgeReader, type MinePr, type PrCore, type ReadPr } from '../src/daemon/forge/types.js';
 import { headOf } from '../src/daemon/forge/service.js';
 import { forgeOf, type ForgeRun } from '../src/daemon/forge/run.js';
 import type { ForgeRepo } from '../src/daemon/forge/run.js';
@@ -31,10 +31,13 @@ const pr = (n: number, branch: string, extra: Partial<ReadPr> = {}): ReadPr => (
 
 type Fake = ForgeReader & { lists: Array<{ repo: string; branches: readonly string[] }>; targets: BranchTarget[][]; acts: Array<{ number: number; action: ForgeAction }>; prs: ReadPr[]; fail?: ForgeError;
   /** Whether the repository has CI (true by default); an error: the forge cannot tell. */
-  ci?: boolean | Error; ciReads: number };
+  ci?: boolean | Error; ciReads: number;
+  /** The account's own requests per host (issue #3), the reads asked, and an error to throw instead. */
+  own: Record<string, MinePr[]>; mineReads: Array<{ host: string; since: string }>; mineFail?: ForgeError };
 function fakeReader(prs: ReadPr[] = []): Fake {
   const r: Fake = {
-    prs, lists: [], acts: [], targets: [], ciReads: 0,
+    prs, lists: [], acts: [], targets: [], ciReads: 0, own: {}, mineReads: [],
+    async mine(host: string, since: string) { r.mineReads.push({ host, since }); if (r.mineFail) throw r.mineFail; return r.own[host] ?? []; },
     async list(repo: ForgeRepo, targets: readonly BranchTarget[]) {
       r.lists.push({ repo: repo.repo, branches: targets.map(t => t.branch) });
       r.targets.push([...targets]);
@@ -54,7 +57,7 @@ function fakeReader(prs: ReadPr[] = []): Fake {
 
 let store: Store;
 beforeEach(() => { process.env.LEDGE_HOME = mkdtempSync(join(tmpdir(), 'ledge-forge-')); store = new Store(); clock = T0; gitConfigs.clear(); });
-const service = (gh: Fake, glab: Fake = fakeReader(), signed = ['github.com', 'gitlab.com']) => createForgeService({ store, now: () => clock, run: fakeGit, readers: { gh, glab }, signedIn: async () => new Set(signed), installed: async () => true });
+const service = (gh: Fake, glab: Fake = fakeReader(), signed = ['github.com', 'gitlab.com']) => createForgeService({ store, now: () => clock, run: fakeGit, readers: { gh, glab }, signedIn: async cli => new Set(signed.filter(h => (cli === 'gh') === /(^|\.)github\./.test(h))), installed: async () => true });
 
 describe('where a branch is pushed (R1, review of d266f114)', () => {
   const listed = forgeOf('git@github.com:Lyssaen/ledge.git')!;
@@ -456,5 +459,118 @@ describe('actions (R5, R6)', () => {
     store.upsert(mk('a'));
     await s.refresh();
     expect(gitReads).toBe(2);
+  });
+});
+
+describe('the account\'s own requests (issue #3)', () => {
+  const own = (n: number, roles: MinePr['roles'], extra: Partial<ReadPr> = {}, path = 'someone/else'): MinePr => ({
+    pr: pr(n, `b${n}`, { id: `github.com/${path}#${n}`, repo: path, head: path, url: `https://github.com/${path}/pull/${n}`, ...extra }),
+    repo: { cli: 'gh', host: 'github.com', path, repo: path }, roles
+  });
+
+  it('lists them in `mine` with their roles and no session, one read per signed-in host, merged ones kept since MINE_KEEP_MS', async () => {
+    const gh = fakeReader(), glab = fakeReader();
+    gh.own['github.com'] = [own(5, ['author']), own(6, ['assignee', 'reviewer'], { updatedAt: at(1000) })];
+    const s = service(gh, glab);
+    await s.refresh();
+    expect(gh.mineReads).toEqual([{ host: 'github.com', since: new Date(T0 - MINE_KEEP_MS).toISOString() }]);
+    expect(glab.mineReads.map(r => r.host)).toEqual(['gitlab.com']);
+    expect(s.state().prs).toEqual([]);
+    expect(s.state().mine!.map(p => [p.number, p.sessions, p.roles])).toEqual([[6, [], ['assignee', 'reviewer']], [5, [], ['author']]]);
+    expect(s.state().mine![0]).not.toHaveProperty('blockers');
+  });
+
+  it('a followed request that is also the account\'s: once, in `prs`, with its roles', async () => {
+    store.upsert(mk('a'));
+    const gh = fakeReader([pr(226, 'feat/x')]);
+    gh.own['github.com'] = [{ pr: pr(226, 'feat/x'), repo: forgeOf('https://github.com/Lyssaen/ledge')!, roles: ['author', 'reviewer'] }, own(7, ['reviewer'])];
+    const s = service(gh);
+    await s.refresh();
+    expect(s.state().prs.map(p => [p.number, p.sessions, p.roles])).toEqual([[226, ['a'], ['author', 'reviewer']]]);
+    expect(s.state().mine!.map(p => p.number)).toEqual([7]);
+    // A followed request that is not the account's carries no roles at all.
+    gh.own['github.com'] = [];
+    clock += MINE_MS;
+    await s.refresh();
+    expect(s.state().prs[0]).not.toHaveProperty('roles');
+  });
+
+  it('drops a merged or closed one past MINE_KEEP_MS, keeps an open one whatever its age', async () => {
+    const gh = fakeReader();
+    clock = T0 + MINE_KEEP_MS + 5000;
+    gh.own['github.com'] = [own(1, ['author'], { state: 'merged', updatedAt: at(0) }), own(2, ['author'], { state: 'closed', updatedAt: at(10_000) }), own(3, ['author'], { state: 'open', updatedAt: at(0) })];
+    const s = service(gh);
+    await s.refresh();
+    expect(s.state().mine!.map(p => p.number).sort()).toEqual([2, 3]);
+  });
+
+  it('reads them every MINE_MS, and at once after an action', async () => {
+    const gh = fakeReader([pr(5, 'b5', { id: 'github.com/someone/else#5', repo: 'someone/else', head: 'someone/else' })]);
+    gh.own['github.com'] = [own(5, ['author'])];
+    const s = service(gh, fakeReader(), ['github.com']);
+    await s.refresh();
+    await s.refresh();
+    expect(gh.mineReads).toHaveLength(1);
+    clock += MINE_MS;
+    await s.refresh();
+    expect(gh.mineReads).toHaveLength(2);
+    await s.act('github.com/someone/else#5', { kind: 'comment', body: 'ok' });
+    await s.refresh();
+    expect(gh.mineReads).toHaveLength(3);
+    expect(gh.acts.map(a => a.number)).toEqual([5]);
+  });
+
+  it('gives the detail of one no session follows, its CI read for the merge rule (R5)', async () => {
+    const gh = fakeReader([pr(5, 'b5', { id: 'github.com/someone/else#5', repo: 'someone/else', head: 'someone/else', pipeline: 'none' })]);
+    gh.own['github.com'] = [own(5, ['reviewer'], { pipeline: 'none' })];
+    gh.ci = false;
+    const s = service(gh, fakeReader(), ['github.com']);
+    await s.refresh();
+    const d = await s.detail('github.com/someone/else#5', {});
+    expect(gh.ciReads).toBe(1);
+    expect(d.pr.sessions).toEqual([]);
+    expect(d.pr.roles).toEqual(['reviewer']);
+    expect(d.pr.pipeline).toBe('none');
+    expect(d.mergeBlockers).not.toContain('pipeline_not_started');
+  });
+
+  it('a host in error keeps its last list, waits, and says nothing in `forges` (no session follows it)', async () => {
+    const gh = fakeReader();
+    gh.own['github.com'] = [own(5, ['author'])];
+    const s = service(gh, fakeReader(), ['github.com']);
+    await s.refresh();
+    gh.mineFail = new ForgeError('error', 'HTTP 502');
+    clock += MINE_MS;
+    await s.refresh();
+    expect(s.state().mine!.map(p => p.number)).toEqual([5]);
+    // The first failure waits 2 minutes: half of it later, nothing is asked.
+    clock += MINE_MS / 2;
+    await s.refresh();
+    expect(gh.mineReads).toHaveLength(2);
+    expect(s.state().forges).toEqual([]);
+  });
+
+  it('never reads a host the CLI is not signed in to, nor a CLI not installed', async () => {
+    const gh = fakeReader(), glab = fakeReader();
+    const s = createForgeService({ store, now: () => clock, run: fakeGit, readers: { gh, glab }, signedIn: async cli => new Set(cli === 'gh' ? ['github.com'] : ['gitlab.com']), installed: async cli => cli === 'gh' });
+    await s.refresh();
+    expect(gh.mineReads.map(r => r.host)).toEqual(['github.com']);
+    expect(glab.mineReads).toEqual([]);
+  });
+
+  it('a pipeline running on one of its own does not quicken the reads of the followed repositories', async () => {
+    const gh = fakeReader();
+    gh.own['github.com'] = [own(5, ['author'], { pipeline: 'run' })];
+    const timers: number[] = [];
+    const real = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: () => void, ms: number) => { timers.push(ms); return { unref() {} } as unknown as NodeJS.Timeout; }) as unknown as typeof setTimeout;
+    try {
+      const s = service(gh, fakeReader(), ['github.com']);
+      s.start();
+      await s.refresh();
+      await new Promise(r => real(r, 10));
+      expect(timers.at(-1)).toBe(SLOW_MS);
+      s.stop();
+    } finally { globalThis.setTimeout = real; }
   });
 });

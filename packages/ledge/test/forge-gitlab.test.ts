@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrDetailSchema, PullRequestSchema } from '@ledge/protocol';
-import { diffLine, gitlabReader, glStatus } from '../src/daemon/forge/gitlab.js';
+import { diffLine, fromMineNode, gitlabReader, glStatus, mineQuery } from '../src/daemon/forge/gitlab.js';
 import { forgeOf, type ForgeRun } from '../src/daemon/forge/run.js';
 import { ForgeRefusal } from '../src/daemon/forge/types.js';
 
@@ -265,5 +265,54 @@ describe('GitLab: whether the project has CI', () => {
   it('an error other than 404 throws: the caller assumes CI', async () => {
     const f = fakeGlab(p => (p === P ? '{"default_branch":"main"}' : p.includes('/repository/files/') ? { code: 0, stdout: '', stderr: 'glab: 500 Internal Server Error (HTTP 500)' } : undefined));
     await expect(gitlabReader(f.run).hasCi(repo)).rejects.toThrow();
+  });
+});
+
+describe('GitLab: the account\'s own merge requests (issue #3)', () => {
+  const mr = (iid: number, path: string, extra: Record<string, unknown> = {}) => ({
+    iid: String(iid), title: `MR ${iid}`, state: 'opened', draft: false, webUrl: `https://gitlab.com/${path}/-/merge_requests/${iid}`, sourceBranch: `b${iid}`, targetBranch: 'main',
+    diffHeadSha: 'b'.repeat(40), updatedAt: '2026-11-12T10:35:06Z', detailedMergeStatus: 'MERGEABLE', approved: true, approvalsLeft: 0, approvalsRequired: 1,
+    approvedBy: { nodes: [{ username: 'lead' }] }, reviewers: { nodes: [] }, headPipeline: { status: 'SUCCESS' }, resolvableDiscussionsCount: 3, resolvedDiscussionsCount: 1,
+    project: { fullPath: path }, sourceProject: { fullPath: path }, ...extra });
+  const list = (nodes: unknown[], more = false) => ({ pageInfo: { hasNextPage: more }, nodes });
+
+  it('reads the fields of the real query: state, pipeline (upper case), approvals, open threads, the source project', () => {
+    expect(fromMineNode('gitlab.com', mr(42, 'grp/sub/proj'))!.pr).toMatchObject({
+      id: 'gitlab.com/grp/sub/proj#42', ref: '!42', forge: 'gitlab', repo: 'grp/sub/proj', state: 'open', pipeline: 'ok', approvals: { given: 1, required: 1 },
+      openThreads: 2, mergeable: true, headSha: 'b'.repeat(40), head: 'grp/sub/proj' });
+    expect(fromMineNode('gitlab.com', mr(1, 'g/p', { reviewers: { nodes: [{ username: 'x' }] }, approved: false, approvalsLeft: 1, detailedMergeStatus: 'REQUESTED_CHANGES', headPipeline: { status: 'RUNNING' } }))!.pr)
+      .toMatchObject({ state: 'review', pipeline: 'run', mergeable: false, blockers: ['approvals', 'changes_requested'] });
+    expect(fromMineNode('gitlab.com', mr(2, 'g/p', { state: 'merged' }))!.pr).toMatchObject({ state: 'merged', openThreads: 0 });
+    expect(fromMineNode('gitlab.com', mr(3, '-flag/p'))).toBeNull();
+  });
+
+  const answers: Record<string, unknown> = {
+    authoredMergeRequests: { o: list([mr(42, 'g/a'), mr(7, 'g/b')]), c: list([mr(42, 'g/a'), mr(5, 'g/a', { state: 'merged' })]) },
+    assignedMergeRequests: { o: list([mr(7, 'g/b')]), c: list([]) },
+    reviewRequestedMergeRequests: { o: list([mr(8, 'h/c')]), c: list([mr(99, 'h/c', { state: 'opened' })]) }
+  };
+  const field = (input?: string) => /(\w+MergeRequests)\(/.exec((JSON.parse(input ?? '{}') as { query?: string }).query ?? '')?.[1] ?? '';
+
+  it('one query per role (gitlab.com caps a query\'s complexity at 250), each request once with its roles, the open ones of the recent lists left to the open lists', async () => {
+    const { run, calls } = fakeGlab((path, c) => (path === 'graphql' && c.input?.includes('currentUser') ? JSON.stringify({ data: { currentUser: answers[field(c.input)] } }) : undefined));
+    const mine = await gitlabReader(run).mine('gitlab.com', '2026-11-10T00:00:00.000Z');
+    expect(calls).toHaveLength(3);
+    expect(calls.map(c => JSON.parse(c.input!))).toEqual(['authoredMergeRequests', 'assignedMergeRequests', 'reviewRequestedMergeRequests'].map(f => ({ query: mineQuery(f), variables: { since: '2026-11-10T00:00:00.000Z' } })));
+    expect(mine.map(m => [m.pr.id, m.roles]).sort()).toEqual([
+      ['gitlab.com/g/a#42', ['author']], ['gitlab.com/g/a#5', ['author']], ['gitlab.com/g/b#7', ['author', 'assignee']], ['gitlab.com/h/c#8', ['reviewer']]]);
+    expect(mine.find(m => m.pr.number === 7)!.repo).toEqual({ cli: 'glab', host: 'gitlab.com', path: 'g/b', repo: 'https://gitlab.com/g/b' });
+    for (const m of mine) expect(PullRequestSchema.safeParse({ ...m.pr, sessions: [], roles: m.roles }).success).toBe(true);
+  });
+
+  it('one role failing fails the whole read, never a list missing that role', async () => {
+    const { run } = fakeGlab((path, c) => (path !== 'graphql' ? undefined : field(c.input) === 'assignedMergeRequests' ? { code: 1, stderr: 'glab: (HTTP 502)' } : JSON.stringify({ data: { currentUser: answers[field(c.input)] } })));
+    await expect(gitlabReader(run).mine('gitlab.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow();
+  });
+
+  it('an answer without a user is a sign-in problem; one with errors is refused whole', async () => {
+    const none = fakeGlab(path => (path === 'graphql' ? JSON.stringify({ data: { currentUser: null } }) : undefined));
+    await expect(gitlabReader(none.run).mine('gitlab.com', '2026-11-10T00:00:00.000Z')).rejects.toMatchObject({ status: 'unauthenticated' });
+    const errs = fakeGlab(path => (path === 'graphql' ? JSON.stringify({ data: null, errors: [{ message: 'Field x does not exist' }] }) : undefined));
+    await expect(gitlabReader(errs.run).mine('gitlab.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow('Field x does not exist');
   });
 });
