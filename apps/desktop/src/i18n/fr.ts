@@ -679,6 +679,31 @@ export const fr = {
   close: 'Fermer',
   modalTitles: { launch: 'Nouvelle session' },
   /** Writing to a whole project, or to the sessions selected in the sidebar (broadcast spec): one message, each recipient gets it in its queue. */
+  // Issue #9 (docs/mockups/ledge-report.html) : « Signaler », le formulaire Bug ou Idée, les signalements des agents.
+  report: {
+    tip: 'Signaler un bug ou proposer une idée', title: 'Signaler',
+    kinds: 'Type de signalement', bug: 'Bug', bugSub: 'quelque chose ne marche pas', idea: 'Idée', ideaSub: 'un besoin, une amélioration',
+    tTitle: 'Titre', tTitlePh: 'En une phrase', optional: 'facultatif',
+    happened: 'Ce qui s’est passé', happenedPh: 'Ce que vous avez vu, avec le message s’il y en a un',
+    expected: 'Ce qui était attendu', expectedPh: 'Ce qui aurait dû se passer', repro: 'Comment le reproduire', reproPh: '1. …  2. …  3. …',
+    need: 'Le besoin', needPh: 'Ce qui vous manque, ou ce qui est pénible aujourd’hui', context: 'Le contexte', contextPh: 'Quand ça arrive, sur quel écran, avec quel outil',
+    proposal: 'Une proposition', proposalPh: 'Comment vous le verriez',
+    attached: 'Joint au signalement', attachedSub: 'retirez ce que vous ne voulez pas envoyer',
+    items: { desktop: 'Ledge Desktop', daemon: 'daemon', system: 'Système', tool: 'Outil de la session', session: 'session', project: 'projet' } as Record<'desktop' | 'daemon' | 'system' | 'tool' | 'session' | 'project', string>,
+    remove: (k: string) => `Retirer ${k}`, putBack: (k: string) => `Remettre ${k}`,
+    log: 'Ajouter un extrait du journal du daemon', logSub: 'Les 50 dernières lignes, relues pour retirer chemins personnels et jetons.', logSee: 'Voir l’extrait',
+    never: 'Rien d’autre ne part : ni conversation, ni jeton, ni fichier.',
+    dest: 'Sera créée sur', label: 'label', destBy: 'avec votre compte GitHub',
+    cancel: 'Annuler', create: 'Créer l’issue', creating: 'Création…', openGh: 'Ouvrir sur GitHub',
+    noGh: 'gh n’est pas connecté sur cette machine : GitHub s’ouvre avec le signalement prérempli, vous le validez là-bas.',
+    created: (n: number) => `Issue #${n} créée sur kl-ledge/ledge.`, open: 'Ouvrir',
+    titleEmpty: 'Donnez un titre au signalement.',
+    logStale: 'L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue.',
+    failed: (why: string) => `Le signalement n’est pas parti : ${why}`, silent: 'le daemon n’a pas répondu.', stale: 'ce signalement n’est plus ouvert.', invalid: 'le daemon l’a refusé.',
+    agentBug: (n: string) => `${n} signale un bug`, agentIdea: (n: string) => `${n} propose une idée`, from: 'session', proj: 'projet',
+    approve: 'Créer l’issue', edit: 'Modifier avant', ignore: 'Ignorer', pill: 'signalement',
+    agentWhy: 'Rien ne part sur GitHub sans votre clic. « Modifier avant » ouvre le formulaire prérempli.'
+  },
   broadcast: {
     project: 'Écrire à tout le projet…', selection: (n: number) => `Écrire aux ${n} sessions…`, title: (label: string) => `Écrire à ${label}`,
     send: 'Envoyer', cancel: 'Annuler', field: 'Message', picked: 'Sessions sélectionnées',

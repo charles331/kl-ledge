@@ -1,0 +1,61 @@
+/* Issue #9 (docs/mockups/ledge-report.html): « Signaler », its form, and an agent's report in « À toi ». */
+.report-modal { width: min(640px, calc(100vw - 32px)); }
+.report-modal .modal-title h2 { display: flex; align-items: center; gap: 10px; }
+.rp { display: flex; flex-direction: column; min-height: 0; }
+.rp-body { display: flex; flex-direction: column; gap: 6px; padding: 4px 20px 16px; overflow: auto; max-height: calc(100vh - 300px); }
+.rp-body > * { flex-shrink: 0; }
+.rp-kinds { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--input); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 8px; }
+.rp .rp-kind { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 0; background: transparent; color: var(--muted-foreground); font: inherit; text-align: left; cursor: pointer; }
+.rp .rp-kind + .rp-kind { border-left: 1px solid var(--input); }
+.rp .rp-kind b { font-weight: 500; font-size: 13px; }
+.rp .rp-kind span { font-size: 12px; }
+.rp .rp-kind.on { background: var(--muted); color: var(--foreground); }
+.rp .rp-kind:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.rp-field { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted-foreground); }
+.rp-field small { font-size: 11px; }
+.rp-group { display: flex; flex-direction: column; gap: 6px; }
+.rp input:not([type=checkbox]), .rp textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--input); border-radius: var(--radius-md); background: transparent; color: var(--foreground); font: inherit; font-size: 13px; line-height: 20px; }
+.rp textarea { resize: vertical; min-height: 56px; }
+.rp input[aria-invalid=true] { border-color: color-mix(in srgb, var(--destructive) 70%, transparent); }
+.rp-error { font-size: 12px; color: var(--danger-text); }
+.rp-attached { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.rp-att-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.rp-att-h b { font-size: 13px; font-weight: 500; }
+.rp-att-h small { font-size: 11px; color: var(--muted-foreground); }
+.rp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--input); border-radius: 999px; font-size: 12px; }
+.rp-chip .k { color: var(--muted-foreground); }
+.rp-chip .v { color: var(--foreground); }
+.rp .rp-chip button { display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); cursor: pointer; }
+.rp .rp-chip button:hover { background: var(--muted); color: var(--foreground); }
+.rp-chip.off { border-style: dashed; }
+.rp-chip.off .k, .rp-chip.off .v { text-decoration: line-through; color: var(--muted-foreground); }
+.rp-log { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.rp-log input { margin-top: 3px; accent-color: var(--primary); }
+.rp-log span { display: flex; flex-direction: column; gap: 2px; }
+.rp-log b { font-size: 13px; font-weight: 500; }
+.rp-log small { font-size: 12px; color: var(--muted-foreground); }
+.rp-excerpt { margin: 0; padding: 8px 10px; max-height: 160px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background); font: 11.5px/17px 'Geist Mono', ui-monospace, monospace; white-space: pre-wrap; }
+.rp-excerpt.fresh { box-shadow: 0 0 0 2px var(--ide-link-violet, #a78bfa); }
+.rp-never { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.rp-dest { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-foreground); }
+.rp-dest b { color: var(--foreground); font-weight: 500; }
+.rp-label { padding: 0 7px; border-radius: 999px; border: 1px solid; font-size: 11.5px; }
+.rp-label.bug { color: var(--danger-text); border-color: color-mix(in srgb, var(--destructive) 50%, transparent); }
+.rp-label.feature { color: var(--info); border-color: color-mix(in srgb, var(--info) 50%, transparent); }
+.rp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.rp-foot .grow { flex: 1; }
+.rp-fallback, .rp-foot .rp-error { flex-basis: 100%; margin: 0; font-size: 12.5px; }
+.rp-fallback { color: var(--warning); }
+.rp-foot .ledge-btn svg { margin-right: 4px; }
+
+/* An agent's report to approve (card 5). */
+.rd { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--destructive) 40%, var(--border)); border-radius: var(--radius-lg); }
+.rd-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.rd-h b { font-weight: 600; }
+.rd-h small { color: var(--muted-foreground); font-size: 12px; }
+.rd-pill { margin-left: auto; padding: 0 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--destructive) 50%, transparent); color: var(--danger-text); font-size: 11.5px; }
+.rd-title { font-size: 14px; font-weight: 600; }
+.rd-detail { margin: 0; font-size: 13px; color: var(--muted-foreground); white-space: pre-wrap; }
+.rd-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rd-why { margin: 0; font-size: 12px; color: var(--muted-foreground); }

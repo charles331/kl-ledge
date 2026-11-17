@@ -325,6 +325,12 @@ S'ouvre par « + Lancer » de la vue Rigs, sur la machine qu'elle affiche, par �
 - « Lancer » ouvre la vue Rig du rig. Daemon arrêté : la fenêtre propose « Démarrer OpenRig ».
 - **Avec l'operator :** un champ « Ce que tu veux » ; l'operator propose une équipe dans son fil, et rien ne démarre avant que l'utilisateur valide.
 
+#### Signaler (`report`)
+
+S'ouvre par le drapeau de la barre de titre (« Signaler un bug ou proposer une idée »). En haut, **Bug** ou **Idée**. Un bug : titre, ce qui s'est passé, ce qui était attendu, comment le reproduire (facultatif) ; une idée : titre, le besoin, le contexte, une proposition. « Joint au signalement » montre les versions de Ledge Desktop et du daemon, le système et l'outil de la session au premier plan ; chacun se retire d'un clic. Pour un bug, « Ajouter un extrait du journal du daemon » (décoché) montre les 50 dernières lignes telles qu'elles partiraient, relues pour retirer chemins personnels et jetons. Rien d'autre ne part. « Créer l'issue » (`Ctrl+Entrée`) la crée sur kl-ledge/ledge avec le `gh` connecté de la machine (label `bug` ou `enhancement`) ; un toast donne son numéro avec « Ouvrir ». Sans titre, rien ne part. `gh` absent ou refus de GitHub : « Ouvrir sur GitHub » ouvre la page préremplie, à valider là-bas. Ce qui est écrit est gardé jusqu'à l'envoi ou la fermeture de Ledge.
+
+Un agent signale par `ledge report bug|feature "titre" "détail"` : rien n'est créé, une décision arrive dans « À toi » avec « Créer l'issue », « Modifier avant » (cette fenêtre, préremplie) et « Ignorer » ; l'agent apprend ce qu'il en est advenu.
+
 Y renvoyer l'utilisateur pour lancer ou relancer une équipe OpenRig avec des réglages précis (par exemple trois développeurs et trois relecteurs), sur n'importe quelle machine.
 
 ## Ledge mobile

@@ -1,4 +1,6 @@
 import { useEffect, useState, type JSX } from 'react';
+import type { DaemonClient } from '@ledge/fleet';
+import { ReportDecision } from '../../report/ReportDecision';
 import type { Fleet, FleetPullRequest } from '@ledge/fleet';
 import type { ShownPr } from '../../forge/useForge';
 import { contextShare, isArchived, type HumanAsk, type Session, type Task } from '@ledge/protocol';
@@ -59,6 +61,8 @@ export interface AtoiPageProps {
   onAskFocused?(): void;
   askSourceOf?(ask: HumanAsk): ((path: string) => void) | null;
   onOpenSeat?(sessionId: string): void;
+  /** Issue #9: an agent's report among the decisions, its buttons answered here. */
+  report?: { client: DaemonClient; desktop: string | null; onEdit(task: string): void; onCreated(n: number, url: string | undefined): void; onOpenUrl(url: string): void };
 }
 
 /** The page « À toi » (D3, docs/ide-workspace-plan.md 4.1 point 3; mockup atoiPage()): what waits for the user's decision or eye,
@@ -112,10 +116,11 @@ export function AtoiPage(p: AtoiPageProps): JSX.Element {
       <div className="atoi-line">
         <span className="atoi-mk asked" aria-hidden="true">?</span>
         <span className="grow" title={t.decision.asks(x.giverName)}><b>{x.giverName}</b> {x.title}</span>
-        {!x.brain && answering !== x.id && <button type="button" className="fg-btn pri" onClick={() => setAnswering(x.id)}>{t.decision.answer}</button>}
+        {!x.brain && !x.report && answering !== x.id && <button type="button" className="fg-btn pri" onClick={() => setAnswering(x.id)}>{t.decision.answer}</button>}
       </div>
       {x.brain && <NoteDecision task={{ ...x, brain: x.brain }} api={tasks} />}
-      {!x.brain && answering === x.id && <DecisionAnswer task={x} api={tasks} onClose={() => setAnswering(null)} />}
+      {x.report && p.report && <ReportDecision task={{ ...x, report: x.report }} {...p.report} />}
+      {!x.brain && !x.report && answering === x.id && <DecisionAnswer task={x} api={tasks} onClose={() => setAnswering(null)} />}
     </div>
   );
   /** A request of a machine down, as last read (state 4): dimmed, its actions off with the reason, as in its tab. */

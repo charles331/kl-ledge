@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { backendOf, givenByLedge, type BrainChoice, type BrainProposal, isArchived, LEDGE_GIVER, taskClosed, type ClientMessage, type ServerMessage, type Session, type Task, type TaskLogEntry } from '@ledge/protocol';
+import { backendOf, givenByLedge, type BrainChoice, type BrainProposal, type ReportRequest, isArchived, LEDGE_GIVER, taskClosed, type ClientMessage, type ServerMessage, type Session, type Task, type TaskLogEntry } from '@ledge/protocol';
 import { proposalTask } from '../brain/write.js';
 import type { Store } from './store.js';
 import type { Mailbox } from './mailbox.js';
@@ -38,6 +38,12 @@ export const PARKED_MS = 15 * 60_000;
 /** How much of a result or a reason the giver's pointer (and the sender's card) quotes. */
 const QUOTE = 200;
 export const quote = (s: string) => { const flat = s.trim().replace(/\s+/g, ' '); return flat.length > QUOTE ? `${flat.slice(0, QUOTE)}…` : flat; };
+
+/** An agent's report as the user reads it in « À toi » (issue #9): its kind and title, its detail and where it comes from. */
+export function reportTask(r: ReportRequest): { title: string; text: string } {
+  const from = [r.session && `session ${r.session}`, r.project && `projet ${r.project}`].filter(Boolean).join(' · ');
+  return { title: `${r.kind === 'bug' ? 'Bug' : 'Idée'} : ${r.title}`, text: from ? `${r.detail}\n\n(${from})` : r.detail };
+}
 
 /** A session Ledge launched and can type into, live. */
 const reachable = (s: Session | undefined): boolean =>
@@ -148,17 +154,17 @@ export function createTasks(d: TasksDeps): Tasks {
       return { type: 'task.result', rid: cmd.rid, tasks: mine.sort((a, b) => a.at.localeCompare(b.at)) };
     }
     if (cmd.op === 'give') {
-      if (!cmd.to || (!cmd.title && !cmd.brain)) return refuse('il faut un destinataire et un titre');
-      if (cmd.brain && cmd.to.trim().toLowerCase() !== LEDGE_GIVER) return refuse('une proposition de note va à Ledge');
+      if (!cmd.to || (!cmd.title && !cmd.brain && !cmd.report)) return refuse('il faut un destinataire et un titre');
+      if ((cmd.brain || cmd.report) && cmd.to.trim().toLowerCase() !== LEDGE_GIVER) return refuse('une proposition de note ou un signalement va à Ledge');
       // A decision for the user: Ledge holds it, nobody is typed to, the fronts show it; its answer (done) wakes the asker.
       if (cmd.to.trim().toLowerCase() === LEDGE_GIVER) {
         if (ledge) return refuse('tu ne peux pas te confier une tâche');
         const at = now();
         // A proposal about the user's notes: its title and detail are the daemon's, so the user reads what « oui » writes.
-        const asked = cmd.brain ? proposalTask(cmd.brain) : { title: cmd.title!.trim(), text: cmd.text?.trim() };
+        const asked = cmd.brain ? proposalTask(cmd.brain) : cmd.report ? reportTask(cmd.report) : { title: cmd.title!.trim(), text: cmd.text?.trim() };
         const task: Task = { id: newId(), title: asked.title, ...(asked.text ? { text: asked.text } : {}), giver: me.id, giverName: me.name,
           owner: LEDGE_GIVER, ownerName: 'Ledge', state: 'open', at, updatedAt: at,
-          log: [{ at, by: me.name, what: 'confiée à Ledge (décision)', ...sides('give', me, { id: LEDGE_GIVER, name: 'Ledge' }) }], ...(cmd.brain ? { brain: cmd.brain } : {}) };
+          log: [{ at, by: me.name, what: 'confiée à Ledge (décision)', ...sides('give', me, { id: LEDGE_GIVER, name: 'Ledge' }) }], ...(cmd.brain ? { brain: cmd.brain } : {}), ...(cmd.report ? { report: cmd.report } : {}) };
         tasks.set(task.id, task); save();
         d.onTask?.(task, task.log[0]);
         return ok(task);

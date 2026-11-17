@@ -38,6 +38,8 @@ export interface IdeFrameProps {
   /** Above the editing area (« daemon outdated »). */
   notice?: ReactNode;
   onSearch(): void;
+  /** « Signaler » (issue #9). */
+  onReport?(): void;
   /** A dialog is open: the frame takes neither clicks nor the focus. */
   blocked: boolean;
   /** The local daemon is down (`data-readonly`); an agent is dragged onto a project (`is-dragging`). */
@@ -67,7 +69,7 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
   } as CSSProperties;
   return (
     <div className={`ide${p.dragging ? ' is-dragging' : ''}`} data-readonly={p.readOnly ? 'true' : undefined}>
-      <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} blocked={p.blocked} rightShown={right} />
+      <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} onReport={p.onReport} blocked={p.blocked} rightShown={right} />
       <div className="ide-body" style={columns} inert={p.blocked}>
         <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} />
         {layout.sideOpen && <IdeExplorer width={layout.sideWidth} onLayout={onLayout}>{p.explorer}</IdeExplorer>}

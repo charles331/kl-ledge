@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/lang';
 
 /** The mockup's dialog: a blurred backdrop that closes on its own click, a titled box with « Fermer ».
  *  Focus moves into the box unless a field already took it, and goes back where it was on close. */
-export function Modal({ title, onClose, wide = false, className, role = 'dialog', describedBy, children }: { title: string; onClose: () => void; wide?: boolean; className?: string; role?: 'dialog' | 'alertdialog'; describedBy?: string; children: ReactNode }) {
+export function Modal({ title, onClose, wide = false, className, role = 'dialog', describedBy, icon, children }: { title: string; onClose: () => void; wide?: boolean; className?: string; role?: 'dialog' | 'alertdialog'; describedBy?: string; /** A line icon before the title (« Signaler »'s flag, issue #9). */ icon?: readonly string[]; children: ReactNode }) {
   const { t } = useI18n();
   const id = useId();
   const box = useRef<HTMLElement>(null);
@@ -19,7 +19,7 @@ export function Modal({ title, onClose, wide = false, className, role = 'dialog'
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <section ref={box} className={[wide ? 'modal composer-modal' : 'modal', className].filter(Boolean).join(' ')} role={role} aria-modal="true" aria-labelledby={id} aria-describedby={describedBy} tabIndex={-1}>
         <div className="modal-title">
-          <h2 id={id}>{title}</h2>
+          <h2 id={id}>{icon && <Icon d={icon} size={15} />}{title}</h2>
           <Button variant="ghost" size="icon" aria-label={t.close} onClick={onClose}><Icon d={ICONS.close.d} /></Button>
         </div>
         {children}

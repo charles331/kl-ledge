@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Signaler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#9 : un seul bouton « Signaler », un formulaire Bug / Idée, et la carte d'un signalement d'agent
+   (`ledge report bug|feature`) à approuver. Base : la barre de titre de l'IDE (ide/IdeTitleBar.tsx), les fenêtres de l'IDE,
+   les cartes de décision d'« À toi ». Tokens : packages/ui tokens.css. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --foreground:oklch(0.985 0 0);--card:oklch(0.205 0 0);--muted:oklch(0.269 0 0);--muted-foreground:oklch(0.708 0 0);
+  --primary:oklch(0.444 0.177 26.899);--border:#ffffff1a;--input:#ffffff26;
+  --shell:#0d0d0d;--side:#141414;--pane:#111112;--page:#000;--hover:#ffffff10;--note:#a78bfa;
+  --ok:#34d399;--danger:#f87171;--warn:#fbbf24;--info:#60a5fa;--coral:#ea6a58;--tip:#2a2a2c;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --foreground:oklch(0.145 0 0);--card:oklch(1 0 0);--muted:oklch(0.97 0 0);--muted-foreground:oklch(0.556 0 0);
+  --primary:oklch(0.505 0.213 27.518);--border:oklch(0.922 0 0);--input:oklch(0.922 0 0);
+  --shell:oklch(0.985 0 0);--side:oklch(0.975 0 0);--pane:#fff;--page:oklch(0.95 0 0);--hover:#0000000a;--note:#7c3aed;
+  --ok:#059669;--danger:#dc2626;--warn:#b45309;--info:#2563eb;--coral:#cc5241;--tip:#27272a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1300px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid}
+.tag.new{color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.tag.reco{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:560px}
+.btn{height:28px;padding:0 11px;border-radius:7px;border:1px solid var(--input);font-size:12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;background:var(--pane)}
+.btn.sm{height:24px;padding:0 9px;font-size:11.5px}
+.btn.pri{background:var(--primary);border-color:transparent;color:#fff}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted-foreground)}
+kbd{font:10px 'Geist Mono',monospace;border:1px solid #ffffff40;border-radius:4px;padding:0 4px;opacity:.8}
+/* La barre de titre de l'IDE. */
+.tb{width:860px;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--shell);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted-foreground);position:relative}
+.tb .brand{font-weight:650;color:var(--foreground)}.tb .brand i{color:var(--coral);font-style:normal}
+.tb .search{flex:0 1 320px;margin:0 auto;height:22px;border:1px solid var(--input);border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 8px;font-size:11.5px}
+.tb .tg{width:24px;height:24px;border-radius:5px;display:grid;place-items:center}
+.tb .tg.on{color:var(--foreground);background:var(--hover)}
+.tb .rep{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--foreground);background:var(--hover);box-shadow:0 0 0 1px color-mix(in srgb,var(--note) 70%,transparent)}
+.tb .sep{width:1px;height:16px;background:var(--border)}
+.tb .win{width:28px;text-align:center}
+.tip{position:absolute;top:36px;z-index:9;background:var(--tip);color:#fafafa;font-size:11px;line-height:15px;padding:4px 7px;border-radius:5px;white-space:nowrap}
+/* La fenêtre « Signaler ». */
+.dlg{width:600px;background:var(--card);border:1px solid var(--input);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;box-shadow:0 12px 40px #0006}
+.dlg>.h{padding:14px 18px 4px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+.dlg>.h .x{margin-left:auto;color:var(--muted-foreground)}
+.body{padding:8px 18px 14px;display:flex;flex-direction:column;gap:11px}
+.kind{display:flex;border:1px solid var(--input);border-radius:9px;overflow:hidden}
+.kind span{flex:1;padding:7px 10px;display:flex;flex-direction:column;gap:1px;font-size:12.5px;color:var(--muted-foreground)}
+.kind span small{font-size:11px}
+.kind span.on{background:var(--muted);color:var(--foreground)}
+.kind span+span{border-left:1px solid var(--input)}
+.field{display:flex;flex-direction:column;gap:5px}
+.lab{font-size:11.5px;color:var(--muted-foreground);font-weight:500}
+.lab small{font-weight:400}
+.in{border:1px solid var(--input);border-radius:7px;padding:6px 10px;background:var(--pane);font-size:12.5px;min-height:30px}
+.in.ph{color:var(--muted-foreground)}
+.in.ta{min-height:58px}
+.in.err{border-color:color-mix(in srgb,var(--danger) 60%,var(--input))}
+.ferr{font-size:11.5px;color:var(--danger)}
+.att{border:1px solid var(--border);border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:7px;background:color-mix(in srgb,var(--pane) 60%,transparent)}
+.att .ah{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500}
+.att .ah small{font-weight:400;color:var(--muted-foreground);margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{height:24px;border:1px solid var(--input);border-radius:12px;padding:0 4px 0 9px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;background:var(--pane)}
+.chip .k{color:var(--muted-foreground)}
+.chip .x{width:18px;height:18px;border-radius:9px;display:grid;place-items:center;color:var(--muted-foreground)}
+.chip.off{opacity:.45;text-decoration:line-through}
+.chk{display:flex;align-items:flex-start;gap:8px;font-size:12px}
+.chk .box{width:15px;height:15px;border:1.5px solid var(--muted-foreground);border-radius:4px;flex-shrink:0;margin-top:1px}
+.chk .box.on{background:var(--primary);border-color:transparent}
+.chk small{display:block;color:var(--muted-foreground);font-size:11px}
+.dest{font-size:11.5px;color:var(--muted-foreground);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dest b{color:var(--foreground);font-weight:500}
+.lbl{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid}
+.lbl.bug{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 50%,transparent)}
+.lbl.enh{color:var(--info);border-color:color-mix(in srgb,var(--info) 50%,transparent)}
+.foot{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--border);flex-wrap:wrap}
+.foot .sp{flex:1}
+.foot .msg{font-size:11.5px;color:var(--muted-foreground);flex-basis:100%;order:-1}
+.foot .msg.warn{color:var(--warn)}
+    .log.fresh{box-shadow:0 0 0 2px color-mix(in srgb,var(--note) 70%,transparent)}
+.log{font:10.5px/15px 'Geist Mono',monospace;background:var(--pane);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--muted-foreground);white-space:pre;overflow:hidden;max-height:76px}
+.toast{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--input);border-radius:9px;padding:8px 11px;font-size:12.5px;box-shadow:0 8px 24px #0005}
+.toast .ok{color:var(--ok)}
+/* La carte d'un signalement d'agent (À toi › Décisions). */
+.ask{width:520px;border:1px solid color-mix(in srgb,var(--coral) 40%,var(--border));border-radius:10px;background:var(--card);padding:11px 13px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:18px}
+.ask .who{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted-foreground);flex-wrap:wrap}
+.ask .who b{color:var(--foreground)}
+.ask .who .sp{flex:1}
+.ask .dot{width:8px;height:8px;border-radius:50%;background:var(--info)}
+.ask h4{margin:0;font-size:13.5px;font-weight:600}
+.ask p{margin:0;color:var(--muted-foreground)}
+.ask .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pill{font-size:10.5px;border:1px solid var(--input);border-radius:8px;padding:0 6px;color:var(--muted-foreground);white-space:nowrap}
+.pill.rep{color:var(--coral);border-color:color-mix(in srgb,var(--coral) 50%,transparent)}
+.term{width:520px;background:#0c0c0c;color:#d4d4d8;border-radius:8px;padding:10px 12px;font:11px/16px 'Geist Mono',monospace;white-space:pre-wrap;border:1px solid #ffffff1a}
+.term .p{color:#71717a}.term .g{color:#34d399}.term .v{color:#a78bfa}
+.opts{display:flex;flex-direction:column;gap:8px;width:560px}
+.opt{border:1px solid var(--border);border-radius:9px;background:var(--pane);padding:9px 12px;font-size:12px}
+.opt b{font-weight:600}
+.opt.reco{border-color:color-mix(in srgb,var(--note) 55%,var(--border))}
+.opt p{margin:3px 0 0;color:var(--muted-foreground)}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const T = {
+  fr: {
+    h1:'Signaler — un bouton, un formulaire Bug ou Idée, et les signalements des agents', hsub:'Issue kl-ledge/ledge#9. À valider par l’utilisateur.',
+    search:'Rechercher (Ctrl K)', report:'Signaler', reportTip:'Signaler un bug ou proposer une idée',
+    title:'Signaler', bug:'Bug', bugSub:'quelque chose ne marche pas', idea:'Idée', ideaSub:'un besoin, une amélioration',
+    tTitle:'Titre', tTitlePh:'En une phrase',
+    happened:'Ce qui s’est passé', happenedPh:'Ce que vous avez vu, avec le message s’il y en a un', expected:'Ce qui était attendu', expectedPh:'Ce qui aurait dû se passer',
+    repro:'Comment le reproduire', reproPh:'1. …  2. …  3. …', optional:'facultatif',
+    need:'Le besoin', needPh:'Ce qui vous manque, ou ce qui est pénible aujourd’hui', context:'Le contexte', contextPh:'Quand ça arrive, sur quel écran, avec quel outil', proposal:'Une proposition', proposalPh:'Comment vous le verriez',
+    attached:'Joint au signalement', attachedSub:'retirez ce que vous ne voulez pas envoyer',
+    desktop:'Ledge Desktop', daemon:'daemon', system:'Système', tool:'Outil de la session',
+    log:'Ajouter un extrait du journal du daemon', logSub:'Les 50 dernières lignes, relues pour retirer chemins personnels et jetons. Voir l’extrait',
+    never:'Rien d’autre ne part : ni conversation, ni jeton, ni fichier.',
+    dest:'Sera créée sur', destBy:'avec votre compte GitHub', label:'label',
+    cancel:'Annuler', create:'Créer l’issue', creating:'Création…', openGh:'Ouvrir sur GitHub',
+    noGh:'gh n’est pas connecté sur cette machine : GitHub s’ouvre avec le signalement prérempli, vous le validez là-bas.',
+    created:n=>`Issue ${n} créée sur kl-ledge/ledge.`, open:'Ouvrir',
+    titleEmpty:'Donnez un titre au signalement.', logStale:'L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue.',
+    agentAsk:(n)=>`${n} signale un bug`, agentIdea:(n)=>`${n} propose une idée`, from:'session', proj:'projet',
+    approve:'Créer l’issue', edit:'Modifier avant', ignore:'Ignorer', pillReport:'signalement',
+    agentWhy:'Rien ne part sur GitHub sans votre clic. « Modifier avant » ouvre le formulaire prérempli.',
+  },
+  en: {
+    h1:'Report — one button, a Bug or Idea form, and agents’ reports', hsub:'Issue kl-ledge/ledge#9. For the user to validate.',
+    search:'Search (Ctrl K)', report:'Report', reportTip:'Report a bug or suggest an idea',
+    title:'Report', bug:'Bug', bugSub:'something doesn’t work', idea:'Idea', ideaSub:'a need, an improvement',
+    tTitle:'Title', tTitlePh:'In one sentence',
+    happened:'What happened', happenedPh:'What you saw, with the message if there is one', expected:'What was expected', expectedPh:'What should have happened',
+    repro:'How to reproduce it', reproPh:'1. …  2. …  3. …', optional:'optional',
+    need:'The need', needPh:'What you’re missing, or what’s tedious today', context:'The context', contextPh:'When it happens, on which screen, with which tool', proposal:'A proposal', proposalPh:'How you’d see it',
+    attached:'Attached to the report', attachedSub:'remove what you don’t want to send',
+    desktop:'Ledge Desktop', daemon:'daemon', system:'System', tool:'Session tool',
+    log:'Add an excerpt of the daemon log', logSub:'The last 50 lines, cleaned of personal paths and tokens. See the excerpt',
+    never:'Nothing else is sent: no conversation, no token, no file.',
+    dest:'Will be created on', destBy:'with your GitHub account', label:'label',
+    cancel:'Cancel', create:'Create the issue', creating:'Creating…', openGh:'Open on GitHub',
+    noGh:'gh isn’t signed in on this machine: GitHub opens with the report prefilled, you confirm it there.',
+    created:n=>`Issue ${n} created on kl-ledge/ledge.`, open:'Open',
+    titleEmpty:'Give the report a title.', logStale:'The log excerpt was refreshed: read it again, then create the issue.',
+    agentAsk:(n)=>`${n} reports a bug`, agentIdea:(n)=>`${n} suggests an idea`, from:'session', proj:'project',
+    approve:'Create the issue', edit:'Edit first', ignore:'Ignore', pillReport:'report',
+    agentWhy:'Nothing goes to GitHub without your click. “Edit first” opens the form prefilled.',
+  }
+};
+let L = 'fr';
+const t = () => T[L];
+const svg = (d, s=13) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d.map(p=>`<path d="${p}"/>`).join('')}</svg>`;
+const I = { flag:['M5 21V4','M5 4h11l-2 4 2 4H5'], x:['M6 6l12 12','M18 6 6 18'], search:['M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15','m16 16 5 5'],
+  panelLeft:['M3 4h18v16H3z','M9 4v16'], panelBottom:['M3 4h18v16H3z','M3 14h18'], panelRight:['M3 4h18v16H3z','M15 4v16'], gh:['M9 19c-4 1.5-4-2-6-2.5','M15 22v-3.5a3 3 0 0 0-.9-2.3c3-.3 6-1.5 6-6.6a5 5 0 0 0-1.4-3.6 4.7 4.7 0 0 0-.1-3.5s-1.1-.3-3.7 1.4a12.7 12.7 0 0 0-6.6 0C5.7 1.2 4.6 1.5 4.6 1.5a4.7 4.7 0 0 0-.1 3.5A5 5 0 0 0 3 8.6c0 5.1 3 6.3 6 6.6a3 3 0 0 0-.9 2.3V22'] };
+
+const titlebar = (hov) => `<div class="tb"><span class="brand">Ledge<i>.</i></span><span class="search">${svg(I.search,12)}${t().search}</span>
+  <span class="rep" role="button" aria-label="${t().reportTip}" title="${t().reportTip}">${svg(I.flag,14)}</span>${hov?`<span class="tip" style="right:120px">${t().reportTip}</span>`:''}<span class="sep"></span>
+  <span class="tg on">${svg(I.panelLeft)}</span><span class="tg">${svg(I.panelBottom)}</span><span class="tg on">${svg(I.panelRight)}</span><span class="sep"></span><span class="win">–</span><span class="win">▢</span><span class="win">✕</span></div>`;
+const kind = (k) => `<div class="kind"><span class="${k==='bug'?'on':''}"><b style="font-weight:500">${t().bug}</b><small>${t().bugSub}</small></span><span class="${k==='idea'?'on':''}"><b style="font-weight:500">${t().idea}</b><small>${t().ideaSub}</small></span></div>`;
+const f = (lab, val, ph, o={}) => `<div class="field"><span class="lab">${lab}${o.opt?` <small>${t().optional}</small>`:''}</span><div class="in ${o.ta?'ta':''} ${val?'':'ph'} ${o.err?'err':''}">${val||ph}</div>${o.err?`<span class="ferr">${o.err}</span>`:''}</div>`;
+const attached = (o={}) => {
+  const x = t();
+  const chip = (k, v, off) => `<span class="chip ${off?'off':''}"><span class="k">${k}</span>${v}<span class="x">${svg(I.x,10)}</span></span>`;
+  return `<div class="att"><div class="ah">${x.attached}<small>${x.attachedSub}</small></div><div class="chips">${chip(x.desktop,'0.60.1')}${chip(x.daemon,'0.60.1')}${chip(x.system,'Windows 11 · WSL Ubuntu 24.04')}${o.tool!==false?chip(x.tool, 'Claude Code 2.1 · Otto', o.toolOff):''}</div>
+    <div class="chk"><span class="box ${o.log?'on':''}"></span><span>${x.log}<small>${x.logSub}</small></span></div>${o.log?`<div class="log">19:41:02 forge  github  read 7 prs (2 machines)
+19:41:05 chat   ask q-8f2  tool=claude
+19:41:09 notch  render  activity=1
+19:41:12 forge  github  error 502 Bad Gateway  retry 19:41:22</div>`:''}
+    <span class="mut" style="font-size:11px">${x.never}</span></div>`;
+};
+const dest = (k) => `<div class="dest">${t().dest} <b>kl-ledge/ledge</b> · ${t().label} <span class="lbl ${k==='bug'?'bug':'enh'}">${k==='bug'?'bug':'enhancement'}</span> · ${t().destBy} <b>paradow</b></div>`;
+const foot = (o={}) => `<div class="foot">${o.msg?`<span class="msg ${o.warn?'warn':''}">${o.msg}</span>`:''}<span class="sp"></span><button class="btn ghost">${t().cancel}</button><button class="btn pri">${o.gh?svg(I.gh,13)+t().openGh:o.busy?t().creating:t().create} <kbd>Ctrl ↵</kbd></button></div>`;
+const dlg = (body, footer) => `<div class="dlg"><div class="h">${svg(I.flag,15)}${t().title}<span class="x">${svg(I.x,14)}</span></div><div class="body">${body}</div>${footer}</div>`;
+
+function cards(){
+  const x = t(), C = [], F = L==='fr';
+  const bugBody = (o={}) => `${kind('bug')}${f(x.tTitle, o.empty?'':(F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/'), x.tTitlePh, {err:o.err})}
+    ${f(x.happened, o.empty?'':(F?'J’agrandis le chat, je le masque avec Ctrl+/, je le rouvre : il revient agrandi et cache l’onglet de la session.':'I enlarge the chat, hide it with Ctrl+/, reopen it: it comes back enlarged and hides the session tab.'), x.happenedPh, {ta:true})}
+    ${f(x.expected, o.empty?'':(F?'Qu’il revienne à sa largeur normale.':'That it comes back at its normal width.'), x.expectedPh)}
+    ${f(x.repro, o.empty?'':(F?'1. Agrandir le chat  2. Ctrl+/  3. Ctrl+/':'1. Enlarge the chat  2. Ctrl+/  3. Ctrl+/'), x.reproPh, {opt:true})}
+    ${attached(o)}${dest('bug')}`;
+  C.push({title:F?'Le bouton « Signaler » dans la barre de titre':'The “Report” button in the title bar',
+    why:`Un seul bouton : <b>l’icône drapeau seule</b>, à la taille des autres icônes de la barre de titre de Desktop, avant les bascules de panneaux : visible depuis tous les écrans. Infobulle et nom accessible : « Signaler un bug ou proposer une idée ». Corrigé le 17/11 : l’utilisateur a trouvé le bouton avec le mot trop grand (« laisse juste le drapeau et son emplacement est ok »). Il ouvre la fenêtre de la carte 2. Recommandation : Desktop d’abord ; l’encoche, le téléphone et <code>ledge tui</code> plus tard (question 3).`,
+    keys:F?'Nouveau : report.tip (infobulle et nom accessible)':'New: report.tip (tooltip and accessible name)',
+    scene: `<div style="padding-bottom:34px">${titlebar(true)}</div>`});
+  C.push({title:F?'La fenêtre : Bug':'The window: Bug',
+    why:`En haut, le choix <b>Bug | Idée</b> (Bug par défaut) : seul le formulaire change. Bug : <b>titre</b>, <b>ce qui s’est passé</b>, <b>ce qui était attendu</b>, <b>comment le reproduire</b> (facultatif). Puis <b>« Joint au signalement »</b>, toujours visible : versions de Ledge Desktop et du daemon, Windows / WSL, l’outil de la session au premier plan (s’il y en a une) ; chacun se retire par ×, il apparaît barré et ne part pas (on le remet d’un clic). <b>Extrait du journal du daemon</b> : case décochée par défaut ; cochée, l’extrait s’affiche tel qu’il partira. Pas de capture d’écran pour l’instant. Enfin la destination : <code>kl-ledge/ledge</code>, label <code>bug</code>, avec le compte GitHub connecté.`,
+    keys:F?'Nouveaux : report.* (types, champs, aide, joints, journal, destination)':'New: report.* (types, fields, hints, attachments, log, destination)',
+    scene: `<div>${dlg(bugBody({}), foot({}))}<div class="cap">${F?'Rempli, prêt à partir':'Filled in, ready to go'}</div></div><div>${dlg(bugBody({log:true, toolOff:true}), foot({}))}<div class="cap">${F?'L’outil retiré (barré), l’extrait du journal coché et montré':'Tool removed (struck through), log excerpt checked and shown'}</div></div>`});
+  C.push({title:F?'La fenêtre : Idée':'The window: Idea',
+    why:`Idée : <b>titre</b>, <b>le besoin</b>, <b>le contexte</b>, <b>une proposition</b> (facultative). Les joints sont les mêmes (versions et système suffisent souvent ; l’outil se retire d’un clic), sans case du journal. Destination : label <code>enhancement</code>.`,
+    keys:'—',
+    scene: dlg(`${kind('idea')}${f(x.tTitle, F?'Voir toutes mes MR, pas seulement celles des sessions':'See all my MRs, not only the sessions’ ones', x.tTitlePh)}${f(x.need, F?'Je ne vois pas les PR où je suis relecteur.':'I can’t see the PRs I’m a reviewer on.', x.needPh, {ta:true})}${f(x.context, '', x.contextPh)}${f(x.proposal, '', x.proposalPh, {opt:true})}
+      <div class="att"><div class="ah">${x.attached}<small>${x.attachedSub}</small></div><div class="chips"><span class="chip"><span class="k">${x.desktop}</span>0.60.1<span class="x">${svg(I.x,10)}</span></span><span class="chip"><span class="k">${x.daemon}</span>0.60.1<span class="x">${svg(I.x,10)}</span></span><span class="chip"><span class="k">${x.system}</span>Windows 11 · WSL<span class="x">${svg(I.x,10)}</span></span></div><span class="mut" style="font-size:11px">${x.never}</span></div>${dest('idea')}`, foot({}))});
+  C.push({title:F?'Envoi : créée, titre manquant, gh absent':'Sending: created, missing title, gh absent',
+    why:`<b>Créer l’issue</b> (Ctrl ↵) : le daemon la crée avec <code>gh</code> déjà connecté ; la fenêtre se ferme et un toast dit « Issue #14 créée sur kl-ledge/ledge » avec <b>Ouvrir</b>. Sans titre : le clic n’envoie pas et dit quoi faire, comme les autres formulaires. <b>gh pas connecté</b> (ou refus de GitHub) : le bouton devient <b>Ouvrir sur GitHub</b>, qui ouvre la page « new issue » préremplie (titre, corps, label) ; l’utilisateur valide là-bas. Ce qui a été saisi n’est jamais perdu : en cas d’échec, la fenêtre reste ouverte. <b>Extrait du journal expiré</b> (refus <code>log_stale</code>) : rien n’est créé ; la fenêtre relit l’extrait, le montre entouré à la place de l’ancien et dit en ambre « L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue. » ; le bouton reste « Créer l’issue » (complément du 17/11, texte nouveau).`,
+    keys:F?'Nouveaux : report.created(n), report.titleEmpty, report.noGh, report.openGh, report.logStale':'New: report.created(n), report.titleEmpty, report.noGh, report.openGh, report.logStale',
+    scene: `<div class="toast"><span class="ok">✓</span>${x.created('#14')}<button class="btn sm">${x.open}</button></div>
+      <div>${dlg(`${kind('bug')}${f(x.tTitle,'',x.tTitlePh,{err:x.titleEmpty})}${f(x.happened, F?'Le chat revient agrandi.':'The chat comes back enlarged.', x.happenedPh, {ta:true})}`, foot({}))}<div class="cap">${F?'Sans titre : rien ne part':'No title: nothing is sent'}</div></div>
+      <div>${dlg(`${kind('bug')}${f(x.tTitle, F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/', x.tTitlePh)}<div class="mut" style="font-size:11.5px">…</div>`, foot({gh:true, msg:x.noGh, warn:true}))}<div class="cap">${F?'gh absent : repli sur la page GitHub préremplie':'gh absent: fallback to the prefilled GitHub page'}</div></div>
+      <div>${dlg(`${kind('bug')}${f(x.tTitle, F?'Le chat agrandi garde sa largeur après Ctrl+/':'The enlarged chat keeps its width after Ctrl+/', x.tTitlePh)}<div class="mut" style="font-size:11.5px">…</div>${attached({log:true}).replace('class="log"','class="log fresh"')}`, foot({msg:x.logStale, warn:true}))}<div class="cap">${F?'Extrait expiré (plus d’une heure, daemon redémarré) : rien n’est créé, l’extrait est relu et montré, à relire avant de recréer':'Excerpt expired (over an hour, daemon restarted): nothing is created, the excerpt is read again and shown, to check before creating'}</div></div>`});
+  C.push({title:F?'Le signalement d’un agent, à approuver':'An agent’s report, to approve',
+    why:`<code>ledge report bug|feature "titre" "détail"</code> ne crée rien sur GitHub : il dépose une <b>demande</b> qui arrive dans <b>À toi › Décisions</b> (et en notification à l’île et au téléphone, comme une décision). La carte dit qui signale (session, projet), le titre, le détail, et ce qui sera joint. <b>Créer l’issue</b> l’envoie tel quel ; <b>Modifier avant</b> ouvre la fenêtre de la carte 2 préremplie ; <b>Ignorer</b> la range. L’agent reçoit la réponse (créée avec son numéro, ou ignorée). Rien ne part sans le clic de l’utilisateur.`,
+    keys:F?'Nouveaux : report.agentAsk(n), report.agentIdea(n), report.approve, .edit, .ignore, report.agentWhy':'New: report.agentAsk(n), report.agentIdea(n), report.approve, .edit, .ignore, report.agentWhy',
+    scene: `<div><div class="ask"><div class="who"><span class="dot"></span><b>${x.agentAsk('Otto')}</b><span>· ${x.from} Otto · ${x.proj} Ledge</span><span class="sp"></span><span class="pill rep">${x.pillReport}</span><span class="mono">19:44</span></div>
+      <h4>${F?'Le daemon répète la lecture des PR toutes les 10 s après une erreur 502':'The daemon re-reads the PRs every 10 s after a 502 error'}</h4>
+      <p>${F?'Pendant le lot 13, après un 502 de GitHub, le daemon relit en boucle au lieu d’attendre le délai prévu (journal : 6 lectures en une minute).':'During lot 13, after a GitHub 502, the daemon re-reads in a loop instead of waiting the planned delay (log: 6 reads in one minute).'}</p>
+      <div class="chips"><span class="chip"><span class="k">${x.desktop}</span>0.60.1</span><span class="chip"><span class="k">${x.daemon}</span>0.60.1</span><span class="chip"><span class="k">${x.tool}</span>Claude Code 2.1 · Otto</span></div>
+      <div class="acts"><button class="btn pri">${svg(I.gh,13)}${x.approve}</button><button class="btn">${x.edit}</button><button class="btn ghost">${x.ignore}</button></div>
+      <span class="mut" style="font-size:11.5px">${x.agentWhy}</span></div><div class="cap">${F?'À toi › Décisions':'For you › Decisions'}</div></div>
+      <div><div class="term"><span class="p">otto@ledge $</span> ledge report bug "Le daemon répète la lecture des PR toutes les 10 s après une erreur 502" "Pendant le lot 13, après un 502…"
+<span class="v">Signalement r-12 déposé : l’utilisateur doit l’approuver avant qu’il parte sur GitHub.</span>
+<span class="p">otto@ledge $</span> ledge report status r-12
+<span class="g">créé : kl-ledge/ledge#15</span></div><div class="cap">${F?'Côté agent : rien n’est créé tant que l’utilisateur n’a pas cliqué':'Agent side: nothing is created until the user clicks'}</div></div>`});
+  C.push({title:F?'Les quatre points à trancher, avec mes recommandations':'The four points to settle, with my recommendations',
+    why:`Les points 1 à 4 de l’issue ne sont pas tranchés : la maquette suit les recommandations ci-dessous, à confirmer.`,
+    keys:'—',
+    scene: `<div class="opts">
+      <div class="opt reco"><b>1 · ${F?'Création : par le daemon avec gh déjà connecté, au clic (recommandé), repli sur l’URL préremplie':'Creation: by the daemon with gh already signed in, on click (recommended), fallback to the prefilled URL'}</b><p>${F?'Un clic, pas de navigateur ; l’URL préremplie seulement si gh manque ou refuse.':'One click, no browser; the prefilled URL only when gh is missing or refuses.'}</p></div>
+      <div class="opt reco"><b>2 · ${F?'Signalement d’agent : approuvé par l’utilisateur avant envoi (recommandé)':'Agent report: approved by the user before sending (recommended)'}</b><p>${F?'Comme ledge brain propose : une carte dans À toi, rien ne part sans clic.':'Like ledge brain propose: a card in For you, nothing leaves without a click.'}</p></div>
+      <div class="opt reco"><b>3 · ${F?'Emplacement : barre de titre Desktop d’abord (recommandé), le reste plus tard':'Placement: Desktop title bar first (recommended), the rest later'}</b><p>${F?'L’encoche, le téléphone et ledge tui pourront ouvrir le même formulaire dans un second temps.':'The notch, the phone and ledge tui can open the same form later.'}</p></div>
+      <div class="opt reco"><b>4 · ${F?'Pièces jointes : extrait du journal en case décochée, pas de capture pour l’instant (recommandé)':'Attachments: log excerpt as an unchecked box, no screenshot for now (recommended)'}</b><p>${F?'Une capture peut montrer une conversation ou un secret ; on la reconsidérera avec un recadrage.':'A screenshot may show a conversation or a secret; to reconsider with cropping.'}</p></div></div>`});
+  return C;
+}
+
+function fiche(){
+  return `<section class="fiche"><h2>Fiche de transmission (dev-back, dev-front)</h2><table>
+  <tr><th>Point</th><th>Règle</th></tr>
+  <tr><td>Bouton</td><td>Barre de titre (IdeTitleBar), avant les bascules de panneaux : l’icône drapeau seule, même taille que les bascules (24 px), <code>title</code> et <code>aria-label</code> = « Signaler un bug ou proposer une idée ». Ouvre la fenêtre, type Bug par défaut. Le type choisi est gardé tant que la fenêtre vit ; le texte saisi aussi si on la ferme sans envoyer (question 5).</td></tr>
+  <tr><td>Corps de l’issue</td><td>Titre ; puis sections Markdown selon le type (Ce qui s’est passé / Ce qui était attendu / Comment le reproduire ; ou Le besoin / Le contexte / Une proposition) ; puis « Joint » : les puces gardées ; l’extrait du journal dans un bloc replié s’il est coché ; pour un agent, « Signalé par {session} · projet {p} ».</td></tr>
+  <tr><td>Envoi</td><td>Daemon : <code>gh issue create -R kl-ledge/ledge --label bug|enhancement</code> sur la machine locale. gh absent / non connecté / refus : URL <code>/issues/new?title=&amp;body=&amp;labels=</code> (corps tronqué si trop long, l’extrait du journal retiré d’abord).</td></tr>
+  <tr><td>Journal</td><td>50 dernières lignes, chemins du home remplacés par <code>~</code>, jetons masqués ; montré tel qu’il partira.</td></tr>
+  <tr><td>Agent</td><td><code>ledge report bug|feature "titre" "détail"</code> → demande <code>r-n</code> (comme <code>ledge brain propose</code>), carte dans À toi › Décisions, notification île/téléphone ; <code>ledge report status r-n</code> donne créée (#) / ignorée / en attente.</td></tr>
+  <tr><td>Textes</td><td>Tous nouveaux (FR · EN), listés dans le dictionnaire de la page : infobulle du bouton, types et sous-titres, champs et leurs aides, « Joint au signalement », la case du journal, la phrase « Rien d’autre ne part », destination, boutons, toast, erreurs, carte d’agent, sortie CLI.</td></tr>
+  </table>
+  <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
+  <ol>
+    <li><b>Création</b> : A) par le daemon avec gh déjà connecté, au clic, repli sur l’URL préremplie (recommandé) ; B) toujours par l’URL préremplie.</li>
+    <li><b>Signalements d’agents</b> : A) carte à approuver dans À toi, rien ne part sans clic (recommandé) ; B) envoyés directement.</li>
+    <li><b>Emplacement</b> : A) barre de titre Desktop d’abord, le reste plus tard (recommandé) ; B) aussi tout de suite dans l’encoche, le téléphone et <code>ledge tui</code>.</li>
+    <li><b>Pièces jointes</b> : A) extrait du journal en case décochée, pas de capture (recommandé) ; B) journal coché par défaut ; C) ajouter une capture de la fenêtre.</li>
+    <li><b>Un brouillon fermé sans envoyer</b> : A) gardé jusqu’à l’envoi ou la fermeture de Ledge (recommandé) ; B) perdu.</li>
+    <li><b>Les textes</b> (tous nouveaux, au vouvoiement comme le reste de Desktop) : d’accord ?</li>
+  </ol></section>`;
+}
+
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${i===5?'reco':'new'}">${i===5?(L==='fr'?'à trancher':'to settle'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>

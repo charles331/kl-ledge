@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { ReportDialog } from './report/ReportDialog';
+import { appVersion } from './update/bridge';
 import { canBroadcast, daemonStore, qualify, prOfSession, prsFailing, prsWaitingForYou, sessionForge, projectOf, splitId, type BroadcastTo, type FleetPullRequest, useIsland, useMobile, useMobileError, useProjects, useTokenMissing, type DaemonClient } from '@ledge/fleet';
 import { isOmpSeat, type Project, type Projects, type Session } from '@ledge/protocol';
 import { LangProvider, loadLang, messagesFor, saveLang, useI18n, type Lang } from './i18n/lang';
@@ -208,6 +210,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const rigOutput = useRigOutputLog(fleetClient);
   const projects = useProjects(fleetClient);
   const tasksApi = useTasksApi(fleetClient);
+  // Issue #9: the Desktop's version goes with a report (the daemon does not know it).
+  const [desktopVersion, setDesktopVersion] = useState<string | null>(null);
+  useEffect(() => { void appVersion().then(setDesktopVersion, () => {}); }, []);
   // « À toi »: what OpenRig's rigs ask the person, on this computer (lot 1: one machine), once its daemon reads them.
   const localMachine = machines.find(m => m.id === 'local');
   const asks = useOpenRigAsks(fleetClient, localMachine?.ready && localMachine.daemon?.openrigAsks ? 'local' : null);
@@ -409,6 +414,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // highlight, the interface the switch falls back to) follows the tab: a session's page, the atelier (the overview, its filter
   // kept), Settings and the OpenRig page on the section and sub-place they were last left on.
   const front: Tab | undefined = focused(ws).tabs[focused(ws).active];
+  // Issue #9: the session in front, on this machine, whose tool a report attaches.
+  const reportSession = (() => { if (front?.kind !== 'session' && front?.kind !== 'seat') return undefined; const o = splitId(front.ref); return o?.machine === 'local' ? o.id : undefined; })();
+  const reportCreated = (n: number, url: string | undefined) => notify(t.report.created(n), url ? { label: t.report.open, run: () => openUrl(url), tone: 'ok', undo: false } : undefined);
   const frontKey = front ? keyOf(front) : null;
   // Opening « À toi » (its page, or the explorer's view) reads each ready machine's newest point on that machine (spec §5), as the
   // chat does when it shows one.
@@ -918,7 +926,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           onSummarize={() => { setRightTab(x => ({ ...x, tab: 'conversation', ask: { text: t.home.point.summarizeQuestion, n: ++summarizeSeq.current } })); onLayout({ type: 'show', panel: 'right', on: true }); }}
           summarizeOff={!localMachine?.ready} asks={asks} askFocus={askFocus} onAskFocused={() => setAskFocus(null)} asksMachine={localMachine?.label ?? 'local'}
           askSourceOf={ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; }}
-          onOpenSeat={id => dispatch({ type: 'open', id })} />;
+          onOpenSeat={id => dispatch({ type: 'open', id })}
+          report={{ client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } }} />;
       }
       if (tab.kind === 'pr') {
         const p = prOf(tab.ref);
@@ -965,6 +974,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     return (
       <IdePlace layout={layout} onLayout={onLayout} blocked={blocked} readOnly={localDown} dragging={!!filing.dragging}
         onSearch={() => dispatch({ type: 'modal', modal: { kind: 'search' } })}
+        onReport={() => dispatch({ type: 'modal', modal: { kind: 'report' } })}
         onTab={onTab} activeTab={front ?? null} badge={badge}
         waiting={waiting} onNextWaiting={() => { const first = waiting[0]; if (first) dispatch({ type: 'open', id: first.id }); }}
         dispositions={{ list: dispositions,
@@ -1099,6 +1109,13 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           proposal={nav.modal.proposal} projects={projects} sessions={sessions} machines={machines} client={fleetClient} fleet={fleet} projectIdOf={projectIdOf} paused={nav.paused}
           notify={notify} onClose={close} onSaved={projectSaved} onDeleted={projectDeleted} />
       )}
+      {nav.modal?.kind === 'report' && (() => {
+        const asked = nav.modal.task;
+        const task = asked ? tasksApi.tasks.find(x => x.id === asked) : undefined;
+        return <ReportDialog key={asked ?? 'own'} client={fleetClient} desktop={desktopVersion} {...(reportSession ? { session: reportSession } : {})}
+          {...(task?.report ? { task: { ...task, report: task.report } } : {})}
+          onClose={close} onCreated={(n, url) => { close(); reportCreated(n, url); }} onOpenUrl={url => { void openUrl(url); }} />;
+      })()}
       {nav.modal?.kind === 'broadcast' && (
         <BroadcastDialog to={nav.modal.to} fleet={fleet} onClose={close} onSent={report => { close(); notify(report); setBroadcastSent(n => n + 1); }}
           label={addressees(nav.modal.to)} />
