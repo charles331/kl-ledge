@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Session } from '@ledge/protocol';
+import { HELPER_STALE_MS, type Session } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { Tmux } from '../tmux.js';
 import { adapterFor as defaultAdapterFor, buildPreview, PREVIEW_CAPTURE_LINES } from '../adapters/index.js';
@@ -70,6 +70,12 @@ export function startPoller(opts: {
     // Also clean up archived and hook-only sessions. Old journals have no helper finish date: the
     // parent's last recorded activity is a conservative fallback, persisted on this first pass.
     const helpers = s.helpers.flatMap(h => {
+      // A helper at work with no event for HELPER_STALE_MS has finished unheard (its SubagentStop lost to a crash or an Esc, issue #1).
+      // Its last event dates it, else (from an older daemon) the parent's last hook. One waiting on a request of its own waits on the
+      // person, never stale.
+      if (h.state === 'working' && s.state !== 'exited' && s.pending?.helperId !== h.id && t - Date.parse(h.lastAt ?? s.lastHookAt ?? s.lastActivityAt) >= HELPER_STALE_MS) {
+        return [{ ...h, state: 'exited' as const, finishedAt: new Date(t).toISOString() }];
+      }
       if (s.pending?.helperId === h.id || (h.state !== 'exited' && s.state !== 'exited')) return [h];
       const finishedAt = h.finishedAt ?? s.exitedAt ?? s.lastActivityAt;
       if (t - Date.parse(finishedAt) >= HELPER_RETENTION_MS) return [];

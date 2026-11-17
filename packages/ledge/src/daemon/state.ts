@@ -1,4 +1,4 @@
-import { cleanTopic, DOING_LABEL_MAX, RUNNING_MAX, pendingKey, parseRigPrompt, sessionTitle, type RunningCall, type Session, type SessionEvent, type Pending, type Helper, type SessionState, type TopicSource } from '@ledge/protocol';
+import { BACKGROUND_MAX, cleanTopic, DOING_LABEL_MAX, helperAtWork, RUNNING_MAX, type BackgroundCommand, pendingKey, parseRigPrompt, sessionTitle, type RunningCall, type Session, type SessionEvent, type Pending, type Helper, type SessionState, type TopicSource } from '@ledge/protocol';
 
 import { crossSession, crossSessionNotices, ledgeNotice, ledgeTask } from './crossSession.js';
 import { codexEditIs, sameQuestion } from '../adapters/types.js';
@@ -327,8 +327,65 @@ function withoutAsks(s: Session, running: RunningCall[]): Session {
   return running.some(c => c.asks) ? withRunning(s, running.map(withoutAsk)) : s;
 }
 
+/**
+ * The `<task-notification>` blocks a prompt carries (Claude Code: a background command or agent that finished, its status, told to
+ * the agent as a prompt): each one's task id and call id.
+ */
+export function taskNotifications(text: string): Array<{ taskId?: string; toolUseId?: string }> {
+  const out: Array<{ taskId?: string; toolUseId?: string }> = [];
+  for (const m of text.matchAll(/<task-notification>([\s\S]*?)<\/task-notification>/g)) {
+    const tag = (name: string) => new RegExp(`<${name}>\\s*([^<\\s]+)\\s*</${name}>`).exec(m[1]!)?.[1];
+    const taskId = tag('task-id'), toolUseId = tag('tool-use-id');
+    if (taskId || toolUseId) out.push({ ...(taskId ? { taskId } : {}), ...(toolUseId ? { toolUseId } : {}) });
+  }
+  return out;
+}
+
+function withBackgroundList(s: Session, background: BackgroundCommand[]): Session {
+  if (background.length) return { ...s, background };
+  if (!s.background) return s;
+  const { background: _gone, ...rest } = s;
+  return rest;
+}
+
+/**
+ * What the agent leaves running besides its turn (issue #1), after an event. The main agent's Bash with `run_in_background` joins
+ * `background` when its call returns (its PostToolUse: the command now runs alone), with its description. Claude Code tells the end
+ * of each background command and agent in a `<task-notification>` it sends as a prompt (at once when the session rests, after the
+ * turn otherwise): that command leaves, and a helper it names (a background agent's task id is its agent id) is finished, its
+ * SubagentStop may never come. The session's end drops them all.
+ */
+function withBackground(next: Session, ev: SessionEvent): Session {
+  if (next.state === 'exited') return withBackgroundList(next, []);
+  if (ev.helperId) return next;
+  const background = next.background ?? [];
+  if (ev.name === 'PostToolUse' && ev.tool === 'Bash' && ev.toolUseId && ev.toolInput?.run_in_background === true && !background.some(c => c.id === ev.toolUseId)) {
+    const text = (k: string) => (typeof ev.toolInput?.[k] === 'string' ? doingLabel(ev.toolInput[k] as string) : '');
+    return withBackgroundList(next, [...background, { id: ev.toolUseId, label: text('description') || text('command') || 'Bash', since: ev.at }].slice(-BACKGROUND_MAX));
+  }
+  if (ev.name === 'UserPromptSubmit' && ev.text?.includes('<task-notification>')) {
+    const done = taskNotifications(ev.text);
+    const calls = new Set(done.flatMap(d => (d.toolUseId ? [d.toolUseId] : [])));
+    const tasks = new Set(done.flatMap(d => (d.taskId ? [d.taskId] : [])));
+    const ended = next.helpers.some(h => tasks.has(h.id) && helperAtWork(h));
+    const s1 = ended ? { ...next, helpers: next.helpers.map(h => (tasks.has(h.id) && helperAtWork(h) ? { ...h, state: 'exited' as const } : h)) } : next;
+    return withBackgroundList(s1, background.filter(c => !calls.has(c.id)));
+  }
+  return next;
+}
+
+/** A helper's own event dates it (`lastAt`): one at work that stays silent too long is taken as finished (poller, HELPER_STALE_MS). */
+function datedHelper(next: Session, ev: SessionEvent): Session {
+  if (!ev.helperId || ev.source !== 'hook') return next;
+  const i = next.helpers.findIndex(h => h.id === ev.helperId);
+  if (i < 0 || next.helpers[i]!.state === 'exited' || next.helpers[i]!.lastAt === ev.at) return next;
+  const helpers = [...next.helpers];
+  helpers[i] = { ...helpers[i]!, lastAt: ev.at };
+  return { ...next, helpers };
+}
+
 export function reduce(s: Session, ev: SessionEvent): Session {
-  const next = withCalls(s, reduceEvent(s, ev), ev);
+  const next = datedHelper(withBackground(withCalls(s, reduceEvent(s, ev), ev), ev), ev);
   if (next === s) return s;
   let changed = false;
   const helpers = next.helpers.map(h => {

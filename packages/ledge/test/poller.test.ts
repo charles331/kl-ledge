@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Session } from '@ledge/protocol';
+import { HELPER_STALE_MS, type Session } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { PREVIEW_LINES, startPoller } from '../src/daemon/poller.js';
 import type { Tmux } from '../src/tmux.js';
@@ -370,6 +370,40 @@ describe('poller rest detection', () => {
       expect(calls).toEqual(['/w-worktrees/feat-x', '/w-worktrees/feat-y']);
       expect(store.get('a')?.branch).toBe('feat-y');
       await p.tick(); expect(calls).toHaveLength(2);
+    } finally { p.stop(); }
+  });
+});
+
+describe('a helper that stays silent (issue #1)', () => {
+  it('is taken as finished after HELPER_STALE_MS without an event, then leaves as a finished one does', async () => {
+    store.upsert(mk('a', { tmuxSession: null, state: 'idle', helpers: [
+      { id: 'quiet', kind: 'Explore', task: '', state: 'working', lastAt: now() },
+      { id: 'busy', kind: 'Explore', task: '', state: 'working', lastAt: new Date(T0 + HELPER_STALE_MS - 1000).toISOString() },
+      { id: 'asks', kind: 'Explore', task: '', state: 'waiting_permission', lastAt: now() }] }));
+    const p = startPoller({ store, tmux: fakeTmux(panes), intervalMs: 1_000_000, now });
+    try {
+      clock += HELPER_STALE_MS;
+      await p.tick();
+      expect(store.get('a')!.helpers.map(h => [h.id, h.state, h.finishedAt ?? null])).toEqual([
+        ['quiet', 'exited', new Date(clock).toISOString()], ['busy', 'working', null], ['asks', 'waiting_permission', null]]);
+      clock += 5 * 60 * 1000;
+      await p.tick();
+      expect(store.get('a')!.helpers.map(h => h.id)).toEqual(['busy', 'asks']);
+    } finally { p.stop(); }
+  });
+  it('one from an older daemon (no lastAt) is dated by its parent\'s last hook; one whose request waits never goes stale', async () => {
+    store.upsert(mk('a', { tmuxSession: null, lastHookAt: now(), helpers: [{ id: 'old', kind: 'Explore', task: '', state: 'working' }] }));
+    store.upsert(mk('b', { tmuxSession: null, helpers: [{ id: 'h', kind: 'Explore', task: '', state: 'working', lastAt: now() }],
+      pending: { helperId: 'h', kind: 'permission', text: 'Allow?', source: 'hook' } }));
+    const p = startPoller({ store, tmux: fakeTmux(panes), intervalMs: 1_000_000, now });
+    try {
+      clock += HELPER_STALE_MS - 1;
+      await p.tick();
+      expect(store.get('a')!.helpers[0]!.state).toBe('working');
+      clock += 1;
+      await p.tick();
+      expect(store.get('a')!.helpers[0]!.state).toBe('exited');
+      expect(store.get('b')!.helpers[0]!.state).toBe('working');
     } finally { p.stop(); }
   });
 });

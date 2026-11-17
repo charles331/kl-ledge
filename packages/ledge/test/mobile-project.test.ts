@@ -246,3 +246,16 @@ describe('OpenRig on the phone (docs/mockups/ledge-openrig-messages.html)', () =
     expect(toPhoneItem(sent).item).toEqual(sent);
   });
 });
+
+describe('background work on the phone (issue #1)', () => {
+  it('passes the background commands, clipped; none when there are none', () => {
+    const T = '2026-11-17T20:00:00.000Z';
+    const s = { id: 's', name: 'Otto', tool: 'claude', cwd: '/w', project: 'w', title: 'Otto', tmuxSession: null, state: 'idle', helpers: [], startedAt: T, lastActivityAt: T, source: 'launcher',
+      background: [{ id: 'toolu_1', label: 'x'.repeat(500), since: T }] } as Session;
+    const p = toPhoneSession(s, T);
+    expect(p.background).toEqual([{ id: 'toolu_1', label: expect.stringMatching(/^x+…?$/), since: T }]);
+    expect(p.background![0]!.label.length).toBeLessThanOrEqual(120);
+    expect(S.safeParse(p).success).toBe(true);
+    expect(toPhoneSession({ ...s, background: undefined }, T)).not.toHaveProperty('background');
+  });
+});
