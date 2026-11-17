@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROJECT_COLORS, ProjectsSchema, normalizePath, parseClientMessage, projectOf, parseServerMessage, projectsProblems, type ProjectColor, type Projects, type Repo } from '../src/index.js';
+import { folderProblems, PROJECT_COLORS, ProjectsSchema, normalizePath, parseClientMessage, projectOf, parseServerMessage, projectsProblems, type ProjectColor, type Projects, type Repo } from '../src/index.js';
 
 const p = (id: string, name: string, repos: Repo[] = [], color: ProjectColor = 'blue') => ({ id, name, color, description: '', repos });
 const r = (machine: string, path: string): Repo => ({ machine, path });
@@ -61,5 +61,22 @@ describe('projectOf', () => {
   it('tolerates a trailing slash in the session cwd', () => { expect(projectOf(at('/w/ledge/'), state)).toBe('a'); });
   it('ignores a rule naming a project that is gone', () => {
     expect(projectOf(at('/tmp/scratch'), { projects: [A], rules: [{ machine: 'local', path: '/tmp/scratch', project: 'zz' }] })).toBeNull();
+  });
+});
+
+describe('a project keeps at least one folder (issue #2)', () => {
+  const p = (id: string, repos: number, extra: object = {}) => ({ id, name: id.toUpperCase(), color: 'blue' as const, description: '', repos: Array.from({ length: repos }, (_, i) => ({ machine: 'local', path: `/w/${id}${i}` })), ...extra });
+  const before = { projects: [p('a', 2), p('b', 1), p('old', 0)] };
+  it('a new project without a folder, a changed one without, and the last folder removed are refused', () => {
+    expect(folderProblems(before, { projects: [...before.projects, p('new', 0)] })).toEqual([{ code: 'folder_required', project: 'new' }]);
+    expect(folderProblems(before, { projects: [p('a', 2), p('b', 0), p('old', 0)] })).toEqual([{ code: 'last_folder', project: 'b' }]);
+    for (const change of [{ name: 'Older' }, { color: 'red' }, { description: 'x' }]) {
+      expect(folderProblems(before, { projects: [p('a', 2), p('b', 1), p('old', 0, change)] })).toEqual([{ code: 'folder_required', project: 'old' }]);
+    }
+  });
+  it('one left as it was, a folder removed but not the last, a folder added, a deletion, a new order: all pass', () => {
+    expect(folderProblems(before, { projects: [p('old', 0), p('b', 1), p('a', 1)] })).toEqual([]);
+    expect(folderProblems(before, { projects: [p('a', 2), p('b', 1), p('old', 1)] })).toEqual([]);
+    expect(folderProblems(before, { projects: [p('a', 2)] })).toEqual([]);
   });
 });

@@ -174,10 +174,66 @@ describe('phone folders: add and remove', () => {
     expect(await challenge(g, 'nope', h)).toEqual({ type: 'error', code: 'invalid', request: 'confirm.prepare' });
   });
 
-  it('removing needs no check: the folder leaves its project, any machine\'s; one it does not have is stale', async () => {
+  it('removing needs no check: the folder leaves its project, any machine\'s; one it does not have is stale; the last one stays (issue #2)', async () => {
     const { g, box } = make();
+    box.state = { ...box.state, projects: box.state.projects.map(p => (p.id === 'ledge' ? { ...p, repos: [...p.repos, { machine: 'local', path: '/w/ledge' }] } : p)) };
     expect(await send(g, { type: 'project.folder.remove', id: 'ledge', machine: 'srv', path: '/srv/ledge' })).toMatchObject({ status: 'applied' });
-    expect(box.state.projects[0]!.repos).toEqual([]);
+    expect(box.state.projects[0]!.repos).toEqual([{ machine: 'local', path: '/w/ledge' }]);
     expect(await send(g, { type: 'project.folder.remove', id: 'ledge', machine: 'srv', path: '/srv/ledge' })).toMatchObject({ status: 'rejected', reason: 'stale' });
+    const sets = box.sets.length;
+    expect(await send(g, { type: 'project.folder.remove', id: 'ledge', machine: 'local', path: '/w/ledge' })).toMatchObject({ status: 'rejected', reason: 'last_folder' });
+    expect(box.sets).toHaveLength(sets);
+  });
+});
+
+describe('phone: a project created with its first folder (issue #2)', () => {
+  const newChallenge = async (g: G, newProject: string, path: string) => {
+    const before = g.got('dev1').length;
+    g.send('dev1', { type: 'confirm.prepare', purpose: 'folder', newProject, path });
+    await flush();
+    return g.got('dev1').slice(before).find(x => x.type === 'confirm.challenge' || x.type === 'error');
+  };
+
+  it('with the device\'s check over that name and folder: created at the end with that folder, named by the PC', async () => {
+    const { g, box, h } = make();
+    const auth = await enroll(g);
+    const path = join(h, 'code', 'ledge');
+    const ch = await newChallenge(g, 'Budget Bots', path);
+    if (ch?.type !== 'confirm.challenge') throw new Error('no challenge');
+    expect(await send(g, { type: 'project.create', name: 'Budget Bots', color: 'violet', path, assertion: auth.get(rp, ch.challenge, { counter: 1 }) })).toMatchObject({ status: 'applied' });
+    expect(box.state.projects.at(-1)).toEqual({ id: 'budget-bots', name: 'Budget Bots', color: 'violet', description: '', repos: [{ machine: 'local', path }] });
+    expect(await send(g, { type: 'project.create', name: 'budget bots', color: 'red', path: join(h, 'code', 'notes') })).toMatchObject({ status: 'rejected', reason: 'name_taken' });
+  });
+
+  it('without a passkey confirm_required; a check for another name or folder is refused; nothing written', async () => {
+    const { g, box, h } = make();
+    const path = join(h, 'code', 'ledge');
+    expect(await send(g, { type: 'project.create', name: 'Paper', color: 'red', path })).toMatchObject({ status: 'rejected', reason: 'confirm_required' });
+    const auth = await enroll(g);
+    const ch = await newChallenge(g, 'Other', path);
+    if (ch?.type !== 'confirm.challenge') throw new Error('no challenge');
+    expect(await send(g, { type: 'project.create', name: 'Paper', color: 'red', path, assertion: auth.get(rp, ch.challenge, { counter: 1 }) })).toMatchObject({ status: 'rejected', reason: 'assertion_invalid' });
+    expect(box.sets).toEqual([]);
+  });
+
+  it('a folder another project has is folder_taken; one that is not there is not_found', async () => {
+    const { g, h } = make();
+    const auth = await enroll(g);
+    let n = 0;
+    for (const [path, reason] of [[join(h, 'code', 'notes'), 'folder_taken'], [join(h, 'nope'), 'not_found']] as const) {
+      const ch = await newChallenge(g, 'Paper', path);
+      if (ch?.type !== 'confirm.challenge') throw new Error('no challenge');
+      expect(await send(g, { type: 'project.create', name: 'Paper', color: 'red', path, assertion: auth.get(rp, ch.challenge, { counter: ++n }) })).toMatchObject({ status: 'rejected', reason });
+    }
+  });
+
+  it('no challenge for a new project without a passkey, nor naming an existing project too', async () => {
+    const { g, h } = make();
+    expect(await newChallenge(g, 'Paper', join(h, 'code', 'ledge'))).toMatchObject({ type: 'error', code: 'invalid' });
+    await enroll(g);
+    const before = g.got('dev1').length;
+    g.send('dev1', { type: 'confirm.prepare', purpose: 'folder', newProject: 'Paper', project: 'ledge', path: join(h, 'code', 'ledge') });
+    await flush();
+    expect(g.got('dev1').slice(before).find(x => x.type === 'error')).toMatchObject({ code: 'invalid' });
   });
 });
