@@ -62,15 +62,24 @@ const ReportContext = {
   log: z.boolean().optional()
 };
 
-/** What would be attached, as the daemon reads it now: the items, and the log excerpt as it would go (redacted). */
+/**
+ * What would be attached, as the daemon reads it now: the items, and the log excerpt as it would go (redacted) with its `logId`,
+ * which the creation sends back so the excerpt the user saw is the one that goes (never a reread log). `login`: the GitHub account
+ * `gh` creates the issue with, absent when gh is not signed in to github.com or cannot tell.
+ */
 export const ReportPreviewSchema = z.object({ type: z.literal('report.preview'), ...ReportContext }).strict();
 export const ReportPreviewReplySchema = z.object({
-  type: z.literal('report.preview.reply'), requestId: z.string(), items: z.array(ReportItemSchema), log: z.string().optional()
+  type: z.literal('report.preview.reply'), requestId: z.string(), items: z.array(ReportItemSchema), log: z.string().optional(),
+  logId: z.string().optional(), login: z.string().max(100).optional()
 });
 
-/** Creates the issue: the title and fields as the user wrote them, without the items they took out (`omit`). */
+/**
+ * Creates the issue: the title and fields as the user wrote them, without the items they took out (`omit`). With `log` (a bug),
+ * `logId` is the preview's: that very excerpt goes. Without `logId` no excerpt goes (none was shown); unknown or expired, nothing is
+ * created (`log_stale`, preview again).
+ */
 export const ReportCreateSchema = z.object({
-  type: z.literal('report.create'), ...ReportContext,
+  type: z.literal('report.create'), ...ReportContext, logId: z.string().min(1).max(100).optional(),
   title: z.string().trim().min(1).max(REPORT_TITLE_MAX),
   fields: ReportFieldsSchema,
   omit: z.array(ReportItemKeySchema).max(6).optional()
@@ -78,12 +87,12 @@ export const ReportCreateSchema = z.object({
 /**
  * Created: its number and address; the agent's report it answered is closed, the agent told. Not created: `no_gh` (gh is missing
  * or not signed in to github.com), `refused` (GitHub or gh refused it, `message` redacted), `stale` (the agent's report is no longer
- * open), `invalid`; with `url`, the prefilled « new issue » page the front opens for the user to validate there.
+ * open), `log_stale` (the excerpt shown is unknown or expired: preview again), `invalid`; with `url`, the prefilled « new issue » page the front opens for the user to validate there.
  */
 export const ReportCreatedSchema = z.object({
   type: z.literal('report.created'), requestId: z.string(), ok: z.boolean(),
   number: z.number().int().positive().optional(), url: z.string().url().optional(),
-  code: z.enum(['no_gh', 'refused', 'stale', 'invalid']).optional(), message: z.string().max(500).optional()
+  code: z.enum(['no_gh', 'refused', 'stale', 'log_stale', 'invalid']).optional(), message: z.string().max(500).optional()
 });
 
 /** « Ignorer » on an agent's report: closed without an issue, the agent told. */

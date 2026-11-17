@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,11 +112,15 @@ describe('reports through the daemon', () => {
       async listSessions() { return [...panes]; }, async setOption() {}, async killSession(n) { panes.delete(n); }, attachArgs: n => ['attach', n] };
   };
   let srv: Awaited<ReturnType<typeof startServer>>; let c: Client; let store: Store;
-  const gh = { calls: [] as string[][], answer: { code: 0 as number | null, stdout: 'https://github.com/kl-ledge/ledge/issues/21\n', stderr: '' }, ready: true };
+  const gh = { calls: [] as string[][], bodies: [] as string[], logins: 0, login: 'paradow\n', answer: { code: 0 as number | null, stdout: 'https://github.com/kl-ledge/ledge/issues/21\n', stderr: '' }, ready: true };
   const srvReport: { run: ForgeRun } = { run: async () => ({ code: 1, stdout: '', stderr: '' }) };
   beforeEach(async () => {
-    srvReport.run = async (_f, args) => { gh.calls.push(args); return gh.answer; };
-    gh.calls = []; gh.answer = { code: 0, stdout: 'https://github.com/kl-ledge/ledge/issues/21\n', stderr: '' }; gh.ready = true;
+    srvReport.run = async (_f, args, o) => {
+      // `gh api user` (the login a preview shows) apart from the creations.
+      if (args[0] === 'api') { gh.logins++; return { code: 0, stdout: gh.login, stderr: '' }; }
+      gh.calls.push(args); gh.bodies.push(o?.input ?? ''); return gh.answer;
+    };
+    gh.calls = []; gh.bodies = []; gh.logins = 0; gh.login = 'paradow\n'; gh.answer = { code: 0, stdout: 'https://github.com/kl-ledge/ledge/issues/21\n', stderr: '' }; gh.ready = true;
     store = new Store();
     writeFileSync(join(home, 'daemon.log'), `boot in ${home}/x\n`);
     srv = await startServer({ store, tmux: fakeTmux(), port: 0, home, close: { freeMs: 50, exitMs: 50 }, agentEnv: async () => ({ ...process.env }),
@@ -137,9 +141,44 @@ describe('reports through the daemon', () => {
     expect(p.log).not.toContain(home);
     c.send({ type: 'report.preview', requestId: 'p2', kind: 'feature', log: true });
     expect((await c.next('report.preview.reply', 3000)).log).toBeUndefined();
-    c.send({ type: 'report.create', requestId: 'c', kind: 'bug', title: 'Ça plante', fields: { happened: 'x' }, session: s, desktop: '0.61.0', omit: ['system'], log: true });
+    expect(p.login).toBe('paradow');
+    expect(p.logId).toEqual(expect.any(String));
+    // Lines written after the preview never go: the excerpt sent is the one shown (review of fda04b1b).
+    appendFileSync(join(home, 'daemon.log'), 'secret written after the preview\n');
+    c.send({ type: 'report.create', requestId: 'c', kind: 'bug', title: 'Ça plante', fields: { happened: 'x' }, session: s, desktop: '0.61.0', omit: ['system'], log: true, logId: p.logId });
     expect(await c.next('report.created', 3000)).toMatchObject({ ok: true, number: 21, url: 'https://github.com/kl-ledge/ledge/issues/21' });
     expect(gh.calls[0]).toEqual(['issue', 'create', '-R', 'kl-ledge/ledge', '--title=Ça plante', '--label', 'bug', '--body-file', '-']);
+    expect(gh.bodies[0]).toContain(p.log!);
+    expect(gh.bodies[0]).not.toContain('secret written after the preview');
+  });
+
+  it('the excerpt shown or none: an unknown logId creates nothing, no logId sends no excerpt', async () => {
+    c.send({ type: 'report.create', requestId: 'c', kind: 'bug', title: 'x', fields: { happened: 'x' }, log: true, logId: 'not-a-preview' });
+    expect(await c.next('report.created', 3000)).toMatchObject({ ok: false, code: 'log_stale' });
+    expect(gh.calls).toEqual([]);
+    c.send({ type: 'report.create', requestId: 'd', kind: 'bug', title: 'x', fields: { happened: 'x' }, log: true });
+    expect(await c.next('report.created', 3000)).toMatchObject({ ok: true });
+    expect(gh.bodies[0]).not.toContain('Extrait du journal');
+    expect(gh.bodies[0]).not.toContain('boot in');
+  });
+
+  it('the GitHub login in the preview, read once for a while; none when gh is not signed in or answers nonsense', async () => {
+    c.send({ type: 'report.preview', requestId: 'p', kind: 'feature' });
+    expect((await c.next('report.preview.reply', 3000)).login).toBe('paradow');
+    c.send({ type: 'report.preview', requestId: 'p2', kind: 'feature' });
+    expect((await c.next('report.preview.reply', 3000)).login).toBe('paradow');
+    expect(gh.logins).toBe(1);
+  });
+  it('no login when gh is not signed in to github.com', async () => {
+    gh.ready = false;
+    c.send({ type: 'report.preview', requestId: 'p', kind: 'feature' });
+    expect((await c.next('report.preview.reply', 3000)).login).toBeUndefined();
+    expect(gh.logins).toBe(0);
+  });
+  it('no login when gh answers something that is not one', async () => {
+    gh.login = '{"message":"Bad credentials"}\n';
+    c.send({ type: 'report.preview', requestId: 'p', kind: 'feature' });
+    expect((await c.next('report.preview.reply', 3000)).login).toBeUndefined();
   });
 
   it('without gh: not created, the prefilled page answered; nothing for an unknown agent report', async () => {

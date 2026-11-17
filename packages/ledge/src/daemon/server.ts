@@ -219,7 +219,7 @@ const REPORTS_OPEN_MAX = 5;
 
 export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
   /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
-  report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string };
+  report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
   /** The pull and merge requests of the sessions' branches (lot 8a): the daemon's own, started with it; tests give one or none. */ forge?: ForgeService;
   /** The operator (journal, wakes, points in every chat thread): the daemon's own; tests leave it out, so no wake ever runs a harness. */ operator?: boolean;
@@ -1235,6 +1235,37 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   /** Reports (issue #9): `gh` as the forge reads run it, ready when installed and signed in to github.com. */
   const reportRun: ForgeRun = opts.report?.run ?? execForge(agentEnv);
   const reportReady = opts.report?.ready ?? (async () => { const e = await agentEnv(); return (await installedCli('gh', e)) && (await signedInHosts('gh', e)).has('github.com'); });
+  /** The GitHub account gh creates issues with (`gh api user`, the env's token included), kept 5 minutes; undefined when gh cannot tell. */
+  let reportLoginSeen: { value: string | undefined; at: number } | undefined;
+  const reportLogin = opts.report?.login ?? (async (): Promise<string | undefined> => {
+    if (reportLoginSeen && Date.now() - reportLoginSeen.at < 5 * 60_000) return reportLoginSeen.value;
+    let value: string | undefined;
+    if (await reportReady().catch(() => false)) {
+      const r = await reportRun('gh', ['api', 'user', '--hostname', 'github.com', '--jq', '.login'], { timeoutMs: 5_000 }).catch(() => undefined);
+      const v = r?.code === 0 ? r.stdout.trim() : '';
+      value = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/.test(v) ? v : undefined;
+    }
+    reportLoginSeen = { value, at: Date.now() };
+    return value;
+  });
+  /**
+   * The log excerpts previews showed, by `logId`: a creation sends exactly the one the user saw, never the log read again (review of
+   * fda04b1b). Kept an hour, the last REPORT_EXCERPTS_MAX only.
+   */
+  const reportExcerpts = new Map<string, { text: string; at: number }>();
+  const REPORT_EXCERPT_MS = 60 * 60_000, REPORT_EXCERPTS_MAX = 20;
+  function keepExcerpt(text: string): string {
+    const now = Date.now();
+    for (const [k, v] of reportExcerpts) if (now - v.at > REPORT_EXCERPT_MS) reportExcerpts.delete(k);
+    while (reportExcerpts.size >= REPORT_EXCERPTS_MAX) reportExcerpts.delete(reportExcerpts.keys().next().value as string);
+    const id = randomUUID();
+    reportExcerpts.set(id, { text, at: now });
+    return id;
+  }
+  function shownExcerpt(id: string | undefined): string | undefined {
+    const e = id !== undefined ? reportExcerpts.get(id) : undefined;
+    return e && Date.now() - e.at <= REPORT_EXCERPT_MS ? e.text : undefined;
+  }
   /** What a report attaches now (mockup card 2): the Desktop's and the daemon's versions, the system, the session's tool; for an
    *  agent's report, its session and project too. Names and versions only. */
   async function reportItems(m: { desktop?: string; session?: string; task?: string }): Promise<ReportItem[]> {
@@ -1753,11 +1784,19 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }
       case 'report.preview': {
         const items = await reportItems(msg);
-        const excerpt = msg.log && msg.kind === 'bug' ? await logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : undefined;
-        return reply({ type: 'report.preview.reply', requestId: msg.requestId, items, ...(excerpt ? { log: excerpt } : {}) });
+        const [excerpt, login] = await Promise.all([
+          msg.log && msg.kind === 'bug' ? logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : Promise.resolve(undefined),
+          reportLogin().catch(() => undefined)
+        ]);
+        return reply({ type: 'report.preview.reply', requestId: msg.requestId, items, ...(excerpt ? { log: excerpt, logId: keepExcerpt(excerpt) } : {}), ...(login ? { login } : {}) });
       }
       case 'report.create': {
         const answer = (x: Omit<Extract<ServerMessage, { type: 'report.created' }>, 'type' | 'requestId'>) => reply({ type: 'report.created', requestId: msg.requestId, ...x });
+        // The excerpt goes as the preview showed it, or nothing is created (review of fda04b1b): never lines the user did not see.
+        // No logId: the preview showed no excerpt, none goes. An unknown or expired one: nothing is created, the front previews again.
+        const withLog = msg.log === true && msg.kind === 'bug' && msg.logId !== undefined;
+        const excerpt = withLog ? shownExcerpt(msg.logId) : undefined;
+        if (withLog && excerpt === undefined) return answer({ ok: false, code: 'log_stale' });
         const t = msg.task !== undefined ? tasks.all().find(x => x.id === msg.task) : undefined;
         // One creation per agent's report: a second click while gh works is stale too (review of 2449e9fa).
         if (msg.task !== undefined && (!t?.report || taskClosed(t) || reportsCreating.has(t.id))) return answer({ ok: false, code: 'stale' });
@@ -1765,7 +1804,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         try {
           const omit = new Set(msg.omit ?? []);
           const items = (await reportItems(msg)).filter(i => !omit.has(i.key));
-          const excerpt = msg.log && msg.kind === 'bug' ? await logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : undefined;
           const body = issueBody(msg.fields, items, excerpt || undefined, t?.report?.session);
           const out = await createIssue({ run: reportRun, ready: reportReady }, msg.kind, msg.title, body);
           // The agent's report is answered either way: created, or handed to the user to validate on GitHub.
