@@ -2450,6 +2450,29 @@ describe('projects', () => {
     expect(existsSync(paths().projects)).toBe(false);
     a.close(); b.close(); await s.close();
   });
+  it('refuses a project without a folder and the removal of a last folder, typed (issue #2); an old one without stays, and goes', async () => {
+    const old = { projects: [...projectsState.projects, { id: 'site', name: 'Site', color: 'amber', description: '', repos: [] }], rules: projectsState.rules };
+    writeProjects(old as Projects);
+    const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0 });
+    const a = await open(s.port); const got = collect(a);
+    await until(() => got.some(m => m.type === 'projects'));
+    const set = async (projects: object) => {
+      const n = got.length;
+      a.send(JSON.stringify({ type: 'projects.set', projects }));
+      await until(() => got.slice(n).some(m => m.type === 'error' || m.type === 'projects'));
+      return got.slice(n).find(m => m.type === 'error' || m.type === 'projects');
+    };
+    const fresh = { id: 'paper', name: 'Paper', color: 'red', description: '', repos: [] };
+    expect(await set({ ...old, projects: [...old.projects, fresh] })).toMatchObject({ type: 'error', request: 'projects.set', code: 'folder_required', id: 'paper' });
+    expect(await set({ ...old, projects: [{ ...old.projects[0], repos: [] }, old.projects[1]] })).toMatchObject({ type: 'error', code: 'last_folder', id: 'ledge' });
+    expect(await set({ ...old, projects: [old.projects[0], { ...old.projects[1], name: 'Website' }] })).toMatchObject({ type: 'error', code: 'folder_required', id: 'site' });
+    expect(JSON.parse(readFileSync(paths().projects, 'utf8'))).toEqual(old);
+    // Left as it was (another project changed, or the order), it stays; deleted, it goes.
+    const reordered = { ...old, projects: [old.projects[1], { ...old.projects[0], color: 'pink' }] };
+    expect(await set(reordered)).toMatchObject({ type: 'projects', projects: reordered });
+    expect(await set({ ...old, projects: [old.projects[0]] })).toMatchObject({ type: 'projects' });
+    a.close(); await s.close();
+  });
   it('the chat reads the projects the daemon holds at each question: a later projects.set is in the next context', async () => {
     const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0, agentEnv: async () => ({ ...process.env, FAKE_CLAUDE_MODE: 'projects' }), claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))] });
     const ws = await open(s.port); const got = collect(ws);

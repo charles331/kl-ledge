@@ -107,16 +107,15 @@ describe('phone projects: edit, order, create', () => {
     }
   });
 
-  it('creates an empty project named by the PC, at the end, and refuses a name taken', async () => {
+  it('never creates a project without its first folder (issue #2): an older phone\'s create is folder_required, nothing written', async () => {
     const { g, box } = make();
-    expect(await send(g, { type: 'project.create', name: 'Budget Bots', color: 'violet' })).toMatchObject({ status: 'applied' });
-    expect(box.state.projects.at(-1)).toEqual({ id: 'budget-bots', name: 'Budget Bots', color: 'violet', description: '', repos: [] });
-    expect(await send(g, { type: 'project.create', name: 'budget bots', color: 'red' })).toMatchObject({ status: 'rejected', reason: 'name_taken' });
+    expect(await send(g, { type: 'project.create', name: 'Budget Bots', color: 'violet' })).toMatchObject({ status: 'rejected', reason: 'folder_required' });
+    expect(box.sets).toEqual([]);
   });
 
   it('a refusal of the daemon is the operation\'s, never its words', async () => {
     const { g } = make({ refuse: true });
-    expect(await send(g, { type: 'project.create', name: 'X', color: 'red' })).toMatchObject({ status: 'failed' });
+    expect(await send(g, { type: 'project.edit', id: 'bots', color: 'red' })).toMatchObject({ status: 'failed' });
     expect(JSON.stringify(g.got('dev1'))).not.toContain('/home/u');
   });
 });

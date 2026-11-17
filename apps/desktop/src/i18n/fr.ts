@@ -8,6 +8,7 @@ import type { PlanDoc, ToolKind, Verb } from '../session/exchanges';
 import type { Change } from '../session/changedFiles';
 import type { FinishedNotify, SoundCategory, SoundVolume } from '@ledge/ui/sounds/preferences';
 import type { SshProblem, Summary, Why } from '@ledge/fleet';
+import type { SaveRefusal } from '../projects/useProjectSave';
 import type { ScanStep } from '../projects/useLedgeScan';
 import type { DraftProblem } from '../settings/machineDrafts';
 import type { SaveOutcome } from '../settings/useMachineEditor';
@@ -568,7 +569,7 @@ export const fr = {
     projects: {
       title: 'Projets',
       note: 'Un projet regroupe des dépôts de travail, sur une ou plusieurs machines, et leurs conversations. Sa table apparaît dans l’atelier dès qu’un agent y travaille.',
-      noRepo: 'Aucun dossier ni dépôt', edit: 'Modifier', editLabel: (n: string) => `Modifier ${n}`, delete: 'Supprimer', deleteLabel: (n: string) => `Supprimer ${n}`,
+      noRepo: 'Aucun dossier : à compléter', addFolder: 'Ajouter un dossier', addFolderLabel: (n: string) => `Ajouter un dossier à ${n}`, edit: 'Modifier', editLabel: (n: string) => `Modifier ${n}`, delete: 'Supprimer', deleteLabel: (n: string) => `Supprimer ${n}`,
       add: 'Nouveau projet',
       rules: 'Dossiers mémorisés',
       rulesNote: 'Quand vous rangez un agent sans projet à une table, Ledge retient son dossier : les prochaines sessions qui y démarrent rejoignent le même projet.',
@@ -1305,16 +1306,23 @@ export const fr = {
     name: 'Nom', namePlaceholder: 'Ex. Paper Rendering', color: 'Couleur',
     colors: { blue: 'Bleu', green: 'Vert', amber: 'Ambre', violet: 'Violet', teal: 'Sarcelle', pink: 'Rose', red: 'Rouge', slate: 'Ardoise' } as Record<ProjectColor, string>,
     description: 'Description', optional: 'facultatif', descriptionPlaceholder: 'Une phrase qui dit à quoi sert le projet',
-    repos: (n: number) => `Dossiers et dépôts de travail · ${n}`, branchTitle: 'Branche par défaut détectée', noGit: 'Dossier sans Git',
+    // Issue #2 (docs/mockups/ledge-project-folders.html) : les dossiers, obligatoires et visibles.
+    folders: 'Dossiers du projet', required: 'obligatoire',
+    foldersHint: 'Les dossiers où travaillent les agents de ce projet. Ledge y range les sessions qui s’y lancent.',
+    kept: 'Retenus', add: 'Ajouter un dossier', closeBrowser: 'Fermer le navigateur',
+    none: 'Aucun dossier retenu pour l’instant. Choisissez-en un ci-dessous.', noneErr: 'Aucun dossier retenu. Ajoutez-en au moins un ci-dessous.',
+    bannerTitle: 'Ce projet n’a aucun dossier.', bannerBody: 'Ajoutez-en un pour pouvoir enregistrer vos changements. Supprimer le projet reste possible.',
+    previewNone: 'aucun dossier', branchTitle: 'Branche par défaut détectée', noGit: 'Dossier sans Git',
     notFound: 'introuvable', offline: 'hors ligne', remove: (n: string, m: string) => `Retirer ${n} (${m})`, addRepo: 'Ajouter un dossier ou un dépôt',
-    empty: 'Aucun dossier ni dépôt pour l’instant. Le projet peut exister sans, mais Ledge ne saura pas y ranger les sessions.',
     fileToo: 'Ranger aussi',
-    problems: { name_empty: 'Donnez un nom au projet', name_taken: 'Ce nom est déjà utilisé par un autre projet', repo_duplicate: 'Ce dossier est en double', gone: 'Ce projet a été supprimé entre-temps',
+    problems: { name_empty: 'Donnez un nom au projet', no_folder: 'Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.', name_taken: 'Ce nom est déjà utilisé par un autre projet', repo_duplicate: 'Ce dossier est en double', gone: 'Ce projet a été supprimé entre-temps',
       repo_taken: (p: string) => `Ce dossier est déjà dans ${p}` },
     refused: {
       offline: 'Le daemon local est hors ligne : rien n’a été enregistré.', outdated: 'Le daemon local est trop ancien pour les projets : mettez-le à jour.',
-      invalid: 'Le daemon a refusé ce projet.', timeout: 'Le daemon n’a pas confirmé l’enregistrement.'
-    } as Record<'offline' | 'outdated' | 'invalid' | 'timeout', string>,
+      invalid: 'Le daemon a refusé ce projet.', timeout: 'Le daemon n’a pas confirmé l’enregistrement.',
+      folder_required: 'Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.',
+      last_folder: 'Un projet garde au moins un dossier. Ajoutez-en un autre avant de retirer celui-ci, ou supprimez le projet.'
+    } as Record<SaveRefusal, string>,
     preview: (n: number, ms: string) => `${n} dépôt${plural(n, '', 's')}${ms ? ` sur ${ms}` : ''}`, firstSession: ' · la table apparaîtra avec la première session', newName: 'Nouveau projet',
     create: 'Créer le projet', save: 'Enregistrer', saving: 'Enregistrement…', cancel: 'Annuler', deleteProject: 'Supprimer le projet',
     saved: (n: string) => `${n} enregistré.`,

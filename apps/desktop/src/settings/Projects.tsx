@@ -63,7 +63,7 @@ export function Projects({ ctx }: { ctx: SettingsContext }): JSX.Element {
               <div className="project-main">
                 <strong title={p.name}>{p.name}</strong>
                 <span className="repo-chips">
-                  {p.repos.length === 0 ? <span className="set-hint">{c.noRepo}</span> : p.repos.map(r => {
+                  {p.repos.length === 0 ? <span className="set-warn project-norepo">{c.noRepo}</span> : p.repos.map(r => {
                     const branch = branches.get(keyOf(r)) ?? null;
                     return (
                       <span key={keyOf(r)} className="set-tag" title={`${r.path} · ${labelOf(r.machine)}${branch ? ` · ⎇ ${branch}` : ''}`}>
@@ -75,6 +75,8 @@ export function Projects({ ctx }: { ctx: SettingsContext }): JSX.Element {
               </div>
               <span className="set-hint project-count">{t.side.agents(agents)}</span>
               <span className="project-actions">
+                {/* Issue #2: a project saved without a folder before the rule: « Ajouter un dossier » opens the editor on the browser. */}
+                {p.repos.length === 0 && <Button size="sm" variant="outline" aria-label={c.addFolderLabel(p.name)} onClick={() => dispatch({ type: 'modal', modal: { kind: 'project', edit: p.id, addFolder: true } })}>{c.addFolder}</Button>}
                 <Button size="sm" variant="ghost" aria-label={c.editLabel(p.name)} onClick={() => dispatch({ type: 'modal', modal: { kind: 'project', edit: p.id } })}>{c.edit}</Button>
                 <Button size="sm" variant="ghost" aria-label={c.deleteLabel(p.name)} onClick={() => dispatch({ type: 'modal', modal: { kind: 'project', edit: p.id, delete: true } })}>{c.delete}</Button>
               </span>
@@ -126,7 +128,7 @@ function RememberedFolders({ ctx, state, labelOf }: { ctx: SettingsContext; stat
               {state.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <Button size="sm" variant="ghost" aria-label={c.forgetLabel(r.path)} disabled={saving} onClick={() => forget(r)}>{c.forget}</Button>
-            {save.status === 'refused' && tried === key && <p className="set-error" role="alert">{c.refused[save.reason]}</p>}
+            {save.status === 'refused' && tried === key && <p className="set-error" role="alert">{save.reason in c.refused ? c.refused[save.reason as keyof typeof c.refused] : c.refused.invalid}</p>}
           </article>
         );
       })}

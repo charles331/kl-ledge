@@ -43,7 +43,7 @@ describe('the project editor: a new project from the sidebar', () => {
     await user.click(dialog.getByRole('button', { name: 'New folder' }));
     await user.type(dialog.getByRole('textbox', { name: 'Name of the new folder in /home/me on Local' }), 'atlas{Enter}');
     await waitFor(() => expect(list.getByRole('button', { name: 'Add atlas (Local)' })).toHaveFocus());
-    expect(dialog.getByText('Working folders and repositories · 0')).toBeVisible();
+    expect(dialog.getByText('Kept · 0')).toBeVisible();
     await user.keyboard('{Enter}');
     expect(dialog.getByRole('button', { name: 'Remove atlas (Local)' })).toBeVisible();
     expect(d.received.filter(m => m.type === 'folder.create')).toEqual([expect.objectContaining({ parent: '/home/me', name: 'atlas', requestId: expect.any(String) })]);
@@ -59,7 +59,7 @@ describe('the project editor: a new project from the sidebar', () => {
     expect(name).toHaveAttribute('placeholder', 'E.g. Paper Rendering');
     expect(dialog.getByRole('textbox', { name: /^Description/ })).toHaveAttribute('maxLength', '120');
     const list = within(await dialog.findByRole('list', { name: 'Contents of /home/me on Local' }));
-    expect(dialog.getByText('Working folders and repositories · 0')).toBeVisible();
+    expect(dialog.getByText('Kept · 0')).toBeVisible();
     // The browser is open: no « No folder or repository yet », no « Add a folder or repository ».
     expect(document.querySelector('p.pe-empty')).toBeNull();
     expect(dialog.queryByRole('button', { name: 'Add a folder or repository' })).toBeNull();
@@ -77,13 +77,15 @@ describe('the project editor: a new project from the sidebar', () => {
 
     d.holdProjects();
     await user.type(name, 'Paper Rendering');
-    expect(dialog.queryByRole('alert')).toBeNull();
+    // Named, still no folder (issue #2): the footer now says what to do, until a folder is kept.
+    expect(dialog.getByRole('alert')).toHaveTextContent('Add at least one folder to the project: without one, Ledge cannot file its sessions.');
     await user.click(list.getByRole('button', { name: 'Add paper (Local)' }));
+    expect(dialog.queryByRole('alert')).toBeNull();
     const row = dialog.getByRole('button', { name: 'Remove paper (Local)' }).closest('li')!;
     expect(within(row).getByText('⎇ main')).toHaveAttribute('title', 'Default branch detected');
     expect(row.querySelector('code')).toHaveTextContent('/home/me/paper');
     expect(row.querySelector('.pe-machine')).toHaveTextContent('Local');
-    expect(dialog.getByText('Working folders and repositories · 1')).toBeVisible();
+    expect(dialog.getByText('Kept · 1')).toBeVisible();
     expect(document.querySelector('.pe .composer-preview')!.textContent).toBe('Paper Rendering1 repository on Local · the table appears with the first session');
 
     await user.click(dialog.getByRole('button', { name: /^Create the project/ }));
@@ -102,6 +104,7 @@ describe('the project editor: a new project from the sidebar', () => {
   it('the broadcast that holds it closes the editor and says so; the sidebar shows the project with its first session', async () => {
     const { side, user, dialog, name } = await openNew();
     await user.type(name, 'Paper Rendering');
+    await user.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
     await user.click(dialog.getByRole('button', { name: /^Create the project/ }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(notice()).toHaveTextContent('Project Paper Rendering created. It appears in the sidebar and the atelier with its first session.');
@@ -112,6 +115,7 @@ describe('the project editor: a new project from the sidebar', () => {
   it('a daemon that never confirms: 8 s later the editor says so, and the values stay', async () => {
     const { d, side, dialog, name } = await openNew();
     fireEvent.change(name, { target: { value: 'Paper Rendering' } });
+    fireEvent.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
     d.holdProjects();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     fireEvent.click(dialog.getByRole('button', { name: /^Create the project/ }));
@@ -135,6 +139,7 @@ describe('the project editor: a new project from the sidebar', () => {
   it('a confirming broadcast that comes after the 8 s, the editor still open, closes it and says so', async () => {
     const { d, side, dialog, name } = await openNew();
     fireEvent.change(name, { target: { value: 'Paper Rendering' } });
+    fireEvent.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
     d.holdProjects();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     fireEvent.click(dialog.getByRole('button', { name: /^Create the project/ }));
@@ -152,6 +157,7 @@ describe('the project editor: a new project from the sidebar', () => {
   it('edited after the 8 s: the late confirmation keeps the editor open with the newer values, now on the project it created; Save sends them', async () => {
     const { d, side, dialog, name } = await openNew();
     fireEvent.change(name, { target: { value: 'Paper Rendering' } });
+    fireEvent.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
     d.holdProjects();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     fireEvent.click(dialog.getByRole('button', { name: /^Create the project/ }));
@@ -173,7 +179,7 @@ describe('the project editor: a new project from the sidebar', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(setsOf(d)).toHaveLength(2);
     expect(setsOf(d)[1]!.projects.projects).toHaveLength(4);
-    expect(setsOf(d)[1]!.projects.projects[3]).toEqual({ id: 'paper-rendering', name: 'Paper Rendering', color: 'violet', description: 'Fonts and pages', repos: [] });
+    expect(setsOf(d)[1]!.projects.projects[3]).toEqual({ id: 'paper-rendering', name: 'Paper Rendering', color: 'violet', description: 'Fonts and pages', repos: [{ machine: 'local', path: '/home/me/paper' }] });
     expect(notice()).toHaveTextContent('Paper Rendering saved.');
   });
 
@@ -196,14 +202,14 @@ describe('the project editor: a new project from the sidebar', () => {
   });
 
   it('the local daemon offline: the editor says nothing was saved; the fleet refused before sending', async () => {
-    const { d, side, user, client } = await boot();
+    // Named and with a folder (issue #2) while the daemon answers, then it goes.
+    const { d, user, client, dialog, name } = await openNew();
     const setProjects = vi.spyOn(client.fleet!, 'setProjects');
+    await user.type(name, 'Paper Rendering');
+    await user.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
     await d.close();
     // The IDE has no machine list in its sidebar: the fleet says the local daemon is gone.
     await waitFor(() => expect(client.fleet!.machines().find(m => m.id === 'local')?.ready).toBe(false));
-    await openProjectEditor(user);
-    const dialog = within(screen.getByRole('dialog', { name: 'New project' }));
-    await user.type(dialog.getByRole('textbox', { name: 'Name' }), 'Paper Rendering');
     await user.click(dialog.getByRole('button', { name: /^Create the project/ }));
     expect(dialog.getByRole('alert')).toHaveTextContent('The local daemon is offline: nothing was saved.');
     expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('Paper Rendering');
@@ -245,7 +251,7 @@ describe('the project editor: editing a project', () => {
     expect(name).toHaveFocus();
     expect(dialog.getByRole('textbox', { name: /^Description/ })).toHaveValue('Agents at work');
     expect(dialog.getByRole('radio', { name: 'Blue' })).toBeChecked();
-    expect(dialog.getByText('Working folders and repositories · 4')).toBeVisible();
+    expect(dialog.getByText('Kept · 4')).toBeVisible();
     // The browser stays closed for a project that has repositories.
     expect(dialog.queryByRole('radiogroup', { name: 'Machine to browse' })).toBeNull();
     expect(dialog.getByRole('button', { name: 'Add a folder or repository' })).toBeVisible();
@@ -278,7 +284,7 @@ describe('the project editor: editing a project', () => {
   it('« Remove » takes a repository out of the draft; saving sends the list without it', async () => {
     const { d, user, dialog } = await editLedge();
     await user.click(dialog.getByRole('button', { name: 'Remove gone (Local)' }));
-    expect(dialog.getByText('Working folders and repositories · 3')).toBeVisible();
+    expect(dialog.getByText('Kept · 3')).toBeVisible();
     await user.click(dialog.getByRole('button', { name: /^Save/ }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(setsOf(d)[0]!.projects.projects[0]!.repos).toEqual([{ machine: 'local', path: '/w/ledge' }, { machine: 'local', path: '/w/notes' }, { machine: 'dev', path: '/srv/ledge' }]);
@@ -293,7 +299,7 @@ describe('the project editor: editing a project', () => {
     await user.keyboard('{Enter}');
     expect(dialog.getByRole('button', { name: 'Remove ledge (Local)' })).toHaveFocus();
     await user.keyboard('{Enter}');
-    expect(dialog.getByText('Working folders and repositories · 0')).toBeVisible();
+    expect(dialog.getByText('Kept · 0')).toBeVisible();
     expect(dialog.getByRole('button', { name: 'Add a folder or repository' })).toHaveFocus();
   });
 
@@ -313,7 +319,7 @@ describe('the project editor: editing a project', () => {
     d.projects({ ...EDITED, projects: [ledge!, { ...docs!, repos: [...docs!.repos, { machine: 'local', path: '/w/extra' }] }] });
     await waitFor(() => expect(within(extra).getByText('This folder is already in Docs')).toHaveClass('set-error'));
     expect(within(extra).getByText('Folder without Git')).toBeVisible();
-    expect(dialog.getByText('Working folders and repositories · 5')).toBeVisible();
+    expect(dialog.getByText('Kept · 5')).toBeVisible();
     await user.click(dialog.getByRole('button', { name: /^Save/ }));
     const alert = dialog.getByRole('alert');
     expect(alert).toHaveTextContent('This folder is already in Docs');
@@ -377,7 +383,7 @@ describe('the project editor: « Move to › New project… »', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'New project' }));
     const row = dialog.getByRole('button', { name: 'Remove tmp (Local)' }).closest('li')!;
     expect(row.querySelector('code')).toHaveTextContent('/tmp');
-    expect(dialog.getByText('Working folders and repositories · 1')).toBeVisible();
+    expect(dialog.getByText('Kept · 1')).toBeVisible();
     expect(dialog.queryByRole('radiogroup', { name: 'Machine to browse' })).toBeNull();
     expect(dialog.getByText('Also file')).toBeVisible();
     const kit = dialog.getByRole('checkbox', { name: 'Kit' });
@@ -553,5 +559,62 @@ describe('useProjectSave', () => {
     act(() => result.current.send(next, holds, vi.fn()));
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// Issue #2 (docs/mockups/ledge-project-folders.html): a project has at least one folder, and where to add them shows.
+describe('the project editor: folders required (issue #2)', () => {
+  it('saving without a folder: blocked, the footer says what to do, the section turns red, the browser\'s first « Add » takes the focus', async () => {
+    const { d, user, dialog, name } = await openNew();
+    expect(dialog.getByText('Project folders')).toBeVisible();
+    expect(dialog.getByText('required')).toBeVisible();
+    expect(dialog.getByText('Kept · 0')).toBeVisible();
+    expect(dialog.getByText('No folder kept yet. Pick one below.')).toBeVisible();
+    expect(document.querySelector('.pe .composer-preview small')).toHaveTextContent('no folder');
+    await user.type(name, 'Paper');
+    await ctrlEnter(user);
+    expect(dialog.getByRole('alert')).toHaveTextContent('Add at least one folder to the project: without one, Ledge cannot file its sessions.');
+    expect(document.querySelector('.pe-repos')).toHaveClass('err');
+    expect(dialog.getByText('No folder kept. Add at least one below.')).toBeVisible();
+    await waitFor(() => expect(dialog.getByRole('button', { name: 'Add paper (Local)' })).toHaveFocus());
+    await tick();
+    expect(setsOf(d)).toEqual([]);
+    // Closed, the browser opens again on the next try.
+    await user.click(dialog.getByRole('button', { name: 'Close the browser' }));
+    expect(dialog.queryByRole('button', { name: 'Add paper (Local)' })).toBeNull();
+    await waitFor(() => expect(dialog.getByRole('button', { name: 'Add a folder or repository' })).toHaveFocus());
+    await ctrlEnter(user);
+    await waitFor(() => expect(dialog.getByRole('button', { name: 'Add paper (Local)' })).toHaveFocus());
+    await user.click(dialog.getByRole('button', { name: 'Add paper (Local)' }));
+    expect(dialog.queryByRole('alert')).toBeNull();
+    expect(document.querySelector('.pe-repos')).not.toHaveClass('err');
+    expect(dialog.getByRole('button', { name: 'Remove paper (Local)' }).closest('li')).toHaveClass('fresh');
+  });
+
+  it('a project saved without a folder before the rule: the banner, and saving it is blocked until one is kept', async () => {
+    const projects: Projects = { projects: [...PROJECTS.projects.slice(0, 2), { ...PROJECTS.projects[2]!, repos: [] }], rules: [] };
+    const setProjects = vi.fn();
+    const client = { send: vi.fn(), request: vi.fn(() => new Promise(() => {})), on: vi.fn(() => () => {}) } as unknown as DaemonClient;
+    render(<LangProvider lang="en"><ProjectDialog edit="docs" projects={projects} sessions={[]} machines={[]} client={client} fleet={{ setProjects }}
+      projectIdOf={() => null} onClose={vi.fn()} onSaved={vi.fn()} onDeleted={vi.fn()} /></LangProvider>);
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit Docs' }));
+    expect(dialog.getByRole('status')).toHaveTextContent('This project has no folder.Add one to be able to save your changes. Deleting the project is still possible.');
+    fireEvent.click(dialog.getByRole('button', { name: /^Save/ }));
+    expect(dialog.getByRole('alert')).toHaveTextContent('Add at least one folder to the project');
+    expect(setProjects).not.toHaveBeenCalled();
+    // Deleting stays possible.
+    expect(dialog.getByRole('button', { name: 'Delete the project' })).toBeEnabled();
+  });
+
+  it('the daemon\'s refusal of a project without a folder ends the save at once, with its sentence', async () => {
+    const { d, user, dialog, name } = await openNew();
+    await user.type(name, 'Paper');
+    await user.click(await dialog.findByRole('button', { name: 'Add paper (Local)' }));
+    d.holdProjects();
+    await user.click(dialog.getByRole('button', { name: /^Create the project/ }));
+    await waitFor(() => expect(setsOf(d)).toHaveLength(1));
+    d.reply({ type: 'error', request: 'projects.set', code: 'last_folder', id: 'paper', message: 'last folder' } as never);
+    await waitFor(() => expect(dialog.getByRole('alert')).toHaveTextContent('A project keeps at least one folder. Add another before removing this one, or delete the project.'));
+    expect(dialog.getByRole('button', { name: /^Create the project/ })).toBeVisible();
   });
 });
