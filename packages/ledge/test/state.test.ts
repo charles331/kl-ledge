@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Session, SessionEvent, SessionState } from '@ledge/protocol';
-import { doingOf, pendingKey, RUNNING_MAX } from '@ledge/protocol';
-import { reduce, answeredBy, doingLabel, HOOK_PRIORITY_MS } from '../src/daemon/state.js';
+import { backgroundOf, doingOf, pendingKey, RUNNING_MAX } from '@ledge/protocol';
+import { reduce, answeredBy, doingLabel, HOOK_PRIORITY_MS, taskNotifications } from '../src/daemon/state.js';
 import { riskOf } from '../src/mobile/risk.js';
 
 const T0 = '2026-10-09T18:00:00.000Z';
@@ -191,7 +191,7 @@ describe('reduce: pending rules', () => {
   it('Cursor Agent helpers: the Task names one, the subagent takes it over, the parent moving on ends it', () => {
     let s = reduce(session('working', { tool: 'cursor' }), ev('SubagentStart', { helperId: 'task:c1', tool: 'explore', text: 'Read notes' }));
     s = reduce(s, ev('SubagentStart', { helperId: 'b335' }));
-    expect(s.helpers).toEqual([{ id: 'b335', kind: 'explore', task: 'Read notes', state: 'working' }]);
+    expect(s.helpers).toEqual([{ id: 'b335', kind: 'explore', task: 'Read notes', state: 'working', lastAt: later(5000) }]);
     expect(reduce(s, ev('SubagentStart', { helperId: 'task:c2', tool: 'explore', text: 'another' })).helpers[0]!.state).toBe('working');
     for (const e of [ev('PreToolUse', { tool: 'Shell' }), ev('PostToolUse', { tool: 'Read' }), ev('Stop'), ev('UserPromptSubmit')]) {
       expect(reduce(s, e).helpers[0]!.state).toBe('exited');
@@ -494,18 +494,18 @@ describe('reduce: helpers (subagents)', () => {
   const start = (id = 'a1', extra: Partial<SessionEvent> = {}) => ev('SubagentStart', { helperId: id, tool: 'Explore', text: 'Find the hook mapper', ...extra });
   it('SubagentStart adds a working helper with its type and task', () => {
     const next = reduce(session('working'), start());
-    expect(next.helpers).toEqual([{ id: 'a1', kind: 'Explore', task: 'Find the hook mapper', state: 'working' }]);
+    expect(next.helpers).toEqual([{ id: 'a1', kind: 'Explore', task: 'Find the hook mapper', state: 'working', lastAt: later(5000) }]);
     expect(next.state).toBe('working');
   });
   it('SubagentStart without a type or task uses subagent and an empty task', () => {
     const next = reduce(session('working'), ev('SubagentStart', { helperId: 'a1' }));
-    expect(next.helpers).toEqual([{ id: 'a1', kind: 'subagent', task: '', state: 'working' }]);
+    expect(next.helpers).toEqual([{ id: 'a1', kind: 'subagent', task: '', state: 'working', lastAt: later(5000) }]);
   });
   it('SubagentStart again for the same id updates in place (stable id, no duplicate)', () => {
     const s = reduce(reduce(session('working'), start('a1')), start('a2'));
     const next = reduce(s, start('a1', { tool: 'Plan', text: '', at: later(9000) }));
     expect(next.helpers.map(h => h.id)).toEqual(['a1', 'a2']);
-    expect(next.helpers[0]).toEqual({ id: 'a1', kind: 'Plan', task: 'Find the hook mapper', state: 'working' });
+    expect(next.helpers[0]).toEqual({ id: 'a1', kind: 'Plan', task: 'Find the hook mapper', state: 'working', lastAt: later(9000) });
   });
   it('SubagentStop marks the helper exited and keeps it', () => {
     const s = reduce(reduce(session('working'), start('a1')), start('a2'));
@@ -553,7 +553,7 @@ describe('reduce: helpers (subagents)', () => {
   });
   it('Codex: tool runs of a helper never started are still tracked', () => {
     expect(reduce(session('working', { tool: 'codex' }), ev('PreToolUse', { tool: 'Bash', helperId: 'zz' })).helpers)
-      .toEqual([{ id: 'zz', kind: 'subagent', task: '', state: 'working' }]);
+      .toEqual([{ id: 'zz', kind: 'subagent', task: '', state: 'working', lastAt: later(5000) }]);
   });
 });
 
@@ -959,5 +959,110 @@ describe('reduce: the tools the agent is running (running, doingOf)', () => {
     expect(cut.endsWith('…')).toBe(true);
     expect(reduce(session('working'), pre('Task', '')).running![0]!.label).toBe('Task');
     expect(doingLabel(`${'a'.repeat(118)}😀b`)).toBe(`${'a'.repeat(118)}…`);
+  });
+});
+
+describe('background work (issue #1)', () => {
+  const note = (callId: string, taskId = 'b1x') => `<task-notification>\n<task-id>${taskId}</task-id>\n<tool-use-id>${callId}</tool-use-id>\n<output-file>/tmp/x/${taskId}.output</output-file>\n<status>completed</status>\n<summary>Background command "x" completed (exit code 0)</summary>\n</task-notification>`;
+  const bg = (s: Session, id: string, input: Record<string, unknown>, at = later(1000)) => [
+    ev('PreToolUse', { tool: 'Bash', toolUseId: id, text: String(input.command ?? ''), toolInput: input, at }),
+    ev('PostToolUse', { tool: 'Bash', toolUseId: id, toolInput: input, output: '', at })
+  ].reduce(reduce, s);
+
+  it('keeps a Bash left in the background past the turn, with its description, until its notification', () => {
+    let s = bg(session('working'), 'toolu_1', { command: 'pnpm install --frozen-lockfile', description: 'Install dependencies', run_in_background: true });
+    expect(s.background).toEqual([{ id: 'toolu_1', label: 'Install dependencies', since: later(1000) }]);
+    expect(s.running).toBeUndefined();
+    s = reduce(s, ev('Stop', { at: later(2000) }));
+    expect(s.state).toBe('idle');
+    expect(backgroundOf(s)).toEqual({ subagents: 0, commands: [{ id: 'toolu_1', label: 'Install dependencies', since: later(1000) }] });
+    s = reduce(s, ev('UserPromptSubmit', { text: note('toolu_1'), at: later(3000) }));
+    expect(s).not.toHaveProperty('background');
+    expect(backgroundOf(s)).toBeUndefined();
+  });
+
+  it('labels one without a description by its command, ignores a foreground Bash, a helper\'s, another tool\'s', () => {
+    let s = bg(session('working'), 'toolu_2', { command: 'npm run dev\n# second line', run_in_background: true });
+    expect(s.background!.map(c => c.label)).toEqual(['npm run dev']);
+    s = bg(s, 'toolu_3', { command: 'ls' });
+    s = reduce(s, ev('PostToolUse', { tool: 'Bash', toolUseId: 'toolu_4', helperId: 'h', toolInput: { command: 'sleep 9', run_in_background: true } }));
+    s = reduce(s, ev('PostToolUse', { tool: 'Agent', toolUseId: 'toolu_5', toolInput: { prompt: 'x', run_in_background: true } }));
+    expect(s.background!.map(c => c.id)).toEqual(['toolu_2']);
+  });
+
+  it('a notification for a background agent ends its helper, even with its SubagentStop lost; several notifications in one prompt', () => {
+    let s = reduce(session('working'), ev('SubagentStart', { helperId: 'a4978', at: later(1000) }));
+    s = bg(s, 'toolu_6', { command: 'sleep 60', run_in_background: true });
+    s = reduce(s, ev('Stop', { at: later(2000) }));
+    expect(backgroundOf(s)).toMatchObject({ subagents: 1, commands: [{ id: 'toolu_6' }] });
+    s = reduce(s, ev('UserPromptSubmit', { text: `${note('toolu_9', 'a4978')}\n${note('toolu_6')}`, at: later(3000) }));
+    expect(s.helpers[0]).toMatchObject({ state: 'exited', finishedAt: later(3000) });
+    expect(backgroundOf(s)).toBeUndefined();
+  });
+
+  it('the session\'s end drops its background commands; an exited session has no background', () => {
+    const s = bg(session('working'), 'toolu_7', { command: 'sleep 60', run_in_background: true });
+    const ended = reduce(s, ev('SessionEnd', { at: later(2000) }));
+    expect(ended).not.toHaveProperty('background');
+    expect(backgroundOf({ ...s, state: 'exited' })).toBeUndefined();
+  });
+
+  it('dates a helper by its own events (lastAt), and counts helpers at work while the parent rests', () => {
+    let s = reduce(session('working'), ev('SubagentStart', { helperId: 'h', at: later(1000) }));
+    s = reduce(s, ev('PreToolUse', { helperId: 'h', tool: 'Read', at: later(4000) }));
+    expect(s.helpers[0]!.lastAt).toBe(later(4000));
+    s = reduce(s, ev('Stop', { at: later(5000) }));
+    expect(s.state).toBe('idle');
+    expect(backgroundOf(s)).toEqual({ subagents: 1, commands: [] });
+    s = reduce(s, ev('SubagentStop', { helperId: 'h', at: later(6000) }));
+    expect(s.helpers[0]!.lastAt).toBe(later(4000));
+    expect(backgroundOf(s)).toBeUndefined();
+  });
+
+  it('reads the ids of each <task-notification> a prompt carries, and nothing from plain text', () => {
+    expect(taskNotifications(`${note('toolu_1', 'b1')} and ${note('toolu_2', 'b2')}`)).toEqual([{ taskId: 'b1', toolUseId: 'toolu_1' }, { taskId: 'b2', toolUseId: 'toolu_2' }]);
+    expect(taskNotifications('<task-notification> arrives when the workflow completes')).toEqual([]);
+  });
+});
+
+describe('background work from Claude Code\'s own hook payloads (issue #1)', () => {
+  it('maps the PostToolUse of a background Bash and its <task-notification> prompt (shapes from a real session, 2026-11-17)', async () => {
+    const { mapClaudeHook } = await import('../src/cli/hook.js');
+    const common = { session_id: 'ae48', transcript_path: '/tmp/t.jsonl', cwd: '/w' };
+    const input = { command: 'pnpm install --frozen-lockfile 2>&1 | tail -2', description: 'Install dependencies in the #1 worktree', run_in_background: true };
+    const pre = mapClaudeHook('PreToolUse', { ...common, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: input, tool_use_id: 'toolu_012Bj' }, later(1000))!;
+    const post = mapClaudeHook('PostToolUse', { ...common, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: input, tool_use_id: 'toolu_012Bj',
+      tool_response: { stdout: '', stderr: '', interrupted: false, isImage: false, noOutputExpected: false, backgroundTaskId: 'bcmjbe4t1' } }, later(1100))!;
+    const prompt = '<task-notification>\n<task-id>bcmjbe4t1</task-id>\n<tool-use-id>toolu_012Bj</tool-use-id>\n<output-file>/tmp/claude-1000/x/tasks/bcmjbe4t1.output</output-file>\n<status>completed</status>\n<summary>Background command "Install dependencies in the #1 worktree" completed (exit code 0)</summary>\n</task-notification>';
+    const done = mapClaudeHook('UserPromptSubmit', { ...common, hook_event_name: 'UserPromptSubmit', prompt }, later(5000))!;
+    let s = [pre.event, post.event, ev('Stop', { at: later(1200) })].reduce(reduce, session('working'));
+    expect(backgroundOf(s)?.commands).toEqual([{ id: 'toolu_012Bj', label: 'Install dependencies in the #1 worktree', since: later(1100), taskId: 'bcmjbe4t1' }]);
+    s = reduce(s, done.event);
+    expect(backgroundOf(s)).toBeUndefined();
+  });
+
+  it('a TaskStop of the agent ends its background command, which gets no notification (shapes from a real session, review M1)', async () => {
+    const { mapClaudeHook } = await import('../src/cli/hook.js');
+    const common = { session_id: 'ae48', transcript_path: '/tmp/t.jsonl', cwd: '/w' };
+    const input = { command: 'sleep 300', run_in_background: true };
+    const post = mapClaudeHook('PostToolUse', { ...common, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: input, tool_use_id: 'toolu_bg',
+      tool_response: { stdout: '', stderr: '', interrupted: false, isImage: false, noOutputExpected: false, backgroundTaskId: 'b6i6663lr' } }, later(1000))!;
+    const stop = mapClaudeHook('PostToolUse', { ...common, hook_event_name: 'PostToolUse', tool_name: 'TaskStop', tool_input: { task_id: 'b6i6663lr' }, tool_use_id: 'toolu_stop',
+      tool_response: { message: 'Successfully stopped task: b6i6663lr (sleep 300)', task_id: 'b6i6663lr', task_type: 'local_bash', command: 'sleep 300' } }, later(2000))!;
+    let s = reduce(session('working'), post.event);
+    expect(s.background).toEqual([{ id: 'toolu_bg', label: 'sleep 300', since: later(1000), taskId: 'b6i6663lr' }]);
+    s = reduce(s, stop.event);
+    expect(s).not.toHaveProperty('background');
+  });
+
+  it('a TaskStop (or KillShell) naming a background agent ends its helper; one naming nothing known changes nothing', () => {
+    let s = reduce(session('working'), ev('SubagentStart', { helperId: 'a4978', at: later(1000) }));
+    s = reduce(s, ev('PostToolUse', { tool: 'Bash', toolUseId: 't1', toolInput: { command: 'npm run dev', run_in_background: true }, backgroundTaskId: 'bdev' }));
+    const same = reduce(s, ev('PostToolUse', { tool: 'TaskStop', toolInput: { task_id: 'unknown' } }));
+    expect(backgroundOf(same)).toMatchObject({ subagents: 1, commands: [{ id: 't1' }] });
+    s = reduce(s, ev('PostToolUse', { tool: 'TaskStop', toolInput: { task_id: 'a4978' }, at: later(7000) }));
+    expect(s.helpers[0]).toMatchObject({ state: 'exited', finishedAt: later(7000) });
+    s = reduce(s, ev('PostToolUse', { tool: 'KillShell', toolInput: { shell_id: 'bdev' } }));
+    expect(backgroundOf(s)).toBeUndefined();
   });
 });

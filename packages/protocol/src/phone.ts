@@ -148,6 +148,8 @@ export const PHONE_RIG_NAME_MAX = 100;
 export const PhoneSessionSchema = SwitchableSessionSchema.pick({
   id: true, name: true, tool: true, project: true, title: true, topic: true, repo: true, branch: true, worktree: true,
   state: true, helpers: true, lastReply: true, startedAt: true, lastActivityAt: true,
+  /** The commands its agent left running in the background (issue #1): with its helpers at work, `backgroundOf`. */
+  background: true,
   /** Who answered its last request, so « Déjà traitée » can say where. */
   lastAnswer: true,
   /** Its model, effort and the change waiting for its next free moment: the phone shows them and offers to change them. */

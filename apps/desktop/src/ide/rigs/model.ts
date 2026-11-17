@@ -1,18 +1,21 @@
 import type { HumanAsk, OpenRigAction, OpenRigState, Rig, RigSeat, Session } from '@ledge/protocol';
 import type { MachineState } from '@ledge/fleet';
 import { isAskSeat } from '../../asks/model';
+import { restingWithWork } from '../../session/background';
 import { commandsOf, isRunning, kernelRig, listedRigs, workingSeats } from '../../openrig/model';
 
 /** The IDE's Rigs view (docs/mockups/ledge-ide-rigs.html) as pure functions: one machine's rows, the machine menu, a confirmation. */
 
-export type RigDot = 'perm' | 'ask' | 'work' | 'idle' | 'off';
+/** `bg` (issue #1): available, with work in the background (subagents at work, a background command). */
+export type RigDot = 'perm' | 'ask' | 'work' | 'bg' | 'idle' | 'off';
 /** `role`: the seat's role (its logicalId, « dev.agent »), shown beside the session's name; none when the name is already it. */
 export interface SeatLine { logicalId: string; name: string; role?: string; dot: RigDot; session?: Session; ctx?: number }
-export interface RigLine { name: string; running: boolean; dot: RigDot; count: number; seats: SeatLine[] }
+/** `background` (issue #1): its seats available with work in the background. */
+export interface RigLine { name: string; running: boolean; dot: RigDot; count: number; background: number; seats: SeatLine[] }
 export interface RigsView { status: 'loading' | 'offline' | 'absent' | 'stopped' | 'running'; version?: string; kernel: RigLine | null; rigs: RigLine[] }
 
 /** Worst first. */
-const ORDER: readonly RigDot[] = ['perm', 'ask', 'work', 'idle', 'off'];
+const ORDER: readonly RigDot[] = ['perm', 'ask', 'work', 'bg', 'idle', 'off'];
 const worst = (dots: readonly RigDot[]): RigDot => ORDER.find(d => dots.includes(d)) ?? 'idle';
 
 /** A seat's dot. Joined to a Ledge session: its state (and the asks it has raised). Not joined: what OpenRig says of the seat (`activity` running → work, `stopped` → off). */
@@ -21,7 +24,7 @@ export function seatDot(session: Session | undefined, node: { activity: string; 
   const asking = asks.some(a => isAskSeat(session, a.from.seat, machine));
   return session.state === 'waiting_permission' || session.state === 'error' ? 'perm'
     : session.state === 'waiting_input' || asking ? 'ask'
-    : session.state === 'working' || session.state === 'starting' ? 'work' : 'idle';
+    : session.state === 'working' || session.state === 'starting' ? 'work' : restingWithWork(session) ? 'bg' : 'idle';
 }
 
 export function seatLine(node: RigSeat, machine: string, sessions: readonly Session[], asks: readonly HumanAsk[]): SeatLine {
@@ -32,9 +35,10 @@ export function seatLine(node: RigSeat, machine: string, sessions: readonly Sess
 }
 
 function rigLine(r: Rig, machine: string, sessions: readonly Session[], asks: readonly HumanAsk[]): RigLine {
-  if (!isRunning(r)) return { name: r.name, running: false, dot: 'off', count: 0, seats: [] };
+  if (!isRunning(r)) return { name: r.name, running: false, dot: 'off', count: 0, background: 0, seats: [] };
   const seats = r.nodes.map(n => seatLine(n, machine, sessions, asks));
-  return { name: r.name, running: true, dot: worst(seats.map(s => s.dot)), count: r.nodes.length, seats };
+  // The rig's own dot is as before (a seat in the background counts as available); its count says how many are (issue #1).
+  return { name: r.name, running: true, dot: worst(seats.map(s => (s.dot === 'bg' ? 'idle' : s.dot))), count: r.nodes.length, background: seats.filter(s => s.dot === 'bg').length, seats };
 }
 
 export function rigsViewOf(input: { state: OpenRigState | undefined; error?: string; machine: string; sessions: readonly Session[]; asks: readonly HumanAsk[] }): RigsView {

@@ -1,4 +1,4 @@
-import { DOING_LABEL_MAX, DOING_TOOL_MAX, doingOf, LEDGE_GIVER, openDecision, pendingKey, PENDING_BODY_MAX, SNAPSHOT_BODY_MAX, taskClosed, THREAD_BUDGET, THREAD_ITEMS_MAX, THREAD_TEXT_MAX, TOOL_TEXT_MAX, TOPIC_MAX, ToolSchema } from '@ledge/protocol';
+import { BACKGROUND_MAX, DOING_LABEL_MAX, DOING_TOOL_MAX, doingOf, LEDGE_GIVER, openDecision, pendingKey, PENDING_BODY_MAX, SNAPSHOT_BODY_MAX, taskClosed, THREAD_BUDGET, THREAD_ITEMS_MAX, THREAD_TEXT_MAX, TOOL_TEXT_MAX, TOPIC_MAX, ToolSchema } from '@ledge/protocol';
 import { EffortSchema, PhoneModelChoiceSchema, type ModelChoice, type PhoneModelChoice } from '@ledge/protocol';
 import { PHONE_COMMANDS_MAX, PhoneSlashCommandSchema, type PhoneSlashCommand, type SlashCommand } from '@ledge/protocol';
 import { CHECKLIST_TASKS_MAX, CHECKLIST_TEXT_MAX, doneCount } from '@ledge/protocol';
@@ -117,6 +117,8 @@ export function toPhoneSession(s: Session, readAt: string, checklist?: PhoneChec
     } } : {}),
     ...(canSwitch(s) ? { canSwitch: true as const } : {}),
     helpers: s.helpers.map(h => ({ id: h.id, kind: h.kind, task: h.task, state: h.state, ...pickSet(h, ['finishedAt']) })),
+    // Cut where it is set already; clipped again so no source can swell a snapshot.
+    ...(s.background?.length ? { background: s.background.slice(-BACKGROUND_MAX).map(c => ({ id: clip(c.id, 100).text, label: clip(c.label, DOING_LABEL_MAX).text, since: c.since })) } : {}),
     // A preview only: the whole reply is in the thread.
     ...(s.lastAnswer ? { lastAnswer: { ...s.lastAnswer, by: s.lastAnswer.by.kind === 'device' ? { ...s.lastAnswer.by, name: clip(s.lastAnswer.by.name, 60).text } : s.lastAnswer.by } } : {}),
     ...(s.lastReply ? { lastReply: { text: clip(s.lastReply.text, TOOL_TEXT_MAX).text, at: s.lastReply.at, ...pickSet(s.lastReply, ['plan']) } } : {}),

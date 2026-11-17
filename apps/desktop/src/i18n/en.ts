@@ -71,6 +71,12 @@ export const en: Messages = {
     kids: (n) => `${n} ${pluralEn(n, 'subagent', 'subagents')}`,
     wt: 'Linked worktree',
     tallyNeed: 'to decide', tallyWork: 'working', tallyOff: 'offline', tallyDone: 'finished',
+    background: 'in the background', tallyBackground: 'in the background',
+    kidsWorking: (n, w) => `${n} ${pluralEn(n, 'subagent', 'subagents')}, ${w} working`,
+    bgTip: {
+      kids: (n) => `Available, but ${n} ${pluralEn(n, 'subagent is', 'subagents are')} still working.`,
+      command: (label) => `Available, but a command started in the background is still running: “${label}”. Ledge can’t tell when it will finish.`
+    },
     ctx: {
       label: (name) => `Actions for ${name}`,
       newHere: 'New session here', broadcast: 'Write to the whole project…', addFolder: 'Add a folder…', edit: 'Edit project…',
@@ -1393,6 +1399,8 @@ export const en: Messages = {
     settingOff: 'IDE interface (preview) off',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
     rigsView: {
+      background: (n) => `${n} in the background`,
+      seatBgTip: (n) => `Available · ${n} ${pluralEn(n, 'subagent', 'subagents')} working`,
       launch: 'Launch', launchTitle: 'Launch a rig…', shownMachine: (label: string) => `Shown machine: ${label}`, machine: (label) => `Machine: ${label}`, machines: 'Machines',
       local: 'local', ssh: 'SSH', manage: 'Manage machines…', add: 'Add a machine',
       runningRigs: (n) => (n === 1 ? '1 rig running' : `${n} rigs running`), openrigStopped: 'OpenRig stopped',

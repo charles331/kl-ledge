@@ -91,11 +91,13 @@ Raccourcis principaux :
 
 Les sessions par projet, puis par branche. Un clic ouvre une session ; le clic droit propose « Ouvrir », « Ouvrir à droite », son terminal, « Envoyer un message… » et « Gérer la session ». Le menu d'un projet propose « Nouvelle session ici », « Écrire à tout le projet… », « Ajouter un dossier… » et « Modifier le projet… ». `Ctrl`+clic choisit plusieurs sessions, pour leur écrire d'un coup. On range une session en la glissant sur un projet. En bas, les **Archives**, repliables : les sessions archivées, avec leur projet et leur ancienneté. Une archive s'ouvre en lecture seule, avec « Reprendre ».
 
+Une session disponible dont l'agent travaille encore en arrière-plan prend un petit anneau bleu sur son logo, et sa ligne dit pourquoi : le compteur de ses sous-agents passe en bleu tant que l'un travaille, et une commande lancée en arrière-plan (Claude Code) s'affiche sous la tâche, « … · en arrière-plan ». Le survol le redit (« Disponible, mais… »). Le projet compte ces sessions à part, avec un cercle creux bleu. Rien de tel pour Codex et Cursor, que Ledge ne sait pas lire.
+
 Y renvoyer l'utilisateur pour retrouver une session, ou une session archivée.
 
 #### Rigs (`rigs`)
 
-OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). De haut en bas : le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
+OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). De haut en bas : le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. Un siège disponible avec du travail en arrière-plan (sous-agents, commande) a un cercle creux bleu ; son rig en donne le nombre, avant celui de ses sièges. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
 
 Y renvoyer l'utilisateur pour suivre ses rigs et leurs sièges, ou démarrer et arrêter OpenRig, son kernel ou un rig.
 

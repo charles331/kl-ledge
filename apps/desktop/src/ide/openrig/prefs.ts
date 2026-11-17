@@ -95,6 +95,7 @@ export function needsConfirm(action: OpenRigAction, state: OpenRigState, p: Daem
   return rigs.some(r => r.nodes.some(n => {
     const session = live?.sessions.find(s => isAskSeat(s, n.session, live.machine));
     const dot = seatDot(session, n, live?.asks ?? [], live?.machine);
-    return isWorking(n) || dot === 'work' || dot === 'perm' || dot === 'ask';
+    // A seat available with work in the background (issue #1) would lose it too: asked as well.
+    return isWorking(n) || dot === 'work' || dot === 'bg' || dot === 'perm' || dot === 'ask';
   }));
 }

@@ -72,9 +72,31 @@ export const HelperSchema = z.object({
   task: z.string(),
   state: SessionStateSchema,
   /** When this helper finished; retained across daemon restarts until its five-minute expiry. */
-  finishedAt: z.string().datetime().optional()
+  finishedAt: z.string().datetime().optional(),
+  /**
+   * Its last event (issue #1): one at work with none for HELPER_STALE_MS is taken as finished (its SubagentStop lost to a crash or
+   * an Esc). Absent from an older daemon.
+   */
+  lastAt: z.string().datetime().optional()
 });
 export type Helper = z.infer<typeof HelperSchema>;
+/**
+ * How long a helper at work may stay without any event before the daemon takes it as finished (issue #1): longer than one
+ * foreground command a subagent may run (Claude Code's Bash stops at 10 minutes) followed by a long answer of its model.
+ */
+export const HELPER_STALE_MS = 15 * 60 * 1000;
+
+/**
+ * A command the agent left running in the background (issue #1, Claude Code's Bash with `run_in_background`): the call's id, its
+ * description (else its command's first line, cut to DOING_LABEL_MAX), since when. Known from the call's end until the harness says
+ * it finished (its `<task-notification>`), the agent stops it (TaskStop, which sends no notification), or the session ends.
+ */
+export const BackgroundCommandSchema = z.object({ id: z.string(), label: z.string(), since: z.string().datetime(),
+  /** The harness's own id of the background task (what its TaskStop names), when it gave one. */
+  taskId: z.string().optional() });
+export type BackgroundCommand = z.infer<typeof BackgroundCommandSchema>;
+/** The most background commands a session keeps: the newest win. */
+export const BACKGROUND_MAX = 20;
 
 /** Where a session's topic came from: the user's own words win over the pane's conversation title, which wins over the first prompt. */
 export const TopicSourceSchema = z.enum(['user', 'pane', 'prompt']);
@@ -122,6 +144,8 @@ export const SessionSchema =z.object({
   /** Codex (#302): its terminal cannot be captured now; its hook's requests wait at once, as before #302, until it can again. */
   paneUnreadable: z.literal(true).optional(),
   helpers: z.array(HelperSchema).default([]),
+  /** The commands its agent left running in the background, oldest first (issue #1); left out when none. Read it through `backgroundOf`. */
+  background: z.array(BackgroundCommandSchema).optional(),
   /** OMP: the instructions waiting in its own queue (typed while it works), as it reports them; left out when none. */
   queue: z.array(z.object({ text: z.string(), mode: z.enum(['steer', 'follow_up']) })).optional(),
   lastReply: ReplySchema.optional(),
@@ -186,6 +210,21 @@ export function doingOf(s: Pick<Session, 'state' | 'pending' | 'running'>): { to
   if (s.state !== 'working' || s.pending) return undefined;
   const last = s.running?.at(-1);
   return last ? { tool: last.tool, label: last.label, since: last.since } : undefined;
+}
+
+/** A helper still at work (its own tool runs, or a request of its own waiting), whatever its parent does. */
+export const helperAtWork = (h: Pick<Helper, 'state'>): boolean => h.state === 'working' || h.state === 'waiting_permission' || h.state === 'waiting_input';
+
+/**
+ * What a session's agent has going on besides its own turn (issue #1), at rest as much as at work: its helpers (subagents) at
+ * work, and the commands it left running in the background. Undefined when there is neither. Only what its harness reports: Claude
+ * Code (subagents and background commands), OMP launched by Ledge (subagents); nothing for Codex or Cursor Agent.
+ */
+export function backgroundOf(s: Pick<Session, 'state' | 'helpers' | 'background'>): { subagents: number; commands: BackgroundCommand[] } | undefined {
+  if (s.state === 'exited') return undefined;
+  const subagents = s.helpers.filter(helperAtWork).length;
+  const commands = s.background ?? [];
+  return subagents || commands.length ? { subagents, commands } : undefined;
 }
 
 /** Whether the session sits in the archive. */
