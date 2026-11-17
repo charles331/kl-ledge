@@ -1100,7 +1100,7 @@ export const en: Copy = {
     title: 'MRs and PRs', subtitle: 'GitHub · GitLab',
     notSent: (pc: string) => `${pc} does not send its MRs and PRs to this device yet`,
     notSentBody: 'Ledge follows the branches of the sessions and seats. Their MRs, PRs and pipelines will show here once Ledge is updated on the PC.',
-    tracked: 'Followed: the branches of the sessions and seats, through gh and glab.',
+    tracked: 'The MRs and PRs you created, are assigned or must review, on every connected forge (gh, glab).',
     pane: { title: 'Nothing to show', body: 'An MR or PR and its pipeline open here.' },
     ...prsEn
   },

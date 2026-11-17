@@ -8,6 +8,7 @@ import { clock } from '../../src/screens/Inbox';
 import { forgeState, mr, pr } from '../model/forge-fixtures';
 import { snapshot } from '../state/helpers';
 import { app } from './app-setup';
+import { resetPrsFilter } from '../../src/screens/prs/PrsList';
 
 const C = copy.prs;
 const AT = '2026-11-11T14:12:00.000Z';
@@ -52,7 +53,7 @@ describe('the MR/PR list', () => {
   });
 
   it('folds the merged and closed requests at the bottom', () => {
-    open('#/prs', { state: { prs: [pr(), mr({ state: 'merged', pipeline: 'ok' })] } });
+    open('#/prs', { state: { prs: [pr(), mr({ state: 'merged', pipeline: 'ok', updatedAt: new Date().toISOString() })] } });
     const fold = screen.getByRole('button', { name: C.closedGroup(1) });
     expect(fold.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText(mr().title)).toBeNull();
@@ -99,5 +100,53 @@ describe('a forge the PC cannot read', () => {
   it('says no forge can be read when none can', () => {
     open('#/prs', { state: { prs: [], forges: [{ forge: 'gitlab', host: 'gitlab.acme.dev', status: 'missing', at: AT }] } });
     expect(screen.getByText(C.emptyUnread)).toBeTruthy();
+  });
+});
+
+describe('all of mine, with a filter (issue #3)', () => {
+  const now = new Date().toISOString();
+  const mine = [
+    pr({ id: 'github.com/acme/paper#88', number: 88, ref: '#88', title: 'Rendu des polices variables', repo: 'acme/paper', sessions: [], roles: ['reviewer'], updatedAt: now }),
+    pr({ id: 'github.com/acme/ledge#12', number: 12, ref: '#12', title: 'Clé de mise à jour', sessions: [], roles: ['assignee', 'reviewer'] }),
+    pr({ id: 'github.com/acme/ledge#228', number: 228, ref: '#228', title: 'Groupes liés', state: 'merged', sessions: [], roles: ['author'], updatedAt: now }),
+    pr({ id: 'github.com/acme/ledge#200', number: 200, ref: '#200', title: 'Trop vieille', state: 'merged', sessions: [], roles: ['author'], updatedAt: new Date(Date.now() - 9 * 86_400_000).toISOString() })
+  ];
+  const state = { prs: [mr({ roles: ['author'] }), pr()], mine };
+  const refs = () => within(screen.getByRole('region', { name: C.title })).getAllByRole('link').map(l => l.querySelector('b')?.textContent);
+
+  it('lists the followed and the account\'s own, roles and « branche suivie » as pills, the counts of the open ones', () => {
+    resetPrsFilter();
+    open('#/prs', { state });
+    expect(refs()).toEqual(['#88', '!41', '#231', '#12']);
+    const rows = within(screen.getByRole('region', { name: C.title })).getAllByRole('link');
+    expect([...rows[1]!.querySelectorAll('[data-role-pill]')].map(p => p.textContent)).toEqual([C.pill.author, C.pill.tracked]);
+    expect([...rows[3]!.querySelectorAll('[data-role-pill]')].map(p => p.textContent)).toEqual([C.pill.assignee, C.pill.reviewer]);
+    const roles = within(screen.getByRole('group', { name: C.rolesLabel })).getAllByRole('button');
+    expect(roles.map(b => b.textContent)).toEqual([`${C.roles.all}4`, `${C.roles.author}1`, `${C.roles.assignee}1`, `${C.roles.reviewer}2`]);
+    // The merged of the last 7 days only.
+    expect(screen.getByRole('button', { name: C.closedGroup(1) })).toBeTruthy();
+  });
+
+  it('filters by role and searches; nothing matching offers to clear; the filter outlives the screen', () => {
+    resetPrsFilter();
+    open('#/prs', { state });
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${C.roles.reviewer}`) }));
+    expect(refs()).toEqual(['#88', '#12']);
+    expect(screen.getByText(C.openHead(2))).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox', { name: C.search }), { target: { value: 'POLICES' } });
+    expect(refs()).toEqual(['#88']);
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '!999' } });
+    expect(screen.getByText(C.none)).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    // Another app (as after a tab change): the same filter.
+    open('#/prs', { state });
+    expect(screen.getAllByRole('button', { name: new RegExp(`^${C.roles.reviewer}`) }).at(-1)!.getAttribute('aria-pressed')).toBe('true');
+    resetPrsFilter();
+  });
+
+  it('opens one of the account\'s own requests like a followed one', () => {
+    resetPrsFilter();
+    open(`#/prs/${encodeURIComponent(mine[0]!.id)}`, { state });
+    expect(screen.getAllByText(/Rendu des polices variables/).length).toBeGreaterThan(0);
   });
 });

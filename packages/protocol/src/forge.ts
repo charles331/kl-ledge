@@ -200,3 +200,32 @@ export type ForgeDetailReply = z.infer<typeof ForgeDetailReplySchema>;
 /** `command`: what was run; a refusal carries its `code` (`not_offered` with the reason, `stale`, `busy`, `unavailable`). */
 export const ForgeActReplySchema = z.object({ type: z.literal('forge.act.reply'), requestId: z.string(), ok: z.boolean(), command: z.string().optional(), message: z.string().optional(), code: RefusalCodeSchema.optional() });
 export type ForgeActReply = z.infer<typeof ForgeActReplySchema>;
+
+/** The account's roles in their order (author, assignee, reviewer). */
+export const PR_ROLE_ORDER: readonly PrRole[] = PR_ROLES;
+
+// Issue #3 (docs/mockups/ledge-prs-mine.html): the filter of « MR et PR », the same on Desktop and the phone.
+/** How long the merged and closed requests stay listed after their last change (issue #3, the user's choice: 7 days). */
+export const CLOSED_KEEP_DAYS = 7;
+export const CLOSED_KEEP_MS = CLOSED_KEEP_DAYS * 24 * 60 * 60_000;
+/** The merged and closed ones of the last CLOSED_KEEP_MS, most recently updated first. */
+export const closedPrs = <T extends PullRequest>(prs: readonly T[], now: number): T[] =>
+  prs.filter(p => (p.state === 'merged' || p.state === 'closed') && !(Date.parse(p.updatedAt) < now - CLOSED_KEEP_MS))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+/** The role filter of « MR et PR »: every request, or those where the account has that role. */
+export type PrRoleFilter = 'all' | PrRole;
+export const PR_ROLE_FILTERS: readonly PrRoleFilter[] = ['all', ...PR_ROLES];
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/** The requests of that role whose ref, title or repository holds the query (case and accents aside; blank: all). */
+export function filterPrs<T extends PullRequest>(prs: readonly T[], role: PrRoleFilter, query: string): T[] {
+  const q = fold(query.trim());
+  return prs.filter(p => (role === 'all' || (p.roles ?? []).includes(role)) && (q === '' || fold(`${p.ref} ${p.title} ${p.repo}`).includes(q)));
+}
+/** Each filter's count: the open requests only, whatever the search (the user's choice: it shows where to look). */
+export function prRoleCounts(prs: readonly PullRequest[]): Record<PrRoleFilter, number> {
+  const open = prs.filter(p => p.state === 'draft' || p.state === 'open' || p.state === 'review');
+  const n = (r: PrRole) => open.filter(p => (p.roles ?? []).includes(r)).length;
+  return { all: open.length, author: n('author'), assignee: n('assignee'), reviewer: n('reviewer') };
+}
+

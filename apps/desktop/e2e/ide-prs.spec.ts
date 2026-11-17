@@ -63,7 +63,8 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(page.locator('.ide-status-prs')).toContainText('1 pipeline échoué');
     await button.click();
     const view = page.getByRole('region', { name: 'MR et PR' });
-    await expect(view.locator('.fg-row')).toHaveCount(3);
+    // Two open; the merged #219 is older than the 7 days kept (issue #3), and the closed ones are folded anyway.
+    await expect(view.locator('.fg-row')).toHaveCount(2);
     await expect(view.locator('.fg-row').first()).toContainText('!41');
     await expect(view.locator('.fg-row').first()).toContainText('GitLab · synapse · ouverte · Tom · pipeline échoué · 1 comm.');
     await view.locator('.fg-row').first().click();

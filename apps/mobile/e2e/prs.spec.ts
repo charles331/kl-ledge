@@ -18,7 +18,9 @@ test.describe.configure({ mode: 'serial' });
 const T = '2026-11-11T10:05:00.000Z';
 const front = { id: 's-front', name: 'dev-front', tool: 'claude' as const, project: 'ledge', repo: 'ledge', title: 'dev-front · ledge', state: 'working' as const, helpers: [], startedAt: T, lastActivityAt: T, unread: false };
 const tom = { ...front, id: 's-tom', name: 'Tom', tool: 'omp' as const, project: 'synapse', repo: 'synapse', title: 'Tom · synapse' };
-const merged = pr({ id: 'github.com/acme/ledge#222', number: 222, ref: '#222', title: 'Terminal de siège : capture et copie', state: 'merged', branch: 'feat/seat-term', url: 'https://github.com/acme/ledge/pull/222' });
+const merged = pr({ id: 'github.com/acme/ledge#222', number: 222, ref: '#222', title: 'Terminal de siège : capture et copie', state: 'merged', branch: 'feat/seat-term', url: 'https://github.com/acme/ledge/pull/222',
+  // Issue #3: the merged and closed ones stay 7 days; this one was merged a moment ago.
+  updatedAt: new Date(Date.now() - 60_000).toISOString() });
 
 /** The failed merge request with the mockup's discussion: a review thread with its line, a comment on the request, one resolved. */
 const threads: PrDetail['threads'] = [
@@ -76,6 +78,30 @@ for (const lang of ['fr', 'en'] as const) {
     const C = copyFor(lang).prs;
     test.describe(`on a phone, ${theme}, ${lang}`, () => {
       test.use(iPhone13);
+      test('issue #3: all of mine, the role filter and the search', async ({ page }) => {
+        const tag = `phone-${theme}-${lang}`;
+        const recent = new Date(Date.now() - 3_600_000).toISOString();
+        h.daemon.forge!.state = forgeState({
+          prs: [mr({ roles: ['author'] }), pr(), merged],
+          mine: [
+            pr({ id: 'github.com/acme/paper#88', number: 88, ref: '#88', title: 'Rendu des polices variables dans le PDF', repo: 'acme/paper-rendering', sessions: [], roles: ['reviewer'], pipeline: 'fail', openThreads: 5, updatedAt: recent }),
+            pr({ id: 'github.com/kl/ledge#12', number: 12, ref: '#12', title: 'Clé de mise à jour : nouvelle paire', repo: 'kl/ledge', sessions: [], roles: ['assignee', 'reviewer'], state: 'review' }),
+            pr({ id: 'gitlab.acme.dev/front#77', forge: 'gitlab', host: 'gitlab.acme.dev', number: 77, ref: '!77', title: 'Refus d’un IBAN vide', repo: 'team/speos-front', sessions: [], roles: ['author'], state: 'draft', pipeline: 'wait' })
+          ]
+        });
+        await pair(page, theme, lang);
+        await go(page, '#/prs');
+        await expect(page.locator('[data-pr]')).toHaveCount(5);
+        await expect(page.getByRole('group', { name: C.rolesLabel }).getByRole('button')).toHaveText([`${C.roles.all}5`, `${C.roles.author}2`, `${C.roles.assignee}1`, `${C.roles.reviewer}2`]);
+        await shot(page, `mine-all-${tag}`);
+        await page.getByRole('button', { name: new RegExp(`^${C.roles.reviewer}`) }).click();
+        await expect(page.locator('[data-pr]')).toHaveCount(2);
+        await shot(page, `mine-review-${tag}`);
+        await page.getByRole('searchbox', { name: C.search }).fill('!999');
+        await expect(page.getByText(C.none)).toBeVisible();
+        await shot(page, `mine-none-${tag}`);
+      });
+
       test('the list, a failed MR and its four views, a ready PR, a merged one, À toi', async ({ page }) => {
         const tag = `phone-${theme}-${lang}`;
         await pair(page, theme, lang);

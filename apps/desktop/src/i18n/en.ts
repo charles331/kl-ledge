@@ -1573,8 +1573,13 @@ export const en: Messages = {
   },
   // Merge and pull requests (lot 8b).
   forge: {
-    view: 'MRs and PRs', hosts: 'GitHub · GitLab', merged: 'Merged',
-    foot: 'Followed: the branches of the sessions and seats, through gh and glab. Click: the MR or PR in a tab.',
+    view: 'MRs and PRs', hosts: 'GitHub · GitLab',
+    foot: 'The MRs and PRs you created, are assigned or must review, on every connected forge (gh, glab). Click: the MR or PR in a tab.',
+    search: 'Search: ref, title, repository', rolesLabel: 'Role',
+    roles: { all: 'All', author: 'Created', assignee: 'Assigned', reviewer: 'To review' },
+    pill: { author: 'created', assignee: 'assigned', reviewer: 'to review', tracked: 'tracked branch' },
+    closedFor: (n, days) => `Merged and closed · ${n} · last ${days} days`,
+    none: 'No MR or PR matches.', clear: 'Clear the filter',
     rowTip: 'Click: open · Ctrl+click: to the right',
     host: { github: 'GitHub', gitlab: 'GitLab' },
     kind: { github: 'GitHub · PR', gitlab: 'GitLab · MR' },

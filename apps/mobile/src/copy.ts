@@ -1133,7 +1133,7 @@ const fr = {
     title: 'MR et PR', subtitle: 'GitHub · GitLab',
     notSent: (pc: string) => `${pc} ne transmet pas encore ses MR et PR à cet appareil`,
     notSentBody: 'Ledge suit les branches des sessions et des sièges. Leurs MR, PR et pipelines s’afficheront ici une fois Ledge mis à jour sur le PC.',
-    tracked: 'Suivies : les branches des sessions et des sièges, via gh et glab.',
+    tracked: 'Les MR et PR que tu as créées, qui te sont assignées ou que tu dois relire, sur chaque forge connectée (gh, glab).',
     pane: { title: 'Rien à afficher', body: 'Une MR ou une PR et son pipeline s’ouvrent ici.' },
     ...prsFr
   },

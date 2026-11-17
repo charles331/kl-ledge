@@ -128,3 +128,29 @@
 .ide-bar .fg-chip-unknown, .fg-chip-unknown { border: 1px dashed var(--input); border-radius: 5px; padding: 0 5px; color: var(--muted-foreground); }
 /* The tab scrolls as a whole: its blocks keep their height (a flex column would squeeze them, the view switch first). */
 .fg-page > * { flex-shrink: 0; }
+
+/* Issue #3 (docs/mockups/ledge-prs-mine.html): the search, the role filter and its counts, the role pills, the folded closed ones. */
+.fg-flt { display: flex; flex-direction: column; gap: 6px; padding: 2px 8px 8px; border-bottom: 1px solid var(--border); flex: none; }
+.fg-q { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 1px solid var(--input); border-radius: 6px; color: var(--muted-foreground); }
+.fg-q:focus-within { border-color: var(--muted-foreground); }
+.fg-q input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--foreground); font: 12px 'Geist', system-ui, sans-serif; outline: none; }
+.fg-roles { display: flex; flex-wrap: wrap; gap: 4px; }
+.fg-side .fg-role { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--input); border-radius: 11px; background: transparent; font: inherit; font-size: 11.5px; color: var(--muted-foreground); cursor: pointer; }
+.fg-role:hover { color: var(--foreground); }
+.fg-role:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.fg-role .c { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; }
+.fg-role.rev .c { color: var(--warning); }
+.fg-side .fg-role.on { background: var(--muted); color: var(--foreground); border-color: transparent; }
+.fg-flt + .fg-tree { padding-top: 4px; }
+.fg-row-l1 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fg-pills { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 1px; }
+.fg-pill { font-size: 10px; line-height: 14px; padding: 0 5px; border: 1px solid var(--input); border-radius: 7px; color: var(--muted-foreground); }
+.fg-pill.rev { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
+.fg-pill.trk { color: var(--task); border-color: color-mix(in srgb, var(--task) 45%, transparent); }
+.fg-none { align-items: center; text-align: center; gap: 8px; padding: 22px 14px; }
+.fg-side .fg-fold { display: flex; align-items: flex-start; gap: 6px; width: 100%; margin-top: 4px; padding: 7px 14px; border: 0; border-top: 1px solid var(--border); background: transparent; font: inherit; font-size: 11.5px; color: var(--muted-foreground); text-align: left; cursor: pointer; }
+.fg-fold:hover { color: var(--foreground); }
+.fg-fold:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.fg-fold svg { flex: none; margin-top: 3px; }
+.fg-side .fg-none .fg-btn { border: 1px solid var(--input); }
+.fg-closed .fg-row { opacity: .6; }
