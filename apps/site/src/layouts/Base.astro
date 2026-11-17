@@ -16,6 +16,22 @@ const t = locales[lang].copy;
 const absolute = (path: string) => new URL(local(path), site.url).href;
 const media = mediaFor(lang);
 const ogImage = new URL(media('desktop-atelier.png'), site.url).href;
+// Describes Ledge as a free application to search engines, so a result about it can show what it is and where it runs.
+const software = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Ledge',
+  description: t.meta.description,
+  url: absolute(locales[lang].path),
+  inLanguage: lang,
+  image: ogImage,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Windows, Linux (WSL), Android, iOS',
+  softwareVersion: site.version,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+  ...(site.downloadUrl ? { downloadUrl: site.downloadUrl } : {}),
+  ...(site.githubUrl ? { sameAs: [site.githubUrl] } : {})
+};
 ---
 
 <!doctype html>
@@ -42,6 +58,7 @@ const ogImage = new URL(media('desktop-atelier.png'), site.url).href;
     <meta property="og:image:height" content="1800" />
     <meta property="og:image:alt" content={t.meta.imageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify(software).replace(/</g, '\\u003c')} />
     <!-- With reduced motion nothing may start by itself: this takes `autoplay` off each video as the parser adds it,
          before the browser has loaded enough to play, and shows the native controls instead. -->
     <script is:inline>

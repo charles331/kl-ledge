@@ -20,8 +20,12 @@ Astro sends anonymous usage data unless `ASTRO_TELEMETRY_DISABLED=1` is set.
 ## Deploy
 
 The site is hosted on AWS Amplify Hosting, built from `amplify.yml` at the repository root. The Amplify app is a
-monorepo app whose root is `apps/site` (`AMPLIFY_MONOREPO_APP_ROOT=apps/site`); set `SITE_URL` there to the public
-origin (for example `https://main.<app-id>.amplifyapp.com`), so the canonical and Open Graph URLs are right.
+monorepo app whose root is `apps/site` (`AMPLIFY_MONOREPO_APP_ROOT=apps/site`). The public origin is
+`https://kl-ledge.dev`, the default of `site.url` in `src/config.ts`; set `SITE_URL` only to build for another host (a
+preview at `https://<branch>.<app-id>.amplifyapp.com`), so its canonical, Open Graph and sitemap URLs point at itself.
+
+Search engines read `/robots.txt` and `/sitemap.xml` (`src/pages/robots.txt.ts`, `src/pages/sitemap.xml.ts`), and each
+page carries a `SoftwareApplication` JSON-LD block (`src/layouts/Base.astro`).
 
 ## Where things live
 
