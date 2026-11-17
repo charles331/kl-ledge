@@ -39,9 +39,11 @@ export type Modal =
   | { kind: 'broadcast'; to: { project: string } | { sessions: string[] } }
   // IDE lot 7d (R8) : « Lancer un rig », sur `machine` (sans elle, la machine affichée de la vue Rigs) ; dessinée seulement interrupteur ouvert
   | { kind: 'rigLaunch'; machine?: string }
+  // Issue #9 : « Signaler » (le drapeau de la barre de titre) ; task : le signalement d'un agent ouvert par « Modifier avant »
+  | { kind: 'report'; task?: string }
   | null;
 /** Every dialog kind, as the Ledge guide (docs/ledge-guide.md) must describe them: a Record, so a new kind fails to compile until it is listed here. */
-const MODAL_KIND: Record<NonNullable<Modal>['kind'], true> = { search: true, shortcuts: true, launch: true, project: true, broadcast: true, rigLaunch: true };
+const MODAL_KIND: Record<NonNullable<Modal>['kind'], true> = { search: true, shortcuts: true, launch: true, project: true, broadcast: true, rigLaunch: true, report: true };
 export const MODAL_KINDS = Object.keys(MODAL_KIND) as NonNullable<Modal>['kind'][];
 /** chatFocus: bumped each time the chat is asked for (/, an open button), even already open: its field takes the focus again. */
 export interface NavState { place: Place; modal: Modal; chat: boolean; chatFocus: number; helpers: boolean; paused: boolean }

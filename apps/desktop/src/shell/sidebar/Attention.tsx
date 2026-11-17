@@ -57,6 +57,8 @@ export function Attention(p: {
   rigAsks?: readonly HumanAsk[];
   sessions?: readonly Session[];
   onSeeAsk?(id: string): void;
+  /** Issue #9: an agent's report is answered on the page « À toi »: « Voir » opens it. */
+  onSeeReport?(): void;
   /** A harness's usage window past the threshold or reached (docs/mockups/ledge-harness-usage.html): first, « Compris » puts it
    *  away until the window starts again. */
   usageAlerts?: readonly UsageAlert[];
@@ -164,10 +166,11 @@ export function Attention(p: {
             <div className="st-l1"><span className="st-req" title={t.decision.asks(x.giverName)}><strong>{x.giverName}</strong> {x.title}</span></div>
             <div className="st-l2">
               <span className="st-where" title={x.text}>{x.text ?? ''}</span>
-              {answering !== x.id && (x.brain ? p.answerNote : p.answer) && <button type="button" className="st-qa pri" onClick={() => setAnswering(x.id)}>{t.decision.answer}</button>}
+              {x.report && p.onSeeReport && <button type="button" className="st-qa" onClick={p.onSeeReport}>{t.side.see}</button>}
+              {!x.report && answering !== x.id && (x.brain ? p.answerNote : p.answer) && <button type="button" className="st-qa pri" onClick={() => setAnswering(x.id)}>{t.decision.answer}</button>}
             </div>
             {answering === x.id && x.brain && p.answerNote && <NoteDecision task={{ ...x, brain: x.brain }} api={{ answerNote: p.answerNote }} />}
-            {answering === x.id && !x.brain && p.answer && <DecisionAnswer task={x} api={{ answer: p.answer }} onClose={() => setAnswering(null)} />}
+            {answering === x.id && !x.brain && !x.report && p.answer && <DecisionAnswer task={x} api={{ answer: p.answer }} onClose={() => setAnswering(null)} />}
           </div>
         </div>
       ))}

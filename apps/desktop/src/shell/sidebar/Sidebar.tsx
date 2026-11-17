@@ -145,7 +145,7 @@ export function Sidebar(p: {
         </div>
       )}
       <div className={cls('st-scroll', section === 'atoi' && 'st-scroll-atoi')}>
-        {section === 'atoi' && <Attention items={attn} current={current} projectOf={projectOf} paused={p.nav.paused}
+        {section === 'atoi' && <Attention onSeeReport={p.onAtoiPage} items={attn} current={current} projectOf={projectOf} paused={p.nav.paused}
           rigAsks={p.asks ?? []} sessions={p.sessions} {...(p.onSeeAsk ? { onSeeAsk: p.onSeeAsk } : {})} empty={t.ide.atoiNone}
           onOpen={(id, helper, focus) => p.dispatch({ type: 'open', id, ...(helper !== undefined ? { helper } : {}), ...(focus !== undefined ? { focus } : {}) })}
           onDecide={(s, ok) => { p.decisions.decide(s, ok ? 'accept' : 'deny'); }}
