@@ -99,6 +99,9 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
   const route = useRoute();
   const wide = useWide();
   const [folded, setFolded] = useState(true);
+  // Only closed ones match the filter (design-ux, #3 review C1): the fold opens by itself while the filter is on; a tap closes it for
+  // that filter only, and the user's own state comes back once the filter is cleared.
+  const [shut, setShut] = useState<string | null>(null);
   const [filter, setFilterState] = useState(kept);
   const setFilter = (x: typeof kept) => { kept = x; setFilterState(x); };
   const offline = look === 'offline';
@@ -118,6 +121,9 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
     const open = filterPrs(all.open, filter.role, filter.q);
     const closed = filterPrs(all.closed, filter.role, filter.q);
     const filtered = filter.role !== 'all' || filter.q.trim() !== '';
+    const filterKey = `${filter.role}\n${filter.q.trim()}`;
+    const forced = filtered && open.length === 0 && closed.length > 0;
+    const shown = forced ? shut !== filterKey : !folded;
     const none = state.forges.length > 0 && failing.length === state.forges.length;
     const chip = 'flex h-[30px] shrink-0 items-center gap-1.5 rounded-full border px-[11px] text-[12.5px]';
     return (
@@ -146,7 +152,7 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
               </div>
             </div>
           )}
-          {open.length === 0 && filtered ? (
+          {forced ? null : open.length === 0 && filtered ? (
             <Frame>
               <div data-list-state="none" className="flex flex-col items-center gap-2.5 px-4 py-6 text-center text-[13px] text-muted">
                 <b className="font-medium text-fg">{C.none}</b>
@@ -185,10 +191,10 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
           )}
           {closed.length > 0 && (
             <Frame>
-              <button type="button" aria-expanded={!folded} onClick={() => setFolded(v => !v)} className="flex min-h-11 w-full items-center gap-[9px] px-3 py-1.5 text-left text-[13px] text-muted">
-                <Icon name={folded ? 'chevron' : 'down'} className="size-3.5" />{C.closedGroup(closed.length)}
+              <button type="button" aria-expanded={shown} onClick={() => (forced ? setShut(x => (x === filterKey ? null : filterKey)) : setFolded(v => !v))} className="flex min-h-11 w-full items-center gap-[9px] px-3 py-1.5 text-left text-[13px] text-muted">
+                <Icon name={shown ? 'down' : 'chevron'} className="size-3.5" />{C.closedGroup(closed.length)}
               </button>
-              {!folded && (
+              {shown && (
                 <div className="border-t border-line">
                   {closed.map(pr => (
                     <PrRow

@@ -42,6 +42,10 @@ export function PrsView({ prs, agentOf, current, onOpen, lines = [], noneReadabl
   const filter = held ?? own;
   const setFilter = (x: PrsFilter) => { setOwn(x); onFilter?.(x); };
   const [unfold, setUnfold] = useState(false);
+  // Only closed ones match the filter (design-ux, #3 review C1): the fold opens by itself while the filter is on; a click closes it
+  // for that filter only, and the user's own state comes back once the filter is cleared.
+  const filterKey = `${filter.role}\n${filter.q.trim()}`;
+  const [shut, setShut] = useState<string | null>(null);
   const line = (l: ForgeLine, i: number) => {
     const m = machineLabel(l.machine);
     switch (l.kind) {
@@ -83,6 +87,8 @@ export function PrsView({ prs, agentOf, current, onOpen, lines = [], noneReadabl
   const open = filterPrs(allOpen, filter.role, filter.q);
   const closed = filterPrs(allClosed, filter.role, filter.q);
   const filtered = filter.role !== 'all' || filter.q.trim() !== '';
+  const forced = filtered && open.length === 0 && closed.length > 0;
+  const shown = forced ? shut !== filterKey : unfold;
   const any = allOpen.length + allClosed.length > 0;
   return (
     <div className="fg-side" role="region" aria-label={f.view}>
@@ -104,17 +110,17 @@ export function PrsView({ prs, agentOf, current, onOpen, lines = [], noneReadabl
           ))}
         </div>
       </div>}
-      {open.length ? <div className="fg-tree">{open.map(row)}</div> : filtered ? (
+      {open.length ? <div className="fg-tree">{open.map(row)}</div> : forced ? null : filtered ? (
         <div className="fg-empty fg-none"><b>{f.none}</b>
           <button type="button" className="fg-btn sm" onClick={() => setFilter(NO_PRS_FILTER)}>{f.clear}</button></div>
       ) : (
         <div className="fg-empty"><b>{f.emptyTitle}</b><span>{noneReadable ? f.emptyUnread : f.emptyBody}</span></div>
       )}
       {closed.length > 0 && <>
-        <button type="button" className="fg-fold" aria-expanded={unfold} onClick={() => setUnfold(u => !u)}>
-          <Icon d={unfold ? SHELL_ICONS.chevronDown : ICONS.chevronRight.d} size={12} />{f.closedFor(closed.length, CLOSED_KEEP_DAYS)}
+        <button type="button" className="fg-fold" aria-expanded={shown} onClick={() => (forced ? setShut(x => (x === filterKey ? null : filterKey)) : setUnfold(u => !u))}>
+          <Icon d={shown ? SHELL_ICONS.chevronDown : ICONS.chevronRight.d} size={12} />{f.closedFor(closed.length, CLOSED_KEEP_DAYS)}
         </button>
-        {unfold && <div className="fg-tree fg-closed">{closed.map(row)}</div>}
+        {shown && <div className="fg-tree fg-closed">{closed.map(row)}</div>}
       </>}
       <div className="fg-foot">{f.foot}</div>
     </div>

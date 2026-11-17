@@ -60,6 +60,20 @@ describe('« MR et PR »: all of mine (issue #3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^To review/ }));
     expect(screen.queryByRole('button', { name: /^Merged and closed/ })).toBeNull();
   });
+  it('only closed ones match: no « nothing matches », the fold opens by itself, then back to the user\'s state (review C1)', () => {
+    view('en');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'groupes' } });
+    expect(screen.queryByText('No MR or PR matches.')).toBeNull();
+    const fold = screen.getByRole('button', { name: 'Merged and closed · 1 · last 7 days' });
+    expect(fold).toHaveAttribute('aria-expanded', 'true');
+    expect(rows().map(r => r.querySelector('b')?.textContent)).toEqual(['#5']);
+    fireEvent.click(fold);
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    expect(screen.getByRole('button', { name: /^Merged and closed/ })).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '!999' } });
+    expect(screen.getByText('No MR or PR matches.')).toBeTruthy();
+  });
   it('without any request: the empty state, no filter', () => {
     view('fr', []);
     expect(screen.queryByRole('searchbox')).toBeNull();

@@ -144,6 +144,18 @@ describe('all of mine, with a filter (issue #3)', () => {
     resetPrsFilter();
   });
 
+  it('only closed ones match: no « nothing matches », the fold opens by itself (review C1)', () => {
+    resetPrsFilter();
+    open('#/prs', { state });
+    fireEvent.change(screen.getByRole('searchbox', { name: C.search }), { target: { value: 'groupes' } });
+    expect(screen.queryByText(C.none)).toBeNull();
+    expect(screen.getByRole('button', { name: C.closedGroup(1) }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText(/Groupes liés/)).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    expect(screen.getByRole('button', { name: C.closedGroup(1) }).getAttribute('aria-expanded')).toBe('false');
+    resetPrsFilter();
+  });
+
   it('opens one of the account\'s own requests like a followed one', () => {
     resetPrsFilter();
     open(`#/prs/${encodeURIComponent(mine[0]!.id)}`, { state });
