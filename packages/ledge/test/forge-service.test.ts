@@ -495,6 +495,20 @@ describe('the account\'s own requests (issue #3)', () => {
     expect(s.state().prs[0]).not.toHaveProperty('roles');
   });
 
+  it('a followed request whose remote differs from the forge (case, renamed repository) is still once, in `prs`, with its roles (M1)', async () => {
+    store.upsert(mk('a', { repoId: 'github.com/lyssaen/ledge' }));
+    store.upsert(mk('b', { repoId: 'github.com/Lyssaen/old-name', branch: 'feat/y' }));
+    const gh = fakeReader([
+      pr(226, 'feat/x', { id: 'github.com/lyssaen/ledge#226', repo: 'lyssaen/ledge', head: 'lyssaen/ledge' }),
+      pr(300, 'feat/y', { id: 'github.com/Lyssaen/old-name#300', repo: 'Lyssaen/old-name', head: 'Lyssaen/old-name', url: 'https://github.com/Lyssaen/new-name/pull/300' })]);
+    gh.own['github.com'] = [{ pr: pr(226, 'feat/x'), repo: forgeOf('https://github.com/Lyssaen/ledge')!, roles: ['author'] },
+      { pr: pr(300, 'feat/y', { id: 'github.com/Lyssaen/new-name#300', repo: 'Lyssaen/new-name', head: 'Lyssaen/new-name', url: 'https://github.com/Lyssaen/new-name/pull/300' }), repo: forgeOf('https://github.com/Lyssaen/new-name')!, roles: ['reviewer'] }];
+    const s = service(gh);
+    await s.refresh();
+    expect(s.state().prs.map(p => [p.id, p.roles]).sort()).toEqual([['github.com/Lyssaen/old-name#300', ['reviewer']], ['github.com/lyssaen/ledge#226', ['author']]]);
+    expect(s.state().mine).toEqual([]);
+  });
+
   it('drops a merged or closed one past MINE_KEEP_MS, keeps an open one whatever its age', async () => {
     const gh = fakeReader();
     clock = T0 + MINE_KEEP_MS + 5000;
@@ -502,6 +516,15 @@ describe('the account\'s own requests (issue #3)', () => {
     const s = service(gh);
     await s.refresh();
     expect(s.state().mine!.map(p => p.number).sort()).toEqual([2, 3]);
+  });
+
+  it('acts on one of its own merged requests whose branch a newer request reuses: re-read by its number (B1)', async () => {
+    const gh = fakeReader([pr(5, 'b5', { id: 'github.com/someone/else#5', repo: 'someone/else', head: 'someone/else', state: 'merged' })]);
+    gh.own['github.com'] = [own(5, ['author'], { state: 'merged' })];
+    const s = service(gh, fakeReader(), ['github.com']);
+    await s.refresh();
+    await s.act('github.com/someone/else#5', { kind: 'comment', body: 'ok' });
+    expect(gh.targets.at(-1)).toEqual([{ branch: 'b5', head: 'someone/else', number: 5 }]);
   });
 
   it('reads them every MINE_MS, and at once after an action', async () => {

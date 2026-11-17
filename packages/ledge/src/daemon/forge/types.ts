@@ -12,13 +12,16 @@ export type ReadPr = PrCore & { blockers: MergeBlocker[]; head: string; notStart
  * What a session follows (R1): its branch, in the repository the branch is pushed to (`head`: the branch's push remote or
  * upstream, `origin` by default), on the same host as the repository listed. Two forks with the same branch name are two targets.
  */
-export interface BranchTarget { branch: string; head: string }
+export interface BranchTarget { branch: string; head: string;
+  /** One request asked by its number (a re-read before an action): that one, even when a newer request reuses its branch. */
+  number?: number }
 export const targetKey = (t: BranchTarget): string => `${t.head.toLowerCase()}\n${t.branch}`;
 /** The request of a target among those a branch name gives: the one whose head is the target's, open first, else the latest. */
-export function pickFor<T extends { branch: string; head: string; open: boolean; updatedAt: string }>(t: BranchTarget, all: readonly T[]): T | undefined {
+export function pickFor<T extends { branch: string; head: string; open: boolean; updatedAt: string; number: number }>(t: BranchTarget, all: readonly T[]): T | undefined {
   let best: T | undefined;
   for (const p of all) {
     if (p.branch !== t.branch || p.head.toLowerCase() !== t.head.toLowerCase()) continue;
+    if (t.number !== undefined && p.number !== t.number) continue;
     if (!best || (p.open && !best.open) || (p.open === best.open && Date.parse(p.updatedAt) > Date.parse(best.updatedAt))) best = p;
   }
   return best;
@@ -26,6 +29,12 @@ export function pickFor<T extends { branch: string; head: string; open: boolean;
 export type ReadDetail = Omit<PrDetail, 'pr'> & { pr: ReadPr };
 /** One of the account's own requests (issue #3): the request, the repository it is in, and the account's roles on it. */
 export interface MinePr { pr: ReadPr; repo: ForgeRepo; roles: PrRole[] }
+/**
+ * What tells one request from another across the two reads: its web address as the forge gives it. A followed request's id is
+ * built from the git remote's path, whose case may differ, or which may still name a renamed or moved repository (the forge
+ * redirects); the forge's own address is canonical in both reads (review of 8c552e4a, M1).
+ */
+export const sameRequestKey = (pr: Pick<ReadPr, 'url'>): string => pr.url.trim().replace(/\/+$/, '').toLowerCase();
 /** The roles in their fixed order (author, assignee, reviewer), each once. */
 export const ROLE_ORDER: readonly PrRole[] = ['author', 'assignee', 'reviewer'];
 export const sortRoles = (roles: Iterable<PrRole>): PrRole[] => { const set = new Set(roles); return ROLE_ORDER.filter(r => set.has(r)); };

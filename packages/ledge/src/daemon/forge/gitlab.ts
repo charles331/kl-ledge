@@ -232,7 +232,7 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
         if (!conn.pageInfo?.hasNextPage || !conn.pageInfo.endCursor) break;
         after = conn.pageInfo.endCursor;
       }
-      const all = nodes.map(n => ({ iid: Number(n.iid), branch: n.sourceBranch, head: n.sourceProject?.fullPath ?? '', open: n.state === 'opened', updatedAt: n.updatedAt }));
+      const all = nodes.map(n => ({ iid: Number(n.iid), number: Number(n.iid), branch: n.sourceBranch, head: n.sourceProject?.fullPath ?? '', open: n.state === 'opened', updatedAt: n.updatedAt }));
       const chosen = new Map<number, (typeof all)[number]>();
       for (const t of targets) { const hit = pickFor(t, all); if (hit && Number.isInteger(hit.iid) && hit.iid > 0) chosen.set(hit.iid, hit); }
       return Promise.all([...chosen.values()].map(async m => (await read(repo, { iid: m.iid } as GlMr, m.open, m.head)).pr));

@@ -324,3 +324,14 @@ describe('GitHub: the account\'s own pull requests (issue #3)', () => {
     await expect(githubReader(part.run).mine('github.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow('incomplete');
   });
 });
+
+describe('GitHub list: one request asked by its number (review B1)', () => {
+  it('gives that request, not the newer open one reusing its branch', async () => {
+    const answer = { data: { repository: { b0: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [
+      node(12, 'feat/x', 'cli/cli', { updatedAt: '2026-11-15T10:00:00Z' }), node(9, 'feat/x', 'cli/cli', { state: 'MERGED', updatedAt: '2026-11-10T10:00:00Z' })] } } } };
+    const { run } = fakeGh(c => (c.input?.includes('pullRequests(headRefName') ? { stdout: JSON.stringify(answer) } : undefined));
+    const r = githubReader(run);
+    expect((await r.list(repo, [{ branch: 'feat/x', head: 'cli/cli' }])).map(p => p.number)).toEqual([12]);
+    expect((await r.list(repo, [{ branch: 'feat/x', head: 'cli/cli', number: 9 }])).map(p => [p.number, p.state])).toEqual([[9, 'merged']]);
+  });
+});

@@ -256,7 +256,7 @@ export function githubReader(run: ForgeRun): ForgeReader {
         }
         pending = next;
       }
-      const all = nodes.map(n => ({ n, branch: n.headRefName, head: n.headRepository?.nameWithOwner ?? '', open: n.state === 'OPEN', updatedAt: n.updatedAt }));
+      const all = nodes.map(n => ({ n, number: n.number, branch: n.headRefName, head: n.headRepository?.nameWithOwner ?? '', open: n.state === 'OPEN', updatedAt: n.updatedAt }));
       const out: ReadPr[] = [];
       for (const t of targets) {
         const hit = pickFor(t, all);

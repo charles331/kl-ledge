@@ -5,7 +5,7 @@ import { githubReader } from './github.js';
 import { gitlabReader } from './gitlab.js';
 import { signedInHosts } from './hosts.js';
 import { execForge, forgeOf, installedCli, type ForgeCli, type ForgeRepo, type ForgeRun } from './run.js';
-import { blockerText, mergeBlockersOf, targetKey, type BranchTarget, ForgeError, ForgeRefusal, type ForgeReader, type MinePr, type ReadPr } from './types.js';
+import { blockerText, mergeBlockersOf, targetKey, type BranchTarget, ForgeError, ForgeRefusal, type ForgeReader, type MinePr, type ReadPr, sameRequestKey } from './types.js';
 
 /**
  * The pull and merge requests of the machine's sessions and OpenRig seats (lot 8a). What is followed (R1): the source branch of a
@@ -265,11 +265,13 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
         next.set(pr.id, { pr, repo: f.repo, followed: true });
       }
     }
-    // The account's own: one entry per request (its id is host, repository and number), a followed one taking its roles.
+    // The account's own: one entry per request, a followed one taking its roles. Matched by the forge's address, not the id: a
+    // followed id comes from the git remote, whose case or (renamed) name may differ from the forge's (review of 8c552e4a, M1).
     const keepFrom = now() - MINE_KEEP_MS;
+    const followedBy = new Map([...next.values()].map(e => [sameRequestKey(e.pr), e] as const));
     for (const { prs } of mine.values()) for (const m of prs) {
       if ((m.pr.state === 'merged' || m.pr.state === 'closed') && Date.parse(m.pr.updatedAt) < keepFrom) continue;
-      const had = next.get(m.pr.id);
+      const had = followedBy.get(sameRequestKey(m.pr)) ?? next.get(m.pr.id);
       if (had) had.roles = m.roles;
       else next.set(m.pr.id, { pr: m.pr, repo: m.repo, followed: false, roles: m.roles });
     }
@@ -338,7 +340,8 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
   async function fresh(prId: string): Promise<Entry> {
     const e = entries.get(prId);
     if (!e) throw new ForgeRefusal('unavailable', 'this request is not followed on this machine');
-    const read = (await readers[e.repo.cli].list(e.repo, [{ branch: e.pr.branch, head: e.pr.head }])).find(p => p.id === prId);
+    // Asked by its number: one of the account's merged requests whose branch a newer request reuses is still found (review B1).
+    const read = (await readers[e.repo.cli].list(e.repo, [{ branch: e.pr.branch, head: e.pr.head, number: e.pr.number }])).find(p => p.id === prId);
     if (!read) throw new ForgeRefusal('unavailable', 'the request is no longer there');
     await knowCi(e.repo);
     return { ...e, pr: withCi(read, e.repo) };
