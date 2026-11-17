@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ReportRequestSchema } from './report.js';
 
 /** A task's title and detail at most (the detail as a message's text, `MESSAGE_MAX`). */
 export const TASK_TITLE_MAX = 200;
@@ -69,7 +70,9 @@ export const TaskSchema = z.object({
   at: z.string(), updatedAt: z.string(),
   log: z.array(TaskLogEntrySchema),
   /** A decision about the user's notes: its answer writes them (brain spec §3.6). */
-  brain: BrainProposalSchema.optional()
+  brain: BrainProposalSchema.optional(),
+  /** An agent's report (issue #9): « Créer l'issue » (report.create with this task), « Modifier avant », « Ignorer » (report.ignore). */
+  report: ReportRequestSchema.optional()
 });
 export type Task = z.infer<typeof TaskSchema>;
 
@@ -100,6 +103,8 @@ export const TaskCmdSchema = z.object({
   key: z.string().min(1).max(128).optional(),
   /** A `give` to `ledge` only: a proposal about the user's notes, whose title and detail the daemon writes. */
   brain: BrainProposalSchema.optional(),
+  /** A `give` to `ledge` only: an agent's report (issue #9), whose title and detail the daemon writes; sent by `report.agent`. */
+  report: ReportRequestSchema.optional(),
   /** A `done` by Ledge of such a proposal, from its buttons: what to write, instead of reading `text`. */
   choice: BrainChoiceSchema.optional()
 });

@@ -12,6 +12,7 @@ ledge read <id>                                              print a long messag
 ledge brain [<nom>]                                          what Ledge knows of itself and of your environment (your notes)
 ledge brain propose|flag …                                   a session proposes a fact for a note, or flags one; the user decides
 ledge task <give|list|show|take|done|refuse|pass> …         give another session work, take it, close it (ledge task: details)
+ledge report bug|feature "<titre>" "<détail>" | status <id> an agent reports a bug of Ledge or an idea; the user creates the issue
 ledge decide [<id> "<réponse>"]                               the decisions sessions wait for from you; answer one
 ledge handover "<bilan>" | show                              the relief brief, when Ledge asks for it; show: read your predecessor's
 ledge close <session>… [--json]                              close sessions cleanly (their conversation stays resumable)
@@ -41,6 +42,7 @@ async function main(argv: string[]): Promise<number> {
     }
     case 'read': { const { readMessage } = await import('./send.js'); const r = await readMessage(rest); console.log(r.line); return r.code; }
     case 'task': { const { runTask } = await import('./task.js'); const r = await runTask(rest); console.log(r.line); return r.code; }
+    case 'report': { const { runReport } = await import('./report.js'); const r = await runReport(rest); console.log(r.line); return r.code; }
     case 'decide': { const { runDecide } = await import('./decide.js'); const r = await runDecide(rest); console.log(r.line); return r.code; }
     case 'handover': { const { runHandover } = await import('./handover.js'); const r = await runHandover(rest); console.log(r.line); return r.code; }
     case 'close': { const { runClose } = await import('./action.js'); const r = await runClose(rest); console.log(r.line); return r.code; }

@@ -24,6 +24,7 @@ import { ThreadItemSchema } from './thread.js';
 import { DecidedBySchema, DecisionSchema, NOTE_MAX } from './decisions.js';
 import { DeviceNameSchema, MobileRecoveryEventSchema, MobileStateSchema, RelayUrlSchema } from './mobile.js';
 import { TaskCmdSchema, TaskResultSchema, TaskUpdatedSchema } from './tasks.js';
+import { ReportAgentResultSchema, ReportAgentSchema, ReportCreatedSchema, ReportCreateSchema, ReportIgnoredSchema, ReportIgnoreSchema, ReportPreviewReplySchema, ReportPreviewSchema } from './report.js';
 import { BrainAddSchema, BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainResultSchema } from './brain.js';
 import { UsageAckSchema, UsageSetSchema, UsageStateMessageSchema } from './usage.js';
 import { ForgeActReplySchema, ForgeActSchema, ForgeDetailReplySchema, ForgeDetailSchema, ForgeStateMessageSchema } from './forge.js';
@@ -229,6 +230,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   /** The answer to a `message.read`: the body with its sender, target and time, or the refusal's `reason`. */
   z.object({ type: z.literal('message.body'), id: z.string(), from: z.string().optional(), to: z.string().optional(), at: z.string().optional(), text: z.string().optional(), reason: z.string().optional() }),
   TaskResultSchema,
+  ReportPreviewReplySchema, ReportCreatedSchema, ReportIgnoredSchema, ReportAgentResultSchema,
   SessionHandoverResultSchema,
   ContextPrefsMessageSchema,
   UsageStateMessageSchema,
@@ -415,6 +417,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   /** `ledge read <id>`: a message's whole body, for its receiver or its sender (`by`, a session id). */
   z.object({ type: z.literal('message.read'), id: z.string().min(1).max(40), by: z.string().min(1) }),
   TaskCmdSchema,
+  /** Reports (issue #9): the « Signaler » form's preview, creation and an agent's report ignored; `ledge report`. */
+  ReportPreviewSchema, ReportCreateSchema, ReportIgnoreSchema, ReportAgentSchema,
   SessionHandoverSchema,
   ContextSetSchema,
   UsageSetSchema,
