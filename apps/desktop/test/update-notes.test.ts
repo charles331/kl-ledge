@@ -59,6 +59,6 @@ describe('skipped versions', () => {
 });
 
 it('the release links', () => {
-  expect(RELEASES_URL).toBe('https://github.com/Lyssaen/ledge/releases');
-  expect(releaseUrl('0.9.0')).toBe('https://github.com/Lyssaen/ledge/releases/tag/v0.9.0');
+  expect(RELEASES_URL).toBe('https://github.com/kl-ledge/ledge/releases');
+  expect(releaseUrl('0.9.0')).toBe('https://github.com/kl-ledge/ledge/releases/tag/v0.9.0');
 });

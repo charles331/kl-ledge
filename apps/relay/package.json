@@ -4,10 +4,10 @@
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Lyssaen/ledge.git",
+    "url": "git+https://github.com/kl-ledge/ledge.git",
     "directory": "apps/relay"
   },
-  "homepage": "https://github.com/Lyssaen/ledge#readme",
+  "homepage": "https://github.com/kl-ledge/ledge#readme",
   "type": "module",
   "bin": {
     "ledge-relay": "dist/cli.js"

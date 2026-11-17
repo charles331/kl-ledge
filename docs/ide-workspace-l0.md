@@ -1,6 +1,6 @@
 # Refonte IDE — lot 0 : résultats et reprise
 
-Lot 0 du plan [`docs/ide-workspace-plan.md`](https://github.com/Lyssaen/ledge/blob/docs/ide-workspace-plan/docs/ide-workspace-plan.md), sur la branche `docs/ide-workspace-plan`. Le design validé (v26) est sur la même branche. État au 2026-11-06.
+Lot 0 du plan [`docs/ide-workspace-plan.md`](https://github.com/kl-ledge/ledge/blob/docs/ide-workspace-plan/docs/ide-workspace-plan.md), sur la branche `docs/ide-workspace-plan`. Le design validé (v26) est sur la même branche. État au 2026-11-06.
 
 ## Verdict
 

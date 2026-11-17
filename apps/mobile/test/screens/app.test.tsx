@@ -158,7 +158,7 @@ describe('the app', () => {
     expect(within(sheet).getByText('3f9a c21e 70bd 44e1 9a02 d5c8')).toBeInTheDocument();
     expect(sheet).toHaveTextContent('Actuelle : 0.5.4 · 8e17 02af');
     expect(within(sheet).getByRole('link', { name: 'Comparer avec la release v0.6.0 sur GitHub' }))
-      .toHaveAttribute('href', 'https://github.com/Lyssaen/ledge/releases/tag/v0.6.0');
+      .toHaveAttribute('href', 'https://github.com/kl-ledge/ledge/releases/tag/v0.6.0');
     expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual(['Plus tard', 'Mettre à jour']);
     // The screen stays underneath.
     expect(screen.getByText('À toi', { selector: 'h1' })).toBeInTheDocument();

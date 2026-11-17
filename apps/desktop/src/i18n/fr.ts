@@ -404,7 +404,7 @@ export const fr = {
       auto: 'Rechercher les mises à jour', autoHint: 'Au démarrage, puis toutes les 6 heures. Ledge ne met jamais à jour sans votre clic.',
       autoOn: 'Recherche automatique des mises à jour', autoOff: 'Recherche manuelle des mises à jour',
       checking: 'Vérification…', never: 'Jamais vérifié', checkedNow: 'Vérifié à l’instant', checkedAgo: (d: string) => `Vérifié il y a ${d}`,
-      source: 'Sur les releases GitHub de Lyssaen/ledge.', check: 'Vérifier'
+      source: 'Sur les releases GitHub de kl-ledge/ledge.', check: 'Vérifier'
     },
     appearance: {
       profile: 'Profil', avatar: 'Photo de profil', avatarHint: 'À côté de « Vous » dans le fil d’une session. Choisissez une image ou déposez-la sur le rond. Elle reste sur ce PC.',

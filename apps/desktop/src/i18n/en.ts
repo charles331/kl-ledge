@@ -373,7 +373,7 @@ export const en: Messages = {
       auto: 'Check for updates', autoHint: 'At start-up, then every 6 hours. Ledge never updates without your click.',
       autoOn: 'Automatic update checks', autoOff: 'Manual update checks',
       checking: 'Checking…', never: 'Never checked', checkedNow: 'Checked just now', checkedAgo: (d) => `Checked ${d} ago`,
-      source: 'From the GitHub releases of Lyssaen/ledge.', check: 'Check'
+      source: 'From the GitHub releases of kl-ledge/ledge.', check: 'Check'
     },
     appearance: {
       profile: 'Profile', avatar: 'Profile photo', avatarHint: 'Beside « You » in a session’s thread. Choose an image or drop it on the disc. It stays on this PC.',

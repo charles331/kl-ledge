@@ -6,7 +6,7 @@ import { Sheet } from '../ui/Dialog';
 import { Icon } from '../ui/icons';
 
 const U = copy.update;
-const release = (version: string) => `https://github.com/Lyssaen/ledge/releases/tag/v${version}`;
+const release = (version: string) => `https://github.com/kl-ledge/ledge/releases/tag/v${version}`;
 
 /**
  * The sheet a waiting build raises over the screen: its version and fingerprint, the running one, where to compare it

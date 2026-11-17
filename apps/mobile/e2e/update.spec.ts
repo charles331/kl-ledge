@@ -90,7 +90,7 @@ test('a new build waits for consent: « Plus tard » keeps v1 across a reload, �
   await expect(sheet.getByText(formatFingerprint(builds.v2.fingerprint))).toBeVisible();
   await expect(sheet).toContainText(`Actuelle : ${builds.v1.version} · ${shortFingerprint(builds.v1.fingerprint)}`);
   await expect(sheet.getByRole('link', { name: `Comparer avec la release v${builds.v2.version} sur GitHub` }))
-    .toHaveAttribute('href', `https://github.com/Lyssaen/ledge/releases/tag/v${builds.v2.version}`);
+    .toHaveAttribute('href', `https://github.com/kl-ledge/ledge/releases/tag/v${builds.v2.version}`);
 
   await sheet.getByRole('button', { name: 'Plus tard' }).click();
   await expect(sheet).toBeHidden();
