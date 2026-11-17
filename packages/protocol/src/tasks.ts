@@ -103,7 +103,7 @@ export const TaskCmdSchema = z.object({
   key: z.string().min(1).max(128).optional(),
   /** A `give` to `ledge` only: a proposal about the user's notes, whose title and detail the daemon writes. */
   brain: BrainProposalSchema.optional(),
-  /** A `give` to `ledge` only: an agent's report (issue #9), whose title and detail the daemon writes; sent by `report.agent`. */
+  /** An agent's report (issue #9): the daemon's own give, from `report.agent`; a client's `task.cmd` carrying it is refused. */
   report: ReportRequestSchema.optional(),
   /** A `done` by Ledge of such a proposal, from its buttons: what to write, instead of reading `text`. */
   choice: BrainChoiceSchema.optional()

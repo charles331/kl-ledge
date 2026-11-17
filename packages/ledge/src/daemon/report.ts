@@ -73,8 +73,12 @@ export function issueBody(fields: ReportFields, items: readonly ReportItem[], lo
 /** The prefilled « new issue » page: title, body and label, the body cut (with « … ») so the address stays under NEW_ISSUE_URL_MAX. */
 export function newIssueUrl(kind: ReportKind, title: string, body: string): string {
   const base = `https://github.com/${REPORT_REPO}/issues/new?labels=${encodeURIComponent(REPORT_LABEL[kind])}&title=${encodeURIComponent(title)}&body=`;
-  let b = body;
-  while (base.length + encodeURIComponent(b).length > NEW_ISSUE_URL_MAX && b.length > 0) b = `${b.slice(0, Math.floor(b.length * 0.9))}…`;
+  // Cut by code points, never inside a character (half an emoji makes encodeURIComponent throw).
+  let points = Array.from(body), b = body;
+  while (base.length + encodeURIComponent(b).length > NEW_ISSUE_URL_MAX && points.length > 0) {
+    points = points.slice(0, Math.floor(points.length * 0.9));
+    b = `${points.join('')}…`;
+  }
   return base + encodeURIComponent(b);
 }
 
@@ -86,12 +90,14 @@ export type IssueOutcome = { ok: true; number: number; url: string } | { ok: fal
  * page, for the user to validate on GitHub.
  */
 export async function createIssue(deps: { run: ForgeRun; ready: () => Promise<boolean> }, kind: ReportKind, title: string, body: string): Promise<IssueOutcome> {
-  const fallback = newIssueUrl(kind, title, body);
-  if (!(await deps.ready().catch(() => false))) return { ok: false, code: 'no_gh', url: fallback };
-  const r = await deps.run('gh', ['issue', 'create', '-R', REPORT_REPO, '--title', title, '--label', REPORT_LABEL[kind], '--body-file', '-'], { input: body, timeoutMs: 30_000 });
+  // The prefilled page only when gh does not create the issue.
+  const fallback = (): string => newIssueUrl(kind, title, body);
+  if (!(await deps.ready().catch(() => false))) return { ok: false, code: 'no_gh', url: fallback() };
+  // `--title=`: a title starting with « - » is never read as a flag.
+  const r = await deps.run('gh', ['issue', 'create', '-R', REPORT_REPO, `--title=${title}`, '--label', REPORT_LABEL[kind], '--body-file', '-'], { input: body, timeoutMs: 30_000 });
   const m = /https:\/\/github\.com\/[^\s]+\/issues\/(\d+)/.exec(r.stdout);
   if (r.code === 0 && m) return { ok: true, number: Number(m[1]), url: m[0] };
-  if (r.code === null) return { ok: false, code: 'no_gh', url: fallback };
+  if (r.code === null) return { ok: false, code: 'no_gh', url: fallback() };
   const message = redact(r.stderr.trim().split('\n').filter(Boolean).slice(0, 3).join(' ')).slice(0, 400);
-  return { ok: false, code: 'refused', ...(message ? { message } : {}), url: fallback };
+  return { ok: false, code: 'refused', ...(message ? { message } : {}), url: fallback() };
 }

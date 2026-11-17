@@ -1230,6 +1230,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
    * `action.run` (#93): an action of the registry outside the chat, resolved and applied as a generic card's row, so the CLI
    * writes no rule of its own. A destructive one asks again (`confirmed`), and the guard decides who may run it at all.
    */
+  /** The agents' reports whose issue is being created now: a second « Créer l'issue » meanwhile is stale. */
+  const reportsCreating = new Set<string>();
   /** Reports (issue #9): `gh` as the forge reads run it, ready when installed and signed in to github.com. */
   const reportRun: ForgeRun = opts.report?.run ?? execForge(agentEnv);
   const reportReady = opts.report?.ready ?? (async () => { const e = await agentEnv(); return (await installedCli('gh', e)) && (await signedInHosts('gh', e)).has('github.com'); });
@@ -1757,23 +1759,28 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       case 'report.create': {
         const answer = (x: Omit<Extract<ServerMessage, { type: 'report.created' }>, 'type' | 'requestId'>) => reply({ type: 'report.created', requestId: msg.requestId, ...x });
         const t = msg.task !== undefined ? tasks.all().find(x => x.id === msg.task) : undefined;
-        if (msg.task !== undefined && (!t?.report || taskClosed(t))) return answer({ ok: false, code: 'stale' });
-        const omit = new Set(msg.omit ?? []);
-        const items = (await reportItems(msg)).filter(i => !omit.has(i.key));
-        const excerpt = msg.log && msg.kind === 'bug' ? await logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : undefined;
-        const body = issueBody(msg.fields, items, excerpt || undefined, t?.report?.session);
-        const out = await createIssue({ run: reportRun, ready: reportReady }, msg.kind, msg.title, body);
-        // The agent's report is answered either way: created, or handed to the user to validate on GitHub.
-        if (t) {
-          const result = out.ok ? `issue #${out.number} créée sur ${REPORT_REPO} : ${out.url}` : `page GitHub préremplie ouverte, l'utilisateur valide l'issue là-bas : ${out.url}`;
-          tasks.run({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'done', task: t.id, text: result });
-        }
-        if (out.ok) log(`report: issue #${out.number} created on ${REPORT_REPO}`);
-        return answer(out.ok ? { ok: true, number: out.number, url: out.url } : { ok: false, code: out.code, url: out.url, ...(out.message ? { message: out.message } : {}) });
+        // One creation per agent's report: a second click while gh works is stale too (review of 2449e9fa).
+        if (msg.task !== undefined && (!t?.report || taskClosed(t) || reportsCreating.has(t.id))) return answer({ ok: false, code: 'stale' });
+        if (t) reportsCreating.add(t.id);
+        try {
+          const omit = new Set(msg.omit ?? []);
+          const items = (await reportItems(msg)).filter(i => !omit.has(i.key));
+          const excerpt = msg.log && msg.kind === 'bug' ? await logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : undefined;
+          const body = issueBody(msg.fields, items, excerpt || undefined, t?.report?.session);
+          const out = await createIssue({ run: reportRun, ready: reportReady }, msg.kind, msg.title, body);
+          // The agent's report is answered either way: created, or handed to the user to validate on GitHub.
+          if (t) {
+            const result = out.ok ? `issue #${out.number} créée sur ${REPORT_REPO} : ${out.url}` : `page GitHub préremplie ouverte, l'utilisateur valide l'issue là-bas : ${out.url}`;
+            tasks.run({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'done', task: t.id, text: result });
+          }
+          if (out.ok) log(`report: issue #${out.number} created on ${REPORT_REPO}`);
+          return answer(out.ok ? { ok: true, number: out.number, url: out.url } : { ok: false, code: out.code, url: out.url, ...(out.message ? { message: out.message } : {}) });
+        } finally { if (t) reportsCreating.delete(t.id); }
       }
       case 'report.ignore': {
         const t = tasks.all().find(x => x.id === msg.task);
-        if (!t?.report || taskClosed(t)) return reply({ type: 'report.ignored', requestId: msg.requestId, ok: false, code: 'stale' });
+        // Its issue being created now: too late to ignore it.
+        if (!t?.report || taskClosed(t) || reportsCreating.has(t.id)) return reply({ type: 'report.ignored', requestId: msg.requestId, ok: false, code: 'stale' });
         tasks.run({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'refuse', task: t.id, text: 'ignoré par l\'utilisateur : aucune issue créée' });
         return reply({ type: 'report.ignored', requestId: msg.requestId, ok: true });
       }
@@ -1814,6 +1821,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
           const wrong = notItsKey(msg.by, msg.key);
           if (wrong) return reply({ type: 'task.result', rid: msg.rid, reason: wrong });
         }
+        // An agent's report goes through report.agent only: its cap and its origin are the daemon's (review of 2449e9fa).
+        if (msg.report) return reply({ type: 'task.result', rid: msg.rid, reason: 'un signalement se fait avec ledge report' });
         // A proposal about the user's notes (brain spec §3.6) is checked against the notes now, before the user is asked.
         if (msg.brain) {
           const pending = tasks.all().filter(t => t.giver === msg.by && t.brain && !taskClosed(t)).length;
