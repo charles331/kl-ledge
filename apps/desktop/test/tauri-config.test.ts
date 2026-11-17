@@ -53,7 +53,7 @@ describe('Desktop Tauri config', () => {
   });
   it('reaches only the daemon and the fonts, shows the profile photo kept as a data URL (#50) and the images fetched from the daemon as object URLs, and updates from its own manifest, signed with our key', () => {
     expect(conf.app.security.csp).toBe("default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost ws://127.0.0.1:47831");
-    expect(Buffer.from(conf.plugins.updater.pubkey, 'base64').toString()).toMatch(/^untrusted comment: minisign public key: 763CCCF3D01336AD\n/);
+    expect(Buffer.from(conf.plugins.updater.pubkey, 'base64').toString()).toMatch(/^untrusted comment: minisign public key: 6982B7E556B60844\n/);
     expect(conf.plugins.updater.endpoints).toEqual(['https://github.com/kl-ledge/ledge/releases/latest/download/latest-desktop.json']);
     expect(conf.plugins.updater.windows.installMode).toBe('passive');
     expect(conf.bundle.createUpdaterArtifacts).toBe(true);
