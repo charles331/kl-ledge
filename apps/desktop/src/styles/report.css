@@ -3,6 +3,7 @@
 .report-modal .modal-title h2 { display: flex; align-items: center; gap: 10px; }
 .rp { display: flex; flex-direction: column; min-height: 0; }
 .rp-body { display: flex; flex-direction: column; gap: 6px; padding: 4px 20px 16px; overflow: auto; max-height: calc(100vh - 300px); }
+.rp-body > * { flex-shrink: 0; }
 .rp-kinds { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--input); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 8px; }
 .rp .rp-kind { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 0; background: transparent; color: var(--muted-foreground); font: inherit; text-align: left; cursor: pointer; }
 .rp .rp-kind + .rp-kind { border-left: 1px solid var(--input); }

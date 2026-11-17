@@ -15,8 +15,10 @@ const FIELDS: Record<ReportKind, readonly ('happened' | 'expected' | 'repro' | '
   bug: ['happened', 'expected', 'repro'],
   feature: ['need', 'context', 'proposal']
 };
-/** A field one line high in the mockup; the others are text areas. */
-const ONE_LINE = new Set(['expected', 'repro']);
+/** A field one line high in the mockup (cards 2 and 3); the others are text areas. */
+const ONE_LINE = new Set(['expected', 'repro', 'context', 'proposal']);
+/** The fields marked « facultatif ». */
+const OPTIONAL = new Set(['repro', 'proposal']);
 
 /** An agent's report opened with « Modifier avant »: its kind and title, its words where the form asks what happened (a bug) or the need (an idea). */
 export function draftOfTask(task: Task & { report: NonNullable<Task['report']> }): ReportDraft {
@@ -100,7 +102,7 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
           {showTitleError && <span id={`${ids}-title-error`} className="rp-error" role="alert">{c.titleEmpty}</span>}
           {FIELDS[d.kind].map(k => (
             <div key={k} className="rp-group">
-              <label className="rp-field" htmlFor={`${ids}-${k}`}>{c[k]}{k === 'repro' && <small>{c.optional}</small>}</label>
+              <label className="rp-field" htmlFor={`${ids}-${k}`}>{c[k]}{OPTIONAL.has(k) && <small>{c.optional}</small>}</label>
               {ONE_LINE.has(k)
                 ? <input id={`${ids}-${k}`} value={d.fields[k] ?? ''} maxLength={REPORT_TEXT_MAX} placeholder={c[`${k}Ph`]} onChange={e => setField(k, e.target.value)} />
                 : <textarea id={`${ids}-${k}`} rows={2} value={d.fields[k] ?? ''} maxLength={REPORT_TEXT_MAX} placeholder={c[`${k}Ph`]} onChange={e => setField(k, e.target.value)} />}
@@ -129,7 +131,7 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
             </>}
             <p className="rp-never">{c.never}</p>
           </section>
-          <p className="rp-dest">{c.dest} <b>{REPORT_REPO}</b> · {c.label} <span className={`rp-label ${d.kind}`}>{REPORT_LABEL[d.kind]}</span> · {c.destBy}</p>
+          <p className="rp-dest">{c.dest} <b>{REPORT_REPO}</b> · {c.label} <span className={`rp-label ${d.kind}`}>{REPORT_LABEL[d.kind]}</span> · {c.destBy}{preview?.login && <> <b>{preview.login}</b></>}</p>
         </div>
         <footer className="rp-foot">
           {fallback && <p className="rp-fallback" role="alert">{fallback.message ?? c.noGh}</p>}

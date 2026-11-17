@@ -75,6 +75,10 @@ describe('« Signaler »', () => {
     expect(box.queryByRole('textbox', { name: 'What happened' })).toBeNull();
     expect(box.queryByRole('checkbox')).toBeNull();
     expect(box.getByText('enhancement')).toBeVisible();
+    // Card 3: the context and the proposal on one line, the proposal optional (review C3).
+    expect(box.getByRole('textbox', { name: 'The context' }).tagName).toBe('INPUT');
+    expect(box.getByRole('textbox', { name: /^A proposal/ }).tagName).toBe('INPUT');
+    expect(box.getByText('A proposal').closest('label')).toHaveTextContent('A proposaloptional');
     fireEvent.click(box.getByRole('button', { name: /^Create the issue/ }));
     expect(box.getByRole('alert')).toHaveTextContent('Give the report a title.');
     expect(box.getByRole('textbox', { name: 'Title' })).toHaveFocus();

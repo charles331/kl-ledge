@@ -8,7 +8,8 @@ import type { ReportFields, ReportItem, ReportItemKey, ReportKind } from '@ledge
 
 /** What a report is about: its kind, the session in front (its tool is attached), or the agent's report it answers (`task`). */
 export interface ReportContext { kind: ReportKind; session?: string; task?: string; desktop?: string; log?: boolean }
-export interface ReportPreview { items: ReportItem[]; log?: string }
+/** `login`: the GitHub account gh is signed in with, when the daemon says it (#9 review C4). */
+export interface ReportPreview { items: ReportItem[]; log?: string; login?: string }
 export type ReportOutcome =
   | { ok: true; number: number; url?: string }
   | { ok: false; code: 'no_gh' | 'refused' | 'stale' | 'invalid' | 'silent'; url?: string; message?: string };
@@ -24,7 +25,7 @@ export function previewReport(client: DaemonClient, c: ReportContext): Promise<R
   return new Promise(resolve => {
     const requestId = rid('preview');
     const done = (r: ReportPreview | null) => { clearTimeout(timer); off(); resolve(r); };
-    const off = client.onMessage(m => { if (m.type === 'report.preview.reply' && m.requestId === requestId) done({ items: m.items, ...(m.log !== undefined ? { log: m.log } : {}) }); });
+    const off = client.onMessage(m => { if (m.type === 'report.preview.reply' && m.requestId === requestId) { const login = (m as { login?: unknown }).login; done({ items: m.items, ...(m.log !== undefined ? { log: m.log } : {}), ...(typeof login === 'string' && login ? { login } : {}) }); } });
     const timer = setTimeout(() => done(null), PREVIEW_MS);
     try { client.send({ type: 'report.preview', requestId, ...clean(c) }); } catch { done(null); }
   });
