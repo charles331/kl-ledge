@@ -59,7 +59,9 @@ describe('Settings › Projects: the list', () => {
     expect(project('Ledge').getByText('2 agents')).toBeVisible();
     expect(project('Payment Service').getByText('1 agent')).toBeVisible();
     expect(project('Docs').getByText('0 agents')).toBeVisible();
-    expect(project('Docs').getByText('No folder or repository')).toBeVisible();
+    // Issue #2: a project saved without a folder before the rule, « to complete », with « Add a folder ».
+    expect(project('Docs').getByText('No folder: to complete')).toHaveClass('set-warn');
+    expect(project('Docs').getAllByRole('button').map(b => b.getAttribute('aria-label'))).toEqual(['Add a folder to Docs', 'Edit Docs', 'Delete Docs']);
     expect(project('Ledge').getAllByRole('button').map(b => b.getAttribute('aria-label'))).toEqual(['Edit Ledge', 'Delete Ledge']);
     expect(saved()).toEqual([]);
   });

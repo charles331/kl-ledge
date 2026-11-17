@@ -87,7 +87,7 @@ describe('« Let Ledge do it » in the project editor', () => {
     // The branch the scan found.
     expect(within(fontsRow).getByText('⎇ main')).toBeVisible();
     expect(document.querySelector('.pe-proposal')).toHaveTextContent('Ledge proposes2 repositories on Local. Uncheck what does not fit, then confirm: nothing is created before.');
-    expect(prop.getByText('Working folders and repositories · 2')).toBeVisible();
+    expect(prop.getByText('Kept · 2')).toBeVisible();
     // A proposal under way: no offer, no « Ask Ledge ».
     expect(document.querySelector('.pe-ledge')).toBeNull();
     expect(prop.queryByRole('button', { name: 'Ask Ledge' })).toBeNull();
@@ -98,7 +98,7 @@ describe('« Let Ledge do it » in the project editor', () => {
 
     await user.click(templates);
     expect(templates.closest('li')).toHaveClass('off');
-    expect(prop.getByText('Working folders and repositories · 1')).toBeVisible();
+    expect(prop.getByText('Kept · 1')).toBeVisible();
     expect(document.querySelector('.pe .composer-preview')!.textContent).toBe('Paper1 repository on Local · the table appears with the first session');
     await user.click(prop.getByRole('button', { name: /^Create the project/ }));
     await waitFor(() => expect(setsOf(d)).toHaveLength(1));
