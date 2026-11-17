@@ -178,7 +178,9 @@ function mapEvent(eventName: string, p: Payload, at: string, launched: boolean):
     }
     case 'PostToolUse': {
       const output = toolOutput(p.tool_response);
-      return { name: 'PostToolUse', ...base, tool, ...call, ...(output !== undefined ? { output } : {}), ...duration };
+      // A Bash left in the background (issue #1): its task id is what a later TaskStop names; its output is empty.
+      const bgId = str((p.tool_response as Payload | undefined)?.backgroundTaskId);
+      return { name: 'PostToolUse', ...base, tool, ...call, ...(output !== undefined ? { output } : {}), ...(bgId ? { backgroundTaskId: bgId } : {}), ...duration };
     }
     case 'PostToolUseFailure': {
       const error = str(p.error) || undefined;

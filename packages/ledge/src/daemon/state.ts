@@ -357,11 +357,21 @@ function withBackgroundList(s: Session, background: BackgroundCommand[]): Sessio
  */
 function withBackground(next: Session, ev: SessionEvent): Session {
   if (next.state === 'exited') return withBackgroundList(next, []);
-  if (ev.helperId) return next;
   const background = next.background ?? [];
+  // The agent stopped a background task itself (TaskStop, KillShell before it): Claude Code sends no notification for it (seen
+  // 2026-11-17). Its command leaves, or the helper it names (a background agent) is finished. From the agent or one of its helpers.
+  if (ev.name === 'PostToolUse' && (ev.tool === 'TaskStop' || ev.tool === 'KillShell')) {
+    const raw = ev.toolInput?.task_id ?? ev.toolInput?.shell_id;
+    const id = typeof raw === 'string' ? raw : '';
+    if (!id) return next;
+    const s1 = next.helpers.some(h => h.id === id && helperAtWork(h)) ? { ...next, helpers: next.helpers.map(h => (h.id === id && helperAtWork(h) ? { ...h, state: 'exited' as const } : h)) } : next;
+    return withBackgroundList(s1, background.filter(c => c.taskId !== id));
+  }
+  if (ev.helperId) return next;
   if (ev.name === 'PostToolUse' && ev.tool === 'Bash' && ev.toolUseId && ev.toolInput?.run_in_background === true && !background.some(c => c.id === ev.toolUseId)) {
     const text = (k: string) => (typeof ev.toolInput?.[k] === 'string' ? doingLabel(ev.toolInput[k] as string) : '');
-    return withBackgroundList(next, [...background, { id: ev.toolUseId, label: text('description') || text('command') || 'Bash', since: ev.at }].slice(-BACKGROUND_MAX));
+    const cmd: BackgroundCommand = { id: ev.toolUseId, label: text('description') || text('command') || 'Bash', since: ev.at, ...(ev.backgroundTaskId ? { taskId: ev.backgroundTaskId } : {}) };
+    return withBackgroundList(next, [...background, cmd].slice(-BACKGROUND_MAX));
   }
   if (ev.name === 'UserPromptSubmit' && ev.text?.includes('<task-notification>')) {
     const done = taskNotifications(ev.text);

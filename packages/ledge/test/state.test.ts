@@ -1036,8 +1036,33 @@ describe('background work from Claude Code\'s own hook payloads (issue #1)', () 
     const prompt = '<task-notification>\n<task-id>bcmjbe4t1</task-id>\n<tool-use-id>toolu_012Bj</tool-use-id>\n<output-file>/tmp/claude-1000/x/tasks/bcmjbe4t1.output</output-file>\n<status>completed</status>\n<summary>Background command "Install dependencies in the #1 worktree" completed (exit code 0)</summary>\n</task-notification>';
     const done = mapClaudeHook('UserPromptSubmit', { ...common, hook_event_name: 'UserPromptSubmit', prompt }, later(5000))!;
     let s = [pre.event, post.event, ev('Stop', { at: later(1200) })].reduce(reduce, session('working'));
-    expect(backgroundOf(s)?.commands).toEqual([{ id: 'toolu_012Bj', label: 'Install dependencies in the #1 worktree', since: later(1100) }]);
+    expect(backgroundOf(s)?.commands).toEqual([{ id: 'toolu_012Bj', label: 'Install dependencies in the #1 worktree', since: later(1100), taskId: 'bcmjbe4t1' }]);
     s = reduce(s, done.event);
+    expect(backgroundOf(s)).toBeUndefined();
+  });
+
+  it('a TaskStop of the agent ends its background command, which gets no notification (shapes from a real session, review M1)', async () => {
+    const { mapClaudeHook } = await import('../src/cli/hook.js');
+    const common = { session_id: 'ae48', transcript_path: '/tmp/t.jsonl', cwd: '/w' };
+    const input = { command: 'sleep 300', run_in_background: true };
+    const post = mapClaudeHook('PostToolUse', { ...common, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: input, tool_use_id: 'toolu_bg',
+      tool_response: { stdout: '', stderr: '', interrupted: false, isImage: false, noOutputExpected: false, backgroundTaskId: 'b6i6663lr' } }, later(1000))!;
+    const stop = mapClaudeHook('PostToolUse', { ...common, hook_event_name: 'PostToolUse', tool_name: 'TaskStop', tool_input: { task_id: 'b6i6663lr' }, tool_use_id: 'toolu_stop',
+      tool_response: { message: 'Successfully stopped task: b6i6663lr (sleep 300)', task_id: 'b6i6663lr', task_type: 'local_bash', command: 'sleep 300' } }, later(2000))!;
+    let s = reduce(session('working'), post.event);
+    expect(s.background).toEqual([{ id: 'toolu_bg', label: 'sleep 300', since: later(1000), taskId: 'b6i6663lr' }]);
+    s = reduce(s, stop.event);
+    expect(s).not.toHaveProperty('background');
+  });
+
+  it('a TaskStop (or KillShell) naming a background agent ends its helper; one naming nothing known changes nothing', () => {
+    let s = reduce(session('working'), ev('SubagentStart', { helperId: 'a4978', at: later(1000) }));
+    s = reduce(s, ev('PostToolUse', { tool: 'Bash', toolUseId: 't1', toolInput: { command: 'npm run dev', run_in_background: true }, backgroundTaskId: 'bdev' }));
+    const same = reduce(s, ev('PostToolUse', { tool: 'TaskStop', toolInput: { task_id: 'unknown' } }));
+    expect(backgroundOf(same)).toMatchObject({ subagents: 1, commands: [{ id: 't1' }] });
+    s = reduce(s, ev('PostToolUse', { tool: 'TaskStop', toolInput: { task_id: 'a4978' }, at: later(7000) }));
+    expect(s.helpers[0]).toMatchObject({ state: 'exited', finishedAt: later(7000) });
+    s = reduce(s, ev('PostToolUse', { tool: 'KillShell', toolInput: { shell_id: 'bdev' } }));
     expect(backgroundOf(s)).toBeUndefined();
   });
 });

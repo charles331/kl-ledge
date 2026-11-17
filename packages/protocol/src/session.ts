@@ -89,9 +89,11 @@ export const HELPER_STALE_MS = 15 * 60 * 1000;
 /**
  * A command the agent left running in the background (issue #1, Claude Code's Bash with `run_in_background`): the call's id, its
  * description (else its command's first line, cut to DOING_LABEL_MAX), since when. Known from the call's end until the harness says
- * it finished (its `<task-notification>`), or the session ends.
+ * it finished (its `<task-notification>`), the agent stops it (TaskStop, which sends no notification), or the session ends.
  */
-export const BackgroundCommandSchema = z.object({ id: z.string(), label: z.string(), since: z.string().datetime() });
+export const BackgroundCommandSchema = z.object({ id: z.string(), label: z.string(), since: z.string().datetime(),
+  /** The harness's own id of the background task (what its TaskStop names), when it gave one. */
+  taskId: z.string().optional() });
 export type BackgroundCommand = z.infer<typeof BackgroundCommandSchema>;
 /** The most background commands a session keeps: the newest win. */
 export const BACKGROUND_MAX = 20;

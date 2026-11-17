@@ -67,6 +67,8 @@ export const SessionEventSchema = z.object({
   toolUseId: z.string().optional(),
   /** The tool's input as the harness gave it, every string capped by the hook. */
   toolInput: z.record(z.string(), z.unknown()).optional(),
+  /** PostToolUse: the id the harness gave a call it left running in the background (Claude Code's `backgroundTaskId`, issue #1). */
+  backgroundTaskId: z.string().optional(),
   /** PostToolUse: the result as text; SubagentStop: nothing (the report travels in `text`). */
   output: z.string().optional(),
   durationMs: z.number().nonnegative().optional(),
