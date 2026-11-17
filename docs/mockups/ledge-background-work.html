@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Travail en arrière-plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#1 : un agent « disponible » qui a une commande en arrière-plan ou des sous-agents au travail ne doit plus
+   avoir l'air inactif. Base : la barre latérale (shell/sidebar/Tree.tsx : ligne d'agent, .st-kids, .st-tally) et la vue Rigs
+   (ide/rigs/RigsView.tsx). Faisabilité : dev-back, qitem-20261117195035-b0b953ef37f2a939. Tokens : packages/ui tokens.css. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --foreground:oklch(0.985 0 0);--card:oklch(0.205 0 0);--muted:oklch(0.269 0 0);--muted-foreground:oklch(0.708 0 0);
+  --border:#ffffff1a;--input:#ffffff26;--side:#141414;--pane:#111112;--page:#000;--hover:#ffffff10;--note:#a78bfa;--shell:#0d0d0d;
+  --work:#60a5fa;--idle:#34d399;--ask:#fbbf24;--perm:#f87171;--off:#71717a;--coral:#ea6a58;--tip:#2a2a2c;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --foreground:oklch(0.145 0 0);--card:oklch(1 0 0);--muted:oklch(0.97 0 0);--muted-foreground:oklch(0.556 0 0);
+  --border:oklch(0.922 0 0);--input:oklch(0.922 0 0);--side:oklch(0.975 0 0);--pane:#fff;--page:oklch(0.95 0 0);--hover:#0000000a;--note:#7c3aed;--shell:oklch(0.985 0 0);
+  --work:#2563eb;--idle:#059669;--ask:#b45309;--perm:#dc2626;--off:#a1a1aa;--coral:#cc5241;--tip:#27272a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1240px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid}
+.tag.new{color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.tag.prov{color:var(--ask);border-color:color-mix(in srgb,var(--ask) 50%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:320px}
+/* Barre latérale (Tree.tsx), 300 px. */
+.side{width:300px;background:var(--side);border:1px solid var(--border);border-radius:8px;padding:6px 4px 8px;display:flex;flex-direction:column;font-size:12.5px;position:relative;flex-shrink:0}
+.lab{display:flex;align-items:center;padding:4px 8px 6px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);font-weight:500}
+.r{display:flex;align-items:flex-start;gap:6px;padding:3px 6px;border-radius:6px;position:relative}
+.r.hov{background:var(--hover)}
+.chev{width:12px;color:var(--muted-foreground);font-size:10px;margin-top:3px;flex:none;text-align:center}
+.r.proj b{font-weight:600}
+.sw{width:10px;height:10px;border-radius:3px;margin-top:4px;flex:none}
+.fill{flex:1}
+.tally{display:flex;gap:7px;font:500 10px 'Geist Mono',monospace;margin-top:3px;flex:none}
+.tally span{display:flex;align-items:center;gap:3px}
+.tally i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.tally .w{color:var(--work)}.tally .n{color:var(--ask)}.tally .d{color:var(--muted-foreground)}
+.tally .bg{color:var(--work)}.tally .bg i{background:none;border:1.5px solid currentColor;width:7px;height:7px}
+.r.br{padding-left:22px;color:var(--muted-foreground);font:11px 'Geist Mono',monospace}
+.r.br .cnt{margin-left:auto}
+.r.ag{padding-left:var(--pl,22px)}
+.logo{width:18px;height:18px;flex:none;display:grid;place-items:center;position:relative;margin-top:1px}
+.logo .lg{width:14px;height:14px;border-radius:4px}
+.logo .ring{position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;border:1.5px solid var(--work);background:var(--side)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.main strong{font-weight:500;display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden}
+.main strong .rt{font:10px 'Geist Mono',monospace;color:var(--muted-foreground);border:1px solid var(--input);border-radius:4px;padding:0 4px}
+.main .task{font-size:11.5px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main .doing{font-size:11.5px;color:var(--work);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main .bgcmd{font-size:11.5px;color:var(--work);display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden}
+.main .bgcmd span{overflow:hidden;text-overflow:ellipsis}
+.main .bgcmd code{font-size:10.5px}
+.time{font:11px 'Geist Mono',monospace;color:var(--muted-foreground);flex:none;margin-top:1px}
+.kids{flex:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;border:1px solid var(--input);display:inline-flex;align-items:center;gap:3px;font:500 10px 'Geist Mono',monospace;color:var(--muted-foreground)}
+.kids.on{color:var(--work);border-color:color-mix(in srgb,var(--work) 60%,transparent);background:color-mix(in srgb,var(--work) 10%,transparent)}
+.kids .sp{width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor;border-top-color:transparent}
+.r.helper .main strong{font-weight:400;color:var(--muted-foreground)}
+.r.helper .logo .lg{width:10px;height:10px;border-radius:3px;opacity:.8}
+.tip{position:absolute;z-index:9;background:var(--tip);color:#fafafa;font-size:11px;line-height:15px;padding:5px 8px;border-radius:6px;max-width:250px;white-space:normal}
+/* Vue Rigs (RigsView.tsx). */
+.dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px;background:var(--off)}
+.dot.work{background:var(--work)}.dot.idle{background:var(--idle)}.dot.bg{background:none;border:1.5px solid var(--work);width:9px;height:9px}
+.role{font:10.5px 'Geist Mono',monospace;color:var(--muted-foreground);margin-left:5px;font-weight:400}
+.meta{font:10.5px 'Geist Mono',monospace;color:var(--muted-foreground);flex:none;margin-top:2px;display:flex;gap:6px}
+.meta .bgn{color:var(--work);display:inline-flex;gap:3px;align-items:center}
+.meta .bgn i{width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor}
+.legend{display:flex;flex-direction:column;gap:7px;width:300px;font-size:12px}
+.legend div{display:flex;gap:9px;align-items:center}
+.legend .k{width:62px;display:flex;justify-content:center}
+table.cov{border-collapse:collapse;font-size:12px;width:760px}
+table.cov th,table.cov td{border-top:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}
+table.cov th{color:var(--muted-foreground);font-weight:500}
+.y{color:var(--idle)}.p{color:var(--ask)}.no{color:var(--muted-foreground)}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const T = {
+  fr: {
+    h1:'Barre latérale — le travail en arrière-plan ne passe plus pour du repos', hsub:'Issue kl-ledge/ledge#1. Ce qui dépend de la détection est marqué provisoire. À valider par l’utilisateur.',
+    projects:'Projets', rigs:'Rigs', bgCmd:'en arrière-plan', kidsOn:(n,w)=>`${n} sous-agent${n>1?'s':''}, dont ${w} au travail`,
+    tipKids:'Disponible, mais 2 sous-agents travaillent encore.', tipCmd:'Disponible, mais une commande lancée en arrière-plan tourne encore : « Lancer la suite e2e ». Ledge ne sait pas quand elle finira.',
+    tallyBg:n=>`${n} en arrière-plan`, rigBg:n=>`${n} en arrière-plan`,
+    tipSeat:'Disponible · 2 sous-agents au travail',
+    lWork:'Au travail', lBg:'Disponible, travail en arrière-plan', lIdle:'Disponible, rien en cours', lKids:'Sous-agents : au travail (bleu) / tous au repos (gris)', lCmd:'Commande en arrière-plan (Claude Code)',
+    when:{now:'maint.', m:'min'},
+  },
+  en: {
+    h1:'Sidebar — background work no longer looks like rest', hsub:'Issue kl-ledge/ledge#1. What depends on detection is marked provisional. For the user to validate.',
+    projects:'Projects', rigs:'Rigs', bgCmd:'in the background', kidsOn:(n,w)=>`${n} sub-agent${n>1?'s':''}, ${w} working`,
+    tipKids:'Available, but 2 sub-agents are still working.', tipCmd:'Available, but a command started in the background is still running: “Run the e2e suite”. Ledge can’t tell when it will finish.',
+    tallyBg:n=>`${n} in the background`, rigBg:n=>`${n} in the background`,
+    tipSeat:'Available · 2 sub-agents working',
+    lWork:'Working', lBg:'Available, background work', lIdle:'Available, nothing running', lKids:'Sub-agents: working (blue) / all at rest (grey)', lCmd:'Background command (Claude Code)',
+    when:{now:'now', m:'min'},
+  }
+};
+let L = 'fr';
+const t = () => T[L];
+const svg = (d, s=11) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d.map(p=>`<path d="${p}"/>`).join('')}</svg>`;
+const TERM = ['m4 17 6-5-6-5','M12 19h8'];
+const LOGO = { claude:'#d97757', codex:'#10a37f', cursor:'#8b8b8b', omp:'#a78bfa' };
+
+/* An agent row: o = {name, tool, task, doing, time, kids:{n,w}, bg:'cmd', ring, helper, pl, hov, tip, rt} */
+const ag = (o) => {
+  const x = t();
+  return `<div class="r ag ${o.helper?'helper':''} ${o.hov?'hov':''}" style="--pl:${o.pl||22}px">${o.kids?`<span class="chev">▸</span>`:`<span class="chev"></span>`}
+    <span class="logo"><span class="lg" style="background:${LOGO[o.tool]}"></span>${o.ring?'<span class="ring"></span>':''}</span>
+    <span class="main"><strong>${o.name}${o.rt?`<span class="rt">${o.rt}</span>`:''}</strong>
+      ${o.doing?`<span class="doing">${o.doing}</span>`:o.task?`<span class="task">${o.task}</span>`:''}
+      ${o.bg==='cmd'?`<span class="bgcmd">${svg(TERM)}<span>${o.cmd} · ${x.bgCmd}</span></span>`:''}</span>
+    ${o.kids?`<span class="kids ${o.kids.w?'on':''}" title="${x.kidsOn(o.kids.n,o.kids.w)}">${o.kids.w?'<span class="sp"></span>':''}${o.kids.n}</span>`:''}
+    <span class="time">${o.time}</span>${o.tip||''}</div>`;
+};
+const proj = (name, color, tl) => `<div class="r proj"><span class="chev">▾</span><span class="sw" style="background:${color}"></span><b>${name}</b><span class="fill"></span><span class="tally">${tl}</span></div>`;
+const br = (b, n) => `<div class="r br"><span>${b}</span><span class="cnt">${n}</span></div>`;
+
+function projectsSide(o={}){
+  const x = t(), F = L==='fr';
+  const tl = `<span class="w" title="2"><i></i>2</span><span class="bg" title="${x.tallyBg(2)}"><i></i>2</span><span class="d"><i></i>1</span>`;
+  return `<div class="side"><div class="lab">${x.projects}</div>
+    ${proj('ledge', '#34d399', tl)}${br('main', 4)}
+    ${ag({name:'Otto', tool:'claude', doing:F?'Exécute pnpm test':'Runs pnpm test', time:x.when.now})}
+    ${ag({name:'Nova', tool:'claude', task:F?'Relire la PR #231':'Review PR #231', kids:{n:2,w:2}, ring:true, time:'4 '+x.when.m, hov:o.tipKids, tip:o.tipKids?`<span class="tip" style="top:40px;left:40px">${x.tipKids}</span>`:''})}
+    ${o.open?ag({name:'Explore', tool:'claude', task:F?'Cherche les appels de setHelper':'Finds setHelper calls', helper:true, pl:44, time:x.when.now})+ag({name:'general-purpose', tool:'claude', task:F?'Écrit les tests du lot':'Writes the lot’s tests', helper:true, pl:44, time:x.when.now}):''}
+    ${ag({name:'Pim', tool:'claude', task:F?'Suite e2e du lot 13':'Lot 13 e2e suite', bg:'cmd', cmd:'Lancer la suite e2e', ring:true, time:'9 '+x.when.m, hov:o.tipCmd, tip:o.tipCmd?`<span class="tip" style="top:44px;left:40px">${x.tipCmd}</span>`:''})}
+    ${ag({name:'Ida', tool:'codex', task:F?'Passer les captures en clair':'Light captures', time:'22 '+x.when.m})}
+    ${proj('paper', '#60a5fa', `<span class="d"><i></i>1</span>`)}
+    ${ag({name:'Lu', tool:'cursor', task:F?'Migrer la file des toasts':'Migrate the toast queue', kids:{n:1,w:0}, time:'1 h'})}
+  </div>`;
+}
+function rigsSide(o={}){
+  const x = t(), F = L==='fr';
+  const seat = (name, role, dot, ctx, extra='') => `<div class="r ${extra}" style="padding-left:22px"><span class="dot ${dot}"></span><span class="main"><strong>${name}<span class="role">${role}</span></strong></span><span class="meta">${ctx}</span>${o.tip&&name==='dev-front'?`<span class="tip" style="top:26px;left:40px">${x.tipSeat}</span>`:''}</div>`;
+  return `<div class="side"><div class="lab">${x.rigs}</div>
+    <div class="r proj"><span class="chev">▾</span><span class="dot work" style="margin-top:4px"></span><b>ledge-dev</b><span class="fill"></span><span class="meta"><span class="bgn" title="${x.rigBg(2)}"><i></i>2</span><span>5</span></span></div>
+    ${seat('pilot-lead','lead','work','41 %')}
+    ${seat('dev-front','dev','bg','63 %', o.tip?'hov':'')}
+    ${seat('dev-back','dev','bg','38 %')}
+    ${seat('review-qa','qa','idle','12 %')}
+    ${seat('design-ux','ux','idle','55 %')}
+    <div class="r proj"><span class="chev">▸</span><span class="dot idle" style="margin-top:4px"></span><b>kernel</b><span class="fill"></span><span class="meta"><span>3</span></span></div>
+  </div>`;
+}
+
+function cards(){
+  const x = t(), C = [], F = L==='fr';
+  C.push({tag:'new', title:F?'Projets : la session, puis le projet':'Projects: the session, then the project',
+    why:`Une session <b>disponible</b> qui a encore du travail en arrière-plan prend <b>un petit anneau bleu</b> sur son logo : ni la pastille pleine du travail, ni rien (le repos). Deux causes, dites sur la ligne : <b>des sous-agents au travail</b> (le compteur existant <code>.st-kids</code> passe en bleu, avec un petit cercle qui tourne ; gris s’ils sont tous au repos) ; <b>une commande lancée en arrière-plan</b> (Claude Code seulement) : une ligne bleue sous la tâche, avec <code>>_</code>, la description de la commande et « en arrière-plan ». Au niveau du <b>projet</b>, le décompte gagne un cercle creux bleu : le nombre de sessions en arrière-plan, à côté de « au travail ». Pas de progression, pas d’heure de fin.`,
+    keys:F?'Nouveaux : side.background, side.kidsWorking(n,w), side.tallyBackground(n)':'New: side.background, side.kidsWorking(n,w), side.tallyBackground(n)',
+    scene: `<div>${projectsSide({})}<div class="cap">${F?'Nova : 2 sous-agents au travail · Pim : une commande en arrière-plan · Ida (Codex) : rien de lisible, donc rien':'Nova: 2 sub-agents working · Pim: a background command · Ida (Codex): nothing readable, so nothing'}</div></div>
+      <div>${projectsSide({open:true})}<div class="cap">${F?'Nova déplié : les sous-agents, comme aujourd’hui':'Nova unfolded: the sub-agents, as today'}</div></div>
+      <div class="legend"><div><span class="k"><span class="logo"><span class="lg" style="background:${LOGO.claude}"></span><span class="ring"></span></span></span>${x.lBg}</div><div><span class="k"><span class="kids on"><span class="sp"></span>2</span><span class="kids" style="margin-left:4px">1</span></span>${x.lKids}</div><div><span class="k" style="color:var(--work)">${svg(TERM,13)}</span>${x.lCmd}</div><div><span class="k"><span class="tally"><span class="w"><i></i>2</span><span class="bg"><i></i>2</span></span></span>${F?'Projet : au travail · en arrière-plan':'Project: working · in the background'}</div></div>`});
+  C.push({tag:'new', title:F?'Au survol : ce qui tourne, et ce qu’on ne sait pas':'On hover: what runs, and what we don’t know',
+    why:`L’infobulle de la ligne dit <b>« Disponible, mais … »</b> et la cause. Pour une commande, elle dit aussi que Ledge ne sait pas quand elle finira. Rien de plus : pas de pourcentage, pas d’estimation.`,
+    keys:F?'Nouveaux : side.bgTip.kids(n), side.bgTip.command(label)':'New: side.bgTip.kids(n), side.bgTip.command(label)',
+    scene: `<div>${projectsSide({tipKids:true})}</div><div>${projectsSide({tipCmd:true})}</div>`});
+  C.push({tag:'new', title:F?'Rigs : le siège, puis le rig':'Rigs: the seat, then the rig',
+    why:`Dans la vue Rigs, le point d’état d’un siège <b>disponible avec du travail en arrière-plan</b> devient un <b>cercle creux bleu</b> (plein bleu : au travail ; vert : disponible). La ligne du <b>rig</b> gagne le même cercle creux avec le nombre de sièges concernés, avant le nombre de sièges. L’infobulle du siège dit la cause. La couverture est celle de l’outil du siège : <code>rig ps</code> ne donne que running/idle.`,
+    keys:F?'Nouveaux : rigs.background(n), rigs.seatBgTip':'New: rigs.background(n), rigs.seatBgTip',
+    scene: `<div>${rigsSide({})}</div><div>${rigsSide({tip:true})}</div>`});
+  C.push({tag:'prov', title:F?'Ce que Ledge sait lire, par outil (provisoire)':'What Ledge can read, per tool (provisional)',
+    why:`D’après l’étude de dev-back. <b>Mieux vaut un indicateur absent que faux</b> : là où l’outil ne permet pas de savoir, la ligne reste comme aujourd’hui. Tout ce tableau est provisoire, à revoir quand la détection sera en place.`,
+    keys:'—',
+    scene: `<table class="cov"><tr><th>${F?'Outil':'Tool'}</th><th>${F?'Sous-agents au travail':'Sub-agents working'}</th><th>${F?'Commande en arrière-plan':'Background command'}</th></tr>
+      <tr><td>Claude Code ${F?'(sessions et sièges)':'(sessions and seats)'}</td><td class="y">${F?'oui (lot 1) · un sous-agent sans fin connue s’efface après un délai':'yes (lot 1) · a sub-agent with no known end fades after a delay'}</td><td class="y">${F?'oui (lot 2) · sauf un <code>nohup … &</code> détaché, invisible':'yes (lot 2) · except a detached <code>nohup … &</code>, invisible'}</td></tr>
+      <tr><td>OMP ${F?'lancé par Ledge (RPC)':'started by Ledge (RPC)'}</td><td class="y">${F?'oui (lot 1)':'yes (lot 1)'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td></tr>
+      <tr><td>OMP ${F?'siège lu par son journal':'seat read from its log'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td></tr>
+      <tr><td>Codex</td><td class="p">${F?'non vérifié : rien affiché pour l’instant':'unverified: nothing shown for now'}</td><td class="p">${F?'au mieux « processus actif » générique (question 2)':'at best a generic “active process” (question 2)'}</td></tr>
+      <tr><td>Cursor Agent</td><td class="p">${F?'fin déduite trop tôt : rien affiché':'end inferred too early: nothing shown'}</td><td class="p">${F?'au mieux « processus actif » générique (question 2)':'at best a generic “active process” (question 2)'}</td></tr></table>`});
+  return C;
+}
+
+function fiche(){
+  return `<section class="fiche"><h2>Fiche de transmission (dev-back, dev-front)</h2><table>
+  <tr><th>Point</th><th>Règle</th></tr>
+  <tr><td>Session</td><td>« En arrière-plan » = la session n’est ni au travail ni en attente de l’utilisateur, et (a) au moins un helper est <code>working</code>, ou (b) une commande <code>run_in_background</code> de Claude Code est ouverte (entre son PostToolUse et sa task-notification, fin corrigée par l’arbre de processus). Anneau bleu sur le logo de la ligne.</td></tr>
+  <tr><td>Sous-agents</td><td><code>.st-kids</code> : bleu + petit cercle tournant (immobile en mouvement réduit) s’il y a un helper <code>working</code>, gris sinon. Expiration d’un helper sans événement (dev-back) : il redevient gris.</td></tr>
+  <tr><td>Commande</td><td>Ligne sous la tâche : <code>&gt;_</code> + description du Bash + « en arrière-plan », en <code>--work</code>. Plusieurs : la plus récente, « +n » après.</td></tr>
+  <tr><td>Projet / rig</td><td>Projet : <code>.st-tally</code> + cercle creux bleu, nombre de sessions en arrière-plan. Rig : même cercle dans <code>.ide-rigs-meta</code>. Siège : le point d’état devient cercle creux bleu.</td></tr>
+  <tr><td>Lots</td><td>Lot 1 : sous-agents (Claude, OMP RPC). Lot 2 : commande en arrière-plan (Claude). Rien pour les autres outils, sauf réponse 2B.</td></tr>
+  <tr><td>Textes</td><td>Nouveaux (FR · EN) : en arrière-plan · in the background ; {n} sous-agents, dont {w} au travail ; les deux infobulles « Disponible, mais… » ; {n} en arrière-plan (projet, rig).</td></tr>
+  </table>
+  <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
+  <ol>
+    <li><b>Le signe sur la session</b> : A) un petit anneau bleu sur le logo, plus la cause sur la ligne (recommandé) ; B) la même pastille que « au travail », sans distinction.</li>
+    <li><b>Codex et Cursor</b> : A) rien tant que l’outil ne permet pas de savoir (recommandé, comme dev-back) ; B) un « processus actif » générique tiré de l’arbre de processus, marqué incertain.</li>
+    <li><b>L’ordre</b> : A) sous-agents d’abord, puis la commande en arrière-plan de Claude (recommandé) ; B) les deux ensemble.</li>
+    <li><b>Le décompte du projet et du rig</b> : A) un chiffre « en arrière-plan » à part, à côté de « au travail » (recommandé) ; B) compté dans « au travail ».</li>
+    <li><b>Les textes nouveaux</b> (fiche) : d’accord ?</li>
+  </ol></section>`;
+}
+
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='prov'?(L==='fr'?'provisoire':'provisional'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>
