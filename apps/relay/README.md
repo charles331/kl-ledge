@@ -116,6 +116,8 @@ The relay is licensed under the PolyForm Noncommercial License 1.0.0 (`LICENSE`,
 
 3. On npmjs.com, in the package's settings, add a Trusted Publisher: this repository, workflow `release.yml`.
 
+Done on 2026-11-17: the package was created by hand as `0.61.0-pre.0` (built from `main`, before any release carried the relay, so step 2 used a pre-release instead of a release's version), and its Trusted Publisher is `kl-ledge/ledge`, `release.yml`.
+
 From then on, every release publishes the relay with its phone build (`.github/workflows/release.yml`).
 
 ## Modes
