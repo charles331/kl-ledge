@@ -487,6 +487,20 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
       return () => { doc.removeEventListener('dragleave', leave, true); doc.removeEventListener('dragenter', enter, true); };
     }
     const unwatchMain = watchLeave(window);
+    // DIAGNOSTIC BUILD: every drag event the main page hears, on capture (dragover and drag: one line every 500 ms at most).
+    probe('DockHost: listeners on');
+    const lastSaid = new Map<string, number>();
+    const hear = (ev: Event) => {
+      const now = Date.now();
+      if ((ev.type === 'dragover' || ev.type === 'drag') && now - (lastSaid.get(ev.type) ?? 0) < 500) return;
+      lastSaid.set(ev.type, now);
+      const d = ev as globalThis.DragEvent;
+      const t = ev.target as Element | null;
+      probe(`main ${ev.type}: client=${d.clientX},${d.clientY} target=${t?.tagName ?? '-'}.${typeof t?.className === 'string' ? t.className.slice(0, 60) : ''}`
+        + ` defaultPrevented=${ev.defaultPrevented} dropEffect=${d.dataTransfer?.dropEffect ?? '-'} dragged=${dragged.current}`);
+    };
+    const heard = ['dragstart', 'drag', 'dragenter', 'dragleave', 'dragover', 'drop', 'dragend', 'pointerup', 'mouseup', 'pointercancel'] as const;
+    for (const type of heard) window.addEventListener(type, hear, true);
     // Tauri tells the main window of each detached window destroyed (its ✕ by the OS, Alt+F4), by its label `ide-<id>`
     // (dev-back's contract, lot 9): the same as dockview noticing it, whichever comes first (the second finds nothing).
     let offClosed = () => {};
@@ -544,6 +558,7 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
     return () => {
       clearTimeout(timer); clearTimeout(late);
       window.removeEventListener('dragend', onMainDragEnd, true);
+      for (const type of heard) window.removeEventListener(type, hear, true);
       window.removeEventListener('dragend', endDrag, true);
       for (const off of unmirror.values()) off();
       unwatchMain();

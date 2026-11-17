@@ -198,6 +198,7 @@ fn main() {
             media::now_playing, media::media_command, editor::editors_available, editor::open_in_editor,
         ])
         .setup(|app| {
+            popout::probe::log("DIAGNOSTIC: app started");
             // The main window, from its declaration in tauri.conf.json (`create: false`: decorations, hidden until shown below,
             // WebView2 flags, drag-drop off, minimum size), made here to take the IDE's `window.open` (popout windows).
             let config = app.config().app.windows.iter().find(|w| w.label == MAIN).cloned().ok_or("no main window in tauri.conf.json")?;
