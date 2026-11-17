@@ -50,10 +50,13 @@ describe('a device keeps its conversations', { timeout: 20_000 }, () => {
   it('a question still unanswered when the daemon stopped comes back failed, not running for ever', async () => {
     const home = mkdtempSync(join(tmpdir(), 'ledge-conv-')), clock = { t: '2026-10-20T08:00:00.000Z' };
     // A CLI that never answers: the daemon stops while it reads.
-    const silent = (() => Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), stdin: new PassThrough(), killed: false, kill: () => {} })) as unknown as typeof nodeSpawn;
+    let reading = false;
+    const silent = (() => { reading = true; return Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), stdin: new PassThrough(), killed: false, kill: () => {} }); }) as unknown as typeof nodeSpawn;
     const first = createChatThreads({ store: new Store({ journalPath: join(home, 'j.json') }), tmux, home, now: () => clock.t, today: () => clock.t.slice(0, 10), env: async () => ({ ...process.env }), spawn: silent });
     void first.device('d1').ask('q1', 'Où en est ledge-dev ?', quiet);
     await vi.waitFor(async () => { expect((await first.device('d1').conversations!()).current).toMatchObject({ count: 1 }); });
+    // The CLI is reading, so the first daemon is done writing its context folder: the next one rebuilds it alone.
+    await vi.waitFor(() => { expect(reading).toBe(true); });
     const again = setup(home, clock);
     const [turn] = again.d1().history();
     expect(turn).toMatchObject({ qid: 'q1', error: 'the daemon stopped before the answer', errorCause: 'interrupted' });
