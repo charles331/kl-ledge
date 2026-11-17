@@ -194,7 +194,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             focus_terminal, foreground_is_terminal, open_terminal, open_url, daemon_token, get_autostart, set_autostart, set_tray_labels, take_open_target,
             open_in_ledge, notch::set_frame, notch::set_hot_zone, notch::set_outside_watch, notch::focus_overlay, notch::release_focus,
-            notch::list_monitors, notch::set_monitor, popout::close_window, pty::pty_open, pty::shells_available, pty::pty_write, pty::pty_resize, pty::pty_close,
+            notch::list_monitors, notch::set_monitor, popout::close_window, popout::probe_log, pty::pty_open, pty::shells_available, pty::pty_write, pty::pty_resize, pty::pty_close,
             media::now_playing, media::media_command, editor::editors_available, editor::open_in_editor,
         ])
         .setup(|app| {

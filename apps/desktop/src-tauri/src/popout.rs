@@ -29,9 +29,10 @@ pub fn is_popout(label: &str) -> bool { label.starts_with(PREFIX) }
 /// The main window's `window.open` handler. A URL without `#ide-win=` keeps WebView2's own behaviour, as before lot 9.
 /// A popout already open is brought forward and the new one refused (the page never opens the same window twice).
 pub fn on_new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> NewWindowResponse<Wry> {
-    let Some(id) = window_id(&url) else { return NewWindowResponse::Allow };
+    let Some(id) = window_id(&url) else { probe::log(&format!("new_window {url}: not a popout, allowed")); return NewWindowResponse::Allow };
     let label = label(&id);
     if let Some(open) = app.get_webview_window(&label) {
+        probe::log(&format!("new_window {label}: DENIED, a window of that label exists (visible={:?})", open.is_visible()));
         let _ = open.set_focus();
         return NewWindowResponse::Deny;
     }
@@ -47,8 +48,22 @@ pub fn on_new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> 
         .disable_drag_drop_handler()
         .build();
     match built {
-        Ok(window) => { keep_on_screen(&window); NewWindowResponse::Create { window } }
-        Err(_) => NewWindowResponse::Deny,
+        Ok(window) => { keep_on_screen(&window); probe::log(&format!("new_window {label}: created")); NewWindowResponse::Create { window } }
+        Err(e) => { probe::log(&format!("new_window {label}: DENIED, build failed: {e}")); NewWindowResponse::Deny }
+    }
+}
+
+/// DIAGNOSTIC BUILD (tear-out, 2026-11-17): the main page reports what a drag let go heard.
+#[tauri::command]
+pub fn probe_log(line: String) { probe::log(&line.chars().take(600).collect::<String>()); }
+
+/// DIAGNOSTIC BUILD only: what a tab let go outside the window heard, in %TEMP%\ledge-tear-probe.log.
+pub mod probe {
+    use std::io::Write;
+    pub fn log(line: &str) {
+        let path = std::env::temp_dir().join("ledge-tear-probe.log");
+        let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) { let _ = writeln!(f, "{t} {line}"); }
     }
 }
 

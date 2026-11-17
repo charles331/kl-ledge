@@ -16,6 +16,12 @@ import { PopoutTitleBar } from './PopoutTitleBar';
 import { isTauri, setWindowTitle } from '../tauri/bridge';
 import '../styles/ide.css';
 
+/** DIAGNOSTIC BUILD (tear-out, 2026-11-17), never to merge: one line in %TEMP%\ledge-tear-probe.log. */
+const probe = (line: string): void => {
+  if (!isTauri()) return;
+  void import('@tauri-apps/api/core').then(c => c.invoke('probe_log', { line })).catch(() => {});
+};
+
 export interface DockHostProps {
   ws: Workspace; store: WorkspaceStore; title(t: Tab): string; body: TabBody;
   /** A tab's content (SessionTabLabel for a session or seat, its title otherwise). */
@@ -324,7 +330,9 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
         else api.addPanel({ id, component: 'tab', title: title(first), inactive: true, position: { referenceGroup: carrier } });
         opening.current.set(g.id, id);
         const box = boxes.current.get(g.window) ?? centred();
+        probe(`addPopoutGroup ${g.window} at ${JSON.stringify(box)}`);
         void api.addPopoutGroup(carrier, { popoutUrl: popoutUrl(g.window), position: box }).then(ok => {
+          probe(`addPopoutGroup ${g.window}: ok=${ok} location=${api.getPanel(id)?.group.api.location.type ?? 'no panel'}`);
           opening.current.delete(g.id);
           const moved = api.getPanel(id);
           // Opened: its group is the popout's. Refused (no window): the window closes, its tabs come back.
@@ -470,7 +478,9 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
     /** The pointer leaving `w` while dragging: the banner of the window the drag started in turns solid; back in, dashed. */
     function watchLeave(w: Window): () => void {
       const doc = w.document;
-      const leave = (ev: globalThis.DragEvent) => { if (!ev.relatedTarget && outsideWindow(ev, w)) setTear(t => (t && t.from === w && !t.out ? { ...t, out: true } : t)); };
+      const leave = (ev: globalThis.DragEvent) => {
+        if (!ev.relatedTarget) probe(`dragleave ${w === window ? 'main' : popoutLabel(w) ?? '?'}: client=${ev.clientX},${ev.clientY} inner=${w.innerWidth}x${w.innerHeight} outside=${outsideWindow(ev, w)}`);
+        if (!ev.relatedTarget && outsideWindow(ev, w)) setTear(t => (t && t.from === w && !t.out ? { ...t, out: true } : t)); };
       const enter = () => setTear(t => (t && t.from === w && t.out ? { ...t, out: false } : t));
       doc.addEventListener('dragleave', leave, true);
       doc.addEventListener('dragenter', enter, true);
@@ -488,6 +498,11 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
     /** A drag let go outside the window it started in: the tab (or the bottom-panel terminal) opens in a new window there.
      *  The only tab of a secondary window moves its window instead (v27). Read before `endDrag` forgets what was dragged. */
     const tearOut = (e: globalThis.DragEvent, from: Window) => {
+      const dt = e.dataTransfer;
+      probe(`dragend ${from === window ? 'main' : popoutLabel(from) ?? '?'}: client=${e.clientX},${e.clientY} screen=${e.screenX},${e.screenY}`
+        + ` inner=${from.innerWidth}x${from.innerHeight} dpr=${from.devicePixelRatio} outside=${outsideWindow(e, from)}`
+        + ` dropEffect=${dt ? dt.dropEffect : 'no dataTransfer'} effectAllowed=${dt?.effectAllowed} types=${dt ? JSON.stringify([...dt.types]) : '-'}`
+        + ` dragged=${dragged.current} tile=${panelDragRef()}`);
       if (!outsideWindow(e, from) || (e.dataTransfer && e.dataTransfer.dropEffect !== 'none')) return;
       const box = boxAt(e.screenX, e.screenY);
       const key = dragged.current;
