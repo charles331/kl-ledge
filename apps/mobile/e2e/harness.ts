@@ -95,6 +95,9 @@ export interface FakeDaemon {
   termTyped: string[];
   /** Set: the snapshot says `daemon.atelier` and carries these projects (the iPad's Atelier); null: an older PC. */
   projects: PhoneProject[] | null;
+  /** Set (with `projects`): the snapshot says `daemon.projectEdit` and `projectFolders` (Réglages › Projets, issue #2), and the PC
+   *  answers this PC's recent folders, a folder's listing and a project's folders from it. */
+  projectFolders: { recents: string[]; home: string; listings: Record<string, string[]>; folders: Record<string, { machine: string; path: string; label?: string }[]> } | null;
   /** True: the snapshot says `daemon.broadcast`, and the PC takes « Écrire au groupe ». */
   broadcast: boolean;
   /** The broadcasts the PC took: the sessions and the text. */
@@ -121,7 +124,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   let seen = 0;
   let busy = false;
   const d: FakeDaemon = {
-    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [],
+    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [],
     finishChat() { d.turns = d.turns.map((t) => (t.answer === undefined ? finished(t) : t)); },
     async update(s) {
       d.sessions = [...d.sessions.filter((x) => x.id !== s.id), s];
@@ -131,7 +134,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   };
   const snapshot = (): PhoneServerMessage => ({
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: d.sessions,
-    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}) },
+    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}) },
     ...(d.projects ? { projects: d.projects } : {}),
     ...(d.device || d.push || d.chat ? { device: { confirm: d.device ? d.device.registered : true, ...(d.push ? { push: d.push } : {}), ...(d.chat ? { chat: true as const } : {}) } } : {})
   });
@@ -257,6 +260,13 @@ function runDaemon(pc: FakePc): FakeDaemon {
     return pc.send({ type: 'forge.done', op: m.op, ok: true, ...(command ? { command } : {}) });
   };
   const handle = async (m: PhoneClientMessage) => {
+    const pf = d.projectFolders;
+    if (pf && m.type === 'folder.recents') return pc.send({ type: 'folder.recents', paths: pf.recents });
+    if (pf && m.type === 'folder.list') {
+      const path = m.path ?? pf.home;
+      return pc.send({ type: 'folder.listing', path, parent: path === '/' ? null : path.split('/').slice(0, -1).join('/') || '/', entries: pf.listings[path] ?? [], repos: [] });
+    }
+    if (pf && m.type === 'project.folders') return pc.send({ type: 'project.folders', id: m.id, folders: pf.folders[m.id] ?? [] });
     if (m.type === 'snapshot.request') { await pc.send(snapshot()); if (d.usage) await pc.send({ type: 'usage.state', harnesses: d.usage, prefs: { alert: 0.8 } }); return; }
     if (d.terminal && m.type.startsWith('term.')) return terminalMessage(m);
     if (d.chat && (m.type === 'chat.history' || m.type === 'chat.ask' || m.type === 'chat.relay' || m.type === 'chat.launch' || m.type === 'chat.close')) return chatMessage(m);

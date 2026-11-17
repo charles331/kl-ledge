@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { PROJECT_COLORS, projectNameKey, type PhoneFolder, type PhoneProject, type ProjectColor } from '@ledge/protocol';
 import { copy } from '../copy';
 import type { ChatAction } from '../state/chat';
@@ -53,23 +53,41 @@ function EditSheet({ store, project, projects, onClose, onDelete, onFolders }: {
   const [color, setColor] = useState<ProjectColor>(project?.color ?? COLORS.find(c => !used.has(c)) ?? 'blue');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Issue #2: a new project takes its first folder of this PC (a daemon that has the folders), confirmed with the project.
+  const state = useMobile(store);
+  const firstFolder = project === null && !!state.daemon?.projectFolders;
+  const canConfirm = !!state.device?.confirm;
+  const [path, setPath] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
+  useEffect(() => { if (firstFolder) store.requestRecentFolders(); }, [store, firstFolder]);
   const trimmed = name.trim();
   const taken = trimmed !== '' && projects.some(p => p.id !== project?.id && projectNameKey(p.name) === projectNameKey(trimmed));
   const same = project !== null && trimmed === project.name && color === project.color;
+  const missing = firstFolder && (path === null || !canConfirm);
   const save = () => {
-    if (!trimmed || taken || busy) return;
+    if (!trimmed || taken || busy || missing) return;
     if (same) { onClose(); return; }
     setBusy(true); setError(null);
     const change = project ? { ...(trimmed !== project.name ? { name: trimmed } : {}), ...(color !== project.color ? { color } : {}) } : null;
-    void (project ? store.editProject(project.id, change!) : store.createProject(trimmed, color)).then(r => {
+    void (project ? store.editProject(project.id, change!) : store.createProject(trimmed, color, firstFolder ? path! : undefined)).then(r => {
       setBusy(false);
       if (r.status === 'applied') onClose(); else setError(why(r));
     });
   };
+  if (browsing) {
+    return (
+      <Sheet labelledBy={`${id}-title`} onClose={() => setBrowsing(false)}>
+        <h2 id={`${id}-title`} className="text-heading leading-[1.3] font-semibold tracking-[-.5px]">{P.firstFolder}</h2>
+        <FolderBrowser store={store} busy={false} skip={() => false} rowLabel={P.choose} rowAria={P.chooseLabel} pickLabel={P.chooseThis} pickAria={P.chooseLabel} pickDisabled={false}
+          error={null} onPick={p => { setPath(p); setBrowsing(false); }} onBack={() => setBrowsing(false)} />
+      </Sheet>
+    );
+  }
+  const recents = [...new Set([...(path !== null ? [path] : []), ...(state.recentFolders ?? [])])];
   return (
     <Sheet labelledBy={`${id}-title`} onClose={() => { if (!busy) onClose(); }}>
       <h2 id={`${id}-title`} className="text-heading leading-[1.3] font-semibold tracking-[-.5px]">{project ? P.editTitle : P.newTitle}</h2>
-      {!project && <p className="text-body text-muted">{P.newBody}</p>}
+      {!project && <p className="text-body text-muted">{firstFolder ? P.newBody : P.newBodyOld}</p>}
       <form className="flex flex-col gap-4" onSubmit={e => { e.preventDefault(); save(); }}>
         <label className="flex flex-col gap-1.5">
           <span className="text-small text-muted">{P.name}</span>
@@ -77,10 +95,33 @@ function EditSheet({ store, project, projects, onClose, onDelete, onFolders }: {
           {taken && <span role="alert" className="text-small text-danger-fg">{P.errors.name_taken}</span>}
         </label>
         <ColorPicker name={`${id}-color`} value={color} onChange={setColor} />
+        {firstFolder && (
+          <section aria-labelledby={`${id}-first`} className="flex flex-col gap-1.5">
+            <h3 id={`${id}-first`} className="flex items-center gap-2 text-small text-muted">{P.firstFolder}
+              <span className="rounded-full border border-task/45 px-2 text-meta text-task">{P.required}</span></h3>
+            {recents.length > 0 && <>
+              <h4 className="text-meta tracking-[.06em] text-muted uppercase">{P.recents}</h4>
+              <ul className="flex flex-col rounded-control border border-line">
+                {recents.map(r => (
+                  <li key={r} className={ROW}>
+                    <button type="button" aria-pressed={path === r} aria-label={P.chooseLabel(r)} disabled={busy} onClick={() => setPath(r)}
+                      className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left ${path === r ? 'font-medium text-fg' : ''}`}>
+                      <Icon name={path === r ? 'check' : 'folder'} className="size-4 flex-none" /><span className="font-mono text-small break-all">{r}</span>
+                    </button>
+                    {path === r && <span className="text-meta text-ok">{P.chosen}</span>}
+                  </li>
+                ))}
+              </ul>
+            </>}
+            <Button size="sm" className="self-start" disabled={busy} onClick={() => setBrowsing(true)}>{P.browseMore}</Button>
+            {path === null && <p data-pick-first="" className="rounded-control border border-dashed border-input px-3 py-2 text-small text-muted">{P.pickFirst}</p>}
+            {!canConfirm && <p className="text-small text-attention">{P.noPasskey}</p>}
+          </section>
+        )}
         {error && <p role="alert" className="text-small text-danger-fg">{error}</p>}
         <div className="flex gap-2">
           <Button variant="ghost" className="flex-1" disabled={busy} onClick={onClose}>{P.cancel}</Button>
-          <Button variant="primary" type="submit" className="flex-[2]" disabled={busy || !trimmed || taken}>{project ? P.save : P.create}</Button>
+          <Button variant="primary" type="submit" className="flex-[2]" disabled={busy || !trimmed || taken || missing}>{project ? P.save : P.create}</Button>
         </div>
         {project && onFolders && <Button disabled={busy} onClick={onFolders}>{P.folders}</Button>}
         {project && <Button variant="ghost" className="text-danger-fg!" disabled={busy} onClick={onDelete}>{P.remove}</Button>}
@@ -144,14 +185,8 @@ function FoldersSheet({ store, project, onClose }: { store: MobileStore; project
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [at, setAt] = useState<string | null>(null);
   useEffect(() => { store.requestProjectFolders(project.id); }, [store, project.id]);
-  useEffect(() => { if (picking) { store.requestRecentFolders(); store.listFolder(); setAt(null); } }, [store, picking]);
   const folders = state.projectFolders[project.id];
-  const listing = state.folderListing;
-  // The listing shown is the one last asked: until it comes, the folder asked is said to be read.
-  const shown = listing && (at === null || listing.path === at) ? listing : null;
-  const go = (path: string) => { setAt(path); setError(null); store.listFolder(path); };
   const canConfirm = !!state.device?.confirm;
   const settle = (r: ChatAction, after: () => void) => {
     setBusy(false);
@@ -162,60 +197,13 @@ function FoldersSheet({ store, project, onClose }: { store: MobileStore; project
   const close = () => { if (!busy) onClose(); };
 
   if (picking) {
-    const recents = (state.recentFolders ?? []).filter(p => !(Array.isArray(folders) && folders.some(f => f.machine === 'local' && f.path === p)));
+    const kept = Array.isArray(folders) ? folders : [];
     return (
       <Sheet labelledBy={`${id}-title`} onClose={close}>
         <h2 id={`${id}-title`} className="text-heading leading-[1.3] font-semibold tracking-[-.5px]">{P.pickTitle}</h2>
-        <div className="flex max-h-[55dvh] flex-col gap-3 overflow-y-auto">
-          {at === null && recents.length > 0 && (
-            <section aria-label={P.recents} className="flex flex-col gap-1.5">
-              <h3 className="text-small text-muted">{P.recents}</h3>
-              <ul className="flex flex-col rounded-control border border-line">
-                {recents.map(p => (
-                  <li key={p} className={ROW}>
-                    <span className="min-w-0 flex-1 font-mono text-small break-all">{p}</span>
-                    <Button size="sm" aria-label={P.addThisLabel(p)} disabled={busy || !canConfirm} onClick={() => add(p)}>{P.addShort}</Button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <section aria-label={P.browse} className="flex flex-col gap-1.5">
-            <h3 className="text-small text-muted">{P.browse}</h3>
-            {!shown ? <p role="status" className="text-small text-muted">{P.loadingFolder}</p> : (
-              <>
-                <p className="font-mono text-small break-all">{shown.path}</p>
-                {shown.error && <p role="alert" className="text-small text-danger-fg">{P.folderErrors[shown.error]}</p>}
-                <ul className="flex flex-col rounded-control border border-line">
-                  {shown.parent && (
-                    <li className={ROW}><button type="button" className="flex min-h-10 flex-1 items-center gap-2 text-left" onClick={() => go(shown.parent!)}><Icon name="back" className="size-4" />{P.parent}</button></li>
-                  )}
-                  {shown.entries.map(name => {
-                    const repo = shown.repos.find(r => r.name === name);
-                    return (
-                      <li key={name} className={ROW}>
-                        <button type="button" aria-label={P.open(name)} className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left" onClick={() => go(`${shown.path === '/' ? '' : shown.path}/${name}`)}>
-                          <span className="truncate">{name}</span>
-                          {repo && <span className="flex-none rounded-full bg-raised px-2 text-meta text-muted">⎇ {repo.branch}</span>}
-                        </button>
-                      </li>
-                    );
-                  })}
-                  {!shown.error && shown.entries.length === 0 && <li className="px-3 py-2.5 text-small text-muted">{P.empty}</li>}
-                </ul>
-                {shown.cut && <p className="text-meta text-muted">{P.cut}</p>}
-              </>
-            )}
-          </section>
-        </div>
-        <p className="text-small text-muted">{P.onlyThisPc}</p>
-        <p className={`rounded-control border border-dashed border-input px-3 py-2 text-small ${canConfirm ? 'text-muted' : 'text-attention'}`}>{canConfirm ? P.folderPasskey : P.noPasskey}</p>
-        {error && <p role="alert" className="text-small text-danger-fg">{error}</p>}
-        <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => { setPicking(false); setError(null); }}>{P.back}</Button>
-          <Button variant="primary" className="flex-[2]" disabled={busy || !canConfirm || !shown || !!shown.error} aria-label={shown ? P.addThisLabel(shown.path) : P.addThis}
-            onClick={() => { if (shown) add(shown.path); }}>{P.addThis}</Button>
-        </div>
+        <FolderBrowser store={store} busy={busy} skip={p => kept.some(f => f.machine === 'local' && f.path === p)} rowLabel={P.addShort} rowAria={P.addThisLabel} onPick={add}
+          note={<p className={`rounded-control border border-dashed border-input px-3 py-2 text-small ${canConfirm ? 'text-muted' : 'text-attention'}`}>{canConfirm ? P.folderPasskey : P.noPasskey}</p>}
+          error={error} pickLabel={P.addThis} pickAria={P.addThisLabel} pickDisabled={!canConfirm} onBack={() => { setPicking(false); setError(null); }} />
       </Sheet>
     );
   }
@@ -233,17 +221,91 @@ function FoldersSheet({ store, project, onClose }: { store: MobileStore; project
                   <span className="font-medium">{baseName(f.path)}</span>
                   <span className="font-mono text-meta break-all text-muted">{f.path} · {whereOf(f)}</span>
                 </span>
-                <Button size="sm" variant="ghost" aria-label={P.removeFolderLabel(f.path)} disabled={busy || !state.fresh} onClick={() => remove(f)}>{P.removeFolder}</Button>
+                <Button size="sm" variant="ghost" aria-label={P.removeFolderLabel(f.path)} disabled={busy || !state.fresh || folders.length === 1} onClick={() => remove(f)}>{P.removeFolder}</Button>
               </li>
             ))}
           </ul>
         )}
+      {/* Issue #2: a project keeps at least one folder; its last one's « Retirer » is off, and this says what to do. */}
+      {Array.isArray(folders) && folders.length === 1 && <p data-last-folder="" className="rounded-control border border-dashed border-input px-3 py-2 text-small text-muted">{P.lastFolder}</p>}
       {error && <p role="alert" className="text-small text-danger-fg">{error}</p>}
       <div className="flex gap-2">
         <Button variant="ghost" className="flex-1" disabled={busy} onClick={onClose}>{P.close}</Button>
         <Button variant="primary" className="flex-[2]" disabled={busy || !state.fresh || folders === 'gone'} onClick={() => { setError(null); setPicking(true); }}><Icon name="plus" className="size-4" />{P.addFolder}</Button>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * This PC's folders as the phone browses them (`folder.list`), its recent ones first (`folder.recents`): each recent row and the
+ * folder shown have their action (« Ajouter » in « Dossiers de … », « Choisir » for a new project's first folder, issue #2).
+ */
+function FolderBrowser({ store, busy, skip, rowLabel, rowAria, onPick, note, error, pickLabel, pickAria, pickDisabled, onBack }: {
+  store: MobileStore; busy: boolean; skip(path: string): boolean; rowLabel: string; rowAria(path: string): string; onPick(path: string): void;
+  note?: ReactNode; error: string | null; pickLabel: string; pickAria(path: string): string; pickDisabled: boolean; onBack(): void;
+}) {
+  const state = useMobile(store);
+  const [at, setAt] = useState<string | null>(null);
+  useEffect(() => { store.requestRecentFolders(); store.listFolder(); }, [store]);
+  const listing = state.folderListing;
+  // The listing shown is the one last asked: until it comes, the folder asked is said to be read.
+  const shown = listing && (at === null || listing.path === at) ? listing : null;
+  const go = (path: string) => { setAt(path); store.listFolder(path); };
+  const recents = (state.recentFolders ?? []).filter(p => !skip(p));
+  return (
+    <>
+      <div className="flex max-h-[55dvh] flex-col gap-3 overflow-y-auto">
+        {at === null && recents.length > 0 && (
+          <section aria-label={P.recents} className="flex flex-col gap-1.5">
+            <h3 className="text-small text-muted">{P.recents}</h3>
+            <ul className="flex flex-col rounded-control border border-line">
+              {recents.map(p => (
+                <li key={p} className={ROW}>
+                  <span className="min-w-0 flex-1 font-mono text-small break-all">{p}</span>
+                  <Button size="sm" aria-label={rowAria(p)} disabled={busy || pickDisabled} onClick={() => onPick(p)}>{rowLabel}</Button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <section aria-label={P.browse} className="flex flex-col gap-1.5">
+          <h3 className="text-small text-muted">{P.browse}</h3>
+          {!shown ? <p role="status" className="text-small text-muted">{P.loadingFolder}</p> : (
+            <>
+              <p className="font-mono text-small break-all">{shown.path}</p>
+              {shown.error && <p role="alert" className="text-small text-danger-fg">{P.folderErrors[shown.error]}</p>}
+              <ul className="flex flex-col rounded-control border border-line">
+                {shown.parent && (
+                  <li className={ROW}><button type="button" className="flex min-h-10 flex-1 items-center gap-2 text-left" onClick={() => go(shown.parent!)}><Icon name="back" className="size-4" />{P.parent}</button></li>
+                )}
+                {shown.entries.map(name => {
+                  const repo = shown.repos.find(r => r.name === name);
+                  return (
+                    <li key={name} className={ROW}>
+                      <button type="button" aria-label={P.open(name)} className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left" onClick={() => go(`${shown.path === '/' ? '' : shown.path}/${name}`)}>
+                        <span className="truncate">{name}</span>
+                        {repo && <span className="flex-none rounded-full bg-raised px-2 text-meta text-muted">⎇ {repo.branch}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+                {!shown.error && shown.entries.length === 0 && <li className="px-3 py-2.5 text-small text-muted">{P.empty}</li>}
+              </ul>
+              {shown.cut && <p className="text-meta text-muted">{P.cut}</p>}
+            </>
+          )}
+        </section>
+      </div>
+      <p className="text-small text-muted">{P.onlyThisPc}</p>
+      {note}
+      {error && <p role="alert" className="text-small text-danger-fg">{error}</p>}
+      <div className="flex gap-2">
+        <Button variant="ghost" className="flex-1" disabled={busy} onClick={onBack}>{P.back}</Button>
+        <Button variant="primary" className="flex-[2]" disabled={busy || pickDisabled || !shown || !!shown.error} aria-label={shown ? pickAria(shown.path) : pickLabel}
+          onClick={() => { if (shown) onPick(shown.path); }}>{pickLabel}</Button>
+      </div>
+    </>
   );
 }
 

@@ -56,11 +56,23 @@ describe('« Dossiers… »: the list', () => {
   it('« Retirer » sends that folder of that machine, then asks for the list again', async () => {
     const t = opened();
     const sheet = openFolders();
-    act(() => t.deliver({ type: 'project.folders', id: 'ledge', folders: [{ machine: 'srv', label: 'Serveur', path: '/srv/api' }] }));
+    // Two folders: one may go (issue #2: never the last).
+    act(() => t.deliver({ type: 'project.folders', id: 'ledge', folders: [{ machine: 'srv', label: 'Serveur', path: '/srv/api' }, { machine: 'local', path: `${HOME}/code/ledge` }] }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Retirer /srv/api' }));
     expect(t.of('project.folder.remove')).toEqual([expect.objectContaining({ id: 'ledge', machine: 'srv', path: '/srv/api' })]);
     result(t, 'project.folder.remove', 'applied');
     await waitFor(() => expect(t.of('project.folders')).toHaveLength(2));
+  });
+});
+
+describe('issue #2: the last folder stays', () => {
+  it('its « Retirer » is off and the sheet says what to do; nothing is sent', () => {
+    const t = opened();
+    const sheet = openFolders();
+    act(() => t.deliver({ type: 'project.folders', id: 'ledge', folders: [{ machine: 'srv', label: 'Serveur', path: '/srv/api' }] }));
+    expect(within(sheet).getByRole('button', { name: 'Retirer /srv/api' })).toBeDisabled();
+    expect(within(sheet).getByText('Un projet garde au moins un dossier. Ajoutes-en un autre avant de retirer celui-ci, ou supprime le projet.')).toBeTruthy();
+    expect(t.of('project.folder.remove')).toEqual([]);
   });
 });
 
@@ -129,5 +141,54 @@ describe('« Ajouter un dossier »: browsing this PC', () => {
     act(() => t.deliver(listing(HOME, ['code'])));
     expect(within(sheet).getByText(/Protège d’abord tes accords/)).toBeInTheDocument();
     expect(within(sheet).getByRole('button', { name: `Ajouter ${HOME}` })).toBeDisabled();
+  });
+});
+
+describe('issue #2: « Nouveau projet » takes its first folder', () => {
+  const openNew = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Nouveau projet' }));
+    return screen.getByRole('dialog', { name: 'Nouveau projet' });
+  };
+
+  it('« Créer » stays off until a folder is chosen; the project and its folder go together, with the device\'s check over both', async () => {
+    vi.mocked(getAssertion).mockResolvedValue(assertion);
+    const t = opened();
+    const sheet = openNew();
+    expect(within(sheet).getByText('Choisis le premier dossier du projet ; d’autres s’ajoutent ensuite.')).toBeTruthy();
+    expect(t.of('folder.recents')).toHaveLength(1);
+    act(() => t.deliver({ type: 'folder.recents', paths: [`${HOME}/paper`, `${HOME}/code/ledge`] }));
+    fireEvent.change(within(sheet).getByRole('textbox'), { target: { value: 'Paper' } });
+    expect(within(sheet).getByRole('button', { name: 'Créer' })).toBeDisabled();
+    expect(within(sheet).getByText('Choisis un dossier pour créer le projet.')).toBeTruthy();
+    fireEvent.click(within(sheet).getByRole('button', { name: `Choisir ${HOME}/paper` }));
+    expect(within(sheet).getByRole('button', { name: `Choisir ${HOME}/paper` })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(sheet).queryByText('Choisis un dossier pour créer le projet.')).toBeNull();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Créer' }));
+    await waitFor(() => expect(t.of('confirm.prepare')).toEqual([expect.objectContaining({ purpose: 'folder', newProject: 'Paper', path: `${HOME}/paper` })]));
+    act(() => t.deliver({ type: 'confirm.challenge', purpose: 'folder', challenge: 'Y2hhbGw', rpId: 'relay.example', credentialId: 'AQ', expiresInMs: 60_000 }));
+    await waitFor(() => expect(t.of('project.create')).toEqual([expect.objectContaining({ name: 'Paper', path: `${HOME}/paper`, assertion })]));
+    result(t, 'project.create', 'applied');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Nouveau projet' })).toBeNull());
+  });
+
+  it('« Parcourir… » picks a folder of this PC and comes back with it chosen', () => {
+    const t = opened();
+    openNew();
+    fireEvent.click(screen.getByRole('button', { name: 'Parcourir…' }));
+    const browse = screen.getByRole('dialog', { name: 'Premier dossier' });
+    act(() => t.deliver(listing(HOME, ['code'])));
+    fireEvent.click(within(browse).getByRole('button', { name: `Choisir ${HOME}` }));
+    const sheet = screen.getByRole('dialog', { name: 'Nouveau projet' });
+    expect(within(sheet).getByRole('button', { name: `Choisir ${HOME}` })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('a PC without the folders: the old empty project, as before', () => {
+    const t = opened({ folders: false });
+    const sheet = openNew();
+    expect(within(sheet).getByText('Un projet vide : ses dossiers s’ajoutent sur le PC.')).toBeTruthy();
+    fireEvent.change(within(sheet).getByRole('textbox'), { target: { value: 'Paper' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Créer' }));
+    expect(t.of('project.create')).toEqual([expect.objectContaining({ name: 'Paper' })]);
+    expect(t.of('project.create')[0]).not.toHaveProperty('path');
   });
 });
