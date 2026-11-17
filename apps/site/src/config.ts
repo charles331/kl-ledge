@@ -17,17 +17,17 @@ export const site: {
 } = {
   /** The version the footer announces. `pnpm version:set` does not stamp this file: update it with each release. */
   version: '0.60.0',
-  /** The public origin of the site, used for the canonical, `hreflang` and Open Graph URLs. The host sets it at build
-   *  time through `SITE_URL` (this file only runs at build time); TODO(owner): replace the fallback once it is known. */
-  url: process.env.SITE_URL ?? 'https://ledge.example',
+  /** The public origin of the site, used for the canonical, `hreflang`, Open Graph and sitemap URLs. `SITE_URL` overrides
+   *  it at build time (this file only runs at build time), for a preview served from another host. */
+  url: process.env.SITE_URL ?? 'https://kl-ledge.dev',
   /** TODO(owner): the Ledge Desktop installer for Windows. While `null`, the button stays on the page and the marker above shows. */
   downloadUrl: null,
-  /** TODO(owner): the GitHub repository. While `null`, the footer link goes back to the top of the page, as in the mockup. */
-  githubUrl: null,
+  /** The GitHub repository. While `null`, the footer link goes back to the top of the page, as in the mockup. */
+  githubUrl: 'https://github.com/kl-ledge/ledge',
   /** TODO(owner): the guided tour (the user guide). While `null`, the footer link goes back to the top of the page. */
   guideUrl: null,
-  /** TODO(owner): the release notes behind « Nouveautés ». While `null`, the footer link goes back to the top of the page. */
-  releasesUrl: null,
+  /** The release notes behind « Nouveautés ». While `null`, the footer link goes back to the top of the page. */
+  releasesUrl: 'https://github.com/kl-ledge/ledge/releases',
   openrigUrl: 'https://openrig.dev/',
   /** The commands are code, not copy: they read the same in every language. */
   installCommand: 'npm i -g @paradow/ledge && ledge setup',
