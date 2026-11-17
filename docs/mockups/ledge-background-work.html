@@ -122,11 +122,11 @@ const T = {
   },
   en: {
     h1:'Sidebar — background work no longer looks like rest', hsub:'Issue kl-ledge/ledge#1. What depends on detection is marked provisional. For the user to validate.',
-    projects:'Projects', rigs:'Rigs', bgCmd:'in the background', kidsOn:(n,w)=>`${n} sub-agent${n>1?'s':''}, ${w} working`,
-    tipKids:'Available, but 2 sub-agents are still working.', tipCmd:'Available, but a command started in the background is still running: “Run the e2e suite”. Ledge can’t tell when it will finish.',
+    projects:'Projects', rigs:'Rigs', bgCmd:'in the background', kidsOn:(n,w)=>`${n} subagent${n>1?'s':''}, ${w} working`,
+    tipKids:'Available, but 2 subagents are still working.', tipCmd:'Available, but a command started in the background is still running: “Run the e2e suite”. Ledge can’t tell when it will finish.',
     tallyBg:n=>`${n} in the background`, rigBg:n=>`${n} in the background`,
-    tipSeat:'Available · 2 sub-agents working',
-    lWork:'Working', lBg:'Available, background work', lIdle:'Available, nothing running', lKids:'Sub-agents: working (blue) / all at rest (grey)', lCmd:'Background command (Claude Code)',
+    tipSeat:'Available · 2 subagents working',
+    lWork:'Working', lBg:'Available, background work', lIdle:'Available, nothing running', lKids:'Subagents: working (blue) / all at rest (grey)', lCmd:'Background command (Claude Code)',
     when:{now:'now', m:'min'},
   }
 };
@@ -183,8 +183,8 @@ function cards(){
   C.push({tag:'new', title:F?'Projets : la session, puis le projet':'Projects: the session, then the project',
     why:`Une session <b>disponible</b> qui a encore du travail en arrière-plan prend <b>un petit anneau bleu</b> sur son logo : ni la pastille pleine du travail, ni rien (le repos). Deux causes, dites sur la ligne : <b>des sous-agents au travail</b> (le compteur existant <code>.st-kids</code> passe en bleu, avec un petit cercle qui tourne ; gris s’ils sont tous au repos) ; <b>une commande lancée en arrière-plan</b> (Claude Code seulement) : une ligne bleue sous la tâche, avec <code>>_</code>, la description de la commande et « en arrière-plan ». Au niveau du <b>projet</b>, le décompte gagne un cercle creux bleu : le nombre de sessions en arrière-plan, à côté de « au travail ». Pas de progression, pas d’heure de fin.`,
     keys:F?'Nouveaux : side.background, side.kidsWorking(n,w), side.tallyBackground(n)':'New: side.background, side.kidsWorking(n,w), side.tallyBackground(n)',
-    scene: `<div>${projectsSide({})}<div class="cap">${F?'Nova : 2 sous-agents au travail · Pim : une commande en arrière-plan · Ida (Codex) : rien de lisible, donc rien':'Nova: 2 sub-agents working · Pim: a background command · Ida (Codex): nothing readable, so nothing'}</div></div>
-      <div>${projectsSide({open:true})}<div class="cap">${F?'Nova déplié : les sous-agents, comme aujourd’hui':'Nova unfolded: the sub-agents, as today'}</div></div>
+    scene: `<div>${projectsSide({})}<div class="cap">${F?'Nova : 2 sous-agents au travail · Pim : une commande en arrière-plan · Ida (Codex) : rien de lisible, donc rien':'Nova: 2 subagents working · Pim: a background command · Ida (Codex): nothing readable, so nothing'}</div></div>
+      <div>${projectsSide({open:true})}<div class="cap">${F?'Nova déplié : les sous-agents, comme aujourd’hui':'Nova unfolded: the subagents, as today'}</div></div>
       <div class="legend"><div><span class="k"><span class="logo"><span class="lg" style="background:${LOGO.claude}"></span><span class="ring"></span></span></span>${x.lBg}</div><div><span class="k"><span class="kids on"><span class="sp"></span>2</span><span class="kids" style="margin-left:4px">1</span></span>${x.lKids}</div><div><span class="k" style="color:var(--work)">${svg(TERM,13)}</span>${x.lCmd}</div><div><span class="k"><span class="tally"><span class="w"><i></i>2</span><span class="bg"><i></i>2</span></span></span>${F?'Projet : au travail · en arrière-plan':'Project: working · in the background'}</div></div>`});
   C.push({tag:'new', title:F?'Au survol : ce qui tourne, et ce qu’on ne sait pas':'On hover: what runs, and what we don’t know',
     why:`L’infobulle de la ligne dit <b>« Disponible, mais … »</b> et la cause. Pour une commande, elle dit aussi que Ledge ne sait pas quand elle finira. Rien de plus : pas de pourcentage, pas d’estimation.`,
@@ -197,8 +197,8 @@ function cards(){
   C.push({tag:'prov', title:F?'Ce que Ledge sait lire, par outil (provisoire)':'What Ledge can read, per tool (provisional)',
     why:`D’après l’étude de dev-back. <b>Mieux vaut un indicateur absent que faux</b> : là où l’outil ne permet pas de savoir, la ligne reste comme aujourd’hui. Tout ce tableau est provisoire, à revoir quand la détection sera en place.`,
     keys:'—',
-    scene: `<table class="cov"><tr><th>${F?'Outil':'Tool'}</th><th>${F?'Sous-agents au travail':'Sub-agents working'}</th><th>${F?'Commande en arrière-plan':'Background command'}</th></tr>
-      <tr><td>Claude Code ${F?'(sessions et sièges)':'(sessions and seats)'}</td><td class="y">${F?'oui (lot 1) · un sous-agent sans fin connue s’efface après un délai':'yes (lot 1) · a sub-agent with no known end fades after a delay'}</td><td class="y">${F?'oui (lot 2) · sauf un <code>nohup … &</code> détaché, invisible':'yes (lot 2) · except a detached <code>nohup … &</code>, invisible'}</td></tr>
+    scene: `<table class="cov"><tr><th>${F?'Outil':'Tool'}</th><th>${F?'Sous-agents au travail':'Subagents working'}</th><th>${F?'Commande en arrière-plan':'Background command'}</th></tr>
+      <tr><td>Claude Code ${F?'(sessions et sièges)':'(sessions and seats)'}</td><td class="y">${F?'oui (lot 1) · un sous-agent sans fin connue s’efface après un délai':'yes (lot 1) · a subagent with no known end fades after a delay'}</td><td class="y">${F?'oui (lot 2) · sauf un <code>nohup … &</code> détaché, invisible':'yes (lot 2) · except a detached <code>nohup … &</code>, invisible'}</td></tr>
       <tr><td>OMP ${F?'lancé par Ledge (RPC)':'started by Ledge (RPC)'}</td><td class="y">${F?'oui (lot 1)':'yes (lot 1)'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td></tr>
       <tr><td>OMP ${F?'siège lu par son journal':'seat read from its log'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td><td class="no">${F?'non : rien affiché':'no: nothing shown'}</td></tr>
       <tr><td>Codex</td><td class="p">${F?'non vérifié : rien affiché pour l’instant':'unverified: nothing shown for now'}</td><td class="p">${F?'au mieux « processus actif » générique (question 2)':'at best a generic “active process” (question 2)'}</td></tr>
