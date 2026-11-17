@@ -12,6 +12,7 @@ import { SHELL_ICONS } from '../../shell/icons';
 import { keyOf, type Tab } from '../../workspace/model';
 import { useRigsFold, useRigsMachine } from '../../workspace/prefs';
 import { providerOf } from '../../workspace/sessionTab';
+import { restingWithWork } from '../../session/background';
 import { openrigTab, rigTab } from '../../workspace/store';
 import { ProviderLogo } from '../ProviderLogo';
 import { useDaemonPrefs, DAEMON, prefAction, isAbout, type PowerTarget } from '../openrig/prefs';
@@ -88,8 +89,13 @@ export function RigsView({ client, machines, sessions, asks, activeTab, dispatch
     return <div className="ide-rigs-err" role="alert">{rigErrorText(t, e ?? '')}</div>;
   };
 
+  // Issue #1: a seat available with work in the background says why on hover.
+  const seatTip = (s: SeatLine): string | undefined => {
+    const bg = s.dot === 'bg' && s.session ? restingWithWork(s.session) : undefined;
+    return !bg ? undefined : bg.subagents > 0 ? v.seatBgTip(bg.subagents) : bg.commands.length ? t.side.bgTip.command(bg.commands.at(-1)!.label) : undefined;
+  };
   const seatRow = (s: SeatLine): JSX.Element => s.session ? (
-    <div key={s.logicalId} className="ide-rigs-row seat" onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(s.session!.id, menuPoint(e, e.currentTarget), e.currentTarget.querySelector<HTMLElement>('.ide-rigs-name')); } : undefined}>
+    <div key={s.logicalId} className="ide-rigs-row seat" title={seatTip(s)} onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(s.session!.id, menuPoint(e, e.currentTarget), e.currentTarget.querySelector<HTMLElement>('.ide-rigs-name')); } : undefined}>
       <Dot dot={s.dot} /><ProviderLogo provider={providerOf(s.session.tool)} size={12} />
       <button type="button" className="ide-rigs-name" onClick={e => dispatch(openClick(s.session!.id, e))}><b>{s.name}</b>{s.role && <span className="ide-rigs-role">{s.role}</span>}</button>
       <span className="ide-rigs-meta">{s.ctx !== undefined ? `${s.ctx} %` : ''}</span>
@@ -110,7 +116,7 @@ export function RigsView({ client, machines, sessions, asks, activeTab, dispatch
             : <button type="button" className="ide-rigs-chev" disabled={!open} aria-label={(unfolded ? v.fold : v.unfold)(r.name)} onClick={() => fold.toggle(`r:${r.name}`)}>{open ? (unfolded ? '▾' : '▸') : '·'}</button>}
           <Dot dot={r.dot} />
           <button type="button" className="ide-rigs-name" onClick={e => { const t = rigTab(machine, r.name); if (e.ctrlKey || e.metaKey) onTab(t, 'right'); else onTab(t); }}><b>{isKernel ? kernelName : r.name}</b></button>
-          <span className="ide-rigs-meta">{r.running ? r.count : ''}</span>
+          <span className="ide-rigs-meta">{r.running && r.background > 0 && <span className="ide-rigs-bgn" title={v.background(r.background)}><i aria-hidden="true" />{r.background}</span>}{r.running ? r.count : ''}</span>
           {power(target, r.running)}
         </div>
         {confirmBox(target)}{failure(target)}

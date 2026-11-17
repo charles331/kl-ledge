@@ -89,6 +89,13 @@ export const fr = {
     kids: (n: number) => `${n} ${plural(n, 'sous-agent', 'sous-agents')}`,
     wt: 'Worktree lié',
     tallyNeed: 'à décider', tallyWork: 'au travail', tallyOff: 'hors ligne', tallyDone: 'terminées',
+    // Issue #1 (docs/mockups/ledge-background-work.html) : le travail en arrière-plan d'une session disponible.
+    background: 'en arrière-plan', tallyBackground: 'en arrière-plan',
+    kidsWorking: (n: number, w: number) => `${n} ${plural(n, 'sous-agent', 'sous-agents')}, dont ${w} au travail`,
+    bgTip: {
+      kids: (n: number) => `Disponible, mais ${n} ${plural(n, 'sous-agent travaille', 'sous-agents travaillent')} encore.`,
+      command: (label: string) => `Disponible, mais une commande lancée en arrière-plan tourne encore : « ${label} ». Ledge ne sait pas quand elle finira.`
+    },
     // Les menus du clic droit dans la barre latérale : un projet, « Sans projet », l'en-tête Archives, une archive.
     ctx: {
       label: (name: string) => `Actions pour ${name}`,
@@ -1468,6 +1475,8 @@ export const fr = {
     settingOff: 'Interface IDE (aperçu) désactivée',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
     rigsView: {
+      background: (n: number) => `${n} en arrière-plan`,
+      seatBgTip: (n: number) => `Disponible · ${n} ${plural(n, 'sous-agent', 'sous-agents')} au travail`,
       launch: 'Lancer', launchTitle: 'Lancer un rig…', shownMachine: (label: string) => `Machine affichée : ${label}`, machine: (label: string) => `Machine : ${label}`, machines: 'Machines',
       local: 'locale', ssh: 'SSH', manage: 'Gérer les machines…', add: 'Ajouter une machine',
       runningRigs: (n: number) => (n === 1 ? '1 rig en marche' : `${n} rigs en marche`), openrigStopped: 'OpenRig arrêté',
