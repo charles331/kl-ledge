@@ -12,7 +12,10 @@ describe('relayPublishable', () => {
     expect(relayPublishable({})).toBe(false);
     expect(relayPublishable({ license: '' })).toBe(false);
   });
-  it('is true with a real licence', () => expect(relayPublishable({ license: 'MIT' })).toBe(true));
+  it('is true with a real licence', () => {
+    expect(relayPublishable({ license: 'MIT' })).toBe(true);
+    expect(relayPublishable({ license: 'PolyForm-Noncommercial-1.0.0' })).toBe(true);
+  });
 });
 
 describe('checkRelayPack', () => {
@@ -30,8 +33,8 @@ describe('checkRelayPack', () => {
 });
 
 describe('relay-pack publishable', () => {
-  it('prints false for the package as it is, UNLICENSED', () => {
+  it('prints true for the package as it is, under PolyForm Noncommercial', () => {
     const out = execFileSync('node', ['scripts/relay-pack.mjs', 'publishable'], { cwd: resolve(__dirname, '..'), encoding: 'utf8' });
-    expect(out.trim()).toBe('false');
+    expect(out.trim()).toBe('true');
   });
 });

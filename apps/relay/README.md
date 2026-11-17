@@ -96,9 +96,9 @@ The relay exits with `cannot open the embedded database at <data>/db`, and never
 
 ### Publishing (owner)
 
-Do these three steps, in this order, once a release containing the relay package exists, and before the release tag that follows the licence choice. Otherwise the `npm` job of that release fails at the relay publish (no Trusted Publisher yet) and blocks the production deploy.
+The relay is licensed under the PolyForm Noncommercial License 1.0.0 (`LICENSE`, with its required notice). Do these three steps, in this order, once a release containing the relay package exists, and before the release tag that follows the licence choice. Otherwise the `npm` job of that release fails at the relay publish (no Trusted Publisher yet) and blocks the production deploy.
 
-1. Choose the licence: set `license` in `apps/relay/package.json` (it is `UNLICENSED`, and while it is, the release publishes nothing and only runs `npm pack --dry-run`), and add the `LICENSE` file. Tag no release until step 3 is done.
+1. Choose the licence: set `license` in `apps/relay/package.json` (while it is `UNLICENSED`, the release publishes nothing and only runs `npm pack --dry-run`), and add the `LICENSE` file. Done: `PolyForm-Noncommercial-1.0.0`. Tag no release until step 3 is done.
 2. Publish once by hand the version of the last release, from a checkout of its tag (`vX.Y.Z`, where `X.Y.Z` is the `version` in `apps/relay/package.json` at that tag), on Linux or WSL, so that the packed `web/build.json` equals the release's `ledge-mobile-build.json`. Set the same `license` and `LICENSE` in that checkout, then build the phone app, the relay and its copy, check the package and publish:
 
    ```sh
@@ -115,6 +115,8 @@ Do these three steps, in this order, once a release containing the relay package
    To compare with the release itself: `gh release download vX.Y.Z -p ledge-mobile-build.json`, then `diff ledge-mobile-build.json web/build.json`.
 
 3. On npmjs.com, in the package's settings, add a Trusted Publisher: this repository, workflow `release.yml`.
+
+Done on 2026-11-17: the package was created by hand as `0.61.0-pre.0` (built from `main`, before any release carried the relay, so step 2 used a pre-release instead of a release's version), and its Trusted Publisher is `kl-ledge/ledge`, `release.yml`.
 
 From then on, every release publishes the relay with its phone build (`.github/workflows/release.yml`).
 

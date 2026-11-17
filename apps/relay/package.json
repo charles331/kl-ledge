@@ -1,7 +1,7 @@
 {
   "name": "@paradow/ledge-relay",
   "version": "0.60.0",
-  "license": "UNLICENSED",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kl-ledge/ledge.git",
