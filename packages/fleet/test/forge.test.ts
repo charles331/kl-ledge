@@ -63,6 +63,11 @@ describe('all my requests (issue #3)', () => {
     expect(listedPrs([], [stale, fresh])[0]!.machineId).toBe('srv');
     const later = on('pc2', pr(3, { roles: ['author'], updatedAt: '2026-11-08T13:00:00.000Z' }));
     expect(listedPrs([], [fresh, later])[0]!.machineId).toBe('pc2');
+    // A followed copy from a machine now down gives way to a fresh one of another machine, its sessions kept (review C2).
+    const followedDown = on('wsl', pr(5, { sessions: ['wsl:tom'], roles: ['author'] }), true);
+    const freshOther = on('srv', pr(5, { roles: ['reviewer'] }));
+    expect(listedPrs([followedDown], [freshOther])[0]).toMatchObject({ machineId: 'srv', sessions: ['wsl:tom'], roles: ['author', 'reviewer'] });
+    expect(listedPrs([followedDown], [freshOther])[0]!.stale).toBeUndefined();
     // No role anywhere: none invented.
     expect(listedPrs([on('a', pr(4)), on('b', pr(4))], [])[0]!.roles).toBeUndefined();
   });

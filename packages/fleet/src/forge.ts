@@ -20,11 +20,12 @@ export const mergedPrs = <T extends PullRequest>(prs: readonly T[]): T[] => prs.
 /**
  * The list of « MR et PR » (issue #3): the followed requests and the account's own, one row per request (its id: forge host, repository
  * and number) however many machines read it or under however many titles. The row kept for a request read twice is the one to ask
- * for its detail and actions: a followed one first (its agent, its pipeline), then a fresh one over a stale one, then the latest read;
+ * for its detail and actions: a fresh one over a stale one (a machine down cannot act, review C2), then a followed one (its agent, its
+ * pipeline), then the latest read;
  * its roles and sessions are the union of all. Order: as given (the callers sort).
  */
 export function listedPrs<T extends FleetPullRequest & { stale?: boolean }>(prs: readonly T[], mine: readonly T[]): T[] {
-  const rank = (p: T) => (p.sessions.length > 0 ? 2 : 0) + (p.stale ? 0 : 1);
+  const rank = (p: T) => (p.stale ? 0 : 2) + (p.sessions.length > 0 ? 1 : 0);
   const byId = new Map<string, T[]>();
   for (const p of [...prs, ...mine]) { const l = byId.get(p.id); if (l) l.push(p); else byId.set(p.id, [p]); }
   return [...byId.values()].map(all => {
