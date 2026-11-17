@@ -174,6 +174,10 @@ describe('reports through the daemon', () => {
     c.send({ type: 'report.preview', requestId: 'p', kind: 'feature' });
     expect((await c.next('report.preview.reply', 3000)).login).toBeUndefined();
     expect(gh.logins).toBe(0);
+    // Signed in right after: the next preview names the account, no 5-minute wait (review of 6c9cd056).
+    gh.ready = true;
+    c.send({ type: 'report.preview', requestId: 'p2', kind: 'feature' });
+    expect((await c.next('report.preview.reply', 3000)).login).toBe('paradow');
   });
   it('no login when gh answers something that is not one', async () => {
     gh.login = '{"message":"Bad credentials"}\n';

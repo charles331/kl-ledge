@@ -1235,8 +1235,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   /** Reports (issue #9): `gh` as the forge reads run it, ready when installed and signed in to github.com. */
   const reportRun: ForgeRun = opts.report?.run ?? execForge(agentEnv);
   const reportReady = opts.report?.ready ?? (async () => { const e = await agentEnv(); return (await installedCli('gh', e)) && (await signedInHosts('gh', e)).has('github.com'); });
-  /** The GitHub account gh creates issues with (`gh api user`, the env's token included), kept 5 minutes; undefined when gh cannot tell. */
-  let reportLoginSeen: { value: string | undefined; at: number } | undefined;
+  /** The GitHub account gh creates issues with (`gh api user`, the env's token included), kept 5 minutes when found; undefined when
+   *  gh cannot tell, asked again next time (a `gh auth login` shows at the next preview). */
+  let reportLoginSeen: { value: string; at: number } | undefined;
   const reportLogin = opts.report?.login ?? (async (): Promise<string | undefined> => {
     if (reportLoginSeen && Date.now() - reportLoginSeen.at < 5 * 60_000) return reportLoginSeen.value;
     let value: string | undefined;
@@ -1245,7 +1246,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       const v = r?.code === 0 ? r.stdout.trim() : '';
       value = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/.test(v) ? v : undefined;
     }
-    reportLoginSeen = { value, at: Date.now() };
+    reportLoginSeen = value ? { value, at: Date.now() } : undefined;
     return value;
   });
   /**
