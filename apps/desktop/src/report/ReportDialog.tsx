@@ -52,6 +52,9 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
   const [sending, setSending] = useState(false);
   const [fallback, setFallback] = useState<{ url: string; message?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The excerpt shown expired on the daemon (log_stale): asked again, the new one shown, the user told before sending again.
+  const [logStale, setLogStale] = useState(false);
+  const [previewN, setPreviewN] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
   const ctx = { kind: d.kind, ...(task ? { task: task.id } : session ? { session } : {}), ...(desktop ? { desktop } : {}) };
   // What would be attached, and the log excerpt as it would go when asked (a bug only).
@@ -60,9 +63,9 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
     let live = true;
     void previewReport(client, { ...ctx, log: wantLog }).then(p => { if (live && p) setPreview(p); });
     return () => { live = false; };
-  }, [client, d.kind, wantLog, task?.id, session, desktop]);
+  }, [client, d.kind, wantLog, task?.id, session, desktop, previewN]);
 
-  const set = (patch: Partial<ReportDraft>) => { setD(x => ({ ...x, ...patch })); setFallback(null); setError(null); };
+  const set = (patch: Partial<ReportDraft>) => { setD(x => ({ ...x, ...patch })); setFallback(null); setError(null); setLogStale(false); };
   const setField = (k: keyof ReportFields, v: string) => set({ fields: { ...d.fields, [k]: v } });
   const toggleItem = (k: ReportItemKey) => set({ omit: d.omit.includes(k) ? d.omit.filter(x => x !== k) : [...d.omit, k] });
   const title = d.title.trim();
@@ -73,9 +76,10 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
     if (fallback) { onOpenUrl(fallback.url); return; }
     if (sending) return;
     setSending(true); setError(null);
-    const r = await createReport(client, { ...ctx, ...(wantLog ? { log: true } : {}), title, fields, omit: d.omit });
+    const r = await createReport(client, { ...ctx, ...(wantLog ? { log: true, ...(preview?.logId ? { logId: preview.logId } : {}) } : {}), title, fields, omit: d.omit });
     setSending(false);
     if (r.ok) { if (!task) clearReportDraft(); onCreated(r.number, r.url); return; }
+    if (r.code === 'log_stale') { setLogStale(true); setPreviewN(n => n + 1); return; }
     if (r.url && (r.code === 'no_gh' || r.code === 'refused')) { setFallback({ url: r.url, ...(r.code === 'refused' && r.message ? { message: r.message } : {}) }); return; }
     setError(c.failed(r.code === 'silent' ? c.silent : r.code === 'stale' ? c.stale : r.message ?? c.invalid));
   };
@@ -127,7 +131,7 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
                 <input type="checkbox" checked={d.log} onChange={e => set({ log: e.target.checked })} />
                 <span><b>{c.log}</b><small>{c.logSub} {c.logSee}</small></span>
               </label>
-              {d.log && preview?.log !== undefined && <pre className="rp-excerpt" aria-label={c.logSee}>{preview.log}</pre>}
+              {d.log && preview?.log !== undefined && <pre className={`rp-excerpt${logStale ? ' fresh' : ''}`} aria-label={c.logSee}>{preview.log}</pre>}
             </>}
             <p className="rp-never">{c.never}</p>
           </section>
@@ -135,6 +139,7 @@ export function ReportDialog({ client, desktop, session, task, onClose, onCreate
         </div>
         <footer className="rp-foot">
           {fallback && <p className="rp-fallback" role="alert">{fallback.message ?? c.noGh}</p>}
+          {logStale && <p className="rp-fallback" role="alert">{c.logStale}</p>}
           {error && <p className="rp-error" role="alert">{error}</p>}
           <span className="grow" />
           <Button variant="ghost" type="button" onClick={onClose}>{c.cancel}</Button>

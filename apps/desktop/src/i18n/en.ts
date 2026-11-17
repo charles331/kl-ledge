@@ -652,6 +652,7 @@ export const en: Messages = {
     noGh: 'gh isn’t signed in on this machine: GitHub opens with the report prefilled, you confirm it there.',
     created: n => `Issue #${n} created on kl-ledge/ledge.`, open: 'Open',
     titleEmpty: 'Give the report a title.',
+    logStale: 'The log excerpt was refreshed: read it again, then create the issue.',
     failed: why => `The report was not sent: ${why}`, silent: 'the daemon did not answer.', stale: 'this report is no longer open.', invalid: 'the daemon refused it.',
     agentBug: n => `${n} reports a bug`, agentIdea: n => `${n} suggests an idea`, from: 'session', proj: 'project',
     approve: 'Create the issue', edit: 'Edit first', ignore: 'Ignore', pill: 'report',

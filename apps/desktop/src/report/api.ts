@@ -9,10 +9,12 @@ import type { ReportFields, ReportItem, ReportItemKey, ReportKind } from '@ledge
 /** What a report is about: its kind, the session in front (its tool is attached), or the agent's report it answers (`task`). */
 export interface ReportContext { kind: ReportKind; session?: string; task?: string; desktop?: string; log?: boolean }
 /** `login`: the GitHub account gh is signed in with, when the daemon says it (#9 review C4). */
-export interface ReportPreview { items: ReportItem[]; log?: string; login?: string }
+/** `logId`: the excerpt shown, kept by the daemon: a creation sends exactly it (#9 review), never a fresh read. */
+export interface ReportPreview { items: ReportItem[]; log?: string; login?: string; logId?: string }
 export type ReportOutcome =
   | { ok: true; number: number; url?: string }
-  | { ok: false; code: 'no_gh' | 'refused' | 'stale' | 'invalid' | 'silent'; url?: string; message?: string };
+  /** `log_stale`: the excerpt shown expired on the daemon: nothing was created, the preview must be asked again. */
+  | { ok: false; code: 'no_gh' | 'refused' | 'stale' | 'invalid' | 'log_stale' | 'silent'; url?: string; message?: string };
 
 /** How long a preview is waited for, and a creation (`gh issue create` may take its time). */
 export const PREVIEW_MS = 8000;
@@ -25,13 +27,14 @@ export function previewReport(client: DaemonClient, c: ReportContext): Promise<R
   return new Promise(resolve => {
     const requestId = rid('preview');
     const done = (r: ReportPreview | null) => { clearTimeout(timer); off(); resolve(r); };
-    const off = client.onMessage(m => { if (m.type === 'report.preview.reply' && m.requestId === requestId) { const login = (m as { login?: unknown }).login; done({ items: m.items, ...(m.log !== undefined ? { log: m.log } : {}), ...(typeof login === 'string' && login ? { login } : {}) }); } });
+    const off = client.onMessage(m => { if (m.type === 'report.preview.reply' && m.requestId === requestId) done({ items: m.items, ...(m.log !== undefined ? { log: m.log } : {}), ...(m.login ? { login: m.login } : {}), ...(m.logId ? { logId: m.logId } : {}) }); });
     const timer = setTimeout(() => done(null), PREVIEW_MS);
     try { client.send({ type: 'report.preview', requestId, ...clean(c) }); } catch { done(null); }
   });
 }
 
-export function createReport(client: DaemonClient, c: ReportContext & { title: string; fields: ReportFields; omit?: ReportItemKey[] }): Promise<ReportOutcome> {
+/** With `log`, the excerpt that goes is the one shown (`logId`); without `logId`, none does. */
+export function createReport(client: DaemonClient, c: ReportContext & { title: string; fields: ReportFields; omit?: ReportItemKey[]; logId?: string }): Promise<ReportOutcome> {
   return new Promise(resolve => {
     const requestId = rid('create');
     const done = (r: ReportOutcome) => { clearTimeout(timer); off(); resolve(r); };
@@ -42,7 +45,7 @@ export function createReport(client: DaemonClient, c: ReportContext & { title: s
     });
     const timer = setTimeout(() => done({ ok: false, code: 'silent' }), CREATE_MS);
     try {
-      client.send({ type: 'report.create', requestId, ...clean(c), title: c.title, fields: c.fields, ...(c.omit?.length ? { omit: c.omit } : {}) });
+      client.send({ type: 'report.create', requestId, ...clean(c), title: c.title, fields: c.fields, ...(c.omit?.length ? { omit: c.omit } : {}), ...(c.log && c.logId ? { logId: c.logId } : {}) });
     } catch { done({ ok: false, code: 'silent' }); }
   });
 }

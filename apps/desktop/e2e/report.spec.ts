@@ -60,7 +60,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'fr'], ['dark', 'en'], ['
     await page.keyboard.press('Control+Enter');
     await expect(box).toBeHidden();
     await expect(page.locator('.toast-region')).toContainText(w.created);
-    await expect.poll(() => creates(daemon.received)).toEqual([expect.objectContaining({ kind: 'bug', log: true, omit: ['tool'] })]);
+    await expect.poll(() => creates(daemon.received)).toEqual([expect.objectContaining({ kind: 'bug', log: true, logId: 'log-1', omit: ['tool'] })]);
     await page.screenshot({ path: `e2e/.results/report/created-${theme}-${lang}.png` });
 
     // An idea; no title: nothing goes, the field says what to do.

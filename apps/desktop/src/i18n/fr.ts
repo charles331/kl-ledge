@@ -690,6 +690,7 @@ export const fr = {
     noGh: 'gh n’est pas connecté sur cette machine : GitHub s’ouvre avec le signalement prérempli, vous le validez là-bas.',
     created: (n: number) => `Issue #${n} créée sur kl-ledge/ledge.`, open: 'Ouvrir',
     titleEmpty: 'Donnez un titre au signalement.',
+    logStale: 'L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue.',
     failed: (why: string) => `Le signalement n’est pas parti : ${why}`, silent: 'le daemon n’a pas répondu.', stale: 'ce signalement n’est plus ouvert.', invalid: 'le daemon l’a refusé.',
     agentBug: (n: string) => `${n} signale un bug`, agentIdea: (n: string) => `${n} propose une idée`, from: 'session', proj: 'projet',
     approve: 'Créer l’issue', edit: 'Modifier avant', ignore: 'Ignorer', pill: 'signalement',

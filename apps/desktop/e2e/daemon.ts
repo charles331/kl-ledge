@@ -114,7 +114,7 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
           ? { type: 'forge.detail.reply', requestId: msg.requestId, ok: true, detail: { ...d, pr, ...(msg.log ? { log: { jobId: msg.log, text: extras.forge.logs?.[msg.log] ?? '' } } : {}) } }
           : { type: 'forge.detail.reply', requestId: msg.requestId, ok: false, message: 'unknown request', code: 'unavailable' }));
       }
-      if (msg.type === 'report.preview' && extras.report) ws.send(JSON.stringify({ type: 'report.preview.reply', requestId: msg.requestId, items: extras.report.items, ...(msg.log && extras.report.log !== undefined ? { log: extras.report.log } : {}) }));
+      if (msg.type === 'report.preview' && extras.report) ws.send(JSON.stringify({ type: 'report.preview.reply', requestId: msg.requestId, items: extras.report.items, login: 'paradow', ...(msg.log && extras.report.log !== undefined ? { log: extras.report.log, logId: 'log-1' } : {}) }));
       if (msg.type === 'report.create' && extras.report) ws.send(JSON.stringify({ type: 'report.created', requestId: msg.requestId, ...extras.report.created }));
       if (msg.type === 'report.ignore' && extras.report) ws.send(JSON.stringify({ type: 'report.ignored', requestId: msg.requestId, ok: true }));
       if (msg.type === 'forge.act' && extras.forge) {

@@ -15,12 +15,13 @@ const ITEMS = [{ key: 'desktop', value: '0.60.1' }, { key: 'daemon', value: '0.6
 function fakeClient(created: (m: Extract<ClientMessage, { type: 'report.create' }>) => Partial<Extract<ServerMessage, { type: 'report.created' }>> = () => ({ ok: true, number: 14, url: 'https://github.com/kl-ledge/ledge/issues/14' })) {
   const listeners = new Set<(m: ServerMessage) => void>();
   const sent: ClientMessage[] = [];
+  let previews = 0;
   const emit = (m: ServerMessage) => queueMicrotask(() => { for (const l of listeners) l(m); });
   const client = {
     onMessage(fn: (m: ServerMessage) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     send(m: ClientMessage) {
       sent.push(m);
-      if (m.type === 'report.preview') emit({ type: 'report.preview.reply', requestId: m.requestId, items: [...ITEMS], ...(m.log ? { log: '19:41:02 forge  github  read 7 prs' } : {}) } as ServerMessage);
+      if (m.type === 'report.preview') { const n = ++previews; emit({ type: 'report.preview.reply', requestId: m.requestId, items: [...ITEMS], login: 'paradow', ...(m.log ? { log: `19:41:0${n} forge  github  read 7 prs`, logId: `log-${n}` } : {}) } as ServerMessage); }
       if (m.type === 'report.create') emit({ type: 'report.created', requestId: m.requestId, ok: false, ...created(m) } as ServerMessage);
       if (m.type === 'report.ignore') emit({ type: 'report.ignored', requestId: m.requestId, ok: true } as ServerMessage);
     }
@@ -60,11 +61,13 @@ describe('« Signaler »', () => {
     const { box } = dialog(client);
     expect(document.querySelector('pre.rp-excerpt')).toBeNull();
     fireEvent.click(box.getByRole('checkbox', { name: /Add an excerpt of the daemon log/ }));
-    await waitFor(() => expect(document.querySelector('pre.rp-excerpt')?.textContent).toBe('19:41:02 forge  github  read 7 prs'));
+    await waitFor(() => expect(document.querySelector('pre.rp-excerpt')?.textContent).toMatch(/^19:41:0\d forge  github  read 7 prs$/));
+    const shown = document.querySelector('pre.rp-excerpt')!.textContent!.slice(7, 8);
     fireEvent.change(box.getByRole('textbox', { name: 'Title' }), { target: { value: 'T' } });
     fireEvent.click(box.getByRole('button', { name: /^Create the issue/ }));
     await waitFor(() => expect(creates(sent)).toHaveLength(1));
-    expect(creates(sent)[0]).toMatchObject({ log: true });
+    // The excerpt that goes is the one shown (review C4: logId), never a fresh read.
+    expect(creates(sent)[0]).toMatchObject({ log: true, logId: `log-${shown}` });
   });
 
   it('an idea: its own fields and label; without a title nothing is sent and the field says what to do', async () => {
@@ -148,5 +151,30 @@ describe('an agent\'s report in « À toi »', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(creates(sent)[0]).toMatchObject({ task: 't7', fields: { happened: task.report.detail } });
     expect(creates(sent)[0]).not.toHaveProperty('session');
+  });
+});
+
+describe('« Signaler »: the account and an expired excerpt (#9 review C4)', () => {
+  it('names the GitHub account the daemon gives', async () => {
+    const { client } = fakeClient();
+    const { box } = dialog(client);
+    await waitFor(() => expect(box.getByText('paradow')).toBeVisible());
+    expect(box.getByText('paradow').closest('p')).toHaveTextContent('with your GitHub account paradow');
+  });
+  it('log_stale: nothing created, the excerpt asked again and shown, the user told; the next try sends the new one', async () => {
+    let n = 0;
+    const { client, sent } = fakeClient(() => (++n === 1 ? { ok: false, code: 'log_stale' } : { ok: true, number: 15 }));
+    const { box, onCreated } = dialog(client);
+    fireEvent.change(box.getByRole('textbox', { name: 'Title' }), { target: { value: 'T' } });
+    fireEvent.click(box.getByRole('checkbox', { name: /Add an excerpt of the daemon log/ }));
+    await waitFor(() => expect(document.querySelector('pre.rp-excerpt')).not.toBeNull());
+    const first = (sent.filter(m => m.type === 'report.preview').length);
+    fireEvent.click(box.getByRole('button', { name: /^Create the issue/ }));
+    await waitFor(() => expect(box.getByRole('alert')).toHaveTextContent('The log excerpt was refreshed: read it again, then create the issue.'));
+    await waitFor(() => expect(sent.filter(m => m.type === 'report.preview').length).toBe(first + 1));
+    expect(onCreated).not.toHaveBeenCalled();
+    fireEvent.click(box.getByRole('button', { name: /^Create the issue/ }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(15, undefined));
+    expect(creates(sent)[1]).toMatchObject({ logId: `log-${first + 1}` });
   });
 });
