@@ -70,6 +70,11 @@ export interface Fleet {
   ackUsage(id: string): void;
   /** Every machine's pull and merge requests (lot 8a), sessions qualified, each with the machine that read it. */
   prs(): FleetPullRequest[];
+  /**
+   * Every machine's own requests of its signed-in account that none of its sessions follows (issue #3, `forge.state.mine`), each with
+   * the machine that read it; `roles` set, `sessions` empty. Raw: one request read by two machines comes twice (the front merges them).
+   */
+  mine(): FleetPullRequest[];
   /** Each machine's forges (`gh` / `glab` missing, not signed in, in error), with the machine. */
   forges(): FleetForgeStatus[];
   /** Each machine's followed sessions (qualified) and the forge of their repository: for the chip « PR ? » (`sessionForge`). */
