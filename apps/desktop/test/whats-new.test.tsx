@@ -37,7 +37,7 @@ describe('What’s new (#26)', () => {
     const d = dialog('Ledge was updated to 0.9.0');
     expect(d.getByText('Detachable Atelier')).toBeInTheDocument();
     await user.click(d.getByRole('button', { name: /All releases/ }));
-    expect(opened).toEqual(['https://github.com/Lyssaen/ledge/releases']);
+    expect(opened).toEqual(['https://github.com/kl-ledge/ledge/releases']);
     await user.click(d.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     view.unmount(); await closeDaemons();
@@ -53,7 +53,7 @@ describe('What’s new (#26)', () => {
     const d = dialog('What’s new in Ledge 0.9.0');
     expect(d.getByText('Detachable Atelier')).toBeInTheDocument();
     await user.click(d.getByRole('button', { name: /GitHub release/ }));
-    expect(opened).toEqual(['https://github.com/Lyssaen/ledge/releases/tag/v0.9.0']);
+    expect(opened).toEqual(['https://github.com/kl-ledge/ledge/releases/tag/v0.9.0']);
   });
 
   it('an available update shows its notes before installing, as Markdown and never as HTML; Later installs nothing', async () => {

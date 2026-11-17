@@ -1,7 +1,7 @@
 import { SEMVER } from '@ledge/protocol';
 
 /** The GitHub Releases of Ledge: every version's notes, those the updater's manifest no longer carries included. */
-export const RELEASES_URL = 'https://github.com/Lyssaen/ledge/releases';
+export const RELEASES_URL = 'https://github.com/kl-ledge/ledge/releases';
 export const releaseUrl = (version: string): string => `${RELEASES_URL}/tag/v${version}`;
 
 /** The notes of the version being installed, kept for the next launch (the manifest of an up-to-date app carries none). */

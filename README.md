@@ -428,7 +428,7 @@ Windows side, the overlay keeps its preferences in the WebView's `localStorage`:
 
 ## How to install?
 
-Ledge has two halves: the `ledge` CLI and its daemon in WSL2, and Ledge Desktop on Windows, which carries the notch. The WSL side installs from this repository. The Windows side is one ready-made installer from the [Releases](https://github.com/Lyssaen/ledge/releases) page, or one you build yourself.
+Ledge has two halves: the `ledge` CLI and its daemon in WSL2, and Ledge Desktop on Windows, which carries the notch. The WSL side installs from this repository. The Windows side is one ready-made installer from the [Releases](https://github.com/kl-ledge/ledge/releases) page, or one you build yourself.
 
 ### What you need
 
@@ -458,12 +458,12 @@ ledge status
 
 ### 2. Get the Windows installer
 
-Download `Ledge.Desktop_<version>_x64-setup.exe` from the [latest release](https://github.com/Lyssaen/ledge/releases/latest). The release notes give its SHA-256.
+Download `Ledge.Desktop_<version>_x64-setup.exe` from the [latest release](https://github.com/kl-ledge/ledge/releases/latest). The release notes give its SHA-256.
 
 Or build it yourself. Clone the repository a second time, on the Windows disk, in PowerShell. Do not build from the `\\wsl$` path: `node_modules` must be the Windows one.
 
 ```powershell
-git clone https://github.com/Lyssaen/ledge.git $HOME\Workspace\ledge
+git clone https://github.com/kl-ledge/ledge.git $HOME\Workspace\ledge
 cd $HOME\Workspace\ledge
 pnpm install --frozen-lockfile
 cd apps\desktop
@@ -527,7 +527,7 @@ More details: the WSL side in [packages/ledge/README.md](packages/ledge/README.m
 ## Development
 
 ```sh
-git clone https://github.com/Lyssaen/ledge.git ~/Workspace/ledge && cd ~/Workspace/ledge
+git clone https://github.com/kl-ledge/ledge.git ~/Workspace/ledge && cd ~/Workspace/ledge
 pnpm install
 pnpm --filter @paradow/ledge build
 chmod +x packages/ledge/dist/cli/index.js
