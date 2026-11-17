@@ -20,8 +20,9 @@ export const site: {
   /** The public origin of the site, used for the canonical, `hreflang`, Open Graph and sitemap URLs. `SITE_URL` overrides
    *  it at build time (this file only runs at build time), for a preview served from another host. */
   url: process.env.SITE_URL ?? 'https://kl-ledge.dev',
-  /** TODO(owner): the Ledge Desktop installer for Windows. While `null`, the button stays on the page and the marker above shows. */
-  downloadUrl: null,
+  /** The Ledge Desktop installer for Windows: the copy each release publishes without its version in the name, so this
+   *  link always serves the latest one. While `null`, the button stays on the page and the marker above shows. */
+  downloadUrl: 'https://github.com/kl-ledge/ledge/releases/latest/download/Ledge.Desktop_x64-setup.exe',
   /** The GitHub repository. While `null`, the footer link goes back to the top of the page, as in the mockup. */
   githubUrl: 'https://github.com/kl-ledge/ledge',
   /** TODO(owner): the guided tour (the user guide). While `null`, the footer link goes back to the top of the page. */

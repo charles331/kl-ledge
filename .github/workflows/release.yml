@@ -226,7 +226,11 @@ jobs:
           Set-Content -Path release-notes.md -Value $body -Encoding utf8
           node scripts/latest-json.mjs $env:TAG $desktopExe release-notes.md | Set-Content -Path latest-desktop.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw "latest-json failed: no updater manifest" }
-          $assets = @($desktopExe, "$desktopExe.sig", 'latest-desktop.json', 'ledge-mobile-build.json')
+          # The same installer under a name without the version, so releases/latest/download/<name> always serves the
+          # latest one: the site's download button points there.
+          $desktopLatest = Join-Path $desktopSrc.DirectoryName 'Ledge.Desktop_x64-setup.exe'
+          Copy-Item $desktopExe $desktopLatest -Force
+          $assets = @($desktopExe, "$desktopExe.sig", $desktopLatest, 'latest-desktop.json', 'ledge-mobile-build.json')
           # PowerShell does not stop on a failing command, and the step's result is the last one's: each is checked, so a
           # failed upload cannot pass for a published release (the job production waits on this one).
           gh release view $env:TAG *> $null
