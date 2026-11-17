@@ -46,7 +46,7 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
   usage?: Omit<UsageStateMessage, 'type' | 'machineId'>;
   /** Lot 8b: the requests and forges (`forge.state`, sent after the usage), each request's detail and failed job's log, and
    *  the command a `forge.act` reports (by action). Nothing reaches a real forge. Give `daemon.forge` too, or the fleet refuses. */
-  forge?: { prs: PullRequest[]; forges?: ForgeStatus[]; followed?: FollowedSession[]; details?: Record<string, Omit<PrDetail, 'pr'>>; logs?: Record<string, string>; commands?: Partial<Record<ForgeAction['kind'], string>>; /** An action refused, by kind: its code and message. */ actFails?: Partial<Record<ForgeAction['kind'], { code?: string; message: string }>> } } = {}) {
+  forge?: { prs: PullRequest[]; /** Issue #3: the account's own requests no session follows. */ mine?: PullRequest[]; forges?: ForgeStatus[]; followed?: FollowedSession[]; details?: Record<string, Omit<PrDetail, 'pr'>>; logs?: Record<string, string>; commands?: Partial<Record<ForgeAction['kind'], string>>; /** An action refused, by kind: its code and message. */ actFails?: Partial<Record<ForgeAction['kind'], { code?: string; message: string }>> } } = {}) {
   const threads = new Map(Object.entries(extras.threads ?? {}).map(([id, items]) => [id, [...items]]));
   const sessions = new Map(initial.map(s => [s.id, s]));
   const received: ClientMessage[] = [];
@@ -68,7 +68,7 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
     if (projects) ws.send(JSON.stringify({ type: 'projects', projects }));
     if (island !== 'unknown') ws.send(JSON.stringify({ type: 'island', prefs: island }));
     if (usage) ws.send(JSON.stringify({ type: 'usage.state', ...usage }));
-    if (extras.forge) ws.send(JSON.stringify({ type: 'forge.state', prs: extras.forge.prs, forges: extras.forge.forges ?? [], ...(extras.forge.followed ? { followed: extras.forge.followed } : {}) }));
+    if (extras.forge) ws.send(JSON.stringify({ type: 'forge.state', prs: extras.forge.prs, forges: extras.forge.forges ?? [], ...(extras.forge.followed ? { followed: extras.forge.followed } : {}), ...(extras.forge.mine ? { mine: extras.forge.mine } : {}) }));
     for (const b of browsers.values()) if (b.live.state !== 'none') ws.send(JSON.stringify({ type: 'browser.live', ...b.live }));
     ws.onMessage(m => {
       let msg: ClientMessage;
@@ -108,7 +108,7 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
       }
       if (msg.type === 'openrig.act' && extras.openrig) { ws.send(JSON.stringify({ type: 'openrig.done', requestId: msg.requestId, ok: true, commands: extras.rigCommands ?? [], ...(extras.rigCommands ? { output: 'rig down: starter stopped\n' } : {}) })); ws.send(JSON.stringify({ type: 'openrig.state', state: extras.openrig })); }
       if (msg.type === 'forge.detail' && extras.forge) {
-        const pr = extras.forge.prs.find(p => p.id === msg.prId);
+        const pr = [...extras.forge.prs, ...(extras.forge.mine ?? [])].find(p => p.id === msg.prId);
         const d = extras.forge.details?.[msg.prId];
         ws.send(JSON.stringify(pr && d
           ? { type: 'forge.detail.reply', requestId: msg.requestId, ok: true, detail: { ...d, pr, ...(msg.log ? { log: { jobId: msg.log, text: extras.forge.logs?.[msg.log] ?? '' } } : {}) } }

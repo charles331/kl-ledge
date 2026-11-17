@@ -1,7 +1,7 @@
 // The MR/PR tab's French words (docs/mockups/ledge-mobile-refonte/m5-mr-pr.html and its handover sheet): the mockup's words, then
 // Desktop's `forge.*` (apps/desktop/src/i18n/fr.ts) passed to « tu ». Kept apart from copy.ts so the other lots' sections stay
 // untouched; copy.ts spreads them into its `prs` section. English: copy.prs.en.ts.
-import type { ForgeKind, PipeStatus, PrState } from '@ledge/protocol';
+import type { ForgeKind, PipeStatus, PrRole, PrState } from '@ledge/protocol';
 
 const plural = (n: number, one: string, many: string) => (n <= 1 ? one : many);
 
@@ -20,6 +20,11 @@ export const prsFr = {
   threads: (n: number) => plural(n, `${n} discussion ouverte`, `${n} discussions ouvertes`),
   ready: 'prête à fusionner',
   closedGroup: (n: number) => `Fusionnées et fermées (${n})`,
+  /** Issue #3 (docs/mockups/ledge-prs-mine.html): the search, the role filter, the roles on a row, nothing matching. Desktop's words. */
+  search: 'Chercher : réf, titre, dépôt', rolesLabel: 'Rôle',
+  roles: { all: 'Toutes', author: 'Créées', assignee: 'Assignées', reviewer: 'À relire' } as Record<'all' | PrRole, string>,
+  pill: { author: 'créée', assignee: 'assignée', reviewer: 'à relire', tracked: 'branche suivie' } as Record<PrRole | 'tracked', string>,
+  none: 'Aucune MR ou PR ne correspond.', clear: 'Effacer le filtre',
   /** A day in a folded row: today's time, « hier », the weekday, or the date. */
   yesterday: 'hier',
   /** §2: the list's states. */

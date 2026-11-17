@@ -405,6 +405,15 @@ describe('multi-machine connections', () => {
       server.emit({ type: 'forge.state', prs: [], forges: [], followed: [{ session: 'same', forge: 'gitlab', host: 'gitlab.com', repo: 'synapse/synapse' }] });
       expect(client.fleet!.followed()).toEqual([{ session: 'server:same', forge: 'gitlab', host: 'gitlab.com', repo: 'synapse/synapse', machineId: 'server' }]);
     });
+    it('gives each machine\'s own requests (`mine`, issue #3) with the machine, raw; a machine that falls takes them out', () => {
+      const { client, local, server } = forgeSetup();
+      expect(client.fleet!.mine()).toEqual([]);
+      local.emit({ type: 'forge.state', prs: [], forges: [], mine: [{ ...pr(9, []), roles: ['reviewer'] }] });
+      server.emit({ type: 'forge.state', prs: [], forges: [], mine: [{ ...pr(9, []), roles: ['author'] }] });
+      expect(client.fleet!.mine().map(p => [p.ref, p.machineId, p.roles])).toEqual([['#9', 'local', ['reviewer']], ['#9', 'server', ['author']]]);
+      server.set('unreachable');
+      expect(client.fleet!.mine().map(p => p.machineId)).toEqual(['local']);
+    });
     it('a machine that falls takes its requests out and rejects its request in flight « hors ligne »', async () => {
       const { client, server } = forgeSetup();
       server.emit({ type: 'forge.state', prs: [pr(41, ['same'])], forges: [] });

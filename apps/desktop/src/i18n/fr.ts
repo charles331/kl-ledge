@@ -1660,8 +1660,13 @@ export const fr = {
   },
   // MR et PR (lot 8b, docs/mockups/ledge-ide-interactive.html : explorer `prs`, prPage, pipeGraph, statusbar).
   forge: {
-    view: 'MR et PR', hosts: 'GitHub · GitLab', merged: 'Fusionnées',
-    foot: 'Suivies : les branches des sessions et des sièges, via gh et glab. Clic : la MR ou PR dans un onglet.',
+    view: 'MR et PR', hosts: 'GitHub · GitLab',
+    foot: 'Les MR et PR que vous avez créées, qui vous sont assignées ou que vous devez relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet.',
+    search: 'Chercher : réf, titre, dépôt', rolesLabel: 'Rôle',
+    roles: { all: 'Toutes', author: 'Créées', assignee: 'Assignées', reviewer: 'À relire' } as Record<'all' | 'author' | 'assignee' | 'reviewer', string>,
+    pill: { author: 'créée', assignee: 'assignée', reviewer: 'à relire', tracked: 'branche suivie' } as Record<'author' | 'assignee' | 'reviewer' | 'tracked', string>,
+    closedFor: (n: number, days: number) => `Fusionnées et fermées · ${n} · ${days} derniers jours`,
+    none: 'Aucune MR ou PR ne correspond.', clear: 'Effacer le filtre',
     rowTip: 'Clic : ouvrir · Ctrl+clic : à droite',
     host: { github: 'GitHub', gitlab: 'GitLab' } as Record<'github' | 'gitlab', string>,
     kind: { github: 'GitHub · PR', gitlab: 'GitLab · MR' } as Record<'github' | 'gitlab', string>,

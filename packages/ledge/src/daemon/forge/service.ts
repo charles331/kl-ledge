@@ -1,23 +1,34 @@
-import { isArchived, type ForgeAction, type ForgeKind, type ForgeStateMessage, type ForgeStatus, type PipeStatus, type PrDetail, type PullRequest, type Session } from '@ledge/protocol';
+import { isArchived, type ForgeAction, type ForgeKind, type PrRole, type ForgeStateMessage, type ForgeStatus, type PipeStatus, type PrDetail, type PullRequest, type Session } from '@ledge/protocol';
 import type { Store } from '../store.js';
 import { log } from '../../log.js';
 import { githubReader } from './github.js';
 import { gitlabReader } from './gitlab.js';
 import { signedInHosts } from './hosts.js';
 import { execForge, forgeOf, installedCli, type ForgeCli, type ForgeRepo, type ForgeRun } from './run.js';
-import { blockerText, mergeBlockersOf, targetKey, type BranchTarget, ForgeError, ForgeRefusal, type ForgeReader, type ReadPr } from './types.js';
+import { blockerText, mergeBlockersOf, targetKey, type BranchTarget, ForgeError, ForgeRefusal, type ForgeReader, type MinePr, type ReadPr, sameRequestKey } from './types.js';
 
 /**
  * The pull and merge requests of the machine's sessions and OpenRig seats (lot 8a). What is followed (R1): the source branch of a
  * session or seat not archived, on its `origin` repository (`repoId`); default branches and detached heads left out. One list call
  * per repository, every 60 s, or 15 s while a followed pipeline runs or waits (R2); at once after an action and when a session
  * changes branch. A forge in error waits 2, 4, 8 then 10 minutes, its host alone.
+ *
+ * Issue #3: on each host a CLI is signed in to, the account's own requests too (author, assignee, reviewer asked), whatever their
+ * repository: one query per host every 2 minutes, and at once after an action. A followed one carries its roles in `prs`; the others
+ * go in `mine`. Merged and closed ones are kept MINE_KEEP_MS after their last change.
  */
 
 export const SLOW_MS = 60_000;
 export const FAST_MS = 15_000;
 export const BACKOFF_MAX_MS = 10 * 60_000;
 export const DETAIL_TTL_MS = 30_000;
+/** How often the account's own requests are read, per host (one query each: GitHub's search allows 30 a minute). */
+export const MINE_MS = 2 * 60_000;
+/**
+ * How long a merged or closed request of the account's stays listed after its last change. Not decided yet (issue #3): the lead
+ * proposes 7 days to the user.
+ */
+export const MINE_KEEP_MS = 7 * 24 * 60 * 60_000;
 const DEFAULT_BRANCHES = new Set(['main', 'master', 'develop']);
 /** A detached head: the poller stores the short sha as the branch. */
 const DETACHED = /^[0-9a-f]{7,40}$/;
@@ -60,10 +71,11 @@ export function headOf(config: string, branch: string, listed: ForgeRepo): { hea
   const f = url ? forgeOf(url) : null;
   return { head: f && f.host === listed.host ? f.path : listed.path, branch: name || branch };
 }
-interface Entry { pr: ReadPr; repo: ForgeRepo }
+/** `followed`: read for a session's branch (else only as one of the account's own); `roles`: the account's roles on it, if any. */
+interface Entry { pr: ReadPr; repo: ForgeRepo; followed: boolean; roles?: PrRole[] }
 const kindOf = (cli: ForgeCli): ForgeKind => (cli === 'gh' ? 'github' : 'gitlab');
 const hostKey = (repo: ForgeRepo): string => `${repo.cli}:${repo.host}`;
-const strip = ({ blockers: _b, head: _h, notStarted: _n, ...pr }: ReadPr, sessions: string[]): PullRequest => ({ ...pr, sessions });
+const strip = ({ blockers: _b, head: _h, notStarted: _n, ...pr }: ReadPr, sessions: string[], roles?: PrRole[]): PullRequest => ({ ...pr, sessions, ...(roles?.length ? { roles } : {}) });
 const isoAt = (ms: number): string => new Date(ms).toISOString();
 
 export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: () => Promise<NodeJS.ProcessEnv>; now?: () => number; readers?: Partial<Record<ForgeCli, ForgeReader>>;
@@ -109,6 +121,10 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
    */
   const withCi = <P extends { pipeline: PipeStatus }>(pr: P, repo: ForgeRepo): P =>
     (pr.pipeline === 'none' && ci.get(repo.repo)?.has !== false ? { ...pr, pipeline: 'wait' as const, notStarted: true as const } : pr);
+  /** Per signed-in host (`cli:host`), the account's own requests as last read, and when. */
+  const mine = new Map<string, { at: number; prs: MinePr[] }>();
+  /** Set by an action: the next refresh reads the account's own requests again, whatever their age. */
+  let mineForced = false;
   /** Per forge host, when it was last read without error. */
   const readAt = new Map<string, number>();
   const listeners = new Set<() => void>();
@@ -212,13 +228,52 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
     }
   }
 
+  /**
+   * The account's own requests on every host a CLI is signed in to, each host every MINE_MS (at once when an action forced it). A host
+   * in error keeps its last list and waits as a followed repository does; a host no longer signed in is forgotten.
+   */
+  async function readMine(): Promise<void> {
+    const force = mineForced;
+    mineForced = false;
+    const live = new Set<string>();
+    await Promise.all((['gh', 'glab'] as const).map(async cli => {
+      if (!(await isInstalled(cli))) return;
+      await Promise.all([...(await hostsOf(cli))].map(async host => {
+        const k = `${cli}:${host}`, bk = `mine:${k}`;
+        live.add(k);
+        const had = mine.get(k), b = backoff.get(bk);
+        if (b && now() < b.until) return;
+        if (had && !force && now() - had.at < MINE_MS) return;
+        try {
+          mine.set(k, { at: now(), prs: await readers[cli].mine(host, isoAt(now() - MINE_KEEP_MS)) });
+          backoff.delete(bk);
+        } catch (e) {
+          const failures = (b?.failures ?? 0) + 1;
+          backoff.set(bk, { failures, until: now() + Math.min(BACKOFF_MAX_MS, SLOW_MS * 2 ** failures) });
+          log(`forge: own requests on ${host} not read: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }));
+    }));
+    for (const k of [...mine.keys()]) if (!live.has(k)) mine.delete(k);
+  }
+
   function rebuild(fl: Map<string, Followed>): void {
     const next = new Map<string, Entry>();
     for (const [r, f] of fl) {
       for (const pr of byRepo.get(r) ?? []) {
         if (!f.targets.has(targetKey(pr))) continue;
-        next.set(pr.id, { pr, repo: f.repo });
+        next.set(pr.id, { pr, repo: f.repo, followed: true });
       }
+    }
+    // The account's own: one entry per request, a followed one taking its roles. Matched by the forge's address, not the id: a
+    // followed id comes from the git remote, whose case or (renamed) name may differ from the forge's (review of 8c552e4a, M1).
+    const keepFrom = now() - MINE_KEEP_MS;
+    const followedBy = new Map([...next.values()].map(e => [sameRequestKey(e.pr), e] as const));
+    for (const { prs } of mine.values()) for (const m of prs) {
+      if ((m.pr.state === 'merged' || m.pr.state === 'closed') && Date.parse(m.pr.updatedAt) < keepFrom) continue;
+      const had = followedBy.get(sameRequestKey(m.pr)) ?? next.get(m.pr.id);
+      if (had) had.roles = m.roles;
+      else next.set(m.pr.id, { pr: m.pr, repo: m.repo, followed: false, roles: m.roles });
     }
     for (const r of [...byRepo.keys()]) if (!fl.has(r)) byRepo.delete(r);
     entries = next;
@@ -235,18 +290,21 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
 
   function state(): ForgeStateMessage {
     const fl = followed();
-    const prs = [...entries.values()].map(e => strip(e.pr, sessionsOf(e.pr, fl))).filter(p => p.sessions.length).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
+    const newest = (a: PullRequest, b: PullRequest): number => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
+    const all = [...entries.values()];
+    const prs = all.filter(e => e.followed).map(e => strip(e.pr, sessionsOf(e.pr, fl), e.roles)).filter(p => p.sessions.length).sort(newest);
+    const own = all.filter(e => !e.followed).map(e => strip(e.pr, [], e.roles)).sort(newest);
     const used = new Set([...fl.values()].map(f => hostKey(f.repo)));
     const followedSessions = [...fl.values()].flatMap(f => [...f.targets.values()].flatMap(t => t.sessions.map(s => ({ session: s.id, forge: kindOf(f.repo.cli), host: f.repo.host, repo: f.repo.path }))))
       .sort((a, b) => a.session.localeCompare(b.session));
-    return { type: 'forge.state', prs, forges: [...statuses].filter(([k]) => used.has(k)).map(([, s]) => s), followed: followedSessions };
+    return { type: 'forge.state', prs, forges: [...statuses].filter(([k]) => used.has(k)).map(([, s]) => s), followed: followedSessions, mine: own };
   }
 
   async function refreshOnce(): Promise<void> {
     await resolveHeads();
     const fl = followed();
     followedKey = keyOf(fl);
-    await Promise.all([...fl.values()].map(readRepo));
+    await Promise.all([...[...fl.values()].map(readRepo), readMine()]);
     rebuild(followed());
   }
   /** One refresh at a time; a call during one runs another right after. */
@@ -261,7 +319,7 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
 
   /** 15 s while a followed pipeline runs or waits on a forge not in error, 60 s otherwise. */
   function delay(): number {
-    const busy = [...entries.values()].some(e => (e.pr.pipeline === 'run' || e.pr.pipeline === 'wait') && e.pr.state !== 'merged' && e.pr.state !== 'closed' && !backoff.has(hostKey(e.repo)));
+    const busy = [...entries.values()].some(e => e.followed && (e.pr.pipeline === 'run' || e.pr.pipeline === 'wait') && e.pr.state !== 'merged' && e.pr.state !== 'closed' && !backoff.has(hostKey(e.repo)));
     return busy ? FAST_MS : SLOW_MS;
   }
   function schedule(ms = delay()): void {
@@ -273,12 +331,20 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
 
   const unsubscribe = { fn: (): void => undefined };
 
+  /** Whether a repository has CI, read when unknown or old: one of the account's own may be in a repository no session follows (R5). */
+  async function knowCi(repo: ForgeRepo): Promise<void> {
+    const known = ci.get(repo.repo);
+    if (!known || now() - known.at >= CI_TTL_MS) ci.set(repo.repo, { at: now(), has: await readers[repo.cli].hasCi(repo).catch(() => null) });
+  }
+
   async function fresh(prId: string): Promise<Entry> {
     const e = entries.get(prId);
     if (!e) throw new ForgeRefusal('unavailable', 'this request is not followed on this machine');
-    const read = (await readers[e.repo.cli].list(e.repo, [{ branch: e.pr.branch, head: e.pr.head }])).find(p => p.id === prId);
+    // Asked by its number: one of the account's merged requests whose branch a newer request reuses is still found (review B1).
+    const read = (await readers[e.repo.cli].list(e.repo, [{ branch: e.pr.branch, head: e.pr.head, number: e.pr.number }])).find(p => p.id === prId);
     if (!read) throw new ForgeRefusal('unavailable', 'the request is no longer there');
-    return { pr: withCi(read, e.repo), repo: e.repo };
+    await knowCi(e.repo);
+    return { ...e, pr: withCi(read, e.repo) };
   }
 
   return {
@@ -310,9 +376,10 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
       const hit = details.get(key);
       if (hit && now() - hit.at < DETAIL_TTL_MS) return hit.detail;
       const d = await readers[e.repo.cli].detail(e.repo, e.pr.number, opts);
+      await knowCi(e.repo);
       const pr = withCi(d.pr, e.repo);
       const mergeBlockers = pr.notStarted ? [...d.mergeBlockers.filter(b => b !== 'pipeline' && b !== 'pipeline_not_started'), 'pipeline_not_started' as const] : d.mergeBlockers;
-      const detail: PrDetail = { ...d, mergeBlockers, pr: strip(pr, sessionsOf(e.pr)) };
+      const detail: PrDetail = { ...d, mergeBlockers, pr: strip(pr, e.followed ? sessionsOf(e.pr) : [], e.roles) };
       details.set(key, { at: now(), detail });
       return detail;
     },
@@ -329,6 +396,7 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
       const { blockers: _b, ...core } = pr;
       const r = await readers[e.repo.cli].act(e.repo, core, action);
       for (const k of [...details.keys()]) if (k.startsWith(`${prId}|`)) details.delete(k);
+      mineForced = true;
       void refresh().finally(() => schedule());
       return r;
     }

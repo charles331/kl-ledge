@@ -859,6 +859,7 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
       usage: () => usage,
       operator: () => operatorNotices,
       prs: () => [...forgeStates].flatMap(([machine, st]) => st.prs.map(p => ({ ...p, machineId: machine }) as FleetPullRequest)),
+      mine: () => [...forgeStates].flatMap(([machine, st]) => (st.mine ?? []).map(p => ({ ...p, machineId: machine }) as FleetPullRequest)),
       forges: () => [...forgeStates].flatMap(([machine, st]) => st.forges.map(f => ({ ...f, machineId: machine }) as FleetForgeStatus)),
       followed: () => [...forgeStates].flatMap(([machine, st]) => (st.followed ?? []).map(f => ({ ...f, machineId: machine }) as FleetFollowedSession)),
       onForge(cb) { forgeListeners.add(cb); return () => { forgeListeners.delete(cb); }; },

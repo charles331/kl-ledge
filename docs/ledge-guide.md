@@ -105,7 +105,7 @@ Ce qui attend l'utilisateur, tranchable sur place : les autorisations et les que
 
 #### MR et PR (`prs`)
 
-Les MR GitLab et les PR GitHub des branches des sessions et des sièges, lues par `gh` et `glab` : les ouvertes, puis les fusionnées. Chacune montre son hôte, son dépôt, son état, son agent, son pipeline et ses commentaires ouverts. Un clic l'ouvre dans un onglet. Quand `gh` ou `glab` manque ou n'est pas connecté sur une machine, la vue le dit et donne la commande à lancer.
+Toutes les MR GitLab et les PR GitHub de l'utilisateur, lues par `gh` et `glab` sur chaque forge connectée, quel que soit le dépôt : celles qu'il a créées, celles qui lui sont assignées, celles qu'il doit relire, et celles des branches des sessions et des sièges. En tête, une recherche (réf, titre, dépôt) et un filtre par rôle : « Toutes », « Créées », « Assignées », « À relire », chacun avec le nombre de ses ouvertes. Les ouvertes viennent d'abord ; les fusionnées et fermées des 7 derniers jours sont repliées en bas. Chacune montre ses rôles (« créée », « assignée », « à relire », « branche suivie »), son hôte, son dépôt, son état, son agent, son pipeline et ses commentaires ouverts. Une même MR ou PR lue par plusieurs machines n'a qu'une ligne. Un clic l'ouvre dans un onglet. Quand `gh` ou `glab` manque ou n'est pas connecté sur une machine, la vue le dit et donne la commande à lancer.
 
 ### Onglets
 
@@ -358,7 +358,7 @@ Le dernier choix d'agent, de modèle et d'effort est retenu pour chaque projet. 
 
 ### MR et PR (`prs`)
 
-Les MR GitLab et les PR GitHub des branches des sessions et des sièges, lues sur le PC par `gh` et `glab` : les ouvertes, le plus récent changement en haut, chacune avec le point de son pipeline, sa forge, son dépôt, son agent et son état, puis en mots « pipeline échoué », les discussions ouvertes, « prête à fusionner » ; les fusionnées et fermées repliées en bas. Toucher une ligne ouvre la MR ou PR. Une forge que le PC ne lit pas a son bandeau au-dessus de la liste : `glab` ou `gh` absent, pas connecté (avec la commande à lancer et « Copier »), ou un relevé qui échoue depuis une heure donnée. Le badge rouge de l'onglet compte les pipelines échoués. Hors ligne, la dernière liste reste affichée, grisée, sans action. Un PC qui ne transmet pas encore ses MR et PR : l'onglet le dit.
+Toutes les MR GitLab et les PR GitHub de l'utilisateur (créées, assignées, à relire) et celles des branches des sessions et des sièges, lues sur le PC par `gh` et `glab`. En tête, une recherche et le filtre par rôle de Desktop ; chaque ligne porte ses rôles. Les ouvertes, le plus récent changement en haut, chacune avec le point de son pipeline, sa forge, son dépôt, son agent et son état, puis en mots « pipeline échoué », les discussions ouvertes, « prête à fusionner » ; les fusionnées et fermées des 7 derniers jours repliées en bas. Toucher une ligne ouvre la MR ou PR. Une forge que le PC ne lit pas a son bandeau au-dessus de la liste : `glab` ou `gh` absent, pas connecté (avec la commande à lancer et « Copier »), ou un relevé qui échoue depuis une heure donnée. Le badge rouge de l'onglet compte les pipelines échoués. Hors ligne, la dernière liste reste affichée, grisée, sans action. Un PC qui ne transmet pas encore ses MR et PR : l'onglet le dit.
 
 ### MR ou PR (`pr`)
 

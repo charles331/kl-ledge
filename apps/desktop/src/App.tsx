@@ -97,7 +97,7 @@ import { tabTitle, type TabBody } from './ide/tabs';
 import { IdeAtelierBar, IdeAtoi, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView } from './ide/lazy';
 import { useForge } from './forge/useForge';
 import { AtoiTabLabel } from './ide/atoi/AtoiTabLabel';
-import { forgeLines, noForgeReadable, reachOf } from './forge/states';
+import { forgeLines, NO_PRS_FILTER, noForgeReadable, reachOf, type PrsFilter } from './forge/states';
 import type { PaletteCommand, PaletteSession } from './ide/palette/model';
 import { tileToDock } from './ide/termDrag';
 import { addTerm, besideTerm, joinTerm, createPanelStore, isTerminalRef, openTerm, panelViewer, removeTerm, stackTerm, usePanel } from './workspace/panel';
@@ -814,7 +814,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // Lot 8b: every machine's pull and merge requests.
   // A machine down keeps its last read, dimmed; a reachable one shows what it sends (review P2, useForge).
   const forge = useForge(fleet);
-  const prOf = (id: string) => forge.prs.find(p => p.id === id);
+  // Issue #3: a request's tab reads in the whole list (followed and the account's own); the filter of « MR et PR » lives with the window.
+  const prOf = (id: string) => forge.listed.find(p => p.id === id);
+  const [prsFilter, setPrsFilter] = useState<PrsFilter>(NO_PRS_FILTER);
   const machineLabel = (id: string) => machines.find(m => m.id === id)?.label ?? id;
   /** A request's agent: the session or seat on its branch (the most recently active). */
   const prAgentOf = (p: FleetPullRequest) => p.sessions.map(id => known.find(s => s.id === id)).find((s): s is Session => !!s);
@@ -972,7 +974,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         notice={tokenMissing && <DaemonOutdated />}
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
         explorer={layout.sideView === 'prs'
-          ? <IdePrs prs={forge.prs} agentOf={p => prAgentOf(p)?.name ?? null} current={front?.kind === 'pr' ? front.ref : null}
+          ? <IdePrs prs={forge.listed} filter={prsFilter} onFilter={setPrsFilter} agentOf={p => prAgentOf(p)?.name ?? null} current={front?.kind === 'pr' ? front.ref : null}
               lines={forgeLines(forge.forges, machines, forge.readAt)} noneReadable={noForgeReadable(forge.forges)} machineLabel={machineLabel}
               onCopy={cmd => { void navigator.clipboard.writeText(cmd).then(() => notify(t.forge.copied), () => {}); }}
               onOpen={(p, right) => onTab({ kind: 'pr', ref: p.id }, right ? 'right' : undefined)} />

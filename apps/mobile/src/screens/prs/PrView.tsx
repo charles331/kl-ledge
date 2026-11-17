@@ -465,7 +465,7 @@ export function PrView({ id, forge, store, pane = false }: { id: string; forge: 
   const offline = look === 'offline';
   const name = hostName(pc);
   const read = f.details[id];
-  const listed = f.state?.prs.find(p => p.id === id);
+  const listed = f.state && [...f.state.prs, ...(f.state.mine ?? [])].find(p => p.id === id);
   const pr = listed ?? read?.data?.pr;
   const all = useSendAll(read?.data, store);
 
