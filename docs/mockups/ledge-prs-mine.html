@@ -131,7 +131,7 @@ const T = {
     state:{draft:'brouillon', open:'ouverte', review:'en revue', merged:'fusionnée', closed:'fermée'},
     pipe:{ok:'réussi', run:'en cours', fail:'échoué', wait:'en attente', none:'aucun'},
     closed:(n,d)=>`Fusionnées et fermées · ${n} · ${d} derniers jours`,
-    foot:'Les MR et PR que tu as créées, qui te sont assignées ou que tu dois relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet.',
+    foot:'Les MR et PR que vous avez créées, qui vous sont assignées ou que vous devez relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet.',
     none:'Aucune MR ou PR ne correspond.', clear:'Effacer le filtre', noneRole:{review:'Rien à relire pour l’instant.'},
     phoneTitle:'MR et PR', openHead:n=>`Ouvertes · ${n}`, asOf:'relevé 14:02', closedGroup:n=>`Fusionnées et fermées (${n})`, threads:n=>`${n} fil${n>1?'s':''}`, ready:'prête',
     tabs:['À toi','Sessions','MR/PR','Rigs','Ledge'],
@@ -161,7 +161,6 @@ const PRS = [
   {f:'github', ref:'#12', title:'Clé de mise à jour : nouvelle paire', repo:'kl-ledge/ledge', st:'review', p:'ok', roles:['review','assigned'], agent:null, th:1},
   {f:'gitlab', ref:'!77', title:'Refus d’un IBAN vide', repo:'speos-front', st:'draft', p:'wait', roles:['created'], agent:'Pim', th:0},
   {f:'github', ref:'#90', title:'Mise à jour de pdf-lib 1.17', repo:'paper-rendering', st:'open', p:'none', roles:['review'], agent:null, th:0},
-  {f:'github', ref:'#229', title:'Lot 6 : onglets Réglages et Atelier', repo:'ledge', st:'open', p:'ok', roles:['assigned'], agent:null, th:0},
 ];
 const CLOSED = [
   {f:'github', ref:'#228', title:'Lot 5 : groupes liés', repo:'ledge', st:'merged', p:'ok', roles:['created'], agent:'Iris', th:0},
@@ -193,7 +192,7 @@ const phone = (o={}) => {
 function cards(){
   const x = t(), C = [], F = L==='fr';
   C.push({title:F?'Desktop : toutes mes MR et PR, un filtre par rôle et une recherche':'Desktop: all my MRs and PRs, a role filter and a search',
-    why:`L’explorateur « MR et PR » liste désormais <b>toutes les MR et PR de l’utilisateur</b>, sur chaque forge connectée, quel que soit le dépôt. En tête : une <b>recherche</b> (réf, titre, dépôt) et quatre <b>rôles</b> avec leur nombre, <b>Toutes · Créées · Assignées · À relire</b> (« À relire » a son chiffre en ambre : c’est ce qui attend l’utilisateur). Chaque ligne garde sa pastille de pipeline, sa réf et son titre, puis ses <b>rôles en pastilles</b> (plusieurs si besoin : « créée » + « assignée »), et la ligne de détail existante. Une PR d’une <b>branche suivie</b> garde son agent (en clair dans la ligne) et prend la pastille « branche suivie ». Une même MR ou PR vue par deux machines ou à deux titres n’a qu’une ligne. Les fusionnées et fermées sont repliées en bas (carte 4).`,
+    why:`L’explorateur « MR et PR » liste désormais <b>toutes les MR et PR de l’utilisateur</b>, sur chaque forge connectée, quel que soit le dépôt. En tête : une <b>recherche</b> (réf, titre, dépôt) et quatre <b>rôles</b> avec leur nombre, <b>Toutes · Créées · Assignées · À relire</b> (ils comptent les ouvertes ; « À relire » a son chiffre en ambre : c’est ce qui attend l’utilisateur). Chaque ligne garde sa pastille de pipeline, sa réf et son titre, puis ses <b>rôles en pastilles</b> (plusieurs si besoin : « créée » + « assignée »), et la ligne de détail existante. Une PR d’une <b>branche suivie</b> garde son agent (en clair dans la ligne) et prend la pastille « branche suivie ». Une même MR ou PR vue par deux machines ou à deux titres n’a qu’une ligne. Les fusionnées et fermées sont repliées en bas (carte 4).`,
     keys:F?'Nouveaux : forge.search, .roles.{all,created,assigned,review}, .pill.{created,assigned,review,tracked}, .closedFor(n,d), forge.foot (réécrit)':'New: forge.search, .roles.{all,created,assigned,review}, .pill.{created,assigned,review,tracked}, .closedFor(n,d), forge.foot (rewritten)',
     scene: `<div>${side({cur:true})}<div class="cap">${F?'Toutes':'All'}</div></div><div>${side({role:'review', closed:false, cls:''})}<div class="cap">${F?'À relire : 3, les deux autres rôles restent sur les lignes':'To review: 3, other roles stay on the rows'}</div></div>`});
   C.push({title:F?'Recherche, et rien qui correspond':'Search, and nothing matching',
@@ -221,9 +220,9 @@ function fiche(){
   <tr><td>Lecture</td><td>Par forge connectée et par machine : GitHub <code>author:@me</code>, <code>assignee:@me</code>, <code>review-requested:@me</code> ; GitLab <code>scope=created_by_me</code>, <code>scope=assigned_to_me</code>, <code>reviewer_username=&lt;moi&gt;</code>. En plus des branches suivies (agent, pipeline). Fusion par forge + hôte + dépôt + réf : une ligne, rôles réunis.</td></tr>
   <tr><td>Protocole</td><td><code>PullRequest.roles: ('created'|'assigned'|'review')[]</code> dans <code>@ledge/protocol</code> ; <code>sessions</code> non vide = branche suivie.</td></tr>
   <tr><td>Pipeline</td><td>Montré pour toutes les lignes si la forge le donne ; sinon la pastille creuse « aucun ». À confirmer par dev-back (la recherche GitHub ne rend pas les checks ; il faut une lecture par PR, à borner).</td></tr>
-  <tr><td>Filtre</td><td>Recherche + rôle, gardés pour la vie de la fenêtre (Desktop) / de l’onglet (téléphone). Les chiffres comptent les ouvertes, sans la recherche. Tri : plus récente modifiée d’abord, comme aujourd’hui.</td></tr>
+  <tr><td>Filtre</td><td>Recherche + rôle, gardés pour la vie de la fenêtre (Desktop) / de l’onglet (téléphone). Les chiffres comptent les ouvertes seulement (pas les fusionnées et fermées repliées), sans la recherche. Tri : plus récente modifiée d’abord, comme aujourd’hui.</td></tr>
   <tr><td>Fermées</td><td>Repliées en bas, durée selon la question 1 ; filtre et recherche appliqués.</td></tr>
-  <tr><td>Pied</td><td>Réécrit : « Les MR et PR que tu as créées, qui te sont assignées ou que tu dois relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet. »</td></tr>
+  <tr><td>Pied</td><td>Réécrit : « Les MR et PR que vous avez créées, qui vous sont assignées ou que vous devez relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet. »</td></tr>
   <tr><td>Textes</td><td>Nouveaux (FR · EN) : Chercher : réf, titre, dépôt · Search: ref, title, repository ; Toutes / Créées / Assignées / À relire · All / Created / Assigned / To review ; créée / assignée / à relire / branche suivie · created / assigned / to review / tracked branch ; Fusionnées et fermées · {n} · {d} derniers jours ; Aucune MR ou PR ne correspond. ; Effacer le filtre ; le pied. Repris : états, pipeline, ligne de détail, « Fusionnées et fermées (n) » du téléphone.</td></tr>
   </table>
   <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
@@ -232,7 +231,7 @@ function fiche(){
     <li><b>Le filtre à l’ouverture</b> : A) « Toutes » (recommandé : rien n’est caché) ; B) « À relire » s’il y en a, sinon « Toutes ».</li>
     <li><b>Les chiffres des rôles</b> : A) ils comptent tout, sans la recherche (recommandé : on voit où chercher) ; B) ils suivent la recherche.</li>
     <li><b>Le badge de la barre d’activité</b> (aujourd’hui : pipelines échoués) : A) inchangé (recommandé) ; B) il ajoute le nombre « À relire ».</li>
-    <li><b>Les textes nouveaux</b> (fiche) : d’accord ? Le pied passe au tutoiement, comme « À toi ».</li>
+    <li><b>Les textes nouveaux</b> (fiche) : d’accord ? Ils vouvoient, comme le reste de Desktop.</li>
   </ol></section>`;
 }
 
