@@ -134,7 +134,10 @@ describe('the Atelier shell', () => {
   });
 
   it('the toast sits above a dialog and the narrow chat', () => {
-    expect(declarations('shell.css', '.toast-region')).toBe('position:fixed;width:0;height:0;z-index:10');
+    // #9 review C2: the dialogs' backdrop went above the Atelier's bars (50); the toast stays above it, under the palette (70).
+    expect(declarations('shell.css', '.toast-region')).toBe('position:fixed;width:0;height:0;z-index:60');
+    const z = (rule: string) => Number(/z-index: ?(\d+)/.exec(readFileSync(resolve(__dirname, '../src/styles/shell.css'), 'utf8').split('\n').find(l => l.startsWith(rule)) ?? '')?.[1]);
+    expect(z('.toast-region')).toBeGreaterThan(z('.modal-backdrop'));
   });
   it('the rules lot 3 ported for nothing are gone', () => {
     const css = readFileSync(resolve(__dirname, '../src/styles/shell.css'), 'utf8');
