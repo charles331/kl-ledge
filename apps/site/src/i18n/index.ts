@@ -4,14 +4,14 @@ import { fr, type Catalogue } from './fr.ts';
 export type { Catalogue };
 export type Locale = 'fr' | 'en';
 
-/** French is the default language and lives at the root; every other language has its own prefix. */
-export const defaultLocale: Locale = 'fr';
+/** English is the default language and lives at the root; every other language has its own prefix. */
+export const defaultLocale: Locale = 'en';
 
 /** What the page needs to know about a language besides its copy: the short code the switch shows, the name a screen
  *  reader announces (each in its own language, as a visitor looking for it would read it) and its Open Graph locale. */
 export const locales: Record<Locale, { code: string; name: string; og: string; path: string; copy: Catalogue }> = {
-  fr: { code: 'FR', name: 'Français', og: 'fr_FR', path: '/', copy: fr },
-  en: { code: 'EN', name: 'English', og: 'en_US', path: '/en/', copy: en }
+  en: { code: 'EN', name: 'English', og: 'en_US', path: '/', copy: en },
+  fr: { code: 'FR', name: 'Français', og: 'fr_FR', path: '/fr/', copy: fr }
 };
 
 export const localeList = Object.keys(locales) as Locale[];

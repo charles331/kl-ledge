@@ -1,6 +1,6 @@
 # @ledge/site
 
-The marketing site of Ledge: one static page, in French at `/` and in English at `/en/`, built with Astro. It has no
+The marketing site of Ledge: one static page, in English at `/` and in French at `/fr/`, built with Astro. It has no
 framework at run time: the page is plain HTML and CSS, and four small TypeScript scripts set it in motion.
 
 ## Run and build
@@ -9,7 +9,7 @@ Node 24 and pnpm, from the repository root:
 
 ```sh
 pnpm install
-pnpm --filter @ledge/site dev        # http://localhost:4321/ and /en/
+pnpm --filter @ledge/site dev        # http://localhost:4321/ and /fr/
 pnpm --filter @ledge/site build      # writes apps/site/dist/
 pnpm --filter @ledge/site preview    # serves the build
 pnpm --filter @ledge/site typecheck  # astro check
