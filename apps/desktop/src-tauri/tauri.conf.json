@@ -16,6 +16,6 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"]
   },
   "plugins": {
-    "updater": { "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc2M0NDQ0YzRDAxMzM2QUQKUldTdE5oUFE4OHc4ZGdHSHlOUVVCemdoSUlxanArMitsWng2cEZSNWx4bXMxTjg0RWlNUnJ0REQK", "endpoints": ["https://github.com/kl-ledge/ledge/releases/latest/download/latest-desktop.json"], "windows": { "installMode": "passive" } }
+    "updater": { "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY5ODJCN0U1NTZCNjA4NDQKUldSRUNMWlc1YmVDYWVDbUFBbTZnNWNSTzVTVllLNDZmc3R4RUtkU0lDUVd5WU5Ed3dtWFNMZEwK", "endpoints": ["https://github.com/kl-ledge/ledge/releases/latest/download/latest-desktop.json"], "windows": { "installMode": "passive" } }
   }
 }
