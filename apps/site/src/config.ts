@@ -25,8 +25,8 @@ export const site: {
   downloadUrl: 'https://github.com/kl-ledge/ledge/releases/latest/download/Ledge.Desktop_x64-setup.exe',
   /** The GitHub repository. While `null`, the footer link goes back to the top of the page, as in the mockup. */
   githubUrl: 'https://github.com/kl-ledge/ledge',
-  /** TODO(owner): the guided tour (the user guide). While `null`, the footer link goes back to the top of the page. */
-  guideUrl: null,
+  /** The guided tour: the user guide as GitHub renders it. While `null`, the footer link goes back to the top of the page. */
+  guideUrl: 'https://github.com/kl-ledge/ledge/blob/main/docs/ledge-guide.md',
   /** The release notes behind « Nouveautés ». While `null`, the footer link goes back to the top of the page. */
   releasesUrl: 'https://github.com/kl-ledge/ledge/releases',
   openrigUrl: 'https://openrig.dev/',
