@@ -207,11 +207,11 @@ export function createForge(link: PhoneLink, store: MobileStore, storage?: Stora
       case 'forge.state': {
         answered('state');
         const at = new Date().toISOString();
-        const next: PhoneForgeState = { prs: m.prs, forges: m.forges, followed: m.followed };
+        const next: PhoneForgeState = { prs: m.prs, forges: m.forges, followed: m.followed, ...(m.mine ? { mine: m.mine } : {}) };
         // A request whose head moved is read again if its detail is held (the merge must name the head the person sees).
         const moved = Object.keys(state.details).filter(id => {
           const was = state.details[id]?.data?.pr.headSha;
-          const now = next.prs.find(p => p.id === id)?.headSha;
+          const now = [...next.prs, ...(next.mine ?? [])].find(p => p.id === id)?.headSha;
           return was && now && was !== now;
         });
         set({ state: next, at, loading: false });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PhoneForgeStatus, PullRequest } from '@ledge/protocol';
+import { closedPrs, filterPrs, PR_ROLE_FILTERS, prRoleCounts, type PhoneForgeStatus, type PrRoleFilter, type PullRequest } from '@ledge/protocol';
 import { copy } from '../../copy';
 import { isReady, signInCommand, splitPrs, unreadable } from '../../model/prs';
 import { href, useRoute } from '../../router';
@@ -73,6 +73,24 @@ function openSub(pr: PullRequest, agent: string | null, failing: PhoneForgeStatu
   return [C.host[pr.forge], repoName(pr.repo), ...(agent ? [agent] : []), last].join(' · ');
 }
 
+/** The filter (issue #3): a role and a search, kept while the app's tab lives, whichever screen is shown meanwhile. */
+let kept: { role: PrRoleFilter; q: string } = { role: 'all', q: '' };
+/** For the tests: the filter back to « Toutes », empty. */
+export function resetPrsFilter(): void { kept = { role: 'all', q: '' }; }
+
+/** The account's roles and « branche suivie » under a row's title (docs/mockups/ledge-prs-mine.html, card 3). */
+function Pills({ pr }: { pr: PullRequest }) {
+  const roles = pr.roles ?? [];
+  if (!roles.length && !pr.sessions.length) return null;
+  const pill = 'rounded-[7px] border px-1.5 text-[11px] leading-4';
+  return (
+    <>
+      {roles.map(r => <span key={r} data-role-pill={r} className={`${pill} ${r === 'reviewer' ? 'border-attention/50 text-attention' : 'border-line text-muted'}`}>{C.pill[r]}</span>)}
+      {pr.sessions.length > 0 && <span data-role-pill="tracked" className={`${pill} border-task/45 text-task`}>{C.pill.tracked}</span>}
+    </>
+  );
+}
+
 /** The MR/PR tab of a PC that sends its requests (`daemon.forge`). */
 export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStore }) {
   const f = useForge(forge);
@@ -81,6 +99,11 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
   const route = useRoute();
   const wide = useWide();
   const [folded, setFolded] = useState(true);
+  // Only closed ones match the filter (design-ux, #3 review C1): the fold opens by itself while the filter is on; a tap closes it for
+  // that filter only, and the user's own state comes back once the filter is cleared.
+  const [shut, setShut] = useState<string | null>(null);
+  const [filter, setFilterState] = useState(kept);
+  const setFilter = (x: typeof kept) => { kept = x; setFilterState(x); };
   const offline = look === 'offline';
   const name = hostName(pc);
   const state = f.state;
@@ -91,13 +114,52 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
     if (!state) return <Reading />;
     const failing = unreadable(state.forges);
     const failingOf = (pr: PullRequest) => failing.find(s => s.forge === pr.forge && s.host === pr.host);
-    const { open, closed } = splitPrs(state.prs);
+    // Issue #3: the followed requests and the account's own (never both), the merged and closed of the last days.
+    const every = [...state.prs, ...(state.mine ?? [])];
+    const all = { open: splitPrs(every).open.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), closed: closedPrs(every, Date.now()) };
+    const counts = prRoleCounts(every);
+    const open = filterPrs(all.open, filter.role, filter.q);
+    const closed = filterPrs(all.closed, filter.role, filter.q);
+    const filtered = filter.role !== 'all' || filter.q.trim() !== '';
+    const filterKey = `${filter.role}\n${filter.q.trim()}`;
+    const forced = filtered && open.length === 0 && closed.length > 0;
+    const shown = forced ? shut !== filterKey : !folded;
     const none = state.forges.length > 0 && failing.length === state.forges.length;
+    const chip = 'flex h-[30px] shrink-0 items-center gap-1.5 rounded-full border px-[11px] text-[12.5px]';
     return (
       <>
         {!offline && failing.map(s => <ForgeStrip key={`${s.forge}:${s.host}`} status={s} pc={name} />)}
         <div className={`flex flex-col gap-3 ${offline ? 'opacity-50' : ''}`}>
-          {open.length === 0 ? (
+          {all.open.length + all.closed.length > 0 && (
+            <div className="flex flex-col gap-2.5">
+              <label className="flex h-9 items-center gap-2 rounded-[9px] border border-line px-2.5 text-muted focus-within:border-muted">
+                <Icon name="search" className="size-3.5 shrink-0" />
+                <input
+                  type="search" aria-label={C.search} placeholder={C.search} value={filter.q}
+                  onChange={e => setFilter({ ...filter, q: e.target.value })}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-muted"
+                />
+              </label>
+              <div role="group" aria-label={C.rolesLabel} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+                {PR_ROLE_FILTERS.map(r => (
+                  <button
+                    key={r} type="button" aria-pressed={filter.role === r} onClick={() => setFilter({ ...filter, role: r })}
+                    className={`${chip} ${filter.role === r ? 'border-transparent bg-secondary text-fg' : 'border-line text-muted'}`}
+                  >
+                    {C.roles[r]}<span className={`font-mono text-[11px] ${r === 'reviewer' ? 'text-attention' : ''}`}>{counts[r]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {forced ? null : open.length === 0 && filtered ? (
+            <Frame>
+              <div data-list-state="none" className="flex flex-col items-center gap-2.5 px-4 py-6 text-center text-[13px] text-muted">
+                <b className="font-medium text-fg">{C.none}</b>
+                <button type="button" className={rigButtonClass({ size: 'sm' })} onClick={() => setFilter({ role: 'all', q: '' })}>{C.clear}</button>
+              </div>
+            </Frame>
+          ) : open.length === 0 ? (
             <Frame>
               {none
                 ? <EmptyState framed={false} glyph={null} title={C.emptyTitle} body={C.emptyUnread} list={closed.length === 0} />
@@ -119,7 +181,7 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
                   );
                   return (
                     <PrRow
-                      key={pr.id} pr={pr} sub={openSub(pr, agentOf(pr), bad)} chips={chips}
+                      key={pr.id} pr={pr} sub={openSub(pr, agentOf(pr), bad)} chips={chips} pills={<Pills pr={pr} />}
                       {...(offline ? {} : { href: href({ name: 'pr', id: pr.id }) })} selected={wide && route.name === 'pr' && route.id === pr.id}
                     />
                   );
@@ -129,14 +191,14 @@ export function PrsList({ forge, store }: { forge: ForgeStore; store: MobileStor
           )}
           {closed.length > 0 && (
             <Frame>
-              <button type="button" aria-expanded={!folded} onClick={() => setFolded(v => !v)} className="flex min-h-11 w-full items-center gap-[9px] px-3 py-1.5 text-left text-[13px] text-muted">
-                <Icon name={folded ? 'chevron' : 'down'} className="size-3.5" />{C.closedGroup(closed.length)}
+              <button type="button" aria-expanded={shown} onClick={() => (forced ? setShut(x => (x === filterKey ? null : filterKey)) : setFolded(v => !v))} className="flex min-h-11 w-full items-center gap-[9px] px-3 py-1.5 text-left text-[13px] text-muted">
+                <Icon name={shown ? 'down' : 'chevron'} className="size-3.5" />{C.closedGroup(closed.length)}
               </button>
-              {!folded && (
+              {shown && (
                 <div className="border-t border-line">
                   {closed.map(pr => (
                     <PrRow
-                      key={pr.id} pr={pr} dim sub={[C.host[pr.forge], repoName(pr.repo), C.state[pr.state], dayWord(pr.updatedAt)].join(' · ')}
+                      key={pr.id} pr={pr} dim pills={<Pills pr={pr} />} sub={[C.host[pr.forge], repoName(pr.repo), C.state[pr.state], dayWord(pr.updatedAt)].join(' · ')}
                       {...(offline ? {} : { href: href({ name: 'pr', id: pr.id }) })} selected={wide && route.name === 'pr' && route.id === pr.id}
                     />
                   ))}

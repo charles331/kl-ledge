@@ -69,14 +69,15 @@ export function condText(c: MergeCondition, host: string): string {
 }
 
 /** A request's row:the pipeline's dot, its number and title, then its line and what matters, in words. */
-export function PrRow({ pr, sub, chips, href, dim = false, selected = false }: {
-  pr: PullRequest; sub: string; chips?: ReactNode; href?: string; dim?: boolean; selected?: boolean;
+export function PrRow({ pr, sub, chips, pills, href, dim = false, selected = false }: {
+  pr: PullRequest; sub: string; chips?: ReactNode; /** Issue #3: the account's roles and « branche suivie », under the title. */ pills?: ReactNode; href?: string; dim?: boolean; selected?: boolean;
 }) {
   const body = (
     <>
       <span className="mt-1.5 self-start"><Dot state={dim ? 'done' : PIPE_DOT[pr.pipeline]} pulse={!dim && pr.pipeline === 'run'} /></span>
       <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <span className={`truncate text-[14px] ${dim ? 'text-muted' : ''}`}><b className="mr-1 font-mono text-[13px] font-semibold">{pr.ref}</b>{pr.title}</span>
+        {pills && <span className="flex flex-wrap gap-1">{pills}</span>}
         <small className="truncate text-[12px] text-muted">{sub}</small>
         {chips && <span className="flex flex-wrap gap-1.5">{chips}</span>}
       </span>

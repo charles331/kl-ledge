@@ -5,7 +5,7 @@ import { homedir, hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import { nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
+import { folderProblems, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
 import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
@@ -80,7 +80,10 @@ import { withIntegration } from '../term/shellIntegration.js';
 import type { UsageService } from './usage/service.js';
 import type { ForgeService } from './forge/service.js';
 import { ForgeError, ForgeRefusal } from './forge/types.js';
-import { redact } from './forge/run.js';
+import { execForge, installedCli, redact, type ForgeRun } from './forge/run.js';
+import { signedInHosts } from './forge/hosts.js';
+import { createIssue, issueBody, logExcerpt, systemLine } from './report.js';
+import { LEDGE_VERSION } from '../version.js';
 import type { OperatorWired } from '../operator/index.js';
 import { applySuggestionRow, createPointActor, rowWhere, type Fail } from '../operator/act.js';
 import { pointHandlers } from '../operator/point-handlers.js';
@@ -211,7 +214,12 @@ function logDroppedRequest(id: string, ev: SessionEvent, before: Session | undef
  * `launcher` is the command that runs this very CLI inside WSL (node + the built script): the overlay appends
  * `attach <id>` to it to open a terminal tab on a session. `home` is where `~` expands for `session.launch`.
  */
+/** The reports an agent may have waiting on the user at once (issue #9). */
+const REPORTS_OPEN_MAX = 5;
+
 export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
+  /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
+  report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
   /** The pull and merge requests of the sessions' branches (lot 8a): the daemon's own, started with it; tests give one or none. */ forge?: ForgeService;
   /** The operator (journal, wakes, points in every chat thread): the daemon's own; tests leave it out, so no wake ever runs a harness. */ operator?: boolean;
@@ -1222,6 +1230,58 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
    * `action.run` (#93): an action of the registry outside the chat, resolved and applied as a generic card's row, so the CLI
    * writes no rule of its own. A destructive one asks again (`confirmed`), and the guard decides who may run it at all.
    */
+  /** The agents' reports whose issue is being created now: a second « Créer l'issue » meanwhile is stale. */
+  const reportsCreating = new Set<string>();
+  /** Reports (issue #9): `gh` as the forge reads run it, ready when installed and signed in to github.com. */
+  const reportRun: ForgeRun = opts.report?.run ?? execForge(agentEnv);
+  const reportReady = opts.report?.ready ?? (async () => { const e = await agentEnv(); return (await installedCli('gh', e)) && (await signedInHosts('gh', e)).has('github.com'); });
+  /** The GitHub account gh creates issues with (`gh api user`, the env's token included), kept 5 minutes when found; undefined when
+   *  gh cannot tell, asked again next time (a `gh auth login` shows at the next preview). */
+  let reportLoginSeen: { value: string; at: number } | undefined;
+  const reportLogin = opts.report?.login ?? (async (): Promise<string | undefined> => {
+    if (reportLoginSeen && Date.now() - reportLoginSeen.at < 5 * 60_000) return reportLoginSeen.value;
+    let value: string | undefined;
+    if (await reportReady().catch(() => false)) {
+      const r = await reportRun('gh', ['api', 'user', '--hostname', 'github.com', '--jq', '.login'], { timeoutMs: 5_000 }).catch(() => undefined);
+      const v = r?.code === 0 ? r.stdout.trim() : '';
+      value = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/.test(v) ? v : undefined;
+    }
+    reportLoginSeen = value ? { value, at: Date.now() } : undefined;
+    return value;
+  });
+  /**
+   * The log excerpts previews showed, by `logId`: a creation sends exactly the one the user saw, never the log read again (review of
+   * fda04b1b). Kept an hour, the last REPORT_EXCERPTS_MAX only.
+   */
+  const reportExcerpts = new Map<string, { text: string; at: number }>();
+  const REPORT_EXCERPT_MS = 60 * 60_000, REPORT_EXCERPTS_MAX = 20;
+  function keepExcerpt(text: string): string {
+    const now = Date.now();
+    for (const [k, v] of reportExcerpts) if (now - v.at > REPORT_EXCERPT_MS) reportExcerpts.delete(k);
+    while (reportExcerpts.size >= REPORT_EXCERPTS_MAX) reportExcerpts.delete(reportExcerpts.keys().next().value as string);
+    const id = randomUUID();
+    reportExcerpts.set(id, { text, at: now });
+    return id;
+  }
+  function shownExcerpt(id: string | undefined): string | undefined {
+    const e = id !== undefined ? reportExcerpts.get(id) : undefined;
+    return e && Date.now() - e.at <= REPORT_EXCERPT_MS ? e.text : undefined;
+  }
+  /** What a report attaches now (mockup card 2): the Desktop's and the daemon's versions, the system, the session's tool; for an
+   *  agent's report, its session and project too. Names and versions only. */
+  async function reportItems(m: { desktop?: string; session?: string; task?: string }): Promise<ReportItem[]> {
+    const t = m.task !== undefined ? tasks.all().find(x => x.id === m.task) : undefined;
+    const s = m.session !== undefined ? store.get(m.session) : t ? store.get(t.giver) : undefined;
+    const items: ReportItem[] = [];
+    if (m.desktop) items.push({ key: 'desktop', value: m.desktop });
+    items.push({ key: 'daemon', value: LEDGE_VERSION });
+    items.push({ key: 'system', value: (await (opts.report?.system ?? systemLine)().catch(() => '')) || 'inconnu' });
+    if (s) items.push({ key: 'tool', value: s.tool });
+    if (t?.report?.session) items.push({ key: 'session', value: t.report.session });
+    if (t?.report?.project) items.push({ key: 'project', value: t.report.project });
+    return items.map(i => ({ ...i, value: i.value.slice(0, 300) }));
+  }
+
   /** Why `key` is not session `by`'s (#93), or undefined when it is. */
   function notItsKey(by: string, key: string | undefined): string | undefined {
     // Without a key, the session was most likely launched before Ledge gave one: it is relaunched, not suspected.
@@ -1459,6 +1519,13 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         return broadcast(machinesMsg()); // every local client, the sender included
       }
       case 'projects.set': {
+        // Issue #2: a project is saved with at least one folder and keeps its last one, from any front (the phone's go through here).
+        const problem = folderProblems(projects, msg.projects)[0];
+        if (problem) {
+          const message = problem.code === 'last_folder' ? 'a project keeps at least one folder: add another before removing this one, or delete the project'
+            : 'a project needs at least one folder: without one, Ledge cannot file its sessions';
+          return reply({ type: 'error', request: msg.type, code: problem.code, id: problem.project, message });
+        }
         writeProjects(msg.projects, projectsFile); // first: a failing write leaves memory unchanged and reaches the sender
         projects = msg.projects; // already validated by parseClientMessage
         return broadcast(projectsMsg());
@@ -1723,6 +1790,72 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         const r = handovers.show(msg.by);
         return reply({ type: 'handover.result', rid: msg.rid, ...('text' in r ? { text: r.text } : { reason: r.reason }) });
       }
+      case 'report.preview': {
+        const items = await reportItems(msg);
+        const [excerpt, login] = await Promise.all([
+          msg.log && msg.kind === 'bug' ? logExcerpt(opts.report?.logFile ?? paths().log, opts.home ?? homedir()) : Promise.resolve(undefined),
+          reportLogin().catch(() => undefined)
+        ]);
+        return reply({ type: 'report.preview.reply', requestId: msg.requestId, items, ...(excerpt ? { log: excerpt, logId: keepExcerpt(excerpt) } : {}), ...(login ? { login } : {}) });
+      }
+      case 'report.create': {
+        const answer = (x: Omit<Extract<ServerMessage, { type: 'report.created' }>, 'type' | 'requestId'>) => reply({ type: 'report.created', requestId: msg.requestId, ...x });
+        // The excerpt goes as the preview showed it, or nothing is created (review of fda04b1b): never lines the user did not see.
+        // No logId: the preview showed no excerpt, none goes. An unknown or expired one: nothing is created, the front previews again.
+        const withLog = msg.log === true && msg.kind === 'bug' && msg.logId !== undefined;
+        const excerpt = withLog ? shownExcerpt(msg.logId) : undefined;
+        if (withLog && excerpt === undefined) return answer({ ok: false, code: 'log_stale' });
+        const t = msg.task !== undefined ? tasks.all().find(x => x.id === msg.task) : undefined;
+        // One creation per agent's report: a second click while gh works is stale too (review of 2449e9fa).
+        if (msg.task !== undefined && (!t?.report || taskClosed(t) || reportsCreating.has(t.id))) return answer({ ok: false, code: 'stale' });
+        if (t) reportsCreating.add(t.id);
+        try {
+          const omit = new Set(msg.omit ?? []);
+          const items = (await reportItems(msg)).filter(i => !omit.has(i.key));
+          const body = issueBody(msg.fields, items, excerpt || undefined, t?.report?.session);
+          const out = await createIssue({ run: reportRun, ready: reportReady }, msg.kind, msg.title, body);
+          // The agent's report is answered either way: created, or handed to the user to validate on GitHub.
+          if (t) {
+            const result = out.ok ? `issue #${out.number} créée sur ${REPORT_REPO} : ${out.url}` : `page GitHub préremplie ouverte, l'utilisateur valide l'issue là-bas : ${out.url}`;
+            tasks.run({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'done', task: t.id, text: result });
+          }
+          if (out.ok) log(`report: issue #${out.number} created on ${REPORT_REPO}`);
+          return answer(out.ok ? { ok: true, number: out.number, url: out.url } : { ok: false, code: out.code, url: out.url, ...(out.message ? { message: out.message } : {}) });
+        } finally { if (t) reportsCreating.delete(t.id); }
+      }
+      case 'report.ignore': {
+        const t = tasks.all().find(x => x.id === msg.task);
+        // Its issue being created now: too late to ignore it.
+        if (!t?.report || taskClosed(t) || reportsCreating.has(t.id)) return reply({ type: 'report.ignored', requestId: msg.requestId, ok: false, code: 'stale' });
+        tasks.run({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'refuse', task: t.id, text: 'ignoré par l\'utilisateur : aucune issue créée' });
+        return reply({ type: 'report.ignored', requestId: msg.requestId, ok: true });
+      }
+      case 'report.agent': {
+        const answer = (x: Omit<Extract<ServerMessage, { type: 'report.agent.result' }>, 'type' | 'rid'>) => reply({ type: 'report.agent.result', rid: msg.rid, ...x });
+        // Who reports: a session Ledge launched, by its key (#152); or an OpenRig seat Ledge follows, by its name (a report only asks the user).
+        let asker: Session | undefined;
+        if (msg.by !== undefined) {
+          const wrong = notItsKey(msg.by, msg.key);
+          if (wrong) return answer({ reason: wrong });
+          asker = store.get(msg.by);
+        } else if (msg.seat !== undefined) {
+          asker = store.all().filter(s => s.rig?.seat === msg.seat && s.state !== 'exited').sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))[0];
+          if (!asker) return answer({ reason: `aucun siège ${msg.seat} suivi par Ledge` });
+        }
+        if (!asker) return answer({ reason: 'ledge report marche dans une session lancée par Ledge ou un siège OpenRig suivi par Ledge' });
+        if (msg.op === 'status') {
+          const t = msg.task !== undefined ? tasks.all().find(x => x.id === msg.task) : undefined;
+          if (!t?.report || t.giver !== asker.id) return answer({ reason: `aucun signalement ${msg.task ?? ''} de ta part`.trim() });
+          return answer({ task: { id: t.id, state: t.state, ...(t.result ? { result: t.result } : {}) } });
+        }
+        if (!msg.report) return answer({ reason: 'il faut le type, un titre et un détail' });
+        if (tasks.all().filter(t => t.giver === asker!.id && t.report && !taskClosed(t)).length >= REPORTS_OPEN_MAX) return answer({ reason: `tu as déjà ${REPORTS_OPEN_MAX} signalements en attente de l'utilisateur` });
+        const project = projectOf(asker, projects);
+        const projectName = project ? projects.projects.find(p => p.id === project)?.name : undefined;
+        const r = tasks.run({ type: 'task.cmd', rid: msg.rid, by: asker.id, op: 'give', to: LEDGE_GIVER,
+          report: { ...msg.report, session: asker.name, ...(projectName ? { project: projectName } : {}) } });
+        return r.task ? answer({ task: { id: r.task.id, state: r.task.state } }) : answer({ reason: r.reason ?? 'refusé' });
+      }
       case 'task.cmd': {
         // The chat's task card gives through its turn, which then follows its task.
         if (msg.qid !== undefined && msg.op === 'give') return setAside(msg.qid) ? reply({ type: 'task.result', rid: msg.rid, reason: SET_ASIDE }) : giveFromCard(msg, reply);
@@ -1734,6 +1867,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
           const wrong = notItsKey(msg.by, msg.key);
           if (wrong) return reply({ type: 'task.result', rid: msg.rid, reason: wrong });
         }
+        // An agent's report goes through report.agent only: its cap and its origin are the daemon's (review of 2449e9fa).
+        if (msg.report) return reply({ type: 'task.result', rid: msg.rid, reason: 'un signalement se fait avec ledge report' });
         // A proposal about the user's notes (brain spec §3.6) is checked against the notes now, before the user is asked.
         if (msg.brain) {
           const pending = tasks.all().filter(t => t.giver === msg.by && t.brain && !taskClosed(t)).length;

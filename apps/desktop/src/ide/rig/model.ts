@@ -2,8 +2,9 @@ import { roleOf, seatsByRole } from '@ledge/protocol';
 import type { Rig, RigGraph, RigGraphSeat, RigPolicy, RigRow, RigSeatPermission, Session } from '@ledge/protocol';
 import { isAskSeat } from '../../asks/model';
 import { spanOf, type Span } from '../../list/time';
-import { seatDot } from '../rigs/model';
-import type { RigDot } from '../rigs/model';
+import { seatDot, type RigDot } from '../rigs/model';
+
+const idleForBg = (d: RigDot): RigDot => (d === 'bg' ? 'idle' : d);
 
 /** The « Rig · name » tab as pure functions: the topology's layout, the permission level, the seats draft, the queue's lines. */
 
@@ -31,7 +32,8 @@ export function layoutOf(graph: RigGraph, sessions: readonly Session[], machine:
     const joined = seat.session ? sessions.find(s => isAskSeat(s, seat.session!, machine)) : undefined;
     return {
       logicalId: seat.logicalId, pod: seat.pod, name: joined?.name ?? seat.logicalId, ...(seat.role ? { role: seat.role } : {}), runtime: seat.runtime,
-      dot: running ? seatDot(joined, graphActivity(seat)) : 'off', ...(joined ? { session: joined } : {}),
+      // Issue #1's hollow circle is the Rigs view's only (its mockup): the rig page keeps « available ».
+      dot: running ? idleForBg(seatDot(joined, graphActivity(seat))) : 'off', ...(joined ? { session: joined } : {}),
       x: MARGIN + col * COL, y: MARGIN + row * (NODE_H + GAP)
     };
   });

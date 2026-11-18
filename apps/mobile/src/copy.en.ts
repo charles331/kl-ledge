@@ -779,7 +779,11 @@ export const en: Copy = {
       up: (name: string) => `Move ${name} up`, down: (name: string) => `Move ${name} down`,
       newTitle: 'New project', editTitle: 'Edit project', name: 'Name', color: 'Colour',
       colors: { blue: 'Blue', green: 'Green', amber: 'Amber', violet: 'Violet', teal: 'Teal', pink: 'Pink', red: 'Red', slate: 'Slate' } as Record<'blue' | 'green' | 'amber' | 'violet' | 'teal' | 'pink' | 'red' | 'slate', string>,
-      newBody: 'An empty project: its folders are added on the PC.',
+      newBody: 'Pick the project’s first folder; more can be added afterwards.',
+      newBodyOld: 'An empty project: its folders are added on the PC.',
+      firstFolder: 'First folder', required: 'required', browseMore: 'Browse…', chosen: 'Chosen', choose: 'Choose', chooseLabel: (path) => `Choose ${path}`,
+      chooseThis: 'Choose this folder', pickFirst: 'Pick a folder to create the project.',
+      lastFolder: 'A project keeps at least one folder. Add another before removing this one, or delete the project.',
       save: 'Save', create: 'Create', cancel: 'Cancel',
       remove: 'Delete project…',
       deleteTitle: (name: string) => `Delete ${name}?`,
@@ -799,6 +803,8 @@ export const en: Copy = {
       errors: {
         name_taken: 'Another project already has this name.', stale: 'The projects changed on the PC. Try again.',
         folder_taken: 'Another project already has this folder.', not_found: 'This folder no longer exists on the PC.',
+        folder_required: 'Add at least one folder to the project: without one, Ledge cannot file its sessions.',
+        last_folder: 'A project keeps at least one folder. Add another before removing this one, or delete the project.',
         confirm_required: 'Protect your accepts first, in the Connection section.', cancelled: 'Check cancelled. Nothing changed.',
         expired: 'The check expired. Start again.', failed: 'The PC did not take this change. Try again.'
       } as Record<string, string>
@@ -1100,7 +1106,7 @@ export const en: Copy = {
     title: 'MRs and PRs', subtitle: 'GitHub · GitLab',
     notSent: (pc: string) => `${pc} does not send its MRs and PRs to this device yet`,
     notSentBody: 'Ledge follows the branches of the sessions and seats. Their MRs, PRs and pipelines will show here once Ledge is updated on the PC.',
-    tracked: 'Followed: the branches of the sessions and seats, through gh and glab.',
+    tracked: 'The MRs and PRs you created, are assigned or must review, on every connected forge (gh, glab).',
     pane: { title: 'Nothing to show', body: 'An MR or PR and its pipeline open here.' },
     ...prsEn
   },

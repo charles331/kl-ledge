@@ -86,7 +86,9 @@ export function ProjectEditor(p: {
   const [adding, setAdding] = useState(p.addFolder === true || (p.mode === 'new' && p.initial.repos.length === 0));
   // What is known of each repository (by machine and path): from the browser when added, from repos.inspect for the saved ones.
   const [known, setKnown] = useState<ReadonlyMap<string, Known>>(() => new Map());
-  const { state, confirming, send, reset } = useProjectSave(p.fleet, projects);
+  // The daemon's refusal of a project left without a folder (issue #2) ends the save at once.
+  const listen = useCallback((fn: Parameters<DaemonClient['onMessage']>[0]) => p.client.onMessage?.(fn) ?? (() => {}), [p.client]);
+  const { state, confirming, send, reset } = useProjectSave(p.fleet, projects, listen as never);
   const nameRef = useRef<HTMLInputElement>(null);
   // Deleting: where its agents go (null: « Sans projet »). Entering the view focuses that choice; leaving it, « Supprimer le projet ».
   const [moveTo, setMoveTo] = useState<string | null>(null);
@@ -201,7 +203,11 @@ export function ProjectEditor(p: {
   const taken = (machine: string, path: string) => d.repos.some(r => r.machine === machine && normalizePath(r.path) === path);
   // A repository belongs to one project: the browser flags a folder another project has (« Déjà dans {p} »).
   const ownerOf = (machine: string, path: string) => alsoIn({ machine, path }, d, projects)?.name ?? null;
+  // The folder just added is ringed a moment in « Retenus », to show where it went (issue #2, card 2).
+  const [fresh, setFresh] = useState<string | null>(null);
+  useEffect(() => { if (!fresh) return; const id = setTimeout(() => setFresh(null), 1600); return () => clearTimeout(id); }, [fresh]);
   const onAdd = ({ branch, ...repo }: Repo & { branch: string | null }) => {
+    setFresh(repoKey(repo.machine, repo.path));
     setD(x => ({ ...x, repos: [...x.repos, repo] }));
     setKnown(prev => new Map(prev).set(repoKey(repo.machine, repo.path), { exists: true, branch }));
   };
@@ -216,9 +222,27 @@ export function ProjectEditor(p: {
   const problemText = !problem ? null
     : problem.code === 'repo_taken' ? c.problems.repo_taken(projects.projects.find(x => x.id === problem.project)?.name ?? problem.project)
     : c.problems[problem.code];
+  // No folder kept (issue #2, card 3): the browser opens if folded and its first « Ajouter » takes the focus.
+  const [toPicker, setToPicker] = useState(0);
+  useEffect(() => {
+    const box = reposRef.current;
+    if (!toPicker || !box) return;
+    const first = () => box.querySelector<HTMLElement>('.picker [data-add]:not(:disabled)');
+    const found = first();
+    if (found) { found.focus(); return; }
+    // A browser just opened lists its folders a moment later: its first « Ajouter » takes the focus once there, else its typed path.
+    const watch = new MutationObserver(() => { const b = first(); if (b) { watch.disconnect(); clearTimeout(give); b.focus(); } });
+    const give = setTimeout(() => { watch.disconnect(); box.querySelector<HTMLElement>('.picker-typed input')?.focus(); }, 3000);
+    watch.observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    return () => { watch.disconnect(); clearTimeout(give); };
+  }, [toPicker]);
   const save = () => {
     setTried(true);
-    if (problem) { if (nameProblem) nameRef.current?.focus(); return; }
+    if (problem) {
+      if (nameProblem) nameRef.current?.focus();
+      else if (problem.code === 'no_folder') { setAdding(true); setToPicker(n => n + 1); }
+      return;
+    }
     if (saving) return;
     const { next, id } = afterSave(projects, d, p.sessions);
     const sent = next.projects.find(x => x.id === id)!;
@@ -306,7 +330,7 @@ export function ProjectEditor(p: {
         <footer className="composer-footer">
           <span className="spacer" />
           {!live && !saving ? <span className="composer-missing" role="alert">{c.problems.gone}</span>
-            : state.status === 'refused' ? <p className="composer-missing" role="alert">{c.refused[state.reason]}</p> : null}
+            : state.status === 'refused' ? <p className={`composer-missing${state.reason === 'folder_required' || state.reason === 'last_folder' ? ' pe-missing' : ''}`} role="alert">{c.refused[state.reason]}</p> : null}
           <Button variant="ghost" onClick={() => toggle(false)}>{c.cancel}</Button>
           <Button variant="primary" type="submit" aria-disabled={!live || saving}>{saving ? c.saving : to ? dl.moveAndDelete : dl.confirm(name)}</Button>
         </footer>
@@ -341,17 +365,21 @@ export function ProjectEditor(p: {
   // The offer: a new project without proposal, while it has no name or no repository yet; a typed name stays in it, which then
   // searches for that name (#22). « Demander à Ledge »: once there is a name or a repository, the offer gone, no proposal under
   // way, and not next to the « nothing » note (which has its own « Relancer »).
-  const fresh = mode === 'new' && !proposal && (d.name === '' || d.repos.length === 0);
+  const offer = mode === 'new' && !proposal && (d.name === '' || d.repos.length === 0);
+  const noFolder = tried && problem?.code === 'no_folder';
   const typed = d.name.trim();
   const limitedNote = limited.length > 0 ? c.ledge.limited(limited) : '';
   // A scan cut short may have missed a deeper repository: the folder browser adds it by hand (#22).
   const browse = limited.length > 0 && !adding ? <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{c.ledge.browse}</Button> : null;
-  const canAsk = !proposal && !fresh && !nothing && (d.name.trim() !== '' || d.repos.length > 0);
+  const canAsk = !proposal && !offer && !nothing && (d.name.trim() !== '' || d.repos.length > 0);
   return (
     <form className="pe" onSubmit={e => { e.preventDefault(); save(); }} onKeyDown={onKeyDown}>
       {groups.map(([machine, paths]) => <Inspect key={machine} client={p.client} machine={machine} paths={paths} onInfos={onInfos} />)}
       <div className="pe-body">
-        {fresh && !nothing && (
+        {mode === 'edit' && kept.length === 0 && !proposal && (
+          <div className="pe-banner" role="status"><Icon d={ICONS.warning.d} size={15} /><div><strong>{c.bannerTitle}</strong><span>{c.bannerBody}</span></div></div>
+        )}
+        {offer && !nothing && (
           <div className="pe-ledge">
             <ResidentMascot size={44} theme={theme} paused={p.paused} reducedMotion={reduced} />
             <div><strong>{c.ledge.offerTitle}</strong><span>{c.ledge.offerBody}</span></div>
@@ -393,11 +421,13 @@ export function ProjectEditor(p: {
           <label className="composer-label" htmlFor={`${ids}-description`}>{c.description} <small>{c.optional}</small></label>
           <input id={`${ids}-description`} value={d.description} maxLength={120} placeholder={c.descriptionPlaceholder} onChange={e => set({ description: e.target.value })} />
         </div>
-        <section ref={reposRef} className="pe-repos" aria-labelledby={`${ids}-repos`}>
+        <section ref={reposRef} className={`pe-repos${noFolder ? ' err' : ''}`} aria-labelledby={`${ids}-repos`} aria-describedby={`${ids}-repos-hint`}>
           <div className="pe-repos-head">
-            <span className="composer-label" id={`${ids}-repos`}>{c.repos(kept.length)}</span>
+            <span className="pe-repos-title" id={`${ids}-repos`}>{c.folders}<span className="pe-required">{c.required}</span></span>
             {canAsk && <Button size="sm" variant="ghost" onClick={runLedge}><Icon d={SPARKLES} size={14} />{c.ledge.ask}</Button>}
           </div>
+          <p className="pe-repos-hint" id={`${ids}-repos-hint`}>{c.foldersHint}</p>
+          <span className="pe-sub">{c.kept} · {kept.length}</span>
           {d.repos.length > 0 ? (
             <ul className="pe-repo-list">
               {d.repos.map((r, i) => {
@@ -408,7 +438,7 @@ export function ProjectEditor(p: {
                 const owner = saving || confirming ? undefined : alsoIn(r, d, projects);
                 const offered = d.proposed?.[repoKey(r.machine, r.path)];
                 return (
-                  <li key={`${r.machine}:${r.path}:${i}`} className={offered && !offered.checked ? 'off' : undefined}>
+                  <li key={`${r.machine}:${r.path}:${i}`} className={[offered && !offered.checked ? 'off' : '', fresh === repoKey(r.machine, r.path) ? 'fresh' : ''].filter(Boolean).join(' ') || undefined}>
                     {offered && (
                       <input type="checkbox" checked={offered.checked} aria-label={c.ledge.keep(baseName(r.path), label)} onChange={e => keep(r.machine, r.path, e.target.checked)} />
                     )}
@@ -434,7 +464,10 @@ export function ProjectEditor(p: {
                 );
               })}
             </ul>
-          ) : !adding && <p className="pe-empty">{c.empty}</p>}
+          ) : null}
+          {kept.length === 0 && (noFolder
+            ? <p className="pe-none err"><Icon d={ICONS.warning.d} size={14} />{c.noneErr}</p>
+            : <p className="pe-none"><Icon d={ICONS.folder.d} size={14} />{c.none}</p>)}
           {candidates.length > 0 && (
             <div className="pe-agents">
               <span className="composer-label">{c.fileToo}</span>
@@ -449,7 +482,11 @@ export function ProjectEditor(p: {
               })}
             </div>
           )}
-          {adding ? <FolderPicker client={p.client} machines={machines} taken={taken} owner={ownerOf} onAdd={onAdd} />
+          {adding ? <>
+              <div className="pe-sub-row"><span className="pe-sub">{c.add}</span>
+                <Button size="sm" variant="ghost" onClick={() => { setAdding(false); requestAnimationFrame(() => addRef.current?.focus()); }}>{c.closeBrowser}</Button></div>
+              <FolderPicker client={p.client} machines={machines} taken={taken} owner={ownerOf} onAdd={onAdd} />
+            </>
             : <Button ref={addRef} size="sm" variant="outline" onClick={() => setAdding(true)}><Icon d={ICONS.plus.d} size={14} />{c.addRepo}</Button>}
         </section>
       </div>
@@ -461,10 +498,10 @@ export function ProjectEditor(p: {
           <ProjectSwatch project={{ color: d.color }} />
           <span>
             <span className="preview-line"><strong>{d.name.trim() || c.newName}</strong></span>
-            <small>{c.preview(kept.length, machinesShown)}{p.mode === 'new' && d.id === undefined ? c.firstSession : ''}</small>
+            <small className={kept.length === 0 ? 'none' : undefined}>{kept.length === 0 ? c.previewNone : c.preview(kept.length, machinesShown)}{p.mode === 'new' && d.id === undefined ? c.firstSession : ''}</small>
           </span>
         </span>
-        {tried && problemText ? <span className="composer-missing" role={nameProblem ? undefined : 'alert'}>{problemText}</span>
+        {tried && problemText ? <span className={`composer-missing${noFolder ? ' pe-missing' : ''}`} role={nameProblem ? undefined : 'alert'}>{noFolder && <Icon d={ICONS.warning.d} size={14} />}{problemText}</span>
           : state.status === 'refused' ? <p className="composer-missing" role="alert">{c.refused[state.reason]}</p> : null}
         <Button variant="ghost" onClick={p.onClose}>{c.cancel}</Button>
         <Button variant="primary" type="submit" aria-disabled={!!problem || saving}>

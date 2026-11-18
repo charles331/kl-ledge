@@ -13,7 +13,7 @@
 .workspace-footer { height: 34px; flex-shrink: 0; border-top: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 10px; color: var(--muted-foreground); }
 
 /* observatory.css: dialogs. */
-.modal-backdrop { position: fixed; inset: 0; background: color-mix(in srgb, var(--background) 65%, transparent); backdrop-filter: blur(5px); z-index: 5; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-backdrop { position: fixed; inset: 0; background: color-mix(in srgb, var(--background) 65%, transparent); backdrop-filter: blur(5px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal { background: var(--popover); border: 1px solid var(--input); border-radius: var(--radius-xl); box-shadow: var(--shadow-overlay); width: 480px; max-height: 90vh; overflow: auto; }
 .modal:focus { outline: none; }
 .modal-title { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
@@ -101,8 +101,8 @@ body:has(.titlebar) .modal-backdrop { top: var(--titlebar-h); }
 
 /* observatory.css line 3: the toast (filing's outcome, task 6). */
 /* The toast's live region, always there: it takes no room (the toast inside it is fixed to the window). */
-.toast-region{position:fixed;width:0;height:0;z-index:10}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);padding:12px 18px;background:var(--popover);border:1px solid var(--input);box-shadow:var(--shadow-overlay);border-radius:var(--radius-md);font-size:12px;z-index:10;max-width:90vw}
+.toast-region{position:fixed;width:0;height:0;z-index:60}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);padding:12px 18px;background:var(--popover);border:1px solid var(--input);box-shadow:var(--shadow-overlay);border-radius:var(--radius-md);font-size:12px;z-index:60;max-width:90vw}
 .undo-toast{display:flex;align-items:center;gap:14px;padding:10px 10px 10px 16px;overflow:hidden}
 .undo-toast button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;color:var(--foreground)}
 .undo-toast button:hover{background:var(--accent)}

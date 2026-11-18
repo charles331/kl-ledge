@@ -91,11 +91,13 @@ Raccourcis principaux :
 
 Les sessions par projet, puis par branche. Un clic ouvre une session ; le clic droit propose « Ouvrir », « Ouvrir à droite », son terminal, « Envoyer un message… » et « Gérer la session ». Le menu d'un projet propose « Nouvelle session ici », « Écrire à tout le projet… », « Ajouter un dossier… » et « Modifier le projet… ». `Ctrl`+clic choisit plusieurs sessions, pour leur écrire d'un coup. On range une session en la glissant sur un projet. En bas, les **Archives**, repliables : les sessions archivées, avec leur projet et leur ancienneté. Une archive s'ouvre en lecture seule, avec « Reprendre ».
 
+Une session disponible dont l'agent travaille encore en arrière-plan prend un petit anneau bleu sur son logo, et sa ligne dit pourquoi : le compteur de ses sous-agents passe en bleu tant que l'un travaille, et une commande lancée en arrière-plan (Claude Code) s'affiche sous la tâche, « … · en arrière-plan ». Le survol le redit (« Disponible, mais… »). Le projet compte ces sessions à part, avec un cercle creux bleu. Rien de tel pour Codex et Cursor, que Ledge ne sait pas lire.
+
 Y renvoyer l'utilisateur pour retrouver une session, ou une session archivée.
 
 #### Rigs (`rigs`)
 
-OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). De haut en bas : le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
+OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). De haut en bas : le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. Un siège disponible avec du travail en arrière-plan (sous-agents, commande) a un cercle creux bleu ; son rig en donne le nombre, avant celui de ses sièges. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
 
 Y renvoyer l'utilisateur pour suivre ses rigs et leurs sièges, ou démarrer et arrêter OpenRig, son kernel ou un rig.
 
@@ -105,7 +107,7 @@ Ce qui attend l'utilisateur, tranchable sur place : les autorisations et les que
 
 #### MR et PR (`prs`)
 
-Les MR GitLab et les PR GitHub des branches des sessions et des sièges, lues par `gh` et `glab` : les ouvertes, puis les fusionnées. Chacune montre son hôte, son dépôt, son état, son agent, son pipeline et ses commentaires ouverts. Un clic l'ouvre dans un onglet. Quand `gh` ou `glab` manque ou n'est pas connecté sur une machine, la vue le dit et donne la commande à lancer.
+Toutes les MR GitLab et les PR GitHub de l'utilisateur, lues par `gh` et `glab` sur chaque forge connectée, quel que soit le dépôt : celles qu'il a créées, celles qui lui sont assignées, celles qu'il doit relire, et celles des branches des sessions et des sièges. En tête, une recherche (réf, titre, dépôt) et un filtre par rôle : « Toutes », « Créées », « Assignées », « À relire », chacun avec le nombre de ses ouvertes. Les ouvertes viennent d'abord ; les fusionnées et fermées des 7 derniers jours sont repliées en bas. Chacune montre ses rôles (« créée », « assignée », « à relire », « branche suivie »), son hôte, son dépôt, son état, son agent, son pipeline et ses commentaires ouverts. Une même MR ou PR lue par plusieurs machines n'a qu'une ligne. Un clic l'ouvre dans un onglet. Quand `gh` ou `glab` manque ou n'est pas connecté sur une machine, la vue le dit et donne la commande à lancer.
 
 ### Onglets
 
@@ -304,7 +306,7 @@ Y renvoyer l'utilisateur pour lancer lui-même une session avec des réglages pr
 
 #### Projet (`project`)
 
-Crée (« Nouveau projet »), modifie ou supprime un projet. On y donne son nom, sa couleur, sa description, ses dossiers et ses dépôts. On l'ouvre aussi pour ranger une session dans un nouveau projet, ou pour vérifier un projet que Ledge a proposé.
+Crée (« Nouveau projet »), modifie ou supprime un projet. On y donne son nom, sa couleur, sa description et ses dossiers. Un projet a au moins un dossier : la section « Dossiers du projet » montre ceux qui sont retenus, puis le navigateur pour en ajouter ; enregistrer sans dossier est bloqué, et le formulaire dit quoi faire. Un projet enregistré sans dossier avant cette règle est marqué « Aucun dossier : à compléter » dans Réglages › Projets, avec « Ajouter un dossier » ; on peut toujours le supprimer. On l'ouvre aussi pour ranger une session dans un nouveau projet, ou pour vérifier un projet que Ledge a proposé.
 
 #### Écrire à plusieurs sessions (`broadcast`)
 
@@ -322,6 +324,12 @@ S'ouvre par « + Lancer » de la vue Rigs, sur la machine qu'elle affiche, par �
 - **Champs :** nom, machine, dossier de travail, sièges par rôle, permissions (Spec, Auto, Standard, Ouvert, YOLO, Verrouillé) ; « Plus d'options » : harnais, modèle et permission par rôle, délégation, garder la spec, « Vérifier ». La commande `rig` exacte est affichée et suit les champs.
 - « Lancer » ouvre la vue Rig du rig. Daemon arrêté : la fenêtre propose « Démarrer OpenRig ».
 - **Avec l'operator :** un champ « Ce que tu veux » ; l'operator propose une équipe dans son fil, et rien ne démarre avant que l'utilisateur valide.
+
+#### Signaler (`report`)
+
+S'ouvre par le drapeau de la barre de titre (« Signaler un bug ou proposer une idée »). En haut, **Bug** ou **Idée**. Un bug : titre, ce qui s'est passé, ce qui était attendu, comment le reproduire (facultatif) ; une idée : titre, le besoin, le contexte, une proposition. « Joint au signalement » montre les versions de Ledge Desktop et du daemon, le système et l'outil de la session au premier plan ; chacun se retire d'un clic. Pour un bug, « Ajouter un extrait du journal du daemon » (décoché) montre les 50 dernières lignes telles qu'elles partiraient, relues pour retirer chemins personnels et jetons. Rien d'autre ne part. « Créer l'issue » (`Ctrl+Entrée`) la crée sur kl-ledge/ledge avec le `gh` connecté de la machine (label `bug` ou `enhancement`) ; un toast donne son numéro avec « Ouvrir ». Sans titre, rien ne part. `gh` absent ou refus de GitHub : « Ouvrir sur GitHub » ouvre la page préremplie, à valider là-bas. Ce qui est écrit est gardé jusqu'à l'envoi ou la fermeture de Ledge.
+
+Un agent signale par `ledge report bug|feature "titre" "détail"` : rien n'est créé, une décision arrive dans « À toi » avec « Créer l'issue », « Modifier avant » (cette fenêtre, préremplie) et « Ignorer » ; l'agent apprend ce qu'il en est advenu.
 
 Y renvoyer l'utilisateur pour lancer ou relancer une équipe OpenRig avec des réglages précis (par exemple trois développeurs et trois relecteurs), sur n'importe quelle machine.
 
@@ -358,7 +366,7 @@ Le dernier choix d'agent, de modèle et d'effort est retenu pour chaque projet. 
 
 ### MR et PR (`prs`)
 
-Les MR GitLab et les PR GitHub des branches des sessions et des sièges, lues sur le PC par `gh` et `glab` : les ouvertes, le plus récent changement en haut, chacune avec le point de son pipeline, sa forge, son dépôt, son agent et son état, puis en mots « pipeline échoué », les discussions ouvertes, « prête à fusionner » ; les fusionnées et fermées repliées en bas. Toucher une ligne ouvre la MR ou PR. Une forge que le PC ne lit pas a son bandeau au-dessus de la liste : `glab` ou `gh` absent, pas connecté (avec la commande à lancer et « Copier »), ou un relevé qui échoue depuis une heure donnée. Le badge rouge de l'onglet compte les pipelines échoués. Hors ligne, la dernière liste reste affichée, grisée, sans action. Un PC qui ne transmet pas encore ses MR et PR : l'onglet le dit.
+Toutes les MR GitLab et les PR GitHub de l'utilisateur (créées, assignées, à relire) et celles des branches des sessions et des sièges, lues sur le PC par `gh` et `glab`. En tête, une recherche et le filtre par rôle de Desktop ; chaque ligne porte ses rôles. Les ouvertes, le plus récent changement en haut, chacune avec le point de son pipeline, sa forge, son dépôt, son agent et son état, puis en mots « pipeline échoué », les discussions ouvertes, « prête à fusionner » ; les fusionnées et fermées des 7 derniers jours repliées en bas. Toucher une ligne ouvre la MR ou PR. Une forge que le PC ne lit pas a son bandeau au-dessus de la liste : `glab` ou `gh` absent, pas connecté (avec la commande à lancer et « Copier »), ou un relevé qui échoue depuis une heure donnée. Le badge rouge de l'onglet compte les pipelines échoués. Hors ligne, la dernière liste reste affichée, grisée, sans action. Un PC qui ne transmet pas encore ses MR et PR : l'onglet le dit.
 
 ### MR ou PR (`pr`)
 
@@ -419,7 +427,7 @@ S'ouvre depuis la roue dentée en en-tête (par-dessus l'onglet courant, qui res
 - **Apparence :** le thème, la langue (Français ou English ; français par défaut, appliquée tout de suite) et « Réduire les animations », propres à cet appareil.
 - **Notifications sur cet appareil :** l'interrupteur principal ; une fois activées, « Le point de Ledge », « Réponse de Ledge » et « Décision à prendre » se coupent une à une, et « Pause » (1 h, 4 h, jusqu'à demain 8 h) les suspend toutes. Les demandes d'accord et les questions préviennent toujours, sauf pendant une pause.
 - **Ledge :** « Contexte max » (le seuil partagé avec le PC, comme Réglages › Général sur le desktop) et « Agent du chat » (l'agent qui répond aux questions posées depuis cet appareil ; « PC » : le même que le chat du PC).
-- **Projets :** la liste dans son ordre, chaque projet avec sa couleur et ses agents. Monter ou descendre un projet, « Modifier » (nom, couleur), « Nouveau projet » (un projet vide), et « Supprimer le projet… » avec la passkey de l'appareil : ses agents, ses dossiers et ses règles vont sans projet ou vers un autre projet. « Dossiers… » liste les dossiers du projet (« Retirer ») ; « Ajouter un dossier » parcourt les dossiers du PC, ses dossiers récents en tête, et ajoute celui affiché avec la passkey de l'appareil. Les dossiers d'un serveur et les règles de rangement se règlent sur le desktop.
+- **Projets :** la liste dans son ordre, chaque projet avec sa couleur et ses agents. Monter ou descendre un projet, « Modifier » (nom, couleur), « Nouveau projet » (avec son premier dossier : un récent du PC ou « Parcourir… », confirmé par la passkey), et « Supprimer le projet… » avec la passkey de l'appareil : ses agents, ses dossiers et ses règles vont sans projet ou vers un autre projet. « Dossiers… » liste les dossiers du projet (« Retirer », sauf pour le dernier : un projet garde au moins un dossier) ; « Ajouter un dossier » parcourt les dossiers du PC, ses dossiers récents en tête, et ajoute celui affiché avec la passkey de l'appareil. Les dossiers d'un serveur et les règles de rangement se règlent sur le desktop.
 - **Le PC :** met à jour ou redémarre le daemon du PC.
 - **Connexion :** le compte, le serveur, le PC, les empreintes, les versions, et « Protéger les accords ».
 - **Réglés sur le PC :** en lecture seule. L'accès mobile, les appareils liés, « Taper dans les terminaux », les machines et les règles de rangement ne se changent que dans Ledge Desktop › Réglages : un appareil ne peut pas élargir ses propres droits.

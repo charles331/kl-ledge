@@ -26,7 +26,7 @@ Sans le drapeau (PC plus ancien, ou sans relevé des forges) :
 
 ```
 → { type: 'forge.state' }
-← { type: 'forge.state', prs: [PullRequest…], forges: [statut…], followed: [{ session, forge, host, repo }…] }
+← { type: 'forge.state', prs: [PullRequest…], forges: [statut…], followed: [{ session, forge, host, repo }…], mine?: [PullRequest…] }
 ```
 
 `forge.state` **abonne** l'appareil : il reçoit ensuite chaque changement, toujours la liste entière. L'abonnement dure tant
@@ -67,8 +67,14 @@ Le statut d'une forge (`forges`) : `{ forge, host, status: ok | missing | unauth
 `followed` : chaque session suivie, avec la forge de son dépôt. Le téléphone peut ainsi distinguer « aucune demande sur
 cette branche » de « cette forge ne peut pas être lue ici », la puce « PR ? » de Desktop.
 
+`mine` (issue #3, absent d'un PC plus ancien) : les demandes du compte connecté (`gh` / `glab`) qu'aucune session ne suit,
+sur chaque hôte connecté et quel que soit le dépôt : `sessions` vide, `roles` renseigné. Une demande est dans `prs` ou
+dans `mine`, jamais dans les deux. `roles` (`author`, `assignee`, `reviewer`, dans cet ordre) figure aussi sur une
+demande de `prs` qui est celle du compte. Les ouvertes y sont quel que soit leur âge ; les fusionnées et fermées, 7 jours
+après leur dernier changement (durée encore à décider). Un rôle inconnu du téléphone est écarté, pas la demande.
+
 Bornes :
-- 100 demandes au plus, 20 forges, 200 sessions suivies ;
+- 100 demandes au plus dans `prs`, 100 dans `mine`, 20 forges, 200 sessions suivies ;
 - une demande dont la forge, l'état ou le pipeline est inconnu du téléphone est écartée, pas le message entier.
 
 ## 3. Le détail

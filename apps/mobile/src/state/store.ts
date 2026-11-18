@@ -102,6 +102,8 @@ export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: 
   | { purpose: 'project'; project: string; moveTo: string | null }
   /** Adding a folder of this PC to a project (`project.folder.add`), bound to both. */
   | { purpose: 'folder'; project: string; path: string }
+  /** Creating a project with its first folder (issue #2, `project.create`), bound to its name and that folder. */
+  | { purpose: 'folder'; newProject: string; path: string }
   /** An answer to an OpenRig ask (`openrig.answer`), bound to that row and that exact answer. */
   | { purpose: 'rig'; qitem: string; answer: HumanAnswer }
   /** An OpenRig action that stops something or drops the prompts (`rigs.act`), or a change of seats that removes one (`rigs.seats`), bound to it. */
@@ -186,7 +188,8 @@ export interface MobileStore {
   /** Puts the projects in this order, every one of them once (`project.order`). Resolves when the PC answers. */
   orderProjects(ids: string[]): Promise<ChatAction>;
   /** Creates an empty project, named by the PC (`project.create`). Resolves when the PC answers. */
-  createProject(name: string, color: ProjectColor): Promise<ChatAction>;
+  /** Issue #2: with its first folder of this PC (`path`), confirmed by the device's passkey over that name and folder. */
+  createProject(name: string, color: ProjectColor, path?: string): Promise<ChatAction>;
   /** Deletes a project after the device's check; its agents, folders and rules go to `moveTo`, or nowhere (null). */
   deleteProject(id: string, moveTo: string | null): Promise<ChatAction>;
   /** Asks the PC for the subfolders of `path` (its home without one); the answer lands in `getState().folderListing`. */
@@ -920,8 +923,10 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       return projectOp(o => ({ type: 'project.order', op: o, ids }));
     },
 
-    createProject(name, color) {
-      return projectOp(o => ({ type: 'project.create', op: o, name, color }));
+    async createProject(name, color, path) {
+      if (path === undefined) return projectOp(o => ({ type: 'project.create', op: o, name, color }));
+      if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
+      return signedOperation({ purpose: 'folder', newProject: name, path }, (o, assertion) => ({ type: 'project.create', op: o, name, color, path, assertion }));
     },
 
     listFolder(path) {

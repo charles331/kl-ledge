@@ -18,7 +18,7 @@ import { SlashCommandSchema } from './commands.js';
 import { GoalErrorSchema, HumanAnswerErrorSchema, HumanAnswerSchema, HumanAskSchema, HumanChannelSchema, OpenRigActionSchema, RigGraphSchema, RigNameSchema, RigSnapshotSchema } from './openrig.js';
 import { PHONE_GOALS_MAX, PHONE_RIG_ROWS_MAX, PHONE_RIG_SEATS_MAX, PHONE_RIG_TEXT_MAX, PhoneGoalSchema, PhoneOpenRigStateSchema, PhoneRigErrorSchema, PhoneRigPermissionSchema, PhoneRigQueueRowSchema, PhoneRigRejectedSchema, PhoneRigRoutingSchema, RigSeatCountsSchema } from './phoneRigs.js';
 import { QitemIdSchema, RigRowSchema } from './rigMessages.js';
-import { FolderPathSchema, ProjectColorSchema, ProjectIdSchema, ProjectNameSchema } from './projects.js';
+import { FolderPathSchema, ProjectColorSchema, ProjectIdSchema, ProjectNameSchema, projectNameKey } from './projects.js';
 import { MachineIdSchema } from './machines.js';
 import { ForgeActionSchema } from './forge.js';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, PhoneForgeErrorSchema, PhoneForgeRejectedSchema, PhoneForgeStateSchema, PhonePrDetailSchema } from './phoneForge.js';
@@ -148,6 +148,8 @@ export const PHONE_RIG_NAME_MAX = 100;
 export const PhoneSessionSchema = SwitchableSessionSchema.pick({
   id: true, name: true, tool: true, project: true, title: true, topic: true, repo: true, branch: true, worktree: true,
   state: true, helpers: true, lastReply: true, startedAt: true, lastActivityAt: true,
+  /** The commands its agent left running in the background (issue #1): with its helpers at work, `backgroundOf`. */
+  background: true,
   /** Who answered its last request, so « Déjà traitée » can say where. */
   lastAnswer: true,
   /** Its model, effort and the change waiting for its next free moment: the phone shows them and offers to change them. */
@@ -321,6 +323,8 @@ export const pcSubject = (action: PcAction, version?: string): string => (action
 export const projectSubject = (id: string, moveTo: string | null): string => `${id}>${moveTo ?? ''}`;
 /** The subject a `folder` challenge is bound to: the project and the folder added to it. */
 export const folderSubject = (id: string, path: string): string => `${id}+${path}`;
+/** What a `folder` check covers for a project being created (issue #2): its name (case and accents aside) and its first folder. */
+export const newProjectSubject = (name: string, path: string): string => `new:${projectNameKey(name)}+${path}`;
 
 /**
  * The folders of this PC as a phone browses them (Réglages › Projets › Ajouter un dossier, `daemon.projectFolders`): the
@@ -396,6 +400,7 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
     /** A `note` challenge: the proposal (a task) and the exact choice it covers. */ task: z.string().min(1).max(40).optional(), choice: BrainChoiceSchema.optional(),
     /** A `project` challenge: the project deleted and where its agents go (null: no project). */ project: ProjectIdSchema.optional(), moveTo: ProjectIdSchema.nullable().optional(),
     /** A `folder` challenge: the project (`project`) and the folder of this PC added to it. */ path: FolderPathSchema.optional(),
+    /** A `folder` challenge for a project being created (issue #2): its name, in place of `project`. */ newProject: ProjectNameSchema.optional(),
     /** A `rigs` challenge: the action (`rigAct`) or the change of seats (`rigSeats`) it covers, exactly as it will be sent. */
     rigAct: OpenRigActionSchema.optional(), rigSeats: z.object({ rig: RigNameSchema, seats: RigSeatCountsSchema }).strict().optional(),
     /** An `act` challenge for a point row (`qid` and `item`): bound to that row and to its `pointAnswer`, or to its suggestion when `suggest`. */ item: z.string().min(1).max(200).optional(), pointAnswer: PointAnswerSchema.optional(), suggest: z.literal(true).optional(),
@@ -455,7 +460,10 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
    */
   z.object({ type: z.literal('project.edit'), op: OperationIdSchema, id: ProjectIdSchema, name: ProjectNameSchema.optional(), color: ProjectColorSchema.optional() }).strict(),
   z.object({ type: z.literal('project.order'), op: OperationIdSchema, ids: z.array(ProjectIdSchema).min(1).max(PHONE_PROJECTS_MAX) }).strict(),
-  z.object({ type: z.literal('project.create'), op: OperationIdSchema, name: ProjectNameSchema, color: ProjectColorSchema }).strict(),
+  /** Issue #2: with its first folder (`path`, of this PC) and the device's check over that name and folder (`newProjectSubject`). A
+   *  create without it, from an older phone, is refused `folder_required`. */
+  z.object({ type: z.literal('project.create'), op: OperationIdSchema, name: ProjectNameSchema, color: ProjectColorSchema,
+    path: FolderPathSchema.optional(), assertion: AssertionSchema.optional() }).strict(),
   z.object({ type: z.literal('project.delete'), op: OperationIdSchema, id: ProjectIdSchema, moveTo: ProjectIdSchema.nullable(), assertion: AssertionSchema.optional() }).strict(),
   /**
    * A project's folders (`daemon.projectFolders`): browsing this PC's folders, its recent ones, a project's folders, then adding one

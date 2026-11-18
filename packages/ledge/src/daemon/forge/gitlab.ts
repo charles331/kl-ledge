@@ -1,6 +1,7 @@
-import { prIdOf, type PipeStatus, type PrFile, type PrJob, type PrReviewer, type PrState, type PrThread } from '@ledge/protocol';
-import { logTail, type ForgeRepo, type ForgeRun } from './run.js';
-import { blockersOf, mergeBlockersOf, ForgeError, pickFor, ForgeRefusal, iso, JOB_ID, notFound, ok, okJson, PATCH_BUDGET, SHA, shellJoin, THREAD_ID, type ForgeReader, type ReadDetail, type ReadPr } from './types.js';
+import { prIdOf, type PipeStatus, type PrRole, type PrFile, type PrJob, type PrReviewer, type PrState, type PrThread } from '@ledge/protocol';
+import { logTail, SAFE_PATH, type ForgeRepo, type ForgeRun } from './run.js';
+import { log } from '../../log.js';
+import { blockersOf, mergeBlockersOf, mergeMine, ForgeError, pickFor, ForgeRefusal, iso, JOB_ID, notFound, ok, okJson, PATCH_BUDGET, SHA, shellJoin, THREAD_ID, type ForgeReader, type MinePr, type ReadDetail, type ReadPr } from './types.js';
 
 /**
  * GitLab merge requests through `glab api` (REST v4, R3): `glab mr list` of glab 1.36 has no JSON output. `glab api` exits 0 on
@@ -27,6 +28,46 @@ interface GlNote { id: number; type?: string | null; body: string; author?: GlUs
 interface GlDiscussion { id: string; individual_note?: boolean; notes: GlNote[] }
 interface GlDiff { new_path: string; old_path: string; diff: string }
 interface GlJob { id: number; name: string; stage: string; status: string; duration?: number | null }
+
+/**
+ * The account's own merge requests (issue #3), on every project of the host: `currentUser`'s authored, assigned and review-requested
+ * ones, open whatever their age (`o`) and any state updated since a date (`c`, its open ones dropped). One GraphQL query per role:
+ * gitlab.com refuses a query over a complexity of 250, and the three roles' four lists in one weigh about 490 (checked 2026-11-17).
+ */
+const MINE_LISTS: ReadonlyArray<{ role: PrRole; field: string }> = [
+  { role: 'author', field: 'authoredMergeRequests' }, { role: 'assignee', field: 'assignedMergeRequests' }, { role: 'reviewer', field: 'reviewRequestedMergeRequests' }
+];
+/** The most merge requests each list gives (GitLab's page maximum); past it, the oldest are left out and the log says so. */
+export const MINE_PER_LIST = 100;
+const MINE_NODE = 'iid title state draft webUrl sourceBranch targetBranch diffHeadSha updatedAt detailedMergeStatus approved approvalsLeft approvalsRequired approvedBy { nodes { username } } reviewers { nodes { username } } headPipeline { status } resolvableDiscussionsCount resolvedDiscussionsCount project { fullPath } sourceProject { fullPath }';
+export const mineQuery = (field: string): string => `query($since: Time) { currentUser { ${[
+  `o: ${field}(state: opened, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${MINE_NODE} } }`,
+  `c: ${field}(updatedAfter: $since, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${MINE_NODE} } }`
+].join(' ')} } }`;
+interface GlMineNode {
+  iid: string; title: string; state: string; draft?: boolean; webUrl: string; sourceBranch: string; targetBranch: string; diffHeadSha?: string | null; updatedAt: string;
+  detailedMergeStatus?: string | null; approved?: boolean | null; approvalsLeft?: number | null; approvalsRequired?: number | null;
+  approvedBy?: { nodes: GlUser[] } | null; reviewers?: { nodes: GlUser[] } | null; headPipeline?: { status?: string | null } | null;
+  resolvableDiscussionsCount?: number | null; resolvedDiscussionsCount?: number | null;
+  project?: { fullPath: string } | null; sourceProject?: { fullPath: string } | null;
+}
+/** A merge request as the mine query reads it, as `read` would give it from the REST answers. */
+export function fromMineNode(host: string, n: GlMineNode): { pr: ReadPr; repo: ForgeRepo } | null {
+  const path = n.project?.fullPath, iid = Number(n.iid);
+  if (!path || !SAFE_PATH.test(path) || !Number.isInteger(iid) || iid <= 0) return null;
+  const repo: ForgeRepo = { cli: 'glab', host, path, repo: `https://${host}/${path}` };
+  const open = n.state === 'opened';
+  const given = n.approvedBy?.nodes.length ?? 0, required = n.approvalsRequired ?? undefined;
+  const state: PrState = n.state === 'merged' ? 'merged' : open ? (n.draft ? 'draft' : (n.reviewers?.nodes.length ?? 0) > 0 && n.approved !== true ? 'review' : 'open') : 'closed';
+  const blockers = blockersOf({ state, approvals: { given, required }, changesRequested: (n.detailedMergeStatus ?? '').toLowerCase() === 'requested_changes', approvalsMissing: open && (n.approved === false || (n.approvalsLeft ?? 0) > 0) });
+  return { repo, pr: {
+    id: prIdOf(host, path, iid), forge: 'gitlab', host, repo: path, number: iid, ref: `!${iid}`, url: n.webUrl, title: n.title, state,
+    branch: n.sourceBranch, target: n.targetBranch, headSha: n.diffHeadSha ?? '', pipeline: glStatus(n.headPipeline?.status?.toLowerCase()),
+    approvals: { given, ...(required !== undefined ? { required } : {}) }, mergeable: blockers.length === 0,
+    openThreads: open ? Math.max(0, (n.resolvableDiscussionsCount ?? 0) - (n.resolvedDiscussionsCount ?? 0)) : 0,
+    updatedAt: iso(n.updatedAt), blockers, head: n.sourceProject?.fullPath ?? ''
+  } };
+}
 
 /** GitLab's statuses for the pipeline and its jobs (Task 4). */
 export function glStatus(s: string | undefined | null): PipeStatus {
@@ -127,6 +168,30 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
   const mergePath = (repo: ForgeRepo, iid: number): string => `${project(repo)}/merge_requests/${Math.trunc(iid)}/merge`;
 
   return {
+    async mine(host, since) {
+      const found: Array<{ pr: ReadPr; repo: ForgeRepo; role: PrRole }> = [];
+      // Every role read, or none: one failed query fails the host's read (its last list is kept), never a list missing a role.
+      await Promise.all(MINE_LISTS.map(async l => {
+        const r = await run('glab', ['api', '--hostname', host, '--method', 'POST', '-H', 'Content-Type: application/json', 'graphql', '--input', '-'], { input: JSON.stringify({ query: mineQuery(l.field), variables: { since } }) });
+        const j = okJson<{ data?: { currentUser?: Record<string, { pageInfo?: { hasNextPage: boolean }; nodes: GlMineNode[] } | null> | null } | null; errors?: Array<{ message?: string }> }>(r, 'glab');
+        if (j.errors?.length) throw new ForgeError('error', j.errors.map(e => e.message ?? '').join('; ').slice(0, 400) || 'GitLab answered with errors');
+        const user = j.data?.currentUser;
+        if (!user) throw new ForgeError('unauthenticated', `glab is not signed in to ${host}`);
+        for (const k of ['o', 'c']) {
+          const conn = user[k];
+          if (!conn) throw new ForgeError('error', `incomplete answer for ${host}`);
+          if (conn.pageInfo?.hasNextPage) log(`forge: ${host}: more than ${MINE_PER_LIST} merge requests in ${l.field} (${k === 'o' ? 'open' : 'recent'}), the oldest left out`);
+          for (const n of conn.nodes) {
+            // The recent list's open ones are the open list's (and an open one past its first page must not come back through it).
+            if (k === 'c' && n.state === 'opened') continue;
+            const m = fromMineNode(host, n);
+            if (m) found.push({ ...m, role: l.role });
+          }
+        }
+      }));
+      return mergeMine(found);
+    },
+
     defaultBranch(repo) {
       let p = defaults.get(repo.repo);
       if (!p) {
@@ -167,7 +232,7 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
         if (!conn.pageInfo?.hasNextPage || !conn.pageInfo.endCursor) break;
         after = conn.pageInfo.endCursor;
       }
-      const all = nodes.map(n => ({ iid: Number(n.iid), branch: n.sourceBranch, head: n.sourceProject?.fullPath ?? '', open: n.state === 'opened', updatedAt: n.updatedAt }));
+      const all = nodes.map(n => ({ iid: Number(n.iid), number: Number(n.iid), branch: n.sourceBranch, head: n.sourceProject?.fullPath ?? '', open: n.state === 'opened', updatedAt: n.updatedAt }));
       const chosen = new Map<number, (typeof all)[number]>();
       for (const t of targets) { const hit = pickFor(t, all); if (hit && Number.isInteger(hit.iid) && hit.iid > 0) chosen.set(hit.iid, hit); }
       return Promise.all([...chosen.values()].map(async m => (await read(repo, { iid: m.iid } as GlMr, m.open, m.head)).pr));

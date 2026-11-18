@@ -50,9 +50,9 @@ test('« New folder » in the folder browser: the folder is made on Local, liste
   const add = workspace.getByRole('button', { name: 'Add atlas (Local)' });
   await expect(add).toBeFocused();
   await expect(workspace.getByRole('listitem').filter({ hasText: 'atlas' })).toContainText('no Git');
-  await expect(editor.getByText('Working folders and repositories · 0')).toBeVisible();
+  await expect(editor.getByText('Kept · 0')).toBeVisible();
   await add.click();
-  await expect(editor.getByText('Working folders and repositories · 1')).toBeVisible();
+  await expect(editor.getByText('Kept · 1')).toBeVisible();
   await editor.getByRole('button', { name: /Create the project/ }).click();
   await expect(editor).toBeHidden();
   expect(sets(daemon.received)[0]!.projects.projects).toContainEqual({ id: 'atlas', name: 'Atlas', color: 'amber', description: '', repos: [{ machine: 'local', path: '/home/me/Workspace/atlas' }] });
@@ -81,7 +81,7 @@ test('+ Projects, a name, Workspace › paper-fonts on main from the folder brow
   await expect(workspace.getByRole('listitem').filter({ hasText: 'drafts' })).toContainText('no Git');
   await expect(editor.getByRole('navigation', { name: 'Current folder' }).getByRole('button', { name: 'Workspace' })).toHaveAttribute('aria-current', 'location');
   await row.getByRole('button', { name: 'Add paper-fonts (Local)' }).click();
-  await expect(editor.getByText('Working folders and repositories · 1')).toBeVisible();
+  await expect(editor.getByText('Kept · 1')).toBeVisible();
   await expect(row.getByRole('button', { name: 'paper-fonts already added' })).toBeDisabled();
   const repos = editor.locator('.pe-repo-list');
   await expect(repos.getByRole('listitem')).toHaveCount(1);
@@ -110,7 +110,7 @@ test('Move to… › New project… on an agent with no project: the project is 
   const repos = editor.locator('.pe-repo-list');
   await expect(repos).toContainText('/tmp/scratch');
   await expect(repos).toContainText('⎇ main');
-  await expect(editor.getByText('Working folders and repositories · 1')).toBeVisible();
+  await expect(editor.getByText('Kept · 1')).toBeVisible();
   await expect(editor.getByRole('checkbox', { name: 'Kit' })).toBeChecked();
   await editor.getByLabel('Name', { exact: true }).fill('Scratch');
   await editor.getByLabel('Name', { exact: true }).press('Control+Enter');

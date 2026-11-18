@@ -11,6 +11,7 @@ import { cls } from '../cls';
 import { SHELL_ICONS } from '../icons';
 import { ProviderLogo } from '../../ide/ProviderLogo';
 import { providerOf } from '../../workspace/sessionTab';
+import { kidsAtWork, newestCommand, restingWithWork } from '../../session/background';
 import { AutoMark } from '../SessionBot';
 import type { MenuTarget } from '../../manage/useContextMenu';
 import { isMenuKey, menuPoint } from './menuPoint';
@@ -221,6 +222,11 @@ export function Tree(p: {
     const name = helper ? helper.kind : s.name;
     const task = helper ? helper.task : taskOf(s);
     const waiting = helper ? helperNeeds(s, helper) : !s.offline && (s.state === 'waiting_permission' || s.state === 'waiting_input' || s.state === 'error');
+    // Issue #1: an available session with work in the background (its ring, its tip), the subagents at work, its newest command.
+    const bg = helper ? undefined : restingWithWork(s);
+    const atWork = helper ? 0 : kidsAtWork(s);
+    const cmd = helper || s.offline || isEnded(s) ? undefined : newestCommand(s.background ?? []);
+    const bgTip = !bg ? undefined : bg.subagents > 0 ? t.side.bgTip.kids(bg.subagents) : bg.commands.length ? t.side.bgTip.command(bg.commands.at(-1)!.label) : undefined;
     const timeClass = s.offline ? undefined : helper
       ? (helper.state === 'waiting_permission' ? 't-approval' : helper.state === 'waiting_input' ? 't-question' : helper.state === 'error' ? 't-error' : undefined)
       : (s.state === 'waiting_permission' ? 't-approval' : s.state === 'waiting_input' ? 't-question' : s.state === 'error' ? 't-error' : undefined);
@@ -231,13 +237,15 @@ export function Tree(p: {
         style={{ '--d': depth } as CSSProperties}
         onContextMenu={helper ? undefined : e => menuOn({ kind: 'session', id: s.id }, e)}>
         {toggle ? <Chevron open={open} label={open ? t.side.foldKids(name) : t.side.unfoldKids(name)} onClick={toggle} /> : <span className="st-gap" />}
-        <span className="st-bot"><ProviderLogo provider={providerOf(s.tool)} size={14} /></span>
+        <span className="st-bot"><ProviderLogo provider={providerOf(s.tool)} size={14} />{bg && <span className="st-bg-ring" aria-hidden="true" />}</span>
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
-        <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)}
+        <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
           <strong>{name}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
         </button>
-        {subs.length > 0 && !open && <span className="st-kids" title={t.side.kids(subs.length)}>{subs.length}</span>}
+        {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
+          {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
         <span className={cls('st-time', waiting && timeClass)}>{s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
         <span className="st-acts">
           <button type="button" tabIndex={-1} aria-label={t.side.terminalOne(name)} title="Terminal · T" onClick={() => p.onTerminal(s)}><Icon d={SHELL_ICONS.terminal} size={13} /></button>
@@ -271,12 +279,13 @@ export function Tree(p: {
 
   const tally = (g: ProjectGroup) => {
     const sessions = g.branches.flatMap(b => b.sessions);
-    let need = 0, work = 0, off = 0, done = 0;
+    let need = 0, work = 0, off = 0, done = 0, bg = 0;
     for (const s of sessions) {
       if (s.offline) off++;
       else if (isEnded(s)) done++;
       else if (s.state === 'waiting_permission' || s.state === 'waiting_input' || s.state === 'error') need++;
       else if (s.state === 'working') work++;
+      else if (restingWithWork(s)) bg++;
       if (s.offline) continue;
       for (const h of s.helpers ?? []) {
         if (helperNeeds(s, h)) need++;
@@ -286,6 +295,7 @@ export function Tree(p: {
     return [
       { n: need, c: 't-need', label: t.side.tallyNeed },
       { n: work, c: 't-work', label: t.side.tallyWork },
+      { n: bg, c: 't-bg', label: t.side.tallyBackground },
       { n: off, c: 't-off', label: t.side.tallyOff },
       { n: p.hideDone ? 0 : done, c: 't-done', label: t.side.tallyDone }
     ].filter(x => x.n > 0);

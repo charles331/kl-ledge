@@ -9,6 +9,9 @@ export const SHELL_ICONS = {
   list: ['M8 6h13', 'M8 12h13', 'M8 18h13', 'M3.5 6h.01', 'M3.5 12h.01', 'M3.5 18h.01'],
   chat: ['M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z'],
   search: ['M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15', 'm16 16 5 5'],
+  // Issue #9: « Signaler » (docs/mockups/ledge-report.html), and GitHub on « Créer l'issue » / « Ouvrir sur GitHub ».
+  flag: ['M5 21V4', 'M5 4h11l-2 4 2 4H5'],
+  github: ['M9 19c-4 1.5-4-2-6-2.5', 'M15 22v-3.5a3 3 0 0 0-.9-2.3c3-.3 6-1.5 6-6.6a5 5 0 0 0-1.4-3.6 4.7 4.7 0 0 0-.1-3.5s-1.1-.3-3.7 1.4a12.7 12.7 0 0 0-6.6 0C5.7 1.2 4.6 1.5 4.6 1.5a4.7 4.7 0 0 0-.1 3.5A5 5 0 0 0 3 8.6c0 5.1 3 6.3 6 6.6a3 3 0 0 0-.9 2.3V22'],
   // list.tsx: machineIcon and densityIcon (one key per density).
   machine: ['M3 4h18v12H3z', 'M12 16v4', 'M8 20h8'],
   densityComfy: ['M4 5h16', 'M4 12h16', 'M4 19h16'],

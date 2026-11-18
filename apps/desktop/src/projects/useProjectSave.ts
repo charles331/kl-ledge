@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Fleet } from '@ledge/fleet';
 import type { Projects } from '@ledge/protocol';
 
-export type SaveState = { status: 'idle' } | { status: 'saving' } | { status: 'refused'; reason: 'offline' | 'outdated' | 'invalid' | 'timeout' };
+/** `folder_required` / `last_folder` (issue #2): the daemon refused a project left without a folder (its `error` to `projects.set`). */
+export type SaveRefusal = 'offline' | 'outdated' | 'invalid' | 'timeout' | 'folder_required' | 'last_folder';
+export type SaveState = { status: 'idle' } | { status: 'saving' } | { status: 'refused'; reason: SaveRefusal };
+type Listen = (fn: (m: { type: string; request?: string; code?: string }) => void) => () => void;
 
 /** How long a sent state waits for the broadcast that holds it (as a filed agent does, atelier/filing.ts). */
 export const UNCONFIRMED_MS = 8000;
@@ -18,7 +21,7 @@ interface Waiting { confirm: (p: Projects) => boolean; onDone: () => void; timer
  *  comes after the timeout still ends the save (the editor is still open). One send at a time while saving; a timed out one may be
  *  sent again, and the new send replaces it (also when it is refused at once). After `reset` (or unmounting), nothing that arrives
  *  counts. `confirming`: this render's `projects` holds what is being waited for (the wait ends in the effect right after). */
-export function useProjectSave(fleet: Pick<Fleet, 'setProjects'>, projects: Projects | null): { state: SaveState; confirming: boolean; send(next: Projects, confirm: (p: Projects) => boolean, onDone: () => void): void; reset(): void } {
+export function useProjectSave(fleet: Pick<Fleet, 'setProjects'>, projects: Projects | null, onMessage?: Listen): { state: SaveState; confirming: boolean; send(next: Projects, confirm: (p: Projects) => boolean, onDone: () => void): void; reset(): void } {
   const [state, setState] = useState<SaveState>(IDLE);
   // A synchronous mirror of the send in flight: two Ctrl ↵ in the same frame see the first one before React renders again.
   const waiting = useRef<Waiting | null>(null);
@@ -63,6 +66,14 @@ export function useProjectSave(fleet: Pick<Fleet, 'setProjects'>, projects: Proj
     setState(IDLE);
     w.onDone();
   }, [projects]);
+
+  // The daemon's refusal of the send in flight (issue #2): it says so at once instead of waiting for the timeout. Only the projects'
+  // own request counts (its `id`, the project, is qualified by the fleet as a session's: not compared).
+  useEffect(() => onMessage?.(m => {
+    if (m.type !== 'error' || m.request !== 'projects.set' || !waiting.current) return;
+    drop();
+    setState({ status: 'refused', reason: m.code === 'folder_required' || m.code === 'last_folder' ? m.code : 'invalid' });
+  }), [onMessage]);
 
   const reset = useCallback(() => {
     drop();

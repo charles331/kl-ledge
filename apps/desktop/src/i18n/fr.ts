@@ -8,6 +8,7 @@ import type { PlanDoc, ToolKind, Verb } from '../session/exchanges';
 import type { Change } from '../session/changedFiles';
 import type { FinishedNotify, SoundCategory, SoundVolume } from '@ledge/ui/sounds/preferences';
 import type { SshProblem, Summary, Why } from '@ledge/fleet';
+import type { SaveRefusal } from '../projects/useProjectSave';
 import type { ScanStep } from '../projects/useLedgeScan';
 import type { DraftProblem } from '../settings/machineDrafts';
 import type { SaveOutcome } from '../settings/useMachineEditor';
@@ -89,6 +90,13 @@ export const fr = {
     kids: (n: number) => `${n} ${plural(n, 'sous-agent', 'sous-agents')}`,
     wt: 'Worktree lié',
     tallyNeed: 'à décider', tallyWork: 'au travail', tallyOff: 'hors ligne', tallyDone: 'terminées',
+    // Issue #1 (docs/mockups/ledge-background-work.html) : le travail en arrière-plan d'une session disponible.
+    background: 'en arrière-plan', tallyBackground: 'en arrière-plan',
+    kidsWorking: (n: number, w: number) => `${n} ${plural(n, 'sous-agent', 'sous-agents')}, dont ${w} au travail`,
+    bgTip: {
+      kids: (n: number) => `Disponible, mais ${n} ${plural(n, 'sous-agent travaille', 'sous-agents travaillent')} encore.`,
+      command: (label: string) => `Disponible, mais une commande lancée en arrière-plan tourne encore : « ${label} ». Ledge ne sait pas quand elle finira.`
+    },
     // Les menus du clic droit dans la barre latérale : un projet, « Sans projet », l'en-tête Archives, une archive.
     ctx: {
       label: (name: string) => `Actions pour ${name}`,
@@ -561,7 +569,7 @@ export const fr = {
     projects: {
       title: 'Projets',
       note: 'Un projet regroupe des dépôts de travail, sur une ou plusieurs machines, et leurs conversations. Sa table apparaît dans l’atelier dès qu’un agent y travaille.',
-      noRepo: 'Aucun dossier ni dépôt', edit: 'Modifier', editLabel: (n: string) => `Modifier ${n}`, delete: 'Supprimer', deleteLabel: (n: string) => `Supprimer ${n}`,
+      noRepo: 'Aucun dossier : à compléter', addFolder: 'Ajouter un dossier', addFolderLabel: (n: string) => `Ajouter un dossier à ${n}`, edit: 'Modifier', editLabel: (n: string) => `Modifier ${n}`, delete: 'Supprimer', deleteLabel: (n: string) => `Supprimer ${n}`,
       add: 'Nouveau projet',
       rules: 'Dossiers mémorisés',
       rulesNote: 'Quand vous rangez un agent sans projet à une table, Ledge retient son dossier : les prochaines sessions qui y démarrent rejoignent le même projet.',
@@ -671,6 +679,31 @@ export const fr = {
   close: 'Fermer',
   modalTitles: { launch: 'Nouvelle session' },
   /** Writing to a whole project, or to the sessions selected in the sidebar (broadcast spec): one message, each recipient gets it in its queue. */
+  // Issue #9 (docs/mockups/ledge-report.html) : « Signaler », le formulaire Bug ou Idée, les signalements des agents.
+  report: {
+    tip: 'Signaler un bug ou proposer une idée', title: 'Signaler',
+    kinds: 'Type de signalement', bug: 'Bug', bugSub: 'quelque chose ne marche pas', idea: 'Idée', ideaSub: 'un besoin, une amélioration',
+    tTitle: 'Titre', tTitlePh: 'En une phrase', optional: 'facultatif',
+    happened: 'Ce qui s’est passé', happenedPh: 'Ce que vous avez vu, avec le message s’il y en a un',
+    expected: 'Ce qui était attendu', expectedPh: 'Ce qui aurait dû se passer', repro: 'Comment le reproduire', reproPh: '1. …  2. …  3. …',
+    need: 'Le besoin', needPh: 'Ce qui vous manque, ou ce qui est pénible aujourd’hui', context: 'Le contexte', contextPh: 'Quand ça arrive, sur quel écran, avec quel outil',
+    proposal: 'Une proposition', proposalPh: 'Comment vous le verriez',
+    attached: 'Joint au signalement', attachedSub: 'retirez ce que vous ne voulez pas envoyer',
+    items: { desktop: 'Ledge Desktop', daemon: 'daemon', system: 'Système', tool: 'Outil de la session', session: 'session', project: 'projet' } as Record<'desktop' | 'daemon' | 'system' | 'tool' | 'session' | 'project', string>,
+    remove: (k: string) => `Retirer ${k}`, putBack: (k: string) => `Remettre ${k}`,
+    log: 'Ajouter un extrait du journal du daemon', logSub: 'Les 50 dernières lignes, relues pour retirer chemins personnels et jetons.', logSee: 'Voir l’extrait',
+    never: 'Rien d’autre ne part : ni conversation, ni jeton, ni fichier.',
+    dest: 'Sera créée sur', label: 'label', destBy: 'avec votre compte GitHub',
+    cancel: 'Annuler', create: 'Créer l’issue', creating: 'Création…', openGh: 'Ouvrir sur GitHub',
+    noGh: 'gh n’est pas connecté sur cette machine : GitHub s’ouvre avec le signalement prérempli, vous le validez là-bas.',
+    created: (n: number) => `Issue #${n} créée sur kl-ledge/ledge.`, open: 'Ouvrir',
+    titleEmpty: 'Donnez un titre au signalement.',
+    logStale: 'L’extrait du journal a été mis à jour : relisez-le, puis créez l’issue.',
+    failed: (why: string) => `Le signalement n’est pas parti : ${why}`, silent: 'le daemon n’a pas répondu.', stale: 'ce signalement n’est plus ouvert.', invalid: 'le daemon l’a refusé.',
+    agentBug: (n: string) => `${n} signale un bug`, agentIdea: (n: string) => `${n} propose une idée`, from: 'session', proj: 'projet',
+    approve: 'Créer l’issue', edit: 'Modifier avant', ignore: 'Ignorer', pill: 'signalement',
+    agentWhy: 'Rien ne part sur GitHub sans votre clic. « Modifier avant » ouvre le formulaire prérempli.'
+  },
   broadcast: {
     project: 'Écrire à tout le projet…', selection: (n: number) => `Écrire aux ${n} sessions…`, title: (label: string) => `Écrire à ${label}`,
     send: 'Envoyer', cancel: 'Annuler', field: 'Message', picked: 'Sessions sélectionnées',
@@ -1298,16 +1331,23 @@ export const fr = {
     name: 'Nom', namePlaceholder: 'Ex. Paper Rendering', color: 'Couleur',
     colors: { blue: 'Bleu', green: 'Vert', amber: 'Ambre', violet: 'Violet', teal: 'Sarcelle', pink: 'Rose', red: 'Rouge', slate: 'Ardoise' } as Record<ProjectColor, string>,
     description: 'Description', optional: 'facultatif', descriptionPlaceholder: 'Une phrase qui dit à quoi sert le projet',
-    repos: (n: number) => `Dossiers et dépôts de travail · ${n}`, branchTitle: 'Branche par défaut détectée', noGit: 'Dossier sans Git',
+    // Issue #2 (docs/mockups/ledge-project-folders.html) : les dossiers, obligatoires et visibles.
+    folders: 'Dossiers du projet', required: 'obligatoire',
+    foldersHint: 'Les dossiers où travaillent les agents de ce projet. Ledge y range les sessions qui s’y lancent.',
+    kept: 'Retenus', add: 'Ajouter un dossier', closeBrowser: 'Fermer le navigateur',
+    none: 'Aucun dossier retenu pour l’instant. Choisissez-en un ci-dessous.', noneErr: 'Aucun dossier retenu. Ajoutez-en au moins un ci-dessous.',
+    bannerTitle: 'Ce projet n’a aucun dossier.', bannerBody: 'Ajoutez-en un pour pouvoir enregistrer vos changements. Supprimer le projet reste possible.',
+    previewNone: 'aucun dossier', branchTitle: 'Branche par défaut détectée', noGit: 'Dossier sans Git',
     notFound: 'introuvable', offline: 'hors ligne', remove: (n: string, m: string) => `Retirer ${n} (${m})`, addRepo: 'Ajouter un dossier ou un dépôt',
-    empty: 'Aucun dossier ni dépôt pour l’instant. Le projet peut exister sans, mais Ledge ne saura pas y ranger les sessions.',
     fileToo: 'Ranger aussi',
-    problems: { name_empty: 'Donnez un nom au projet', name_taken: 'Ce nom est déjà utilisé par un autre projet', repo_duplicate: 'Ce dossier est en double', gone: 'Ce projet a été supprimé entre-temps',
+    problems: { name_empty: 'Donnez un nom au projet', no_folder: 'Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.', name_taken: 'Ce nom est déjà utilisé par un autre projet', repo_duplicate: 'Ce dossier est en double', gone: 'Ce projet a été supprimé entre-temps',
       repo_taken: (p: string) => `Ce dossier est déjà dans ${p}` },
     refused: {
       offline: 'Le daemon local est hors ligne : rien n’a été enregistré.', outdated: 'Le daemon local est trop ancien pour les projets : mettez-le à jour.',
-      invalid: 'Le daemon a refusé ce projet.', timeout: 'Le daemon n’a pas confirmé l’enregistrement.'
-    } as Record<'offline' | 'outdated' | 'invalid' | 'timeout', string>,
+      invalid: 'Le daemon a refusé ce projet.', timeout: 'Le daemon n’a pas confirmé l’enregistrement.',
+      folder_required: 'Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.',
+      last_folder: 'Un projet garde au moins un dossier. Ajoutez-en un autre avant de retirer celui-ci, ou supprimez le projet.'
+    } as Record<SaveRefusal, string>,
     preview: (n: number, ms: string) => `${n} dépôt${plural(n, '', 's')}${ms ? ` sur ${ms}` : ''}`, firstSession: ' · la table apparaîtra avec la première session', newName: 'Nouveau projet',
     create: 'Créer le projet', save: 'Enregistrer', saving: 'Enregistrement…', cancel: 'Annuler', deleteProject: 'Supprimer le projet',
     saved: (n: string) => `${n} enregistré.`,
@@ -1468,6 +1508,8 @@ export const fr = {
     settingOff: 'Interface IDE (aperçu) désactivée',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
     rigsView: {
+      background: (n: number) => `${n} en arrière-plan`,
+      seatBgTip: (n: number) => `Disponible · ${n} ${plural(n, 'sous-agent', 'sous-agents')} au travail`,
       launch: 'Lancer', launchTitle: 'Lancer un rig…', shownMachine: (label: string) => `Machine affichée : ${label}`, machine: (label: string) => `Machine : ${label}`, machines: 'Machines',
       local: 'locale', ssh: 'SSH', manage: 'Gérer les machines…', add: 'Ajouter une machine',
       runningRigs: (n: number) => (n === 1 ? '1 rig en marche' : `${n} rigs en marche`), openrigStopped: 'OpenRig arrêté',
@@ -1660,8 +1702,13 @@ export const fr = {
   },
   // MR et PR (lot 8b, docs/mockups/ledge-ide-interactive.html : explorer `prs`, prPage, pipeGraph, statusbar).
   forge: {
-    view: 'MR et PR', hosts: 'GitHub · GitLab', merged: 'Fusionnées',
-    foot: 'Suivies : les branches des sessions et des sièges, via gh et glab. Clic : la MR ou PR dans un onglet.',
+    view: 'MR et PR', hosts: 'GitHub · GitLab',
+    foot: 'Les MR et PR que vous avez créées, qui vous sont assignées ou que vous devez relire, sur chaque forge connectée (gh, glab). Clic : la MR ou PR dans un onglet.',
+    search: 'Chercher : réf, titre, dépôt', rolesLabel: 'Rôle',
+    roles: { all: 'Toutes', author: 'Créées', assignee: 'Assignées', reviewer: 'À relire' } as Record<'all' | 'author' | 'assignee' | 'reviewer', string>,
+    pill: { author: 'créée', assignee: 'assignée', reviewer: 'à relire', tracked: 'branche suivie' } as Record<'author' | 'assignee' | 'reviewer' | 'tracked', string>,
+    closedFor: (n: number, days: number) => `Fusionnées et fermées · ${n} · ${days} derniers jours`,
+    none: 'Aucune MR ou PR ne correspond.', clear: 'Effacer le filtre',
     rowTip: 'Clic : ouvrir · Ctrl+clic : à droite',
     host: { github: 'GitHub', gitlab: 'GitLab' } as Record<'github' | 'gitlab', string>,
     kind: { github: 'GitHub · PR', gitlab: 'GitLab · MR' } as Record<'github' | 'gitlab', string>,

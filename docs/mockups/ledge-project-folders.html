@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dossiers d'un projet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#2 : un projet sans dossier ne s'enregistre pas, et le choix des dossiers est clair.
+   Base : apps/desktop/src/projects/ProjectEditor.tsx (formulaire, liste des dépôts, FolderPicker en ligne, pied avec aperçu),
+   settings/Projects.tsx (liste des projets). Textes existants en vouvoiement, comme le formulaire. Tokens : packages/ui tokens.css. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --foreground:oklch(0.985 0 0);--card:oklch(0.205 0 0);--muted:oklch(0.269 0 0);--muted-foreground:oklch(0.708 0 0);
+  --primary:oklch(0.444 0.177 26.899);--border:#ffffff1a;--input:#ffffff26;--ring:oklch(0.556 0 0);
+  --shell:#0d0d0d;--side:#141414;--pane:#111112;--page:#000;--hover:#ffffff10;--note:#a78bfa;
+  --danger:#f87171;--warn:#fbbf24;--ok:#34d399;--coral:#ea6a58;--blue:#60a5fa;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --foreground:oklch(0.145 0 0);--card:oklch(1 0 0);--muted:oklch(0.97 0 0);--muted-foreground:oklch(0.556 0 0);
+  --primary:oklch(0.505 0.213 27.518);--border:oklch(0.922 0 0);--input:oklch(0.922 0 0);--ring:oklch(0.708 0 0);
+  --shell:oklch(0.985 0 0);--side:oklch(0.975 0 0);--pane:#fff;--page:oklch(0.95 0 0);--hover:#0000000a;--note:#7c3aed;
+  --danger:#dc2626;--warn:#b45309;--ok:#059669;--coral:#cc5241;--blue:#2563eb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1440px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid}
+.tag.new{color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:16px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:600px}
+.btn{height:28px;padding:0 11px;border-radius:7px;border:1px solid var(--input);font-size:12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;background:var(--pane)}
+.btn.sm{height:24px;padding:0 9px;font-size:11.5px}
+.btn.pri{background:var(--primary);border-color:transparent;color:#fff}
+.btn.pri.dis{opacity:.5}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted-foreground)}
+.btn.outline{background:none}
+kbd{font:10px 'Geist Mono',monospace;border:1px solid #ffffff40;border-radius:4px;padding:0 4px;opacity:.8}
+
+/* La fenêtre du projet (ProjectDialog + ProjectEditor). */
+.dlg{width:600px;background:var(--card);border:1px solid var(--input);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;box-shadow:0 12px 40px #0006}
+.dlg>.h{padding:14px 18px 6px;font-size:15px;font-weight:600;display:flex;align-items:center}
+.dlg>.h .x{margin-left:auto;color:var(--muted-foreground)}
+.body{padding:6px 18px 14px;display:flex;flex-direction:column;gap:12px}
+.lab{font-size:11.5px;color:var(--muted-foreground);font-weight:500;display:flex;align-items:center;gap:6px}
+.lab small{font-weight:400}
+.req{font-size:10.5px;color:var(--note);border:1px solid color-mix(in srgb,var(--note) 45%,transparent);border-radius:8px;padding:0 6px;font-weight:500}
+.field{display:flex;flex-direction:column;gap:5px}
+.in{height:30px;border:1px solid var(--input);border-radius:7px;padding:0 10px;display:flex;align-items:center;background:var(--pane);font-size:12.5px}
+.in.ph{color:var(--muted-foreground)}
+.ident{display:flex;gap:14px;align-items:flex-end}
+.ident .field{flex:1}
+.colors{display:flex;gap:6px;padding-bottom:6px}
+.colors i{width:16px;height:16px;border-radius:50%;display:block}
+.colors i.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--foreground)}
+.ledge{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:9px 11px;background:var(--pane)}
+.ledge .m{width:34px;height:34px;border-radius:10px;background:radial-gradient(circle at 50% 40%,var(--coral),color-mix(in srgb,var(--coral) 40%,var(--side)));flex-shrink:0}
+.ledge div{flex:1;display:flex;flex-direction:column;font-size:12px}
+.ledge div span{color:var(--muted-foreground);font-size:11.5px}
+
+/* La section des dossiers : obligatoire, deux parties nommées (« Retenus », « Ajouter »). */
+.fold{border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:9px;background:color-mix(in srgb,var(--pane) 60%,transparent)}
+.fold.err{border-color:color-mix(in srgb,var(--danger) 60%,var(--border))}
+.fold .top{display:flex;align-items:center;gap:8px}
+.fold .top .t{font-weight:600;font-size:12.5px}
+.fold .top .sp{flex:1}
+.fold .hint{font-size:11.5px;color:var(--muted-foreground)}
+.fold .error{font-size:11.5px;color:var(--danger);display:flex;gap:6px;align-items:flex-start}
+.sub{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);font-weight:500;display:flex;gap:6px;align-items:center}
+.sub .c{font-family:'Geist Mono',monospace;letter-spacing:0}
+.kept{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.kept li{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--pane)}
+.kept li.flash{box-shadow:0 0 0 2px color-mix(in srgb,var(--note) 70%,transparent)}
+.kept .ck{color:var(--ok);font-size:12px;width:14px;text-align:center}
+.kept .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.kept .line{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.kept .mach{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted-foreground)}
+.kept .mach i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.kept .br{font:10.5px 'Geist Mono',monospace;color:var(--muted-foreground)}
+.kept code{color:var(--muted-foreground);font-size:10.5px}
+.kept .rm{color:var(--muted-foreground);width:24px;height:24px;display:grid;place-items:center;border-radius:6px}
+.none{border:1px dashed var(--input);border-radius:8px;padding:9px 10px;font-size:12px;color:var(--muted-foreground);display:flex;gap:8px;align-items:center}
+.none.err{border-color:color-mix(in srgb,var(--danger) 55%,transparent);color:var(--danger)}
+/* Le navigateur de dossiers en ligne (FolderPicker). */
+.picker{border:1px solid var(--input);border-radius:9px;overflow:hidden;background:var(--pane)}
+.picker .ph{display:flex;align-items:center;gap:7px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:11.5px}
+.picker .msel{height:24px;border:1px solid var(--input);border-radius:6px;padding:0 8px;display:inline-flex;align-items:center;gap:6px}
+.picker .msel::after{content:"▾";font-size:9px;color:var(--muted-foreground)}
+.picker .crumb{color:var(--muted-foreground)}.picker .crumb b{color:var(--foreground);font-weight:500}
+.picker .rows{display:flex;flex-direction:column}
+.picker .row{display:flex;align-items:center;gap:8px;padding:5px 9px;font-size:12px;border-bottom:1px solid var(--border)}
+.picker .row:last-child{border-bottom:0}
+.picker .row .nm{flex:1;display:flex;gap:7px;align-items:center}
+.picker .row small{color:var(--muted-foreground);font-size:11px}
+.picker .row .own{font-size:10.5px;color:var(--warn)}
+.picker .row.hov{background:var(--hover)}
+.picker .typed{display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--border)}
+.picker .typed .in{flex:1;height:26px;font-size:11.5px}
+.added{font-size:11px;color:var(--ok);display:inline-flex;gap:4px;align-items:center}
+/* Le pied. */
+.foot{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--border);flex-wrap:wrap}
+.foot .pv{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.foot .sw{width:14px;height:14px;border-radius:4px;background:var(--blue);flex-shrink:0}
+.foot .pv span{display:flex;flex-direction:column;font-size:12px;min-width:0}
+.foot .pv small{color:var(--muted-foreground);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.foot .pv small.bad{color:var(--danger)}
+.foot .miss{font-size:11.5px;color:var(--danger);flex-basis:100%;order:-1;display:flex;gap:6px}
+.banner{display:flex;gap:9px;align-items:flex-start;border:1px solid color-mix(in srgb,var(--warn) 50%,var(--border));background:color-mix(in srgb,var(--warn) 8%,transparent);border-radius:9px;padding:8px 10px;font-size:12px}
+.banner b{font-weight:500}
+.banner p{margin:2px 0 0;color:var(--muted-foreground);font-size:11.5px}
+/* Réglages › Projets. */
+.set{width:600px;background:var(--pane);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:0}
+.set h3{margin:0 0 2px;font-size:14px}
+.set .note{font-size:11.5px;color:var(--muted-foreground);margin-bottom:8px}
+.pe-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)}
+.pe-row .sw{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+.pe-row .mn{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chipt{font-size:11px;border:1px solid var(--input);border-radius:6px;padding:0 6px;display:inline-flex;gap:5px;align-items:center}
+.chipt .mm{color:var(--muted-foreground)}
+.warnline{font-size:11.5px;color:var(--warn);display:inline-flex;gap:5px;align-items:center}
+.cnt{font-size:11.5px;color:var(--muted-foreground);white-space:nowrap}
+.phone{width:300px;border-radius:30px;border:1px solid var(--border);background:var(--pane);padding:14px 12px;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.phone h4{margin:0;font-size:17px;font-weight:600}
+.phone .pb{color:var(--muted-foreground);font-size:12.5px}
+.phone .lst{border:1px solid var(--border);border-radius:9px;display:flex;flex-direction:column}
+.phone .lst div{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border);font:11.5px 'Geist Mono',monospace}
+.phone .lst div:last-child{border-bottom:0}
+.phone .lst div.on{background:var(--hover)}
+.phone .lst span{flex:1;min-width:0;word-break:break-all}
+.phone .row2{display:flex;gap:8px}.phone .row2 .btn{flex:1;justify-content:center;height:38px}.phone .row2 .btn.pri{flex:2}
+.phone .note{font-size:11.5px;color:var(--muted-foreground);border:1px dashed var(--input);border-radius:8px;padding:7px 9px}
+.phone .rmdis{opacity:.35}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const T = {
+  fr: {
+    h1:'Projets — des dossiers obligatoires, et visibles', hsub:'Issue kl-ledge/ledge#2. À valider par l’utilisateur.',
+    newTitle:'Nouveau projet', editTitle:n=>`Modifier ${n}`, name:'Nom', namePh:'Ex. Paper Rendering', color:'Couleur', desc:'Description', optional:'facultatif', descPh:'Une phrase qui dit à quoi sert le projet',
+    offerTitle:'Pas envie de chercher les dépôts vous-même ?', offerBody:'Ledge parcourt vos machines et propose les dossiers.', offer:'Laisser Ledge faire',
+    folders:'Dossiers du projet', required:'obligatoire',
+    foldersHint:'Les dossiers où travaillent les agents de ce projet. Ledge y range les sessions qui s’y lancent.',
+    kept:'Retenus', add:'Ajouter un dossier', none:'Aucun dossier retenu pour l’instant. Choisissez-en un ci-dessous.',
+    noneErr:'Aucun dossier retenu. Ajoutez-en au moins un ci-dessous.',
+    machine:'Machine à parcourir', typedPh:'Ou saisissez un chemin sur PC', addBtn:'Ajouter', added:'Ajouté', ownedBy:p=>`Déjà dans ${p}`, noGit:'sans Git',
+    addRepo:'Ajouter un dossier ou un dépôt', close:'Fermer le navigateur',
+    missing:'Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.',
+    previewNone:'aucun dossier', preview:(n,m)=>`${n} dépôt${n>1?'s':''} sur ${m}`, firstSession:' · la table apparaîtra avec la première session',
+    create:'Créer le projet', save:'Enregistrer', cancel:'Annuler', del:'Supprimer le projet',
+    bannerT:'Ce projet n’a aucun dossier.', bannerB:'Ajoutez-en un pour pouvoir enregistrer vos changements. Supprimer le projet reste possible.',
+    setTitle:'Projets', setNote:'Chaque projet regroupe des dossiers ; ses sessions s’y rangent.', noRepo:'Aucun dossier : à compléter', addFolder:'Ajouter un dossier', edit:'Modifier', delete:'Supprimer', agents:n=>`${n} agent${n>1?'s':''}`,
+    removed:'paper-rendering retiré.',
+    pNewBody:'Choisis le premier dossier du projet ; d’autres s’ajoutent ensuite.', pFolder:'Premier dossier', pRecents:'Récents', pBrowse:'Parcourir…', pCreate:'Créer', pCancel:'Annuler', pPick:'Choisis un dossier pour créer le projet.',
+    pFoldersTitle:n=>`Dossiers de ${n}`, pLast:'Un projet garde au moins un dossier. Ajoutes-en un autre avant de retirer celui-ci, ou supprime le projet.', pAdd:'Ajouter un dossier', pClose:'Fermer',
+  },
+  en: {
+    h1:'Projects — folders required, and visible', hsub:'Issue kl-ledge/ledge#2. For the user to validate.',
+    newTitle:'New project', editTitle:n=>`Edit ${n}`, name:'Name', namePh:'E.g. Paper Rendering', color:'Colour', desc:'Description', optional:'optional', descPh:'One sentence on what the project is for',
+    offerTitle:'Rather not look for the repositories yourself?', offerBody:'Ledge walks your machines and proposes the folders.', offer:'Let Ledge do it',
+    folders:'Project folders', required:'required',
+    foldersHint:'The folders this project’s agents work in. Ledge files the sessions started there.',
+    kept:'Kept', add:'Add a folder', none:'No folder kept yet. Pick one below.',
+    noneErr:'No folder kept. Add at least one below.',
+    machine:'Machine to browse', typedPh:'Or type a path on PC', addBtn:'Add', added:'Added', ownedBy:p=>`Already in ${p}`, noGit:'no Git',
+    addRepo:'Add a folder or repository', close:'Close the browser',
+    missing:'Add at least one folder to the project: without one, Ledge cannot file its sessions.',
+    previewNone:'no folder', preview:(n,m)=>`${n} ${n>1?'repositories':'repository'} on ${m}`, firstSession:' · the table appears with the first session',
+    create:'Create the project', save:'Save', cancel:'Cancel', del:'Delete the project',
+    bannerT:'This project has no folder.', bannerB:'Add one to be able to save your changes. Deleting the project is still possible.',
+    setTitle:'Projects', setNote:'Each project groups folders; its sessions are filed there.', noRepo:'No folder: to complete', addFolder:'Add a folder', edit:'Edit', delete:'Delete', agents:n=>`${n} agent${n>1?'s':''}`,
+    removed:'paper-rendering removed.',
+    pNewBody:'Pick the project’s first folder; more can be added afterwards.', pFolder:'First folder', pRecents:'Recent', pBrowse:'Browse…', pCreate:'Create', pCancel:'Cancel', pPick:'Pick a folder to create the project.',
+    pFoldersTitle:n=>`Folders of ${n}`, pLast:'A project keeps at least one folder. Add another before removing this one, or delete the project.', pAdd:'Add a folder', pClose:'Close',
+  }
+};
+let L = 'fr';
+const t = () => T[L];
+const svg = (d, s=13) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d.map(p=>`<path d="${p}"/>`).join('')}</svg>`;
+const I = { folder:['M3 6h6l2 2h10v11H3z'], branch:['M6 3v12','M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6','M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6','M18 9a9 9 0 0 1-9 9'], x:['M6 6l12 12','M18 6 6 18'], plus:['M12 5v14','M5 12h14'], alert:['M12 3 2 21h20z','M12 10v5','M12 18h.01'], up:['M12 19V5','m5 12 7-7 7 7'] };
+const COLORS = ['#60a5fa','#34d399','#fbbf24','#a78bfa','#2dd4bf','#f472b6','#f87171','#94a3b8'];
+
+const identity = (name, desc) => `<div class="ident"><div class="field"><span class="lab">${t().name}</span><div class="in ${name?'':'ph'}">${name||t().namePh}</div></div><div class="field" style="flex:0"><span class="lab">${t().color}</span><div class="colors">${COLORS.map((c,i)=>`<i class="${i===0?'on':''}" style="background:${c}"></i>`).join('')}</div></div></div>
+  <div class="field"><span class="lab">${t().desc} <small>${t().optional}</small></span><div class="in ${desc?'':'ph'}">${desc||t().descPh}</div></div>`;
+const keptRow = (name, path, mach, br, o={}) => `<li class="${o.flash?'flash':''}"><span class="ck">✓</span><span class="main"><span class="line"><b style="font-weight:500">${name}</b><span class="mach"><i></i>${mach}</span>${br?`<span class="br">⎇ ${br}</span>`:`<span class="br">${t().noGit}</span>`}</span><code>${path}</code></span><button class="rm" title="Retirer">${svg(I.x,13)}</button></li>`;
+const picker = (o={}) => `<div class="picker"><div class="ph"><span class="msel">PC</span><span class="crumb">~ / Workspace / <b>paper</b></span><span style="flex:1"></span><button class="btn ghost sm">${svg(I.up,12)}</button></div><div class="rows">
+  <div class="row ${o.hov===0?'hov':''}"><span class="nm">${svg(I.folder)}paper-rendering <small>⎇ main</small></span>${o.added0?`<span class="added">✓ ${t().added}</span>`:`<button class="btn sm">${t().addBtn}</button>`}</div>
+  <div class="row"><span class="nm">${svg(I.folder)}paper-fonts <small>⎇ develop</small></span>${o.added1?`<span class="added">✓ ${t().added}</span>`:`<button class="btn sm">${t().addBtn}</button>`}</div>
+  <div class="row"><span class="nm">${svg(I.folder)}paper-api <small>⎇ main</small></span><span class="own">${t().ownedBy('Paper API')}</span></div>
+  <div class="row"><span class="nm">${svg(I.folder)}notes <small>${t().noGit}</small></span><button class="btn sm">${t().addBtn}</button></div>
+</div><div class="typed"><div class="in ph">${t().typedPh}</div><button class="btn sm">${t().addBtn}</button></div></div>`;
+const folders = (o={}) => {
+  const x = t();
+  const list = o.kept && o.kept.length ? `<ul class="kept">${o.kept.join('')}</ul>` : `<div class="none ${o.err?'err':''}">${o.err?svg(I.alert):svg(I.folder)}${o.err?x.noneErr:x.none}</div>`;
+  const n = o.kept ? o.kept.length : 0;
+  return `<section class="fold ${o.err?'err':''}"><div class="top"><span class="t">${x.folders}</span><span class="req">${x.required}</span><span class="sp"></span></div>
+    <span class="hint">${x.foldersHint}</span>
+    <span class="sub">${x.kept} <span class="c">· ${n}</span></span>${list}
+    ${o.picker ? `<span class="sub" style="margin-top:2px">${x.add}<span style="flex:1"></span><button class="btn ghost sm" style="text-transform:none;letter-spacing:0">${x.close}</button></span>${picker(o.picker)}` : `<div><button class="btn sm outline">${svg(I.plus,12)}${x.addRepo}</button></div>`}
+  </section>`;
+};
+const foot = (o={}) => {
+  const x = t();
+  const n = o.n||0;
+  return `<div class="foot">${o.miss?`<span class="miss">${svg(I.alert)}${x.missing}</span>`:''}${o.edit?`<button class="btn ghost" style="color:var(--danger)">${x.del}</button>`:''}<span class="pv"><span class="sw"></span><span><b style="font-weight:500">${o.name||'Nouveau projet'}</b><small class="${n?'':'bad'}">${n?x.preview(n,'PC'):x.previewNone}${o.edit?'':x.firstSession}</small></span></span><button class="btn ghost">${x.cancel}</button><button class="btn pri ${n?'':'dis'}">${o.edit?x.save:x.create} <kbd>Ctrl ↵</kbd></button></div>`;
+};
+const dlg = (title, body, footer) => `<div class="dlg"><div class="h">${title}<span class="x">${svg(I.x,14)}</span></div><div class="body">${body}</div>${footer}</div>`;
+
+function cards(){
+  const x = t(), C = [], F = L==='fr';
+  const r1 = (o) => keptRow('paper-rendering', '~/Workspace/paper/paper-rendering', 'PC', 'main', o);
+  const r2 = keptRow('paper-fonts', '~/Workspace/paper/paper-fonts', 'PC', 'develop');
+  C.push({title:F?'Nouveau projet : où ajouter les dossiers, lesquels sont retenus':'New project: where to add folders, which are kept',
+    why:`La section devient <b>« Dossiers du projet »</b>, marquée <b>obligatoire</b>, avec une phrase qui dit à quoi servent les dossiers. Elle a deux parties nommées : <b>Retenus</b> (ce qui sera enregistré, avec leur nombre) puis <b>Ajouter un dossier</b> (le navigateur de dossiers existant, ouvert d’office pour un nouveau projet). Tant que rien n’est retenu, la zone « Retenus » le dit en pointillé. L’aperçu du pied dit « aucun dossier », et « Créer le projet » est estompé. L’offre « Laisser Ledge faire » reste en tête.`,
+    keys:F?'Nouveaux : projects.folders, .required, .foldersHint, .kept, .add, .none · Repris : picker.*, addRepo, create':'New: projects.folders, .required, .foldersHint, .kept, .add, .none · Reused: picker.*, addRepo, create',
+    scene: dlg(x.newTitle, `<div class="ledge"><span class="m"></span><div><b style="font-weight:500">${x.offerTitle}</b><span>${x.offerBody}</span></div><button class="btn sm pri">${x.offer}</button></div>${identity('Paper', '')}${folders({picker:{hov:0}})}`, foot({name:'Paper'}))});
+  C.push({title:F?'Ajouter : le dossier passe dans « Retenus »':'Adding: the folder moves to “Kept”',
+    why:`« Ajouter » sur une ligne du navigateur la marque <b>Ajouté</b> et le dossier apparaît aussitôt dans <b>Retenus</b>, entouré un instant (violet de liaison) pour qu’on voie où il est allé. Chaque dossier retenu montre son nom, sa machine, sa branche (ou « sans Git ») et son chemin, et se retire par ×. Un dossier déjà pris par un autre projet reste « Déjà dans {projet} », sans bouton. Dès qu’un dossier est retenu, l’aperçu dit « 1 dépôt sur PC » et le bouton redevient plein.`,
+    keys:F?'Repris : picker.added, picker.ownedBy, projects.preview, remove':'Reused: picker.added, picker.ownedBy, projects.preview, remove',
+    scene: dlg(x.newTitle, `${identity('Paper', '')}${folders({kept:[r1({flash:true})], picker:{added0:true}})}`, foot({name:'Paper', n:1}))});
+  C.push({title:F?'Enregistrer sans dossier : bloqué, et ce qu’il faut faire':'Saving without a folder: blocked, and what to do',
+    why:`Comme pour un nom vide aujourd’hui : le bouton reste cliquable, mais un clic (ou Ctrl ↵) <b>n’enregistre pas</b>. Il affiche au-dessus du pied <b>« Ajoutez au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions. »</b>, passe la section en rouge, et met le focus dans le navigateur (le premier « Ajouter »). Le message part dès qu’un dossier est retenu. Un dossier proposé par Ledge mais décoché ne compte pas. La phrase actuelle « Le projet peut exister sans… » disparaît.`,
+    keys:F?'Nouveaux : projects.problems.no_folder (pied), projects.noneErr · Retiré : projects.empty':'New: projects.problems.no_folder (footer), projects.noneErr · Removed: projects.empty',
+    scene: dlg(x.newTitle, `${identity('Paper', '')}${folders({err:true, picker:{}})}`, foot({name:'Paper', miss:true}))});
+  C.push({title:F?'Projet prêt : la liste, le navigateur replié':'Project ready: the list, the browser folded',
+    why:`Une fois les dossiers choisis, « Fermer le navigateur » le replie en un bouton <b>Ajouter un dossier ou un dépôt</b> (texte existant) ; la liste « Retenus » reste au-dessus. C’est aussi l’état d’ouverture d’un projet existant qui a des dossiers.`,
+    keys:'—',
+    scene: dlg(x.newTitle, `${identity('Paper', 'Le rendu des documents papier')}${folders({kept:[r1(), r2]})}`, foot({name:'Paper', n:2}))});
+  C.push({title:F?'Projet existant sans dossier':'Existing project without a folder',
+    why:`Les projets déjà enregistrés sans dossier <b>restent</b> (rien n’est effacé). Dans <b>Réglages › Projets</b>, leur ligne dit « Aucun dossier : à compléter » en ambre, avec <b>Ajouter un dossier</b>, qui ouvre la fenêtre sur le navigateur (le chemin « Ajouter un dossier… » existe déjà). En modification, un bandeau dit que le projet n’a aucun dossier ; enregistrer est bloqué comme à la carte 3, <b>supprimer reste possible</b>. Retirer le dernier dossier d’un projet mène au même état.`,
+    keys:F?'Nouveaux : settings.projects.noRepo (« à compléter »), .addFolder, projects.bannerT, .bannerB':'New: settings.projects.noRepo (“to complete”), .addFolder, projects.bannerT, .bannerB',
+    scene: `<div><div class="set"><h3>${x.setTitle}</h3><span class="note">${x.setNote}</span>
+      <div class="pe-row"><span class="sw" style="background:#34d399"></span><span class="mn"><b style="font-weight:500">Ledge</b><span class="chips"><span class="chipt">${svg(I.branch,10)}ledge<span class="mm">PC</span></span><span class="chipt">${svg(I.branch,10)}ledge-dev<span class="mm">PC</span></span></span></span><span class="cnt">${x.agents(4)}</span><button class="btn ghost sm">${x.edit}</button><button class="btn ghost sm">${x.delete}</button></div>
+      <div class="pe-row"><span class="sw" style="background:#a78bfa"></span><span class="mn"><b style="font-weight:500">Speos</b><span class="warnline">${svg(I.alert,11)}${x.noRepo}</span></span><span class="cnt">${x.agents(0)}</span><button class="btn sm">${x.addFolder}</button><button class="btn ghost sm">${x.edit}</button><button class="btn ghost sm">${x.delete}</button></div>
+    </div><div class="cap">${F?'Réglages › Projets':'Settings › Projects'}</div></div>
+    <div>${dlg(x.editTitle('Speos'), `<div class="banner">${svg(I.alert,14)}<div><b>${x.bannerT}</b><p>${x.bannerB}</p></div></div>${identity('Speos', '')}${folders({picker:{}})}`, foot({name:'Speos', edit:true}))}<div class="cap">${F?'Modifier un projet sans dossier : le navigateur ouvert, Supprimer reste là':'Editing a project without a folder: the browser open, Delete still there'}</div></div>`});
+  C.push({title:F?'Téléphone : le premier dossier à la création, le dernier ne se retire pas':'Phone: the first folder at creation, the last one cannot be removed',
+    why:`Le téléphone suit la même règle. La feuille <b>Nouveau projet</b> demande, sous le nom et la couleur, le <b>premier dossier</b> : les récents du PC, ou « Parcourir… » (le navigateur existant de la feuille Dossiers). « Créer » reste estompé tant qu’aucun dossier n’est choisi, avec la phrase qui le dit. Le projet et son dossier partent ensemble (la passkey confirme, comme pour un ajout). Dans <b>Dossiers de {projet}</b>, le × du dernier dossier est estompé, avec la phrase qui dit quoi faire. Les phrases du téléphone tutoient, comme le reste de l’app mobile.`,
+    keys:F?'Nouveaux (mobile) : projects.newBody (remplacé), .firstFolder, .pickFirst, .lastFolder':'New (mobile): projects.newBody (replaced), .firstFolder, .pickFirst, .lastFolder',
+    scene: `<div><div class="phone"><h4>${x.newTitle}</h4><span class="pb">${x.pNewBody}</span><div class="field"><span class="lab">${x.name}</span><div class="in">Paper</div></div><div class="field"><span class="lab">${x.color}</span><div class="colors">${COLORS.slice(0,6).map((c,i)=>`<i class="${i===0?'on':''}" style="background:${c}"></i>`).join('')}</div></div>
+      <div class="field"><span class="lab">${x.pFolder} <span class="req">${x.required}</span></span><span class="sub">${x.pRecents}</span><div class="lst"><div>${svg(I.folder)}<span>~/Workspace/paper/paper-rendering</span></div><div>${svg(I.folder)}<span>~/Workspace/ledge</span></div></div><button class="btn sm outline" style="align-self:flex-start">${x.pBrowse}</button></div>
+      <span class="note">${x.pPick}</span><div class="row2"><button class="btn ghost">${x.pCancel}</button><button class="btn pri dis">${x.pCreate}</button></div></div><div class="cap">${F?'Nouveau projet : aucun dossier choisi':'New project: no folder picked'}</div></div>
+      <div><div class="phone"><h4>${x.pFoldersTitle('Paper')}</h4><div class="lst"><div>${svg(I.folder)}<span>~/Workspace/paper/paper-rendering</span><span class="rmdis" style="flex:0">${svg(I.x,14)}</span></div></div><span class="note">${x.pLast}</span><button class="btn outline" style="height:38px;justify-content:center">${svg(I.plus,12)}${x.pAdd}</button><button class="btn ghost" style="height:38px;justify-content:center">${x.pClose}</button></div><div class="cap">${F?'Le dernier dossier : × estompé':'The last folder: × dimmed'}</div></div>`});
+  return C;
+}
+
+function fiche(){
+  return `<section class="fiche"><h2>Fiche de transmission (dev-front)</h2><table>
+  <tr><th>Point</th><th>Règle</th></tr>
+  <tr><td>Validation</td><td>Nouveau code <code>no_folder</code> dans <code>draftProblem</code>, après les problèmes de nom : <code>keptRepos(d).length === 0</code> (un dossier proposé décoché ne compte pas). Même mécanique que <code>name_empty</code> : bouton <code>aria-disabled</code>, message après le premier essai (<code>tried</code>), focus sur le premier « Ajouter » du navigateur (ou sur « Ajouter un dossier ou un dépôt », qu’il ouvre).</td></tr>
+  <tr><td>Section</td><td><code>.pe-repos</code> : titre « Dossiers du projet » + pastille « obligatoire » + phrase d’aide ; sous-titre « Retenus · n » au-dessus de <code>.pe-repo-list</code> (ou de la zone vide en pointillé) ; sous-titre « Ajouter un dossier » + « Fermer le navigateur » au-dessus du <code>FolderPicker</code>. Un ajout entoure la ligne retenue 1,5 s (<code>--note</code>).</td></tr>
+  <tr><td>Navigateur</td><td>Ouvert d’office pour un nouveau projet sans dossier (déjà le cas) et pour un projet existant sans dossier (nouveau). « Fermer le navigateur » le replie en « Ajouter un dossier ou un dépôt ».</td></tr>
+  <tr><td>Existants</td><td>Aucune migration : les projets sans dossier restent. Réglages › Projets : « Aucun dossier : à compléter » (<code>--warning</code>) + bouton « Ajouter un dossier » (modal <code>{kind:'project', edit, addFolder:true}</code>). Bandeau en modification. Supprimer n’est pas bloqué.</td></tr>
+  <tr><td>Téléphone, daemon</td><td>Aujourd’hui le téléphone fait <code>project.create {name,color}</code> puis ajoute les dossiers à part (phone.ts:458/467), et <code>project.folder.remove</code> peut retirer le dernier. Si #2 vaut partout : <code>project.create</code> prend le premier dossier, le daemon refuse un projet sans dossier et le retrait du dernier dossier (<code>refused</code>), et l’EditSheet / FoldersSheet suivent la carte 6.</td></tr>
+  <tr><td>Textes</td><td>Nouveaux (FR · EN) : Dossiers du projet · Project folders ; obligatoire · required ; la phrase d’aide ; Retenus · Kept ; Ajouter un dossier · Add a folder ; Aucun dossier retenu pour l’instant… · No folder kept yet… ; Aucun dossier retenu. Ajoutez-en au moins un ci-dessous. · No folder kept. Add at least one below. ; Fermer le navigateur · Close the browser ; le message du pied ; « aucun dossier » dans l’aperçu ; le bandeau (2 phrases) ; « Aucun dossier : à compléter » ; « Ajouter un dossier » dans Réglages. Retiré : <code>projects.empty</code>.</td></tr>
+  </table>
+  <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
+  <ol>
+    <li><b>Le blocage</b> : A) le bouton reste cliquable, le clic dit quoi faire et emmène au navigateur (recommandé : même règle que pour un nom vide, et on comprend pourquoi) ; B) le bouton est grisé tant qu’aucun dossier n’est retenu, le message toujours affiché.</li>
+    <li><b>Les projets existants sans dossier</b> : A) ils restent, signalés « à compléter » dans Réglages › Projets, et on ne peut plus les modifier sans ajouter un dossier (recommandé) ; B) Ledge les signale aussi au démarrage (carte dans le chat) ; C) on les supprime (déconseillé : on perdrait leurs règles de rangement).</li>
+    <li><b>Le téléphone suit #2</b> (carte 6 : premier dossier demandé à la création, dernier dossier non retirable), et le daemon refuse lui-même un projet sans dossier, d’où qu’il vienne (téléphone, TUI, carte de Ledge) : A) oui (recommandé, une seule règle partout) ; B) seulement Desktop, le téléphone garde la création en deux temps.</li>
+    <li><b>Les textes nouveaux</b> (liste dans la fiche) : d’accord ?</li>
+  </ol></section>`;
+}
+
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag new">${L==='fr'?'nouveau':'new'}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>

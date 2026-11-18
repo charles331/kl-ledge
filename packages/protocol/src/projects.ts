@@ -69,6 +69,25 @@ export function projectsProblems(p: { projects: readonly Project[]; rules: reado
   return out;
 }
 
+/**
+ * Issue #2: a project has at least one folder, wherever the change comes from (Desktop, phone, CLI). Between the projects as they
+ * are (`before`) and as a change would leave them (`after`): a project with no folder is refused when it is new or changed
+ * (`folder_required`), or when the change removed its last folder (`last_folder`). One that already had none and is left as it was
+ * passes: existing projects without a folder stay, and can still be deleted.
+ */
+export type FolderProblem = { code: 'folder_required' | 'last_folder'; project: string };
+export function folderProblems(before: { projects: readonly Project[] }, after: { projects: readonly Project[] }): FolderProblem[] {
+  const was = new Map(before.projects.map(p => [p.id, p] as const));
+  const out: FolderProblem[] = [];
+  for (const p of after.projects) {
+    if (p.repos.length) continue;
+    const old = was.get(p.id);
+    if (old?.repos.length) out.push({ code: 'last_folder', project: p.id });
+    else if (!old || old.name !== p.name || old.color !== p.color || old.description !== p.description) out.push({ code: 'folder_required', project: p.id });
+  }
+  return out;
+}
+
 export const ProjectsSchema = z.object({ projects: z.array(ProjectSchema).max(100), rules: z.array(RuleSchema).max(1000) }).superRefine((p, ctx) => {
   for (const problem of projectsProblems(p)) ctx.addIssue({ code: 'custom', message: problem.code, path: problem.path });
 });

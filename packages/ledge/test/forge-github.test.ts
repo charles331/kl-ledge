@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrDetailSchema, PullRequestSchema } from '@ledge/protocol';
-import { githubReader, pipelineOf, rollup } from '../src/daemon/forge/github.js';
+import { githubReader, mineQuery, pipelineOf, rollup } from '../src/daemon/forge/github.js';
 import { createForgeService } from '../src/daemon/forge/service.js';
 import { Store } from '../src/daemon/store.js';
 import { mkdtempSync } from 'node:fs';
@@ -283,5 +283,55 @@ describe('GitHub: whether the repository has CI', () => {
   });
   it('another error throws: the caller assumes CI', async () => {
     await expect(githubReader(contents({ code: 1, stderr: 'gh: Server Error (HTTP 502)' }).run).hasCi(repo)).rejects.toThrow();
+  });
+});
+
+describe('GitHub: the account\'s own pull requests (issue #3)', () => {
+  const search = (nodes: Node[], more = false) => ({ issueCount: nodes.length, pageInfo: { hasNextPage: more }, nodes });
+  const at = (path: string, n: Node): Node => ({ ...n, repository: { nameWithOwner: path } });
+  it('asks six searches in one query: open whatever their age, closed since the day given, per role', () => {
+    const q = mineQuery('2026-11-10T08:30:00.000Z');
+    expect(Object.values(q.variables)).toEqual([
+      'is:pr archived:false is:open author:@me', 'is:pr archived:false is:closed closed:>=2026-11-10 author:@me',
+      'is:pr archived:false is:open assignee:@me', 'is:pr archived:false is:closed closed:>=2026-11-10 assignee:@me',
+      'is:pr archived:false is:open review-requested:@me', 'is:pr archived:false is:closed closed:>=2026-11-10 review-requested:@me']);
+    expect(q.query.match(/search\(/g)).toHaveLength(6);
+    expect(q.query).toContain('repository { nameWithOwner }');
+  });
+
+  it('gives each request once with all its roles, in its own repository, on the host asked', async () => {
+    const answer = { data: {
+      o0: search([at('me/tool', node(3, 'feat/a', 'me/tool')), at('org/app', node(9, 'fix/b', 'me/app'))]),
+      c0: search([at('me/tool', node(2, 'old', 'me/tool', { state: 'MERGED' }))]),
+      o1: search([at('org/app', node(9, 'fix/b', 'me/app'))]), c1: search([]),
+      o2: search([at('org/app', node(9, 'fix/b', 'me/app')), at('other/lib', node(41, 'x', 'other/lib', { isDraft: true }))]), c2: search([])
+    } };
+    const { run, calls } = fakeGh(c => (c.args.join(' ') === 'api --hostname ghe.corp graphql --input -' ? { stdout: JSON.stringify(answer) } : undefined));
+    const mine = await githubReader(run).mine('ghe.corp', '2026-11-10T00:00:00.000Z');
+    expect(calls).toHaveLength(1);
+    const by = new Map(mine.map(m => [m.pr.id, m]));
+    expect([...by.keys()].sort()).toEqual(['ghe.corp/me/tool#2', 'ghe.corp/me/tool#3', 'ghe.corp/org/app#9', 'ghe.corp/other/lib#41']);
+    expect(by.get('ghe.corp/org/app#9')).toMatchObject({ roles: ['author', 'assignee', 'reviewer'], repo: { cli: 'gh', host: 'ghe.corp', path: 'org/app', repo: 'ghe.corp/org/app' }, pr: { head: 'me/app', repo: 'org/app', host: 'ghe.corp' } });
+    expect(by.get('ghe.corp/me/tool#2')).toMatchObject({ roles: ['author'], pr: { state: 'merged' } });
+    expect(by.get('ghe.corp/other/lib#41')).toMatchObject({ roles: ['reviewer'], pr: { state: 'draft' } });
+    for (const m of mine) expect(PullRequestSchema.safeParse({ ...m.pr, sessions: [], roles: m.roles }).success).toBe(true);
+  });
+
+  it('refuses an answer with errors whole, and one with a search missing', async () => {
+    const errs = fakeGh(() => ({ stdout: JSON.stringify({ data: { o0: search([]) }, errors: [{ message: 'rate limited' }] }) }));
+    await expect(githubReader(errs.run).mine('github.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow('rate limited');
+    const part = fakeGh(() => ({ stdout: JSON.stringify({ data: { o0: search([]) } }) }));
+    await expect(githubReader(part.run).mine('github.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow('incomplete');
+  });
+});
+
+describe('GitHub list: one request asked by its number (review B1)', () => {
+  it('gives that request, not the newer open one reusing its branch', async () => {
+    const answer = { data: { repository: { b0: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [
+      node(12, 'feat/x', 'cli/cli', { updatedAt: '2026-11-15T10:00:00Z' }), node(9, 'feat/x', 'cli/cli', { state: 'MERGED', updatedAt: '2026-11-10T10:00:00Z' })] } } } };
+    const { run } = fakeGh(c => (c.input?.includes('pullRequests(headRefName') ? { stdout: JSON.stringify(answer) } : undefined));
+    const r = githubReader(run);
+    expect((await r.list(repo, [{ branch: 'feat/x', head: 'cli/cli' }])).map(p => p.number)).toEqual([12]);
+    expect((await r.list(repo, [{ branch: 'feat/x', head: 'cli/cli', number: 9 }])).map(p => [p.number, p.state])).toEqual([[9, 'merged']]);
   });
 });

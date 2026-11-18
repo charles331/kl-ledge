@@ -22,6 +22,16 @@ const PR_STATES = ['draft', 'open', 'review', 'merged', 'closed'] as const;
 export const PrStateSchema = z.enum(PR_STATES);
 export type PrState = z.infer<typeof PrStateSchema>;
 
+/**
+ * What the machine's signed-in account is to a request (issue #3): its author, an assignee, or a reviewer asked for. Read on each
+ * forge the CLI is signed in to, whatever the repository.
+ */
+const PR_ROLES = ['author', 'assignee', 'reviewer'] as const;
+export const PrRoleSchema = z.enum(PR_ROLES);
+export type PrRole = z.infer<typeof PrRoleSchema>;
+/** Tolerance for a front older than its daemon: a role it does not know is dropped, not the request. */
+const dropUnknownRoles = (raw: unknown): unknown => (Array.isArray(raw) ? raw.filter(r => known(PR_ROLES, r)) : raw);
+
 /** The longest comment or reply a front may send (64 KiB). */
 export const FORGE_BODY_MAX = 65536;
 
@@ -54,7 +64,12 @@ export const PullRequestSchema = z.object({
   openThreads: z.number().int().min(0),
   updatedAt: z.string().datetime(),
   /** The daemon's sessions on that branch, most recently active first (R12); the fleet qualifies them `machine:id`. */
-  sessions: z.array(z.string())
+  sessions: z.array(z.string()),
+  /**
+   * The account's roles on the request (issue #3), in the order author, assignee, reviewer; absent when it has none, and from a daemon
+   * older than this field.
+   */
+  roles: z.preprocess(dropUnknownRoles, z.array(PrRoleSchema)).optional()
 });
 export type PullRequest = z.infer<typeof PullRequestSchema>;
 
@@ -96,6 +111,11 @@ export const ForgeStateMessageSchema = z.object({
   forges: z.preprocess(dropUnknownForges, z.array(ForgeStatusSchema)),
   /** Absent from a daemon older than this field. */
   followed: z.preprocess(dropUnknownForges, z.array(FollowedSessionSchema)).optional(),
+  /**
+   * The account's own requests no session follows (issue #3): `sessions` empty, `roles` set. A request is in `prs` or here, never in
+   * both; a followed one carries its `roles` in `prs`. Absent from a daemon older than this field.
+   */
+  mine: z.preprocess(dropUnknownPrs, z.array(PullRequestSchema)).optional(),
   machineId: z.string().optional()
 });
 export type ForgeStateMessage = z.infer<typeof ForgeStateMessageSchema>;
@@ -180,3 +200,32 @@ export type ForgeDetailReply = z.infer<typeof ForgeDetailReplySchema>;
 /** `command`: what was run; a refusal carries its `code` (`not_offered` with the reason, `stale`, `busy`, `unavailable`). */
 export const ForgeActReplySchema = z.object({ type: z.literal('forge.act.reply'), requestId: z.string(), ok: z.boolean(), command: z.string().optional(), message: z.string().optional(), code: RefusalCodeSchema.optional() });
 export type ForgeActReply = z.infer<typeof ForgeActReplySchema>;
+
+/** The account's roles in their order (author, assignee, reviewer). */
+export const PR_ROLE_ORDER: readonly PrRole[] = PR_ROLES;
+
+// Issue #3 (docs/mockups/ledge-prs-mine.html): the filter of « MR et PR », the same on Desktop and the phone.
+/** How long the merged and closed requests stay listed after their last change (issue #3, the user's choice: 7 days). */
+export const CLOSED_KEEP_DAYS = 7;
+export const CLOSED_KEEP_MS = CLOSED_KEEP_DAYS * 24 * 60 * 60_000;
+/** The merged and closed ones of the last CLOSED_KEEP_MS, most recently updated first. */
+export const closedPrs = <T extends PullRequest>(prs: readonly T[], now: number): T[] =>
+  prs.filter(p => (p.state === 'merged' || p.state === 'closed') && !(Date.parse(p.updatedAt) < now - CLOSED_KEEP_MS))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+/** The role filter of « MR et PR »: every request, or those where the account has that role. */
+export type PrRoleFilter = 'all' | PrRole;
+export const PR_ROLE_FILTERS: readonly PrRoleFilter[] = ['all', ...PR_ROLES];
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/** The requests of that role whose ref, title or repository holds the query (case and accents aside; blank: all). */
+export function filterPrs<T extends PullRequest>(prs: readonly T[], role: PrRoleFilter, query: string): T[] {
+  const q = fold(query.trim());
+  return prs.filter(p => (role === 'all' || (p.roles ?? []).includes(role)) && (q === '' || fold(`${p.ref} ${p.title} ${p.repo}`).includes(q)));
+}
+/** Each filter's count: the open requests only, whatever the search (the user's choice: it shows where to look). */
+export function prRoleCounts(prs: readonly PullRequest[]): Record<PrRoleFilter, number> {
+  const open = prs.filter(p => p.state === 'draft' || p.state === 'open' || p.state === 'review');
+  const n = (r: PrRole) => open.filter(p => (p.roles ?? []).includes(r)).length;
+  return { all: open.length, author: n('author'), assignee: n('assignee'), reviewer: n('reviewer') };
+}
+

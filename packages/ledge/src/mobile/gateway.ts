@@ -13,7 +13,7 @@ import { forgeSubject, phoneForgeDetail, phoneForgeState } from './forge.js';
 import { latestTodos, TODO_TOOLS, type PhoneChecklist, type PhoneChecklistSummary } from '@ledge/protocol';
 import { BROADCAST_SESSIONS_MAX, type DecidedBy, type DeviceKind, type PointAnswer, type PointItem } from '@ledge/protocol';
 import { PHONE_ROW_SUMMARY_MAX } from '@ledge/protocol';
-import { folderSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects } from '@ledge/protocol';
+import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects } from '@ledge/protocol';
 import { listFolder, resolveFolder } from '../daemon/folders.js';
 import { newProjectId, withoutProject } from '@ledge/fleet/projects';
 import { taskClosed } from '@ledge/protocol';
@@ -1242,10 +1242,20 @@ export function createPhoneGateway(deps: {
         break;
       }
       case 'project.create': {
+        // Issue #2: created with its first folder, a folder of this PC the device's check covers with that name, as an addition does.
+        if (msg.path === undefined) return { status: 'rejected', reason: 'folder_required' };
         if (taken(msg.name)) return { status: 'rejected', reason: 'name_taken' };
         if (state.projects.length >= PHONE_PROJECTS_MAX) return { status: 'rejected', reason: 'invalid' };
+        const home = deps.folders?.home;
+        if (home === undefined) return { status: 'rejected', reason: 'unavailable' };
+        if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
+        const refused = checkAssertion(deviceId, msg.assertion, 'folder', newProjectSubject(msg.name, msg.path));
+        if (refused) return refused;
+        let path: string;
+        try { path = normalizePath(await resolveFolder(msg.path, home)); } catch { return { status: 'rejected', reason: 'not_found' }; }
+        if (state.projects.some(p => p.repos.some(r => r.machine === 'local' && r.path === path))) return { status: 'rejected', reason: 'folder_taken' };
         const id = newProjectId(msg.name, state.projects.map(p => p.id));
-        next = { ...state, projects: [...state.projects, { id, name: msg.name, color: msg.color, description: '', repos: [] }] };
+        next = { ...state, projects: [...state.projects, { id, name: msg.name, color: msg.color, description: '', repos: [{ machine: 'local', path }] }] };
         break;
       }
       case 'project.delete': {
@@ -1275,6 +1285,8 @@ export function createPhoneGateway(deps: {
     let next: Projects;
     if (msg.type === 'project.folder.remove') {
       if (!project.repos.some(r => r.machine === msg.machine && r.path === msg.path)) return { status: 'rejected', reason: 'stale' };
+      // Issue #2: a project keeps its last folder (the daemon's projects.set refuses it too).
+      if (project.repos.length === 1) return { status: 'rejected', reason: 'last_folder' };
       next = { ...state, projects: state.projects.map(p => (p.id === msg.id ? { ...p, repos: p.repos.filter(r => !(r.machine === msg.machine && r.path === msg.path)) } : p)) };
     } else {
       if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
@@ -1690,6 +1702,13 @@ export function createPhoneGateway(deps: {
           if (!cred || cred.rpId !== rp.rpId || !msg.project || msg.moveTo === undefined || !has(msg.project) || (msg.moveTo !== null && (msg.moveTo === msg.project || !has(msg.moveTo)))) return invalid();
           const challenge = deps.challenges.issue({ deviceId, purpose: 'project', subject: projectSubject(msg.project, msg.moveTo) });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'project', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
+        }
+        if (msg.purpose === 'folder' && msg.newProject !== undefined) {
+          // A project being created with its first folder (issue #2): bound to its name and to that folder.
+          const cred = deps.credential(deviceId);
+          if (!deps.folders || !cred || cred.rpId !== rp.rpId || msg.project !== undefined || !msg.path) return invalid();
+          const challenge = deps.challenges.issue({ deviceId, purpose: 'folder', subject: newProjectSubject(msg.newProject, msg.path) });
+          return push(deviceId, { type: 'confirm.challenge', purpose: 'folder', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
         if (msg.purpose === 'folder') {
           // Bound to the project and to the folder: a check for one folder adds no other.

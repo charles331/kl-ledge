@@ -799,7 +799,12 @@ const fr = {
       up: (name: string) => `Monter ${name}`, down: (name: string) => `Descendre ${name}`,
       newTitle: 'Nouveau projet', editTitle: 'Modifier le projet', name: 'Nom', color: 'Couleur',
       colors: { blue: 'Bleu', green: 'Vert', amber: 'Ambre', violet: 'Violet', teal: 'Sarcelle', pink: 'Rose', red: 'Rouge', slate: 'Ardoise' } as Record<'blue' | 'green' | 'amber' | 'violet' | 'teal' | 'pink' | 'red' | 'slate', string>,
-      newBody: 'Un projet vide : ses dossiers s’ajoutent sur le PC.',
+      newBody: 'Choisis le premier dossier du projet ; d’autres s’ajoutent ensuite.',
+      newBodyOld: 'Un projet vide : ses dossiers s’ajoutent sur le PC.',
+      // Issue #2 (docs/mockups/ledge-project-folders.html, carte 6) : le premier dossier à la création, le dernier ne se retire pas.
+      firstFolder: 'Premier dossier', required: 'obligatoire', browseMore: 'Parcourir…', chosen: 'Choisi', choose: 'Choisir', chooseLabel: (path: string) => `Choisir ${path}`,
+      chooseThis: 'Choisir ce dossier', pickFirst: 'Choisis un dossier pour créer le projet.',
+      lastFolder: 'Un projet garde au moins un dossier. Ajoutes-en un autre avant de retirer celui-ci, ou supprime le projet.',
       save: 'Enregistrer', create: 'Créer', cancel: 'Annuler',
       remove: 'Supprimer le projet…',
       deleteTitle: (name: string) => `Supprimer ${name} ?`,
@@ -819,6 +824,8 @@ const fr = {
       errors: {
         name_taken: 'Un autre projet porte déjà ce nom.', stale: 'Les projets ont changé sur le PC. Réessaie.',
         folder_taken: 'Un autre projet a déjà ce dossier.', not_found: 'Ce dossier n’existe plus sur le PC.',
+        folder_required: 'Ajoute au moins un dossier au projet : sans dossier, Ledge ne peut pas y ranger les sessions.',
+        last_folder: 'Un projet garde au moins un dossier. Ajoutes-en un autre avant de retirer celui-ci, ou supprime le projet.',
         confirm_required: 'Protège d’abord tes accords, dans la section Connexion.', cancelled: 'Vérification annulée. Rien n’a changé.',
         expired: 'La vérification a expiré. Recommence.', failed: 'Le PC n’a pas pris ce changement. Réessaie.'
       } as Record<string, string>
@@ -1133,7 +1140,7 @@ const fr = {
     title: 'MR et PR', subtitle: 'GitHub · GitLab',
     notSent: (pc: string) => `${pc} ne transmet pas encore ses MR et PR à cet appareil`,
     notSentBody: 'Ledge suit les branches des sessions et des sièges. Leurs MR, PR et pipelines s’afficheront ici une fois Ledge mis à jour sur le PC.',
-    tracked: 'Suivies : les branches des sessions et des sièges, via gh et glab.',
+    tracked: 'Les MR et PR que tu as créées, qui te sont assignées ou que tu dois relire, sur chaque forge connectée (gh, glab).',
     pane: { title: 'Rien à afficher', body: 'Une MR ou une PR et son pipeline s’ouvrent ici.' },
     ...prsFr
   },

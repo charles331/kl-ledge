@@ -3,7 +3,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import {
-  PHONE_FORGE_BYTES, PHONE_FORGE_LOG_MAX, PHONE_FORGE_TEXT_MAX, PhoneClientMessageSchema, PhoneServerMessageSchema,
+  PHONE_FORGE_BYTES, PHONE_FORGE_LOG_MAX, PHONE_FORGE_PRS_MAX, PhoneForgeStateSchema, PHONE_FORGE_TEXT_MAX, PhoneClientMessageSchema, PhoneServerMessageSchema,
   type ClientMessage, type ForgeAction, type ForgeStateMessage, type PrDetail, type PullRequest, type ServerMessage
 } from '@ledge/protocol';
 import { forgeSubject, phoneForgeDetail, phoneForgeState } from '../src/mobile/forge.js';
@@ -243,5 +243,16 @@ describe('phone forge: the messages', () => {
     expect(forgeSubject(PR.id, { kind: 'reply', threadId: 't1', body: 'a' })).not.toBe(forgeSubject(PR.id, { kind: 'reply', threadId: 't1', body: 'b' }));
     expect(forgeSubject(PR.id, { kind: 'resolve', threadId: 't1' })).not.toBe(forgeSubject(`${PR.id}0`, { kind: 'resolve', threadId: 't1' }));
     expect(phoneForgeState({ type: 'forge.state', prs: [], forges: [] })).toEqual({ prs: [], forges: [], followed: [] });
+  });
+});
+
+describe('the account\'s own requests on the phone (issue #3)', () => {
+  it('passes `mine` and the roles, within the list\'s bound; an older daemon\'s state has none', () => {
+    const own = Array.from({ length: PHONE_FORGE_PRS_MAX + 5 }, (_, i) => ({ ...PR, id: `${PR.id}${i}`, sessions: [], roles: ['reviewer' as const] }));
+    const st = phoneForgeState({ ...STATE, prs: [{ ...PR, roles: ['author'] }], mine: own });
+    expect(st.mine).toHaveLength(PHONE_FORGE_PRS_MAX);
+    expect(st.prs[0]!.roles).toEqual(['author']);
+    expect(PhoneForgeStateSchema.safeParse(st).success).toBe(true);
+    expect(phoneForgeState(STATE)).not.toHaveProperty('mine');
   });
 });

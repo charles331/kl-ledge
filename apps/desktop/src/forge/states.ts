@@ -2,7 +2,7 @@
  * The MR and PR states v27 does not draw (docs/mockups/ledge-ide-prs-states.html, validated by jde on 2026-11-09): what a
  * machine's forges and daemon let the view show, and the conditions of a merge. Pure: no React, no fleet.
  */
-import type { FleetForgeStatus, FleetPullRequest } from '@ledge/fleet';
+import type { FleetForgeStatus, FleetPullRequest, PrRoleFilter } from '@ledge/fleet';
 import type { PrDetail } from '@ledge/protocol';
 
 /** How a machine's requests can be read and acted on: its daemon answers and serves them, is down (the local one) or offline
@@ -84,3 +84,7 @@ export function mergeConditions(pr: Pick<FleetPullRequest, 'pipeline' | 'approva
 
 /** Mergeable now: every condition met. */
 export const canMerge = (c: readonly MergeCondition[]): boolean => c.every(x => x.ok);
+
+/** The filter of « MR et PR » (issue #3): a role and a search, kept while the window lives (App holds it). */
+export interface PrsFilter { role: PrRoleFilter; q: string }
+export const NO_PRS_FILTER: PrsFilter = { role: 'all', q: '' };

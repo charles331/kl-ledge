@@ -98,3 +98,20 @@ describe('pull and merge requests', () => {
     expect(m.type === 'snapshot' && m.daemon?.forge).toBe(true);
   });
 });
+
+describe('the account\'s own requests (issue #3)', () => {
+  const state = (extra: Record<string, unknown>) => parseServerMessage({ type: 'forge.state', prs: [gh226], forges: [], ...extra });
+  it('carries the roles on a request and the unfollowed ones in `mine`', () => {
+    const m = state({ prs: [{ ...gh226, roles: ['author', 'reviewer'] }], mine: [{ ...gl41, sessions: [], roles: ['assignee'] }] });
+    expect(m).toMatchObject({ prs: [{ roles: ['author', 'reviewer'] }], mine: [{ id: gl41.id, sessions: [], roles: ['assignee'] }] });
+  });
+  it('a message from an older daemon (no roles, no mine) still parses', () => {
+    const m = state({});
+    expect(m).not.toBeNull();
+    expect(m).not.toHaveProperty('mine');
+    expect((m as { prs: object[] }).prs[0]).not.toHaveProperty('roles');
+  });
+  it('a role a front does not know is dropped, not the request', () => {
+    expect(PullRequestSchema.parse({ ...gh226, roles: ['author', 'watcher'] }).roles).toEqual(['author']);
+  });
+});

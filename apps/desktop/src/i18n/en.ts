@@ -71,6 +71,12 @@ export const en: Messages = {
     kids: (n) => `${n} ${pluralEn(n, 'subagent', 'subagents')}`,
     wt: 'Linked worktree',
     tallyNeed: 'to decide', tallyWork: 'working', tallyOff: 'offline', tallyDone: 'finished',
+    background: 'in the background', tallyBackground: 'in the background',
+    kidsWorking: (n, w) => `${n} ${pluralEn(n, 'subagent', 'subagents')}, ${w} working`,
+    bgTip: {
+      kids: (n) => `Available, but ${n} ${pluralEn(n, 'subagent is', 'subagents are')} still working.`,
+      command: (label) => `Available, but a command started in the background is still running: “${label}”. Ledge can’t tell when it will finish.`
+    },
     ctx: {
       label: (name) => `Actions for ${name}`,
       newHere: 'New session here', broadcast: 'Write to the whole project…', addFolder: 'Add a folder…', edit: 'Edit project…',
@@ -526,7 +532,7 @@ export const en: Messages = {
     projects: {
       title: 'Projects',
       note: 'A project groups working repositories, on one or more machines, and their conversations. Its table shows in the atelier as soon as an agent works there.',
-      noRepo: 'No folder or repository', edit: 'Edit', editLabel: (n) => `Edit ${n}`, delete: 'Delete', deleteLabel: (n) => `Delete ${n}`,
+      noRepo: 'No folder: to complete', addFolder: 'Add a folder', addFolderLabel: (n) => `Add a folder to ${n}`, edit: 'Edit', editLabel: (n) => `Edit ${n}`, delete: 'Delete', deleteLabel: (n) => `Delete ${n}`,
       add: 'New project',
       rules: 'Remembered folders',
       rulesNote: 'When you file an agent without a project at a table, Ledge remembers its folder: the next sessions that start there join the same project.',
@@ -634,6 +640,30 @@ export const en: Messages = {
   chunkFailed: 'This part of Ledge could not load. Restart the app.',
   close: 'Close',
   modalTitles: { launch: 'New session' },
+  report: {
+    tip: 'Report a bug or suggest an idea', title: 'Report',
+    kinds: 'Kind of report', bug: 'Bug', bugSub: 'something doesn’t work', idea: 'Idea', ideaSub: 'a need, an improvement',
+    tTitle: 'Title', tTitlePh: 'In one sentence', optional: 'optional',
+    happened: 'What happened', happenedPh: 'What you saw, with the message if there is one',
+    expected: 'What was expected', expectedPh: 'What should have happened', repro: 'How to reproduce it', reproPh: '1. …  2. …  3. …',
+    need: 'The need', needPh: 'What you’re missing, or what’s tedious today', context: 'The context', contextPh: 'When it happens, on which screen, with which tool',
+    proposal: 'A proposal', proposalPh: 'How you’d see it',
+    attached: 'Attached to the report', attachedSub: 'remove what you don’t want to send',
+    items: { desktop: 'Ledge Desktop', daemon: 'daemon', system: 'System', tool: 'Session tool', session: 'session', project: 'project' },
+    remove: k => `Remove ${k}`, putBack: k => `Put back ${k}`,
+    log: 'Add an excerpt of the daemon log', logSub: 'The last 50 lines, cleaned of personal paths and tokens.', logSee: 'See the excerpt',
+    never: 'Nothing else is sent: no conversation, no token, no file.',
+    dest: 'Will be created on', label: 'label', destBy: 'with your GitHub account',
+    cancel: 'Cancel', create: 'Create the issue', creating: 'Creating…', openGh: 'Open on GitHub',
+    noGh: 'gh isn’t signed in on this machine: GitHub opens with the report prefilled, you confirm it there.',
+    created: n => `Issue #${n} created on kl-ledge/ledge.`, open: 'Open',
+    titleEmpty: 'Give the report a title.',
+    logStale: 'The log excerpt was refreshed: read it again, then create the issue.',
+    failed: why => `The report was not sent: ${why}`, silent: 'the daemon did not answer.', stale: 'this report is no longer open.', invalid: 'the daemon refused it.',
+    agentBug: n => `${n} reports a bug`, agentIdea: n => `${n} suggests an idea`, from: 'session', proj: 'project',
+    approve: 'Create the issue', edit: 'Edit first', ignore: 'Ignore', pill: 'report',
+    agentWhy: 'Nothing goes to GitHub without your click. “Edit first” opens the form prefilled.'
+  },
   broadcast: {
     project: 'Write to the whole project…', selection: n => `Write to the ${n} sessions…`, title: label => `Write to ${label}`,
     send: 'Send', cancel: 'Cancel', field: 'Message', picked: 'Selected sessions',
@@ -1231,15 +1261,21 @@ export const en: Messages = {
     name: 'Name', namePlaceholder: 'E.g. Paper Rendering', color: 'Colour',
     colors: { blue: 'Blue', green: 'Green', amber: 'Amber', violet: 'Violet', teal: 'Teal', pink: 'Pink', red: 'Red', slate: 'Slate' },
     description: 'Description', optional: 'optional', descriptionPlaceholder: 'One sentence on what the project is for',
-    repos: (n) => `Working folders and repositories · ${n}`, branchTitle: 'Default branch detected', noGit: 'Folder without Git',
+    folders: 'Project folders', required: 'required',
+    foldersHint: 'The folders this project’s agents work in. Ledge files the sessions started there.',
+    kept: 'Kept', add: 'Add a folder', closeBrowser: 'Close the browser',
+    none: 'No folder kept yet. Pick one below.', noneErr: 'No folder kept. Add at least one below.',
+    bannerTitle: 'This project has no folder.', bannerBody: 'Add one to be able to save your changes. Deleting the project is still possible.',
+    previewNone: 'no folder', branchTitle: 'Default branch detected', noGit: 'Folder without Git',
     notFound: 'not found', offline: 'offline', remove: (n, m) => `Remove ${n} (${m})`, addRepo: 'Add a folder or repository',
-    empty: 'No folder or repository yet. The project can exist without one, but Ledge will not be able to file sessions in it.',
     fileToo: 'Also file',
-    problems: { name_empty: 'Give the project a name', name_taken: 'This name is already used by another project', repo_duplicate: 'This folder is listed twice', gone: 'This project was deleted meanwhile',
+    problems: { name_empty: 'Give the project a name', no_folder: 'Add at least one folder to the project: without one, Ledge cannot file its sessions.', name_taken: 'This name is already used by another project', repo_duplicate: 'This folder is listed twice', gone: 'This project was deleted meanwhile',
       repo_taken: (p) => `This folder is already in ${p}` },
     refused: {
       offline: 'The local daemon is offline: nothing was saved.', outdated: 'The local daemon is too old for projects: update it.',
-      invalid: 'The daemon refused this project.', timeout: 'The daemon did not confirm the save.'
+      invalid: 'The daemon refused this project.', timeout: 'The daemon did not confirm the save.',
+      folder_required: 'Add at least one folder to the project: without one, Ledge cannot file its sessions.',
+      last_folder: 'A project keeps at least one folder. Add another before removing this one, or delete the project.'
     },
     preview: (n, ms) => `${n} ${pluralEn(n, 'repository', 'repositories')}${ms ? ` on ${ms}` : ''}`, firstSession: ' · the table appears with the first session', newName: 'New project',
     create: 'Create the project', save: 'Save', saving: 'Saving…', cancel: 'Cancel', deleteProject: 'Delete the project',
@@ -1393,6 +1429,8 @@ export const en: Messages = {
     settingOff: 'IDE interface (preview) off',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
     rigsView: {
+      background: (n) => `${n} in the background`,
+      seatBgTip: (n) => `Available · ${n} ${pluralEn(n, 'subagent', 'subagents')} working`,
       launch: 'Launch', launchTitle: 'Launch a rig…', shownMachine: (label: string) => `Shown machine: ${label}`, machine: (label) => `Machine: ${label}`, machines: 'Machines',
       local: 'local', ssh: 'SSH', manage: 'Manage machines…', add: 'Add a machine',
       runningRigs: (n) => (n === 1 ? '1 rig running' : `${n} rigs running`), openrigStopped: 'OpenRig stopped',
@@ -1573,8 +1611,13 @@ export const en: Messages = {
   },
   // Merge and pull requests (lot 8b).
   forge: {
-    view: 'MRs and PRs', hosts: 'GitHub · GitLab', merged: 'Merged',
-    foot: 'Followed: the branches of the sessions and seats, through gh and glab. Click: the MR or PR in a tab.',
+    view: 'MRs and PRs', hosts: 'GitHub · GitLab',
+    foot: 'The MRs and PRs you created, are assigned or must review, on every connected forge (gh, glab). Click: the MR or PR in a tab.',
+    search: 'Search: ref, title, repository', rolesLabel: 'Role',
+    roles: { all: 'All', author: 'Created', assignee: 'Assigned', reviewer: 'To review' },
+    pill: { author: 'created', assignee: 'assigned', reviewer: 'to review', tracked: 'tracked branch' },
+    closedFor: (n, days) => `Merged and closed · ${n} · last ${days} days`,
+    none: 'No MR or PR matches.', clear: 'Clear the filter',
     rowTip: 'Click: open · Ctrl+click: to the right',
     host: { github: 'GitHub', gitlab: 'GitLab' },
     kind: { github: 'GitHub · PR', gitlab: 'GitLab · MR' },
