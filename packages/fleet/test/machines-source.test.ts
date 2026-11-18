@@ -42,7 +42,7 @@ describe('machines from the daemon', () => {
     expect(api.fleet!.machines().map(m => m.id)).toEqual(['local', 'server']);
     expect(localStorage.getItem('ledge.machines')).toBeNull();
   });
-  it('the same list after a snapshot is no new snapshot (the overlay would ask every thread again); a host added is', () => {
+  it('the same list after a snapshot is no new snapshot (the overlay would ask every thread again); a host added or renamed is', () => {
     const { api, local, got } = setup();
     const snapshots = () => got.filter(m => m.type === 'snapshot').length;
     local.emit(machinesMsg([{ id: 'local', label: 'Local' }]));
@@ -53,6 +53,8 @@ describe('machines from the daemon', () => {
     local.emit(machinesMsg([{ id: 'local', label: 'Local' }, { id: 'server', label: 'dev-server', ssh: 'dev-server' }]));
     expect(snapshots()).toBe(n + 2);
     expect(api.fleet!.machines().map(m => m.id)).toEqual(['local', 'server']);
+    local.emit(machinesMsg([{ id: 'local', label: 'Local' }, { id: 'server', label: 'Renamed', ssh: 'dev-server' }])); // a rename: the sessions' machineName
+    expect(snapshots()).toBe(n + 3);
   });
   it('what goes to the daemon carries no url', () => {
     const { api, local } = setup();
