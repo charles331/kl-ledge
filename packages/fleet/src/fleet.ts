@@ -304,7 +304,7 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
   /** Applies a confirmed list to the peers: no storage write, nothing for the overlay until `publish`. */
   function apply(next: MachineConfig[]) {
     configuring = true;
-    const before = [...peers.values()], selectedBefore = selected;
+    const before = [...peers.values()].map(p => ({ p, label: p.config.label })), selectedBefore = selected;
     for (const [id, p] of peers) if (!next.some(c => !c.disabled && c.id === id && c.url === p.config.url && c.ssh === p.config.ssh)) { p.client.close(); p.off.forEach(off => off()); peers.delete(id); answerFailedForge(id, 'offline'); dropForge(id); if (usage.has(id)) { const next = new Map(usage); next.delete(id); usage = next; } if (operatorNotices.has(id)) { const next = new Map(operatorNotices); next.delete(id); operatorNotices = next; } if (owedPrefs.delete(id)) keepOwed(); }
     configs = next;
     for (const c of active()) { const p = peers.get(c.id); if (p) p.config = c; else add(c); }
@@ -315,7 +315,8 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
     configuring = false;
     // The same hosts (the daemon sends its list after every snapshot): no new snapshot, which the overlay would take for another
     // reconnection and ask every thread again.
-    const same = peers.size === before.length && before.every(p => peers.get(p.config.id) === p);
+    // A host renamed is a new snapshot too: a session's machineName travels only in it.
+    const same = peers.size === before.length && before.every(({ p, label }) => peers.get(p.config.id) === p && p.config.label === label);
     if (same && selected === selectedBefore) refresh(); else publish();
     if (gone.length) history();
   }
