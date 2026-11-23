@@ -112,11 +112,16 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
             : msg.op === 'approve' ? (({ proposal: _, ...r }) => ({ ...r, ...(was.proposal?.spec ?? {}), ...(msg.spec ?? {}), state: 'enabled' as const }))(was)
             : msg.op === 'refuse' ? (({ proposal: _, ...r }) => r)(was)
             : msg.op === 'update' ? { ...was, ...msg.patch }
-            : msg.op === 'run' ? { ...was, runs: [extras.routines.runOutcome ?? { at: new Date().toISOString(), slot: '13:02', outcome: 'delivered' }, ...(was.runs ?? [])].slice(0, 5) }
             : was;
           if (next) { if (at >= 0) list[at] = next; else list.unshift(next); }
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(next ? { routine: next } : { code: 'not_found', reason: 'not found' }) }));
           if (next) ws.send(JSON.stringify({ type: 'routine.changed', routine: next }));
+          // As the real daemon: `run` is answered at once, its firing's outcome comes later in a `routine.changed`.
+          if (msg.op === 'run' && was && next) setTimeout(() => {
+            const ran: Routine = { ...next, runs: [extras.routines!.runOutcome ?? { at: new Date(Date.now() + 60_000).toISOString(), slot: '13:02', outcome: 'delivered' }, ...(next.runs ?? [])].slice(0, 5) };
+            list[list.indexOf(next)] = ran;
+            ws.send(JSON.stringify({ type: 'routine.changed', routine: ran }));
+          }, 1500);
         }
       }
       if (msg.type === 'task.cmd' && msg.op === 'list' && extras.tasks) ws.send(JSON.stringify({ type: 'task.result', rid: msg.rid, tasks: extras.tasks }));

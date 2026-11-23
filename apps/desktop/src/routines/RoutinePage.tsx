@@ -74,6 +74,8 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const [shown, setShown] = useState<DraftErrors | null>(null);
   const [focus, setFocus] = useState<{ field: string; n: number } | null>(null);
   const [taken, setTaken] = useState(false);
+  // The daemon refused the folder (« dossier introuvable »): said under the folder, as the form's own check would.
+  const [noDir, setNoDir] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -90,10 +92,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   useEffect(() => { if (p.askDelete) setDeleting(true); }, [p.askDelete]);
+  useEffect(() => { setNoDir(false); }, [draft.target.cwd, draft.target.name]);
 
   const others = p.others.filter(o => !x || o.id !== x.id);
   const errors = draftErrors(draft, others, new Date(now));
-  const shownErrors: DraftErrors = { ...(shown ?? {}), ...(taken ? { name: 'taken' as const } : {}) };
+  const shownErrors: DraftErrors = { ...(shown ?? {}), ...(taken ? { name: 'taken' as const } : {}), ...(noDir && draft.mode === 'new' ? { dir: true as const } : {}) };
 
   // The next 3 runs: the daemon's for what is saved; asked again for a schedule changed or not saved yet (card 20).
   const schedKey = JSON.stringify(scheduleOf(draft.schedule));
@@ -121,7 +124,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       return false;
     }
     setBusy(true);
-    p.actions.refusedBy(fail => { if (fail.code === 'name_taken') { setTaken(true); setFocus(f => ({ field: 'name', n: (f?.n ?? 0) + 1 })); return true; } return false; });
+    p.actions.refusedBy(fail => {
+      if (fail.code === 'name_taken') { setTaken(true); setFocus(f => ({ field: 'name', n: (f?.n ?? 0) + 1 })); return true; }
+      if (fail.code === 'invalid' && faultyField(fail.message) === 'dir') { setNoDir(true); setFocus(f => ({ field: draft.mode === 'new' ? 'dir' : 'session', n: (f?.n ?? 0) + 1 })); return true; }
+      return false;
+    });
     try {
       if (!x) {
         const made = await p.actions.add(p.machine, specOf(draft));
@@ -135,7 +142,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       return !!done;
     } finally { setBusy(false); p.actions.refusedBy(null); }
   };
-  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setTaken(false); };
+  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setTaken(false); setNoDir(false); };
   const latest = useRef({ save, discard });
   latest.current = { save, discard };
   useEffect(() => { p.onDirt({ dirty, save: () => latest.current.save(), discard: () => latest.current.discard() }); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -152,7 +159,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const who = x ? (x.createdBy.kind === 'session' ? x.createdBy.name : x.proposal?.by.name ?? '') : '';
   const last = x ? lastRunOf(x) : undefined;
   const failed = !!x && x.state !== 'done' && failedLast(x);
-  const fault = failed ? faultyField(last?.reason) : null;
+  const fault = failed ? faultyField(last?.reason) : noDir && draft.mode === 'existing' ? 'dir' : null;
   const done = x?.state === 'done';
   const pending = x?.state === 'pending';
   const run = () => { if (x) p.actions.run(x, x.target.name, !!p.session && look.dot !== 'off'); };

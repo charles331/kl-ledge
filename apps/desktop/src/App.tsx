@@ -359,6 +359,11 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       const tab: Tab = { kind: 'atoi', ref: 'main' };
       wsStore.update(w => openTab(w, tab));
     }
+    else if (target?.kind === 'routine') {
+      // The island's « Voir » on a routine's item: the sidebar on Routines, the routine's page in front.
+      setLayout(l => (l.sideOpen && l.sideView === 'routines' ? l : layoutFor(l, { type: 'view', view: 'routines' }, window.innerWidth)));
+      wsStore.update(w => openTab(w, { kind: 'routine', ref: `${target.machine}:${target.id}` }));
+    }
     else if (target) dispatch(targetAction(target));
   }), [showTerminal, wsStore]);
   // The Atelier in its own window (#21): what it opens shows here, this window brought forward; its closing gives it back.
@@ -843,7 +848,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const routineTab = (ref: string): Tab => ({ kind: 'routine', ref });
   const openRoutineRef = (ref: string, where?: 'right') => wsStore.update(w => openTab(w, routineTab(ref), where));
   const showRoutinesView = () => { if (!(layout.sideOpen && layout.sideView === 'routines')) onLayout({ type: 'view', view: 'routines' }); };
-  const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); });
+  const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); }, routines);
   const runRoutine = (r: FleetRoutine) => { const s = routineSession(r); routineActions.run(r, r.target.name, !!s && !s.offline && s.state !== 'exited'); };
   const openRoutineSession = (r: FleetRoutine) => { const s = routineSession(r); if (s) dispatch({ type: 'open', id: s.id }); };
   // « Supprimer… » from the sidebar opens the page on its question; « Programmer à nouveau… » a prefilled « Nouvelle routine ».

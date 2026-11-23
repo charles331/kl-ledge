@@ -121,6 +121,14 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     await expect(menu.getByRole('menuitem')).toHaveText(fr ? ['Lancer maintenant', 'Pause', 'Ouvrir la session', 'Supprimer…'] : ['Run now', 'Pause', 'Open the session', 'Delete…']);
     await page.keyboard.press('Escape');
 
+    // Card 9: « Lancer maintenant » from the hover waits for the firing, then says how it went.
+    await revue.hover();
+    await revue.getByRole('button', { name: fr ? 'Lancer maintenant · revue-prs' : 'Run now · revue-prs' }).click();
+    await expect(revue.locator('.rt-x3')).toHaveText(fr ? 'attend que Otto soit libre…' : 'waiting for Otto to be free…');
+    await shot(page, `lancer-${theme}-${lang}`, { x: rb!.x - 8, y: rb!.y - 8, width: rb!.width + 16, height: rb!.height + 30 });
+    await expect(page.locator('.toast-region')).toContainText(fr ? '« revue-prs » remise à Otto.' : '“revue-prs” delivered to Otto.', { timeout: 10_000 });
+    await expect(revue.locator('.rt-x3')).toHaveCount(0);
+
     // Card 4: a time changed brings the bar and the tab's « • »; Ctrl+S saves the patch.
     await tab.locator('.rt-chip').filter({ hasText: '08:00' }).getByRole('button').click();
     await expect(tab.locator('.rt-dirtybar')).toContainText(fr ? 'Modifications non enregistrées' : 'Unsaved changes');

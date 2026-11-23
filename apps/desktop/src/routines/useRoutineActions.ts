@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Routine, RoutineSpec } from '@ledge/protocol';
 import type { Fleet, FleetRoutine, RoutineFailure } from '@ledge/fleet';
 import type { Messages } from '../i18n/messages';
@@ -28,9 +28,30 @@ export interface RoutineActions {
 export type Refused = (failure: RoutineFailure) => boolean;
 
 /** Each command answered by a toast when it fails (its message); « Lancer maintenant » by the toast of its outcome, whose « Voir »
- *  opens the routine's page (card 9). `refused` sees a refusal first: true when it says it where it belongs. */
-export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction) => void, onSee: (ref: string) => void): RoutineActions {
+ *  opens the routine's page (card 9). The daemon answers `run` at once and tells the firing's outcome later, in a `routine.changed`
+ *  whose last run is new: « attend que X soit libre… » stays until then. `refused` sees a refusal first: true when it says it
+ *  where it belongs. */
+export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction) => void, onSee: (ref: string) => void, routines: readonly FleetRoutine[] = []): RoutineActions {
   const [running, setRunning] = useState<ReadonlyMap<string, string>>(new Map());
+  // A firing asked for, by ref: the last run it started from (its `at`), and the session named in the toast.
+  const asked = useRef(new Map<string, { before: string | undefined; session: string; name: string }>());
+  const told = useCallback((ref: string, r: Routine): boolean => {
+    const a = asked.current.get(ref);
+    const last = lastRunOf(r);
+    if (!a || !last || last.at === a.before) return false;
+    asked.current.delete(ref);
+    setRunning(m => { const n = new Map(m); n.delete(ref); return n; });
+    if (last.outcome === 'failed') notify(t.toastFailed(a.name, last.reason ?? ''), { label: t.see, run: () => onSee(ref), undo: false, tone: 'warn' });
+    else notify(last.outcome === 'resumed' ? t.toastResumed(a.name, a.session) : t.toastRun(a.name, a.session));
+    return true;
+  }, [notify, onSee, t]);
+  useEffect(() => {
+    for (const ref of [...asked.current.keys()]) {
+      const r = routines.find(x => routineRef(x) === ref);
+      if (r) told(ref, r);
+      else { asked.current.delete(ref); setRunning(m => { const n = new Map(m); n.delete(ref); return n; }); }
+    }
+  }, [routines, told]);
   const refused = useRef<Refused | null>(null);
   const fail = useCallback((e: unknown) => {
     const f = e as RoutineFailure;
@@ -48,12 +69,10 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
       const ref = routineRef(r);
       if (running.has(ref)) return;
       setRunning(m => new Map(m).set(ref, alive ? t.waiting(session) : t.starting(session)));
+      asked.current.set(ref, { before: lastRunOf(r)?.at, session, name: r.name });
       void cmd(r.machineId, { op: 'run', routine: r.id }).then(out => {
-        setRunning(m => { const n = new Map(m); n.delete(ref); return n; });
-        if (!out) return;
-        const last = lastRunOf(out);
-        if (last?.outcome === 'failed') notify(t.toastFailed(r.name, last.reason ?? ''), { label: t.see, run: () => onSee(ref), undo: false, tone: 'warn' });
-        else notify(last?.outcome === 'resumed' ? t.toastResumed(r.name, session) : t.toastRun(r.name, session));
+        if (out === false) { asked.current.delete(ref); setRunning(m => { const n = new Map(m); n.delete(ref); return n; }); return; }
+        if (out) told(ref, out);
       });
     },
     pause(r) { void cmd(r.machineId, { op: 'pause', routine: r.id }); },
@@ -63,5 +82,5 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     remove: async r => (await cmd(r.machineId, { op: 'rm', routine: r.id })) !== false,
     update: async (r, patch) => { const out = await cmd(r.machineId, { op: 'update', routine: r.id, patch }); return out || null; },
     add: async (machine, spec) => { const out = await cmd(machine, { op: 'add', spec }); return out || null; }
-  }), [running, cmd, notify, onSee, t]);
+  }), [running, cmd, told, t]);
 }
