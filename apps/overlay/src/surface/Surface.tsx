@@ -735,15 +735,28 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
   const bubbleTask = bubbleNotice?.notice.kind === 'decision' && bubbleNotice.machine === LOCAL_MACHINE.id ? tasks.find(x => `decision:${x.id}` === bubbleNotice.notice.id) : undefined;
   const bubbleRoutine = bubbleNotice ? routineNotice(bubbleNotice.notice, bubbleNotice.machine, bubbleTask, routines, t) : null;
   const [routineBusy, setRoutineBusy] = useState<string | null>(null);
+  const [routineStale, setRoutineStale] = useState<{ key: string; message: string } | null>(null);
   /** A routine item's button: each routine still waiting is answered in turn on its machine; a refusal says why, a success sets the
    *  notice aside until the daemon closes its task. « Voir » opens the routine's page in Desktop. */
   const routineAct = async (o: { key: string }, r: NonNullable<typeof bubbleRoutine>, action: 'approve' | 'refuse' | 'run' | 'see') => {
     if (action === 'see') { openInLedge({ kind: 'routine', machine: r.machine, id: r.first.id }); dispatch({ type: 'close' }); return; }
     const fleet = client.fleet;
     if (!fleet || routineBusy) return;
-    setRoutineBusy(o.key); setOperatorFailure(null);
+    setRoutineBusy(o.key); setOperatorFailure(null); setRoutineStale(null);
     try {
-      for (const id of action === 'run' ? [r.first.id] : r.ids) await fleet.routineCmd(r.machine, { op: action, routine: id });
+      // An approval names, for each routine, what the bubble showed (its key): one changed since is refused (`stale`).
+      for (const id of action === 'run' ? [r.first.id] : r.ids) {
+        try { await fleet.routineCmd(r.machine, { op: action, routine: id, ...(action === 'approve' ? { expect: r.keys[id]! } : {}) }); }
+        catch (e) {
+          // Changed since the bubble showed it (card 32): nothing more activated, the fleet's list already holds the new version.
+          if (action === 'approve' && (e as { code?: string }).code === 'stale') {
+            const name = routinesRef.current.find(x => x.machineId === r.machine && x.id === id)?.name ?? r.first.name;
+            setRoutineStale({ key: o.key, message: t.atoi.routine.stale(name) });
+            return;
+          }
+          throw e;
+        }
+      }
       setAside(o.key, true); sounds.user(action === 'refuse' ? 'deny' : 'accept');
     } catch (e) {
       // The island's own words for a machine down or too old; a daemon's refusal is said with its reason (French, the daemon's).
@@ -869,7 +882,7 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
         <Bubble ref={bubbleRef} maxH={openMaxH(screenH / ps) - SURFACE_CHROME_Y} kind={st.bubbleKind} preview={offlineMachine?.label} session={bubbleSession} moreCount={Math.max(0, st.queue.length - 1)} visible={st.mode === 'bubble'} paused={bubblePaused} remainingMs={ctl.bubbleRemaining() ?? undefined}
           notice={bubbleNotice?.notice}
           {...(bubbleRoutine && bubbleNotice ? {
-            routine: { kind: bubbleRoutine.kind, who: bubbleRoutine.who, text: bubbleRoutine.text, count: bubbleRoutine.ids.length, at: new Date(bubbleNotice.notice.at).toLocaleTimeString(t.time.locale, { hour: '2-digit', minute: '2-digit', hour12: false }) },
+            routine: { kind: bubbleRoutine.kind, who: bubbleRoutine.who, text: bubbleRoutine.text, count: bubbleRoutine.ids.length, ...(routineStale?.key === bubbleNotice.key ? { stale: routineStale.message } : {}), canApprove: bubbleRoutine.ids.every(id => !!bubbleRoutine.keys[id]), at: new Date(bubbleNotice.notice.at).toLocaleTimeString(t.time.locale, { hour: '2-digit', minute: '2-digit', hour12: false }) },
             onRoutine: (a: 'approve' | 'refuse' | 'run' | 'see') => { void routineAct(bubbleNotice, bubbleRoutine, a); }
           } : {})}
           failure={bubbleNotice ? (operatorFailure?.key === bubbleNotice.key ? operatorFailure.message : undefined) : st.bubbleId ? asks.failures[st.bubbleId] : undefined}

@@ -58,6 +58,9 @@ export interface RoutineNotice {
   /** The machine holding the routines, and those the buttons answer: the ones still waiting for a request, the routine for a failure. */
   machine: string;
   ids: string[];
+  /** What « Activer » applies for each id, as the daemon last listed it (`Routine.key`): sent back as `expect`, so a routine changed
+   *  since the bubble showed it is refused. Missing for a routine not read yet, which cannot be activated. */
+  keys: Record<string, string | undefined>;
   /** Who the head names (the session that asks, or the one a failed run was for), and the item's words. */
   who: string;
   text: string;
@@ -66,8 +69,21 @@ export interface RoutineNotice {
 }
 
 /**
+ * Why a run did not leave, in the island's language (the daemon's reasons are French): a missing folder or tool in the words cards
+ * 8, 13-16 and 29 draw, a run not typed in time in card 8's (`cause`); any other as the daemon gave it.
+ */
+export function runWhy(r: Pick<FleetRoutine, 'lastRun' | 'target'> | undefined, fallback: string | undefined, m: Messages): string {
+  const W = m.atoi.routine.why;
+  const run = r?.lastRun?.outcome === 'failed' ? r.lastRun : undefined;
+  if (r && run?.field === 'cwd') return W.cwd(r.target.cwd);
+  if (r && run?.field === 'tool') return W.tool(r.target.tool);
+  if (run?.cause === 'timeout') return W.timeout;
+  return fallback ?? run?.reason ?? '';
+}
+
+/**
  * A `decision` notice's routine item, from its task and the routines its machine holds; null when the task carries no routine
- * (a plain decision). The words fall back on the task's own title while the routine is not listed yet.
+ * (a plain decision). Never the task's title (the daemon writes it in French only): a routine not read yet says card 30's words.
  */
 export function routineNotice(notice: OperatorNotice, machine: string, task: Task | undefined, routines: readonly FleetRoutine[], m: Messages): RoutineNotice | null {
   const r = task?.routine;
@@ -75,31 +91,29 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
   const R = m.atoi.routine;
   const find = (id: string) => routines.find(x => x.machineId === machine && x.id === id);
   const one = find(r.id);
+  const first = { id: r.id, name: one?.name ?? r.name };
   if (r.kind === 'failed') {
-    const who = one?.target.name ?? task.giverName;
-    // The daemon's reasons are French: a missing folder or tool in the words cards 8, 13-16 and 29 draw, any other as it gave it.
-    const run = one?.lastRun?.outcome === 'failed' ? one.lastRun : undefined;
-    const why = one && run?.field === 'cwd' ? R.why.cwd(one.target.cwd) : one && run?.field === 'tool' ? R.why.tool(one.target.tool) : r.reason ?? run?.reason ?? '';
-    return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, why), first: { id: r.id, name: one?.name ?? r.name } };
+    const why = runWhy(one, one?.lastRun?.outcome === 'failed' && (one.lastRun.field || one.lastRun.cause) ? undefined : r.reason, m);
+    if (!one) return { kind: 'failed', machine, ids: [r.id], keys: {}, who: task.giverName, text: R.fallbackFailed(r.name, why), first };
+    return { kind: 'failed', machine, ids: [r.id], keys: {}, who: one.target.name, text: R.failed(one.name, one.target.name, why), first };
   }
   const covered = r.ids ?? [r.id];
   const listed = covered.map(find).filter((x): x is FleetRoutine => !!x);
   // The ones still waiting: a routine answered elsewhere leaves the count of « Activer les 3 ».
-  const waiting = listed.filter(x => x.state === 'pending' || !!x.proposal).map(x => x.id);
-  const ids = listed.length ? waiting : covered;
-  const first = { id: r.id, name: one?.name ?? r.name };
+  const waiting = listed.filter(x => x.state === 'pending' || !!x.proposal);
+  const ids = listed.length ? waiting.map(x => x.id) : covered;
+  const keys = Object.fromEntries(ids.map(id => [id, find(id)?.key]));
   // The daemon raises the item itself (its giver is Ledge): the session that asks is the routine's own.
   const asker = (x: FleetRoutine | undefined) => x?.proposal?.by.name ?? (x?.createdBy.kind === 'session' ? x.createdBy.name : undefined);
   const who = asker(one) ?? asker(listed[0]) ?? notice.who ?? task.giverName;
   if (covered.length > 1) {
+    if (!listed.length) return { kind: 'approve', machine, ids, keys, who, text: R.fallbackAsk(r.name), first };
     const list = listed.map(x => `${x.name} (${routineWhen(x.schedule, m).moments[0] ?? routineWhen(x.schedule, m).ask})`).join(', ');
-    // Never the task's title (the daemon writes it in French only): not listed yet, it is no routine item, the plain decision speaks.
-    if (!listed.length) return null;
-    return { kind: 'approve', machine, ids, who, text: R.groupAsk(who, ids.length, list), first };
+    return { kind: 'approve', machine, ids, keys, who, text: R.groupAsk(who, ids.length, list), first };
   }
-  if (!one) return null;
+  if (!one) return { kind: 'approve', machine, ids, keys, who, text: R.fallbackAsk(r.name), first };
   // What « Activer » applies: a session's change waiting on the user (« veut modifier », card 29), else the routine as it is.
   const when = routineWhen((one.proposal?.spec ?? one).schedule, m).ask;
   const text = one.proposal ? R.editAsk(who, one.proposal.spec.name, when) : R.ask(who, one.name, when, one.target.cwd);
-  return { kind: 'approve', machine, ids, who, text, first };
+  return { kind: 'approve', machine, ids, keys, who, text, first };
 }

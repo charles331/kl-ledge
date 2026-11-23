@@ -97,9 +97,13 @@ describe('why a run did not leave', () => {
     expect(failureWhy(ran('tool', 'outil absent', { target: { name: 'Nova', cwd: '~/veille', tool: 'cursor' } }))).toBe('outil absent : cursor');
     expect(failureWhy(ran('session', 'Nova tourne hors de Ledge : impossible de lui écrire'))).toBe('Nova tourne hors de Ledge : impossible de lui écrire');
     expect(failureWhy(ran(undefined, 'pas remise dans les 30 minutes'))).toBe('pas remise dans les 30 minutes');
+    // A run not typed in time (`cause`) in card 8's words.
+    const late = veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'pas remise dans les 30 minutes', cause: 'timeout' } });
+    expect(failureWhy(late)).toBe('pas tapée en 30 min (session occupée)');
     setLang('en');
     expect(failureWhy(veille())).toBe('folder not found: ~/veille');
     expect(failureWhy(ran('tool', 'outil absent'))).toBe('tool missing: claude');
+    expect(failureWhy(veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'pas remise', cause: 'timeout' } }))).toBe('not typed within 30 min (session busy)');
     expect(failureWhy(undefined, 'raison de la tâche')).toBe('raison de la tâche');
   });
 });
