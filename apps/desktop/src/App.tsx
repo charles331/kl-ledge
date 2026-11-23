@@ -1120,6 +1120,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
               if (n.kind === 'session') dispatch({ type: 'open', id: qualify(m, n.id) });
               else if (n.kind === 'pr') onTab({ kind: 'pr', ref: n.id });
               else if (n.kind === 'rig') onTab({ kind: 'rig', ref: rigTabRef(m, n.id) });
+              // A routine's « Voir » (routines mockup, card 26): its page, the sidebar on Routines. The kind comes with
+              // feat/routines-ui-point-tui (09aff498), hence the widened comparison until that branch is merged.
+              else if ((n.kind as string) === 'routine') { showRoutinesView(); openRoutineRef(routineRef({ machineId: m, id: n.id })); }
               else dispatch({ type: 'ledge', tab: 'tasks', task: n.id });
             }}
             tabs={{ tasks: tasksApi, ...rightTab, onAsked: () => setRightTab(({ ask: _, ...x }) => x), onTab: (tab, task) => setRightTab(x => ({ ...x, tab, ...(task !== undefined ? { task } : {}) })) }} />
