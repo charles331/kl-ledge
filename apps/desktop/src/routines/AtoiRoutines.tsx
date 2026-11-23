@@ -3,7 +3,7 @@ import type { FleetRoutine } from '@ledge/fleet';
 import { useI18n } from '../i18n/lang';
 import { AlarmIcon } from './icons';
 import { lastRunOf, type AtoiRoutineItem } from './model';
-import { askParts, dayMonth, firstMoment, momentDate, momentLabel } from './schedule';
+import { askLine, dayMonth, firstMoment, momentDate, momentLabel } from './schedule';
 import '../styles/routines.css';
 
 /** What an « À toi » routine item does (cards 13, 14, 23): « Activer » / « Refuser » a request (or each routine of a grouped one),
@@ -69,11 +69,10 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
             </div>
           );
         }
-        const parts = askParts(first.proposal?.spec.schedule ?? first.schedule, lang, r);
         return (
           <div key={id} data-routine-item={id}>
             <div className="atoi-line"><span className="atoi-mk asked" aria-hidden="true">?</span>
-              <span className="grow"><b>{i.task.giverName}</b> {a.ask(first.name, parts.times, parts.days, h.dirLabel(first))}</span>
+              <span className="grow"><b>{i.task.giverName}</b> {askLine(first.proposal?.spec.schedule ?? first.schedule, first.name, h.dirLabel(first), lang, r)}</span>
               {seeBtn(id)}
               <button type="button" className="fg-btn pri" disabled={off} onClick={() => h.onActivate([first])}>{r.activate}</button>
               <button type="button" className="fg-btn" disabled={off} onClick={() => h.onRefuse([first])}>{r.refuse}</button></div>
@@ -97,7 +96,7 @@ export function AtoiRoutineCards({ items, ...h }: AtoiRoutineHandlers & { items:
     const failed = i.kind === 'failed';
     const text = failed ? a.failedShort(first.name, reasonOf(i))
       : i.routines.length > 1 ? a.groupShort(i.routines.length, i.routines.map(x => { const m = firstMoment(x.schedule); return m ? dayMonth(momentDate(m), lang) : ''; }).filter(Boolean).join(', '))
-      : (() => { const parts = askParts(first.proposal?.spec.schedule ?? first.schedule, lang, r); return a.ask(first.name, parts.times, parts.days, h.dirLabel(first)); })();
+      : askLine(first.proposal?.spec.schedule ?? first.schedule, first.name, h.dirLabel(first), lang, r);
     return (
       <div key={i.task.id} className="st-card st-task rt-st-card" data-routine-item={i.task.id}>
         <span className={`st-bot st-task-mark rt-mk ${failed ? 'bad' : 'ask'}`} aria-hidden="true">{failed ? '!' : '?'}</span>

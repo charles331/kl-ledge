@@ -1746,6 +1746,7 @@ export const en: Messages = {
     atoi: {
       block: 'Routines', blockSub: 'to activate, or that could not run', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `wants to schedule “${r}”: ${times} (${days}), in ${dir}`,
+      askOnce: (r: string, moments: string, dir: string) => `wants to schedule “${r}”: ${moments}, in ${dir}`,
       failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
       failedShort: (r: string, why: string) => `${r} could not run: ${why}`,
       groupAsk: (n: number) => `wants to schedule ${n} one-shot routines`, groupShort: (n: number, dates: string) => `wants to schedule ${n} one-shot routines: ${dates}`,

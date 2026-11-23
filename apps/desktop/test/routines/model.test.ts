@@ -6,7 +6,7 @@ import {
   atoiRoutineItems, draftErrors, expandHome, faultyField, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
   routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
 } from '../../src/routines/model';
-import { anchorWeek, askParts, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
+import { anchorWeek, askLine, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
 
 const fr = MESSAGES.fr.routines;
 const en = MESSAGES.en.routines;
@@ -29,7 +29,13 @@ describe('the schedule as Desktop reads it', () => {
     expect(scheduleLine({ kind: 'recurring', times: ['08:00', '13:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, fr)).toBe('08:00 13:30 · lun–ven');
     expect(scheduleLine({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, fr)).toBe('jeu 16:00 · 1 sem. sur 2');
     expect(scheduleLine({ kind: 'once', at: ['2026-12-03T16:00'] }, fr)).toBe('unique');
-    expect(askParts({ kind: 'recurring', times: ['17:00'], days: ['fri'] }, 'fr', fr)).toEqual({ times: '17:00', days: 'ven' });
+    expect(askLine({ kind: 'recurring', times: ['17:00'], days: ['fri'] }, 'point-hebdo', '~/assistant', 'fr', fr)).toBe('veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant');
+    // The owner's two texts of 2026-11-23: every other week, and a single one-shot.
+    const two = { kind: 'recurring' as const, times: ['16:00'], days: ['thu' as const], every: { weeks: 2 as const, anchor: '2026-11-27' } };
+    expect(askLine(two, 'bilan-sprint', '~/assistant', 'fr', fr)).toBe('veut programmer « bilan-sprint » : 16:00 (jeu, 1 sem. sur 2), dans ~/assistant');
+    expect(askLine(two, 'bilan-sprint', '~/assistant', 'en', en)).toBe('wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
+    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'fr', fr)).toBe('veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
+    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en)).toBe('wants to schedule “prépa-121”: Thu 3 Dec 16:00, in ~/assistant');
   });
   it('says when the next run is: the time alone today, then tomorrow, then the day', () => {
     expect(nextLabel(new Date(2026, 10, 23, 13, 30).toISOString(), now, 'fr', fr, false)).toBe('13:30');

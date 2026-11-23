@@ -1841,6 +1841,8 @@ export const fr = {
     atoi: {
       block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
+      // Approved by the owner on 2026-11-23: a one-shot's request names its moment, without parentheses.
+      askOnce: (r: string, moments: string, dir: string) => `veut programmer « ${r} » : ${moments}, dans ${dir}`,
       failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
       failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
       groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,

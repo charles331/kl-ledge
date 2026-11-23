@@ -90,10 +90,12 @@ export const momentDate = (at: string): Date => new Date(`${at}:00`);
 /** A one-shot's chip (card 19): « jeu. 3 déc. · 16:00 ». */
 export const momentLabel = (at: string, lang: Lang): string => `${dateLong(momentDate(at), lang)} · ${at.slice(11, 16)}`;
 
-/** The times and days of an activation request (« À toi », card 13): « 17:00 » and « ven »; a one-shot's moments and « unique ». */
-export function askParts(s: RoutineSchedule, lang: Lang, r: R): { times: string; days: string } {
-  if (s.kind === 'once') return { times: s.at.map(a => `${dayMonth(momentDate(a), lang)} ${a.slice(11, 16)}`).join(', '), days: r.oneShot };
-  return { times: s.times.join(', '), days: s.every?.weeks === 2 ? `${daysLabel(s.days, r)} · ${r.every2}` : daysLabel(s.days, r) };
+/** An activation request's text after its author (« À toi », card 13, and the owner's two texts of 2026-11-23): « veut programmer
+ *  « point-hebdo » : 17:00 (ven), dans ~/assistant », every other week « 16:00 (jeu, 1 sem. sur 2) », a one-shot « jeu. 3 déc. 16:00 ». */
+export function askLine(s: RoutineSchedule, name: string, dir: string, lang: Lang, r: R): string {
+  if (s.kind === 'once') return r.atoi.askOnce(name, [...s.at].sort().map(a => `${dateLong(momentDate(a), lang)} ${a.slice(11, 16)}`).join(', '), dir);
+  const days = s.every?.weeks === 2 ? `${daysLabel(s.days, r)}, ${r.every2}` : daysLabel(s.days, r);
+  return r.atoi.ask(name, s.times.join(', '), days, dir);
 }
 
 /** A one-shot's earliest moment, for a grouped request's short line (card 23); none for a recurring schedule. */
