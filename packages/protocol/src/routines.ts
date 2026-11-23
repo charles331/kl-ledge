@@ -6,6 +6,8 @@ import { NAME_MAX } from './names.js';
 /**
  * Routines (spec 2026-11-23-routines-design): Ledge's clock types a prompt into a standing session at set times. The daemon
  * owns them (`~/.ledge/routines.json`); every front reads them through `routine.list` and keeps in sync through `routine.changed`.
+ * Parts of different versions read each other (packages/protocol/AGENTS.md): no object here is strict, a key a reader does not
+ * know is dropped, so a field added later never makes a routine unreadable.
  */
 
 /** The days a routine fires on, Monday first, as the CLI's `--days` and the screens name them. */
@@ -47,25 +49,25 @@ const ZoneSchema = z.string().min(1).max(64);
 
 /** Every week (the default) or every two weeks: then only in the weeks whose ISO week is `anchor`'s plus an even number
  *  (spec §3.1.1: the anchor is any day of a week that counts as « on », e.g. a Sprint Review Friday). */
-export const RoutineEverySchema = z.object({ weeks: z.union([z.literal(1), z.literal(2)]), anchor: RoutineDateSchema }).strict();
+export const RoutineEverySchema = z.object({ weeks: z.union([z.literal(1), z.literal(2)]), anchor: RoutineDateSchema });
 /** Fires at each time on each listed day, every week or every two weeks. */
 export const RecurringScheduleSchema = z.object({
   kind: z.literal('recurring'),
   times: z.array(RoutineTimeSchema).min(1).max(ROUTINE_TIMES_MAX).refine(unique, 'a time twice'),
   days: z.array(WeekdaySchema).min(1).max(7).refine(unique, 'a day twice'),
   every: RoutineEverySchema.optional(), tz: ZoneSchema.optional()
-}).strict();
+});
 /** Fires once at each of these local moments; the routine is `done` after its last one has left (spec §3.1.1). */
 export const OnceScheduleSchema = z.object({
   kind: z.literal('once'), at: z.array(RoutineDateTimeSchema).min(1).max(ROUTINE_ONCE_MAX).refine(unique, 'a moment twice'), tz: ZoneSchema.optional()
-}).strict();
+});
 export const RoutineScheduleSchema = z.discriminatedUnion('kind', [RecurringScheduleSchema, OnceScheduleSchema]);
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 
 /** The standing session a routine wakes, known by its Ledge name and its folder; `tool` and `model` start it when it is gone. */
 export const RoutineTargetSchema = z.object({
   name: z.string().trim().min(1).max(NAME_MAX), cwd: z.string().min(1).max(4096), tool: ToolSchema, model: ModelIdSchema.optional()
-}).strict();
+});
 export type RoutineTarget = z.infer<typeof RoutineTargetSchema>;
 
 /** `once` fires the latest missed slot once, on wake or restart; `skip` drops missed slots. */
@@ -83,19 +85,21 @@ export type RoutineOutcome = z.infer<typeof RoutineOutcomeSchema>;
  *  the routine's name, its session (name, folder, tool, model), its schedule (as a whole, its zone, a one-shot's moments), its prompt. */
 export const RoutineFieldSchema = z.enum(['name', 'session', 'cwd', 'tool', 'model', 'schedule', 'tz', 'at', 'prompt']);
 export type RoutineField = z.infer<typeof RoutineFieldSchema>;
+/** `field` as a reader takes it: a value it does not know yet (a newer daemon's) is none, never a refused message. */
+const FieldReadSchema = RoutineFieldSchema.optional().catch(undefined);
 
 /** A firing: when it left (`at`), for which slot (« HH:MM », and `slotAt`, the slot's instant: its day), how it went; `late`
  *  for a slot fired on wake (§3.2). A firing asked for (« Lancer maintenant ») has its own time as its slot. */
 export const RoutineRunSchema = z.object({
   at: z.string().datetime(), slot: RoutineTimeSchema, slotAt: z.string().datetime().optional(), outcome: RoutineOutcomeSchema,
-  reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: RoutineFieldSchema.optional(), late: z.literal(true).optional()
-}).strict();
+  reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: FieldReadSchema, late: z.literal(true).optional()
+});
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 
 /** Who made a routine: the owner (a terminal outside Ledge's sessions, or a screen), or a session (`pending` until « Activer »). */
 export const RoutineCreatorSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('user') }).strict(),
-  z.object({ kind: z.literal('session'), id: z.string().min(1).max(100), name: z.string().max(NAME_MAX) }).strict()
+  z.object({ kind: z.literal('user') }),
+  z.object({ kind: z.literal('session'), id: z.string().min(1).max(100), name: z.string().max(NAME_MAX) })
 ]);
 export type RoutineCreator = z.infer<typeof RoutineCreatorSchema>;
 
@@ -104,14 +108,14 @@ export type RoutineCreator = z.infer<typeof RoutineCreatorSchema>;
 export const RoutineSpecSchema = z.object({
   name: RoutineNameSchema, target: RoutineTargetSchema, schedule: RoutineScheduleSchema,
   prompt: z.string().trim().min(1).max(ROUTINE_PROMPT_MAX), catchUp: RoutineCatchUpSchema.optional(), expiresAfterRun: z.literal(true).optional()
-}).strict();
+});
 export type RoutineSpec = z.infer<typeof RoutineSpecSchema>;
 
 /** A session's change to a routine it may not apply alone (its schedule, target or prompt): the routine keeps firing as it is
  *  until the owner's « Activer » applies it (corrected, if the owner corrected it) or « Refuser » drops it (spec §3.4). */
 export const RoutineProposalSchema = z.object({
-  spec: RoutineSpecSchema, by: z.object({ id: z.string().min(1).max(100), name: z.string().max(NAME_MAX) }).strict(), at: z.string().datetime()
-}).strict();
+  spec: RoutineSpecSchema, by: z.object({ id: z.string().min(1).max(100), name: z.string().max(NAME_MAX) }), at: z.string().datetime()
+});
 export type RoutineProposal = z.infer<typeof RoutineProposalSchema>;
 
 /** A routine as the daemon keeps it. `runs` holds the last firings, newest first (`lastRun` is the first); `nextRun` and
@@ -121,7 +125,7 @@ export const RoutineSchema = RoutineSpecSchema.extend({
   createdAt: z.string().datetime(), proposal: RoutineProposalSchema.optional(),
   runs: z.array(RoutineRunSchema).max(ROUTINE_RUNS_MAX).optional(), lastRun: RoutineRunSchema.optional(),
   nextRun: z.string().datetime().optional(), nextRuns: z.array(z.string().datetime()).max(ROUTINE_NEXT_MAX).optional()
-}).strict();
+});
 export type Routine = z.infer<typeof RoutineSchema>;
 
 /** What `routine.cmd` asks. `approve` and `refuse` answer a `pending` routine or a routine's `proposal` (« Activer » / « Refuser »):
@@ -156,7 +160,7 @@ export type RoutineCmd = z.infer<typeof RoutineCmdSchema>;
 /** The answer to a `routine.cmd`: the routine as it now is, `removed` (its id) after `rm` or `refuse`, or why it was refused. */
 export const RoutineResultSchema = z.object({
   type: z.literal('routine.result'), rid: z.string(), routine: RoutineSchema.optional(), removed: RoutineIdSchema.optional(),
-  reason: z.string().max(ROUTINE_REASON_MAX).optional(), code: RoutineRefusalSchema.optional(), field: RoutineFieldSchema.optional()
+  reason: z.string().max(ROUTINE_REASON_MAX).optional(), code: RoutineRefusalSchema.optional(), field: FieldReadSchema
 });
 /** Every change of every routine, to every local front: the routine as it now is, or `removed` (its id). Exactly one of the two. */
 export const RoutineChangedSchema = z.object({ type: z.literal('routine.changed'), routine: RoutineSchema.optional(), removed: RoutineIdSchema.optional() });
@@ -164,7 +168,7 @@ export const RoutineChangedSchema = z.object({ type: z.literal('routine.changed'
 /** The next 3 firings of a schedule not saved yet (the form's preview, so the two-week parity is the daemon's alone): ISO
  *  instants, none for a schedule that never fires again, or why it is not valid (an unknown zone). */
 export const RoutinePreviewSchema = z.object({ type: z.literal('routine.preview'), rid: z.string().min(1).max(100), schedule: RoutineScheduleSchema });
-export const RoutinePreviewedSchema = z.object({ type: z.literal('routine.previewed'), rid: z.string(), nextRuns: z.array(z.string().datetime()).max(ROUTINE_NEXT_MAX), reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: RoutineFieldSchema.optional() });
+export const RoutinePreviewedSchema = z.object({ type: z.literal('routine.previewed'), rid: z.string(), nextRuns: z.array(z.string().datetime()).max(ROUTINE_NEXT_MAX), reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: FieldReadSchema });
 
 /** The two « À toi » items a routine makes, as a task given to Ledge carries them: `approve` asks to activate a session's
  *  routine, or to apply its `proposal` (« Activer » / « Refuser »), `failed` says a firing could not leave (« Relancer » / « Voir »).
@@ -173,7 +177,7 @@ export const RoutinePreviewedSchema = z.object({ type: z.literal('routine.previe
 export const TaskRoutineSchema = z.object({
   kind: z.enum(['approve', 'failed']), id: RoutineIdSchema, name: RoutineNameSchema,
   reason: z.string().max(ROUTINE_REASON_MAX).optional(), ids: z.array(RoutineIdSchema).min(2).max(ROUTINES_ACTIVE_MAX).optional()
-}).strict();
+});
 export type TaskRoutine = z.infer<typeof TaskRoutineSchema>;
 
 /** What the phone may do to a routine: read the list, fire one now, pause or resume it, answer a pending one. `approve`
