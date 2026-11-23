@@ -373,7 +373,9 @@ export const en: Messages = {
     ask: (s: string, r: string, when: string, dir: string) => `${s} wants to schedule “${r}”: ${when}, in ${dir}`,
     groupAsk: (s: string, n: number, days: string) => `${s} wants to schedule ${n} one-shot routines: ${days}`,
     itemKeys: { activate: 'activate', refuse: 'refuse', retry: 'run again', activateAll: (n: number) => `activate all ${n}`, refuseAll: (n: number) => `refuse all ${n}` },
-    failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`
+    failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
+    failedNamed: (r: string, why: string) => `The routine ${r} could not run: ${why}`,
+    change: (s: string, r: string, when: string) => `${s} wants to change “${r}”: ${when}`, waits: (r: string) => `“${r}” awaits your approval`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui opens in the Ledge tab.', loadingProfile: 'Windows Terminal is loading the Ledge profile…' }
 };

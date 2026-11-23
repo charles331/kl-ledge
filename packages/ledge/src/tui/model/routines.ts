@@ -154,14 +154,18 @@ export function routineItems(tasks: readonly Task[], routines: readonly FleetRou
     if (!rt) return [];
     const r = local.find(x => x.id === rt.id);
     const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: LOCAL_MACHINE.id };
-    if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, rt.reason ?? t.routines.out.failed) : task.title }];
+    // Never the daemon's own title: it is written in French only. A routine not read yet is said by its name.
+    const why = rt.reason ?? t.routines.out.failed;
+    if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, why) : t.routines.failedNamed(rt.name, why) }];
     const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : undefined);
-    const spec = r?.proposal?.spec ?? r;
-    let text = task.title;
+    let text = t.routines.waits(rt.name);
     if (who && rt.ids) {
       const all = rt.ids.map(id => local.find(x => x.id === id));
       if (all.every(x => x?.schedule.kind === 'once')) text = t.routines.groupAsk(who, rt.ids.length, onceDaysText(all.flatMap(x => (x!.schedule.kind === 'once' ? x!.schedule.at : [])), lang));
-    } else if (who && spec) text = t.routines.ask(who, spec.name, whenText(spec, 'ask', lang, t), tilde(spec.target.cwd));
+    } else if (who && r?.proposal) {
+      // A session's change to its routine (owner's decision, mockup card 29): « veut modifier », with the settings it asks for.
+      text = t.routines.change(who, r.proposal.spec.name, whenText(r.proposal.spec, 'ask', lang, t));
+    } else if (who && r) text = t.routines.ask(who, r.name, whenText(r, 'ask', lang, t), tilde(r.target.cwd));
     return [{ ...base, mark: 'ask', text }];
   });
 }
