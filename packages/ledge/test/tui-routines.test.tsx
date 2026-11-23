@@ -153,6 +153,13 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     const pending = CARD25.map(r => (r.id === 'rb11111' ? { ...r, state: 'pending' as const, createdBy: { kind: 'session' as const, id: 'iris1', name: 'Iris' } } : r));
     expect(routineItems([two], pending, 'en', en)[0]!.text).toBe('Iris wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
   });
+
+  it('routes local decisions to the local machine when remote routine IDs collide', () => {
+    const task: Task = { giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: local(23, 2, 10), updatedAt: local(23, 2, 10), log: [], id: 't1', title: 'local', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } };
+    const localRoutine = CARD18[4]!;
+    const remoteRoutine = { ...localRoutine, machineId: 'laptop', name: 'autre' };
+    expect(routineItems([task], [remoteRoutine, localRoutine], 'fr', fr)[0]!.machineId).toBe('local');
+  });
 });
 
 const sent = <T extends ClientMessage['type']>(received: ClientMessage[], type: T) => received.filter((m): m is Extract<ClientMessage, { type: T }> => m.type === type);
