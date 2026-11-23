@@ -24,6 +24,7 @@ import { ThreadItemSchema } from './thread.js';
 import { DecidedBySchema, DecisionSchema, NOTE_MAX } from './decisions.js';
 import { DeviceNameSchema, MobileRecoveryEventSchema, MobileStateSchema, RelayUrlSchema } from './mobile.js';
 import { TaskCmdSchema, TaskResultSchema, TaskUpdatedSchema } from './tasks.js';
+import { RoutineChangedSchema, RoutineCmdSchema, RoutineListedSchema, RoutineListSchema, RoutineResultSchema } from './routines.js';
 import { ReportAgentResultSchema, ReportAgentSchema, ReportCreatedSchema, ReportCreateSchema, ReportIgnoredSchema, ReportIgnoreSchema, ReportPreviewReplySchema, ReportPreviewSchema } from './report.js';
 import { BrainAddSchema, BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainResultSchema } from './brain.js';
 import { UsageAckSchema, UsageSetSchema, UsageStateMessageSchema } from './usage.js';
@@ -242,6 +243,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   HandoverResultSchema,
   TaskUpdatedSchema,
   BrainResultSchema,
+  /** Routines (spec 2026-11-23): the list, a command's answer, and every change to every front. */
+  RoutineListedSchema, RoutineResultSchema, RoutineChangedSchema,
   /** The operator's notices, broadcast on change and in the snapshot. */
   z.object({ type: z.literal('operator.state'), notices: z.array(OperatorNoticeSchema).max(50) }),
   z.object({ type: z.literal('error'), message: z.string(), id: z.string().optional(), /** Le type du message client refusé. */ request: z.string().optional(),
@@ -429,7 +432,9 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   ForgeActSchema,
   HandoverBriefSchema,
   HandoverShowSchema,
-  BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainAddSchema
+  BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainAddSchema,
+  /** Routines (spec 2026-11-23): `ledge routine …` and the Routines screens. */
+  RoutineListSchema, RoutineCmdSchema
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 /** The commands of the mobile access service. */

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ReportRequestSchema } from './report.js';
+import { TaskRoutineSchema } from './routines.js';
 
 /** A task's title and detail at most (the detail as a message's text, `MESSAGE_MAX`). */
 export const TASK_TITLE_MAX = 200;
@@ -72,7 +73,9 @@ export const TaskSchema = z.object({
   /** A decision about the user's notes: its answer writes them (brain spec §3.6). */
   brain: BrainProposalSchema.optional(),
   /** An agent's report (issue #9): « Créer l'issue » (report.create with this task), « Modifier avant », « Ignorer » (report.ignore). */
-  report: ReportRequestSchema.optional()
+  report: ReportRequestSchema.optional(),
+  /** A routine's « À toi » item (routines spec §3.2, §3.4): its buttons send `routine.cmd`, never `task.cmd`. */
+  routine: TaskRoutineSchema.optional()
 });
 export type Task = z.infer<typeof TaskSchema>;
 
