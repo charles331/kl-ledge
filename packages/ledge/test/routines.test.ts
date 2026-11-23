@@ -151,6 +151,18 @@ describe('firing', () => {
     typedDone();
     expect(only().lastRun).toMatchObject({ outcome: 'delivered', session: 'iris' });
   });
+  it('sends each routine with its key, as an approve sends it back, and keeps none', async () => {
+    store.upsert(mk('iris', 'Iris'));
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    expect(r.key).toBe(routineKey(r));
+    expect(only().key).toBe(routineKey(only()));
+    await journal.flush(); routines.close(); await flush();
+    expect(loadRoutines(join(dir, 'routines.json'))[0]).not.toHaveProperty('key');
+    routines = createRoutines(deps());
+    const approved = await cmd(user, 'approve', { routine: r.id, expect: r.key });
+    expect(approved.reason ?? '').toBe('');
+    expect(approved.routine).toMatchObject({ state: 'enabled' });
+  });
   it('reaches the relief of a relieved session', async () => {
     store.upsert(mk('iris', 'Iris', { state: 'exited', handover: { state: 'done', to: 'nova', at: T0 } as Session['handover'] }));
     store.upsert(mk('nova', 'Nova'));
@@ -196,7 +208,7 @@ describe('firing', () => {
     expect(typed).toHaveLength(2);
     clock = at('2026-11-20T07:36:00.000Z'); routines.tick();
     expect(withdrawn).toEqual([typed[0]!.rid, typed[1]!.rid]);
-    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'pas remise dans les 30 minutes' });
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'pas remise dans les 30 minutes', cause: 'timeout' });
   });
 });
 
@@ -408,7 +420,7 @@ describe('commands', () => {
     // The daemon stops while the folder is checked.
     routines.close(); await journal.flush(); void release;
     routines = createRoutines(deps());
-    expect(only()).toMatchObject({ state: 'enabled', lastRun: { outcome: 'failed', reason: 'interrompue par un redémarrage de Ledge', slot: '16:00' } });
+    expect(only()).toMatchObject({ state: 'enabled', lastRun: { outcome: 'failed', reason: 'interrompue par un redémarrage de Ledge', slot: '16:00', cause: 'restart' } });
     expect(decisions().map(t => t.routine?.kind)).toEqual(['failed']);
   });
   it('keeps only the last 5 firings, newest first', async () => {

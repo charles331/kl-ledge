@@ -92,13 +92,20 @@ export type RoutineField = z.infer<typeof RoutineFieldSchema>;
 /** `field` as a reader takes it: a value it does not know yet (a newer daemon's) is none, never a refused message. */
 const FieldReadSchema = RoutineFieldSchema.optional().catch(undefined);
 
+/** Why a firing failed, when no `field` says it (a front words it in its language; `reason` is the daemon's French): not typed in
+ *  time (`timeout`), cut by a restart of Ledge (`restart`), the session not resumed (`resume_failed`) or not launched
+ *  (`launch_failed`), or gone before the line was typed (`gone`). */
+export const RoutineCauseSchema = z.enum(['timeout', 'restart', 'resume_failed', 'launch_failed', 'gone']);
+export type RoutineCause = z.infer<typeof RoutineCauseSchema>;
+
 /** A firing: when it left (`at`), for which slot (« HH:MM », and `slotAt`, the slot's instant: its day), how it went; `late`
  *  for a slot fired on wake (§3.2). A firing asked for (« Lancer maintenant ») has its own time as its slot. */
 export const RoutineRunSchema = z.object({
   at: z.string().datetime(), slot: RoutineTimeSchema, slotAt: z.string().datetime().optional(), outcome: RoutineOutcomeSchema,
   /** The id of the session the firing reached: typed into (`delivered`), resumed, or launched; none for a failure. */
   session: z.string().min(1).max(100).optional(),
-  reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: FieldReadSchema, late: z.literal(true).optional()
+  reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: FieldReadSchema, cause: RoutineCauseSchema.optional().catch(undefined),
+  late: z.literal(true).optional()
 });
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 
@@ -130,7 +137,10 @@ export const RoutineSchema = RoutineSpecSchema.extend({
   id: RoutineIdSchema, catchUp: RoutineCatchUpSchema, state: RoutineStateSchema, createdBy: RoutineCreatorSchema,
   createdAt: z.string().datetime(), proposal: RoutineProposalSchema.optional(),
   runs: z.array(RoutineRunSchema).max(ROUTINE_RUNS_MAX).optional(), lastRun: RoutineRunSchema.optional(),
-  nextRun: z.string().datetime().optional(), nextRuns: z.array(z.string().datetime()).max(ROUTINE_NEXT_MAX).optional()
+  nextRun: z.string().datetime().optional(), nextRuns: z.array(z.string().datetime()).max(ROUTINE_NEXT_MAX).optional(),
+  /** What an « Activer » applies (the proposal when one waits, else the routine), as the daemon computes it: an approve sends it
+   *  back as `expect`. Sent to the fronts, never kept. */
+  key: RoutineKeySchema.optional()
 });
 export type Routine = z.infer<typeof RoutineSchema>;
 
