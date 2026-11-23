@@ -1119,11 +1119,29 @@ function groupPromptCards(){
     scene: `<div class="col"><div class="cap">A · ${fr?'prompts dépliés (recommandé)':'prompts unfolded (recommended)'}</div>${A1}</div><div class="col"><div class="cap" style="text-decoration:line-through">B · ${fr?'repliés, activation après lecture (non retenue)':'folded, activate after reading (not chosen)'}</div><div style="opacity:.45">${B1}</div></div>`}];
 }
 
+/* Stale approval, confirmed by jde on 2026-11-23 (qitem-20261123064157-6e80bb62475876e1): a session changed the routine after it
+   was shown; the daemon refuses, the screen re-reads it and stays on the request. */
+function staleCards(){
+  const x = t(), fr = L==='fr';
+  const P = fr ? {msg:'« point-hebdo » a changé depuis que tu l’as ouverte : relis-la avant d’activer.', tui:'« point-hebdo » a changé : relisez-la avant d’activer.'}
+               : {msg:'“point-hebdo” changed since you opened it: read it again before activating.', tui:'“point-hebdo” changed: read it again before activating.'};
+  const warn = `<div class="bn ask" style="padding:7px 10px"><span style="font-size:12px">${P.msg}</span></div>`;
+  const stat = `<div class="stat"><span>13:02</span><span>●●● 5G</span></div>`;
+  const tabbar = `<div class="tabbar">${x.tabs.map((n,i)=>`<span class="${i===0?'on':''}"><i></i>${n}${i===0?`<em class="b">1</em>`:''}</span>`).join('')}</div>`;
+  const phone = `<div class="phone" style="height:520px">${stat}<div class="hd"><h3>${x.atoi}</h3></div><div class="cnt"><div class="pcard pending"><div class="top"><span class="pill ask">${x.pAsk}</span><span class="meta">${x.pRoutine} · 02:10</span></div><div style="display:flex;gap:9px;align-items:flex-start">${bot('#e8735a','idle')}<div>${fr?'<b>Iris</b> veut programmer « point-hebdo » : 16:30 (ven), dans ~/assistant':'<b>Iris</b> wants to schedule “point-hebdo”: 16:30 (Fri), in ~/assistant'}</div></div><div class="unfold" style="margin:0;font-size:12px">Point de la semaine du {date} : relis journal/, résume, mets les décisions dans À toi.</div>${warn}<div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button></div></div></div>${tabbar}</div>`;
+  const desk = `<div class="paneframe" style="width:640px"><div class="rp2"><div class="rhd">${I.alarm(18)}<h3>point-hebdo</h3><span class="pill ask">${x.pending}</span></div>${bannerBox('ask', x.pendBanner('Iris','02:10'), `<span style="color:var(--st-ask)">${P.msg}</span>`, `<button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button>`)}</div></div>`;
+  const tui = `<div class="tui" style="width:420px;white-space:normal"><span class="warn">?</span> ${fr?'Iris veut programmer « point-hebdo » : 16:30 (ven)':'Iris wants to schedule “point-hebdo”: 16:30 (Fri)'}<br><span class="warn">${P.tui}</span></div>`;
+  return [{tag:'add', title:'Activation refusée : la routine a changé entre-temps (validé)', wide:true,
+    why:'Une activation porte la version montrée. Si la session a modifié la routine entre-temps, le daemon refuse. L’écran <b>n’active rien</b>, relit aussitôt la routine et <b>reste sur la demande</b> : la nouvelle version (réglages et prompt) remplace l’ancienne, le texte s’affiche en ambre au-dessus des boutons, et Activer redevient possible sur cette version. La raison brute du daemon ne s’affiche jamais. Même règle sur la page du Desktop (dans le bandeau), dans « À toi », l’île, le téléphone et la TUI (vouvoiement). Exemple : Iris a passé point-hebdo de 17:00 à 16:30.',
+    keys:'routines.stale(name) · tui : routines.stale(name)',
+    scene: desk + phone + tui}];
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards(), ...fallbackCards(), ...groupPromptCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards(), ...fallbackCards(), ...groupPromptCards(), ...staleCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
