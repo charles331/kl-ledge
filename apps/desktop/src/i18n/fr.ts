@@ -1658,7 +1658,8 @@ export const fr = {
         newSession: 'Nouvelle session', atelier: 'Ouvrir l’atelier', settings: 'Ouvrir les réglages', prs: 'MR et PR',
         terminal: 'Nouveau terminal', split: 'Diviser le groupe à droite', bottom: 'Afficher ou masquer le panneau du bas',
         launchRig: 'Lancer un rig…', rigView: (rig: string) => `Vue Rig : ${rig}`, orSection: (section: string) => `OpenRig : ${section}`, showMachine: (machine: string) => `Afficher la machine : ${machine}`,
-        saveDisposition: 'Enregistrer la disposition…', disposition: (name: string) => `Disposition : ${name}`
+        saveDisposition: 'Enregistrer la disposition…', disposition: (name: string) => `Disposition : ${name}`,
+        routines: 'Routines : afficher', newRoutine: 'Routines : nouvelle routine'
       }
     },
     /** The explorer's session menu, IDE only (mockup menuHtml() `ctx`): where to open, and the agent's terminal tab. */
@@ -1773,5 +1774,77 @@ export const fr = {
     emptyBody: 'Ledge suit les branches des sessions et des sièges. Une MR ou PR ouverte depuis l’une d’elles apparaît ici.',
     emptyUnread: 'Ledge ne peut lire aucune forge pour l’instant : voir ci-dessus.',
     prKind: { github: 'PR', gitlab: 'MR' } as Record<'github' | 'gitlab', string>
+  },
+  // Routines (spec 2026-11-23-routines-design, docs/mockups/ledge-routines.html: cards 1-14, 19-24), tutoiement as « À toi ».
+  routines: {
+    view: 'Routines', add: 'Nouvelle routine', newTitle: 'Nouvelle routine',
+    sub: 'Ledge réveille une session à heures fixes et lui tape un prompt. Les heures sont celles de ce PC.',
+    tzFoot: (zone: string) => `Heures de ce PC · ${zone}`,
+    groups: { recurring: 'Récurrentes', once: 'Uniques', paused: 'En pause', past: 'Passées' } as Record<'recurring' | 'once' | 'paused' | 'past', string>,
+    groupHead: (label: string, n: number) => `${label} · ${n}`,
+    every2: '1 sem. sur 2', oneShot: 'unique',
+    proposed: (who: string, n: number) => `Proposées ensemble par ${who} · ${n}`, ofN: (i: number, n: number) => `${i} sur ${n}`,
+    pending: 'Attend ton accord', late: 'en retard', lateLong: (_slot: string, at: string) => `partie à ${at} au réveil`,
+    runNow: 'Lancer maintenant', pause: 'Pause', resume: 'Reprendre', retry: 'Relancer', more: 'Plus d’actions', openSession: 'Ouvrir la session', del: 'Supprimer…',
+    emptyTitle: 'Aucune routine', emptySide: 'Une routine réveille une session à heures fixes et lui donne un prompt.',
+    connecting: 'Connexion au daemon local…', offlineShort: 'Daemon local hors ligne : rien ne part.',
+    state: { enabled: 'Active', paused: 'En pause', pending: 'Attend ton accord', done: 'Passée' } as Record<'enabled' | 'paused' | 'pending' | 'done', string>,
+    wakes: 'Réveille', inDir: 'dans',
+    st: { working: 'Au travail', idle: 'Disponible', off: 'Arrêtée · sera reprise' } as Record<'working' | 'idle' | 'off', string>,
+    runs: 'Tirs', nextRuns: 'Prochains', pastRuns: 'Derniers', config: 'Configuration',
+    noneUntil: 'aucun tant qu’elle n’est pas activée', noneWhilePaused: 'aucun tant qu’elle est en pause', never: 'jamais partie',
+    out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' } as Record<'delivered' | 'resumed' | 'launched' | 'failed', string>,
+    today: 'aujourd’hui', tomorrow: 'demain', tomorrowDay: (day: string) => `demain (${day})`, yesterday: 'hier',
+    dirty: 'Modifications non enregistrées', discard: 'Annuler les modifications', save: 'Enregistrer', create: 'Créer la routine', cancel: 'Annuler',
+    closeSave: 'Enregistrer', closeDiscard: 'Ne pas enregistrer',
+    pendBanner: (who: string, at: string) => `${who} demande à programmer cette routine (${at}). Elle ne partira qu’une fois activée.`,
+    pendEditHint: 'Tu peux la corriger avant de l’activer : Activer enregistre tes modifications.',
+    activate: 'Activer', refuse: 'Refuser',
+    editAsk: (who: string) => `${who} veut modifier cette routine`, editOld: 'Jusqu’à ta réponse, la routine garde ses anciennes heures.',
+    failBanner: (slot: string, why: string) => `Le tir de ${slot} n’a pas pu partir : ${why}`, failHint: 'Corrige le champ entouré ci-dessous, puis relance.',
+    delQ: (name: string) => `Supprimer la routine « ${name} » ?`,
+    delWhy: (session: string) => `${session} ne sera plus réveillée par cette routine. La session elle-même reste, avec sa conversation.`, delGo: 'Supprimer',
+    waiting: (s: string) => `attend que ${s} soit libre…`, starting: (s: string) => `${s} redémarre…`,
+    toastRun: (r: string, s: string) => `« ${r} » remise à ${s}.`, toastResumed: (r: string, s: string) => `${s} reprise, « ${r} » remise.`,
+    toastFailed: (r: string, why: string) => `« ${r} » n’a pas pu partir : ${why}`, see: 'Voir',
+    pastPill: 'Passée', ranOn: (d: string, o: string) => `Partie le ${d} · ${o}`, again: 'Programmer à nouveau…', forget: 'Retirer de l’historique',
+    readonly: 'Une routine passée ne se modifie plus : « Programmer à nouveau… » en crée une nouvelle à partir de celle-ci.',
+    groupBanner: (who: string, n: number, at: string) => `${who} propose ${n} routines uniques ensemble (${at}).`,
+    groupBannerHint: 'Tu peux les activer toutes, ou les régler une par une ici.',
+    activateAll: (n: number) => `Activer les ${n}`, refuseAll: (n: number) => `Refuser les ${n}`, activateThis: 'Activer celle-ci', refuseThis: 'Refuser celle-ci', drop: 'Retirer de la proposition',
+    days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' } as Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', string>,
+    letters: ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as readonly string[],
+    monfri: 'lun–ven', daily: 'tous les jours',
+    week: (n: number, from: string, to: string) => `semaine ${n}, du ${from} au ${to}`,
+    clockTip: (r: string, next: string) => `Routine « ${r} » · prochain tir ${next}`, clockTipN: (n: number, next: string) => `${n} routines · prochain tir ${next}`,
+    form: {
+      name: 'Nom', nameHint: 'Unique pour une même session.', session: 'Session', existing: 'Une session existante', existingHint: 'Retrouvée par son nom et son dossier, même après une relève.',
+      new: 'Une nouvelle session', newHint: 'Lancée dans son dossier au premier tir, puis reprise à chaque tir.', pickSession: 'Choisir une session…',
+      sName: 'Nom de la session', dir: 'Dossier', browse: 'Parcourir…', tool: 'Outil', model: 'Modèle', modelDefault: 'par défaut de l’outil',
+      kind: 'Type', recurring: 'Récurrente', once: 'Unique',
+      times: 'Heures', addTime: 'Ajouter une heure', days: 'Jours', presetWeek: 'Lun–ven', presetDaily: 'Tous les jours',
+      frequency: 'Fréquence', weekly: 'Chaque semaine', biweekly: 'Toutes les deux semaines',
+      anchor: 'Semaine de référence', anchorHint: (week: string) => `La semaine de cette date compte : ${week}. Puis une semaine sur deux.`,
+      dates: 'Dates', addDate: 'Ajouter une date', onceHint: 'Une fois tous ses moments passés, la routine quitte la liste et rejoint « Passées ».',
+      preview3: 'Les 3 prochains passages', previewHint: 'Calculés par Ledge à partir de ce que tu as saisi, avant d’enregistrer.',
+      previewShift: 'Décalé d’une semaine par rapport à ce qui est enregistré (Tirs ci-dessus).',
+      catch: 'Créneau manqué', catchOnce: 'Au réveil, une fois', catchOnceHint: 'PC éteint ou en veille : au retour, la routine part une fois, pour le dernier créneau manqué.',
+      catchSkip: 'L’ignorer', catchSkipHint: 'Les créneaux manqués sont perdus ; la routine attend le suivant.',
+      prompt: 'Prompt', promptPh: 'Ce que Ledge tapera dans la session à chaque tir…', vars: 'Insérer :', vSlot: 'heure du créneau', vDate: 'date du jour', vLast: 'heure du tir précédent',
+      previewAt: (h: string) => `Aperçu, tir de ${h} :`
+    },
+    err: {
+      name: (session: string, name: string) => `${session} a déjà une routine « ${name} ».`, times: 'Au moins une heure.', days: 'Au moins un jour.',
+      dir: 'Ce dossier n’existe pas sur ce PC.', dirExisting: 'Le dossier de cette session n’existe plus sur ce PC.', dup: (h: string) => `${h} est déjà dans la liste.`,
+      past: 'Ce moment est déjà passé.'
+    },
+    atoi: {
+      block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
+      ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
+      failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
+      failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
+      groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,
+      seePrompt: 'Voir le prompt', hidePrompt: 'Masquer le prompt'
+    }
   }
 };

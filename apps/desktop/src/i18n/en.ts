@@ -1573,7 +1573,8 @@ export const en: Messages = {
         newSession: 'New session', atelier: 'Open the atelier', settings: 'Open settings', prs: 'MRs and PRs',
         terminal: 'New terminal', split: 'Split the group to the right', bottom: 'Show or hide the bottom panel',
         launchRig: 'Launch a rig…', rigView: (rig: string) => `Rig view: ${rig}`, orSection: (section: string) => `OpenRig: ${section}`, showMachine: (machine: string) => `Show machine: ${machine}`,
-        saveDisposition: 'Save the layout…', disposition: (name: string) => `Layout: ${name}`
+        saveDisposition: 'Save the layout…', disposition: (name: string) => `Layout: ${name}`,
+        routines: 'Routines: show', newRoutine: 'Routines: new routine'
       }
     },
     menu: {
@@ -1679,5 +1680,76 @@ export const en: Messages = {
     emptyBody: 'Ledge follows the branches of sessions and seats. An MR or PR opened from one of them shows up here.',
     emptyUnread: 'Ledge can’t read any forge for now: see above.',
     prKind: { github: 'PR', gitlab: 'MR' }
+  },
+  routines: {
+    view: 'Routines', add: 'New routine', newTitle: 'New routine',
+    sub: 'Ledge wakes a session at set times and types a prompt into it. Times are this PC’s.',
+    tzFoot: (zone: string) => `This PC’s times · ${zone}`,
+    groups: { recurring: 'Recurring', once: 'Once', paused: 'Paused', past: 'Past' },
+    groupHead: (label: string, n: number) => `${label} · ${n}`,
+    every2: 'every 2 wks', oneShot: 'once',
+    proposed: (who: string, n: number) => `Proposed together by ${who} · ${n}`, ofN: (i: number, n: number) => `${i} of ${n}`,
+    pending: 'Awaits your approval', late: 'late', lateLong: (_slot: string, at: string) => `sent at ${at} on wake`,
+    runNow: 'Run now', pause: 'Pause', resume: 'Resume', retry: 'Run again', more: 'More actions', openSession: 'Open the session', del: 'Delete…',
+    emptyTitle: 'No routine', emptySide: 'A routine wakes a session at set times and gives it a prompt.',
+    connecting: 'Connecting to the local daemon…', offlineShort: 'Local daemon offline: nothing runs.',
+    state: { enabled: 'Active', paused: 'Paused', pending: 'Awaits your approval', done: 'Past' },
+    wakes: 'Wakes', inDir: 'in',
+    st: { working: 'Working', idle: 'Available', off: 'Stopped · will be resumed' },
+    runs: 'Runs', nextRuns: 'Next', pastRuns: 'Recent', config: 'Settings',
+    noneUntil: 'none until it’s activated', noneWhilePaused: 'none while paused', never: 'never run',
+    out: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },
+    today: 'today', tomorrow: 'tomorrow', tomorrowDay: (day: string) => `tomorrow (${day})`, yesterday: 'yesterday',
+    dirty: 'Unsaved changes', discard: 'Discard changes', save: 'Save', create: 'Create the routine', cancel: 'Cancel',
+    closeSave: 'Save', closeDiscard: 'Don’t save',
+    pendBanner: (who: string, at: string) => `${who} asks to schedule this routine (${at}). It won’t run until it’s activated.`,
+    pendEditHint: 'You can correct it before activating: Activate saves your changes.',
+    activate: 'Activate', refuse: 'Refuse',
+    editAsk: (who: string) => `${who} wants to change this routine`, editOld: 'Until you answer, the routine keeps its former times.',
+    failBanner: (slot: string, why: string) => `The ${slot} run could not start: ${why}`, failHint: 'Fix the outlined field below, then run it again.',
+    delQ: (name: string) => `Delete the routine “${name}”?`,
+    delWhy: (session: string) => `${session} will no longer be woken by this routine. The session itself stays, with its conversation.`, delGo: 'Delete',
+    waiting: (s: string) => `waiting for ${s} to be free…`, starting: (s: string) => `${s} is restarting…`,
+    toastRun: (r: string, s: string) => `“${r}” delivered to ${s}.`, toastResumed: (r: string, s: string) => `${s} resumed, “${r}” delivered.`,
+    toastFailed: (r: string, why: string) => `“${r}” could not run: ${why}`, see: 'View',
+    pastPill: 'Past', ranOn: (d: string, o: string) => `Ran on ${d} · ${o}`, again: 'Schedule again…', forget: 'Remove from history',
+    readonly: 'A past routine can no longer be edited: “Schedule again…” creates a new one from it.',
+    groupBanner: (who: string, n: number, at: string) => `${who} proposes ${n} one-shot routines together (${at}).`,
+    groupBannerHint: 'You can activate them all, or settle them one by one here.',
+    activateAll: (n: number) => `Activate all ${n}`, refuseAll: (n: number) => `Refuse all ${n}`, activateThis: 'Activate this one', refuseThis: 'Refuse this one', drop: 'Remove from the proposal',
+    days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
+    letters: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    monfri: 'Mon–Fri', daily: 'every day',
+    week: (n: number, from: string, to: string) => `week ${n}, ${from}–${to}`,
+    clockTip: (r: string, next: string) => `Routine “${r}” · next run ${next}`, clockTipN: (n: number, next: string) => `${n} routines · next run ${next}`,
+    form: {
+      name: 'Name', nameHint: 'Unique for a given session.', session: 'Session', existing: 'An existing session', existingHint: 'Found by its name and folder, even after a handover.',
+      new: 'A new session', newHint: 'Launched in its folder on the first run, then resumed on each run.', pickSession: 'Pick a session…',
+      sName: 'Session name', dir: 'Folder', browse: 'Browse…', tool: 'Tool', model: 'Model', modelDefault: 'the tool’s default',
+      kind: 'Kind', recurring: 'Recurring', once: 'Once',
+      times: 'Times', addTime: 'Add a time', days: 'Days', presetWeek: 'Mon–Fri', presetDaily: 'Every day',
+      frequency: 'Frequency', weekly: 'Every week', biweekly: 'Every two weeks',
+      anchor: 'Reference week', anchorHint: (week: string) => `This date’s week counts: ${week}. Then every other week.`,
+      dates: 'Dates', addDate: 'Add a date', onceHint: 'Once all its moments have passed, the routine leaves the list and joins “Past”.',
+      preview3: 'The next 3 runs', previewHint: 'Computed by Ledge from what you entered, before saving.',
+      previewShift: 'One week off from what is saved (Runs above).',
+      catch: 'Missed slot', catchOnce: 'On wake, once', catchOnceHint: 'PC off or asleep: when it’s back, the routine runs once, for the latest missed slot.',
+      catchSkip: 'Skip it', catchSkipHint: 'Missed slots are dropped; the routine waits for the next one.',
+      prompt: 'Prompt', promptPh: 'What Ledge will type into the session at each run…', vars: 'Insert:', vSlot: 'slot time', vDate: 'today’s date', vLast: 'previous run time',
+      previewAt: (h: string) => `Preview, ${h} run:`
+    },
+    err: {
+      name: (session: string, name: string) => `${session} already has a routine “${name}”.`, times: 'At least one time.', days: 'At least one day.',
+      dir: 'This folder doesn’t exist on this PC.', dirExisting: 'This session’s folder no longer exists on this PC.', dup: (h: string) => `${h} is already in the list.`,
+      past: 'This moment has already passed.'
+    },
+    atoi: {
+      block: 'Routines', blockSub: 'to activate, or that could not run', kind: 'routine',
+      ask: (r: string, times: string, days: string, dir: string) => `wants to schedule “${r}”: ${times} (${days}), in ${dir}`,
+      failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
+      failedShort: (r: string, why: string) => `${r} could not run: ${why}`,
+      groupAsk: (n: number) => `wants to schedule ${n} one-shot routines`, groupShort: (n: number, dates: string) => `wants to schedule ${n} one-shot routines: ${dates}`,
+      seePrompt: 'See the prompt', hidePrompt: 'Hide the prompt'
+    }
   }
 };
