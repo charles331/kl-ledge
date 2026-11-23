@@ -408,7 +408,7 @@ const T = {
     decisions:'Décisions', requests:'Demandes', finished:'Terminé depuis ton passage', allow:'Autoriser', deny:'Refuser', allowCommand:'Autoriser une commande',
     // point
     pointBy:'de lui-même', groups:{atoi:'À toi', ongoing:'En cours', done:'Terminé'},
-    ptLine:(r,s)=>`${r} de ${s}`, ptSub:'routine', ptSince:m=>`routine · depuis ${m} min`, ptLate:(r,s,h)=>`${r} de ${s}, lancé à ${h} au réveil`, ptSee:'Voir', ptLead:'Iris travaille sur le briefing de 13:30. Celui de 08:00 est parti en retard, au réveil du PC.',
+    ptLine:(r,slot)=>`${r} de ${slot}`, ptSub:'routine', ptSince:m=>`routine · depuis ${m} min`, ptLate:(r,slot,h)=>`${r} de ${slot}, lancé à ${h} au réveil`, ptSee:'Voir', ptLead:'Iris travaille sur le briefing de 13:30. Celui de 08:00 est parti en retard, au réveil du PC.',
     ptFail:r=>`: la routine ${r} n’a pas pu partir`,
     // phone
     pSessions:'Sessions', pEntry:'Routines', pEntrySub:(n,h)=>`${n} routines · prochain tir ${h}`, pBack:'Retour aux sessions', pReadonly:'Créer ou modifier une routine : sur le PC, ou en le demandant à Ledge.',
@@ -466,7 +466,7 @@ const T = {
     failLine:(r,s,why)=>`The routine ${r} (${s}) could not run: ${why}`,
     decisions:'Decisions', requests:'Requests', finished:'Finished since your last visit', allow:'Allow', deny:'Deny', allowCommand:'Allow a command',
     pointBy:'on its own', groups:{atoi:'For you', ongoing:'In progress', done:'Done'},
-    ptLine:(r,s)=>`${s}’s ${r}`, ptSub:'routine', ptSince:m=>`routine · for ${m} min`, ptLate:(r,s,h)=>`${s}’s ${r}, sent at ${h} on wake`, ptSee:'View', ptLead:'Iris is working on the 13:30 briefing. The 08:00 one left late, when the PC woke.',
+    ptLine:(r,slot)=>`${slot} ${r}`, ptSub:'routine', ptSince:m=>`routine · for ${m} min`, ptLate:(r,slot,h)=>`${slot} ${r}, sent at ${h} on wake`, ptSee:'View', ptLead:'Iris is working on the 13:30 briefing. The 08:00 one left late, when the PC woke.',
     ptFail:r=>`: routine ${r} could not run`,
     pSessions:'Sessions', pEntry:'Routines', pEntrySub:(n,h)=>`${n} routines · next run ${h}`, pBack:'Back to sessions', pReadonly:'To create or edit a routine: on the PC, or ask Ledge.',
     pNext:h=>`Next run ${h}`, pPendingSee:'See in For you', pAsk:'Request', pFail:'Failure', pRoutine:'Routine',
@@ -731,7 +731,7 @@ function atoiCards(){
 function pointCard(){
   const x = t();
   const pr = (dot, whoTxt, txt, sub, btns='') => `<div class="pr"><span class="dot ${dot}"></span><div><b>${whoTxt}</b> ${txt}${sub?`<small>${sub}</small>`:''}</div>${btns?`<div class="acts">${btns}</div>`:''}</div>`;
-  const brief = L==='fr' ? 'briefing de 13:30' : '13:30 briefing';
+  const brief = x.ptLine('briefing','13:30');
   return {tag:'new', title:'« Le point » : la ligne d’une routine', wide:false,
     why:'Une ligne par tir, dans les groupes existants de PointTurn, avec le point de la tonalité habituelle. <b>En cours</b> (point bleu) tant que la session y travaille : « <b>Iris</b> briefing de 13:30 », sous-ligne « routine · depuis 4 min ». <b>Terminé</b> (point vert) quand elle redevient libre, avec l’heure comme les autres lignes terminées. <b>En retard</b> : « briefing de 08:00, lancé à 08:42 au réveil ». Bouton : <b>Voir</b> (la session). <b>Échec</b> : dans « À toi » du point, avec Relancer. Aucune pastille « À toi » pour un tir normal.',
     keys:'operator/point.ts L.routine(name,slot) · L.routineLate(name,slot,at) · L.routineFailed(name) · sous-ligne « routine » (nouveaux, FR/EN)',
@@ -739,7 +739,7 @@ function pointCard(){
       <p style="margin:0">${x.ptLead}</p>
       <h5>${x.groups.atoi} <span class="mono">1</span></h5>${pr('perm','Nova', x.ptFail('veille'), x.failNoDir, `<button class="btn pri">${x.retry}</button><button class="btn ghost">${x.ptSee}</button>`)}
       <h5>${x.groups.ongoing} <span class="mono">1</span></h5>${pr('work','Iris', brief, x.ptSince(4), `<button class="btn ghost">${x.ptSee}</button>`)}
-      <h5>${x.groups.done} <span class="mono">2</span></h5>${pr('idle','Iris', L==='fr'?'briefing de 08:00, lancé à 08:42 au réveil':'08:00 briefing, sent at 08:42 on wake', `${x.ptSub} · 08:51`)}${pr('idle','Otto', L==='fr'?'revue-prs de 09:00':'09:00 revue-prs', `${x.ptSub} · 09:12`)}
+      <h5>${x.groups.done} <span class="mono">2</span></h5>${pr('idle','Iris', x.ptLate('briefing','08:00','08:42'), `${x.ptSub} · 08:51`)}${pr('idle','Otto', x.ptLine('revue-prs','09:00'), `${x.ptSub} · 09:12`)}
     </div></div>`};
 }
 
@@ -778,7 +778,7 @@ function tuiCard(){
   const L1 = (sel, name, right, sub, cls='') => `<span class="${sel?'sel':''}" style="display:block">${cls?`<span class="${cls}">`:''}<b>${pad(name, 22)}</b>${cls?'</span>':''}${right}</span><span class="dim" style="display:block">  ${sub}</span>`;
   const body = [
     L1(false, 'point-hebdo', `<span class="warn">? ${x.tPending}</span>`, `Iris · 17:00 · ${x.fri}`),
-    L1(false, 'veille', `<span class="bad">! 08:00 ${x.out.failed}</span>`, `Nova · 18:00 · ${x.daily} · ${x.failNoDir}`),
+    L1(false, 'veille', `<span class="bad">! 18:00 ${x.out.failed}</span>`, `Nova · 18:00 · ${x.daily} · ${x.failNoDir}`),
     L1(true,  'briefing', `<span class="ok">●</span> ${fr?'prochain':'next'} 13:30   <span class="ok">✓</span> 08:00 <span class="warn">${x.late}</span>`, `Iris · 08:00 13:30 16:30 · ${x.monfri} · ${x.out.resumed}`),
     L1(false, 'revue-prs', `<span class="ok">●</span> ${fr?'demain':'tomorrow'} 09:00  <span class="ok">✓</span> 09:00`, `Otto · 09:00 · ${x.monfri} · ${x.out.delivered}`),
     L1(false, 'nettoyage-branches', `<span class="dim">‖ ${x.paused}</span>`, `Pim · 19:30 · ${x.fri}`, 'dim'),
