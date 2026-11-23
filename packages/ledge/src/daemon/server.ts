@@ -1890,7 +1890,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }
       // The brain's screens (lot 4): a proposal's buttons, Réglages › Notes and its two writes.
       // Routines: anyone local reads them; a session acts in its own name only, its key checked as for a task.
-      case 'routine.list': return reply({ type: 'routine.listed', rid: msg.rid, routines: routineList.all() });
+      case 'routine.list': return reply({ type: 'routine.listed', rid: msg.rid, routines: routineList.all(), ...(msg.by ? { owned: routineList.ownedBy(msg.by) } : {}) });
       case 'routine.preview': return reply(routineList.preview(msg.rid, msg.schedule));
       case 'routine.cmd': {
         if (msg.by === undefined) return reply(await routineList.run(msg, { kind: 'user' }));
