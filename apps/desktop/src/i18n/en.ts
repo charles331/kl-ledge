@@ -1758,6 +1758,8 @@ export const en: Messages = {
       failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
       failedShort: (r: string, why: string) => `${r} could not run: ${why}`,
       more: (n: number) => ` and ${n} more`,
+      editAsk: (r: string, times: string, days: string) => `wants to change “${r}”: ${times} (${days})`,
+      editAskOnce: (r: string, moments: string) => `wants to change “${r}”: ${moments}`,
       groupAsk: (n: number) => `wants to schedule ${n} one-shot routines`, groupShort: (n: number, dates: string) => `wants to schedule ${n} one-shot routines: ${dates}`,
       seePrompt: 'See the prompt', hidePrompt: 'Hide the prompt'
     }

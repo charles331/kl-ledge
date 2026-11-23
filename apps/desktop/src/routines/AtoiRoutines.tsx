@@ -23,6 +23,13 @@ const reasonOf = (i: AtoiRoutineItem, h: AtoiRoutineHandlers, t: Parameters<type
   return whyText(last?.outcome === 'failed' ? last : { reason: i.task.routine?.reason }, r.target, () => h.dirLabel(r), t);
 };
 
+/** A request's text, built from the routine and its proposal through the catalogue, never from the task's title (the daemon writes
+ *  it in French): a session's change to a routine already active « veut modifier » (card 29), else « veut programmer ». */
+function requestText(x: FleetRoutine, h: AtoiRoutineHandlers, lang: Parameters<typeof askLine>[3], r: Parameters<typeof askLine>[4]): string {
+  const change = !!x.proposal && x.state !== 'pending';
+  return askLine(x.proposal?.spec.schedule ?? x.schedule, x.name, h.dirLabel(x), lang, r, change);
+}
+
 /** The page « À toi »'s block « Routines » (cards 13, 23), after Décisions; hidden when nothing waits. A request: « ? », the
  *  spec's line, « Voir le prompt » unfolding it, Activer / Refuser. Several one-shots asked together: one item, a line per routine
  *  with its « × », Activer les n / Refuser les n. A failure: « ! », its reason, Relancer / Voir. */
@@ -40,7 +47,7 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
   const prompts = (rs: readonly FleetRoutine[]) => [...new Set(rs.map(x => x.prompt))];
   return (
     <div className="fg-blk" data-block="routines">
-      <div className="fg-blk-h"><span className="fg-mut rt-ico" aria-hidden="true"><AlarmIcon size={14} /></span><b>{a.block}</b><span className="fg-sub">{items.length} · {a.blockSub}</span></div>
+      <div className="fg-blk-h"><span className="fg-mut rtn-ico" aria-hidden="true"><AlarmIcon size={14} /></span><b>{a.block}</b><span className="fg-sub">{items.length} · {a.blockSub}</span></div>
       <div className="fg-blk-b">{items.map(i => {
         const id = i.task.id;
         const first = i.routines[0]!;
@@ -55,33 +62,33 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
         if (i.routines.length > 1) {
           const ps = prompts(i.routines);
           return (
-            <div key={id} className="rt-atoi-group" data-routine-item={id}>
+            <div key={id} className="rtn-atoi-group" data-routine-item={id}>
               <div className="atoi-line"><span className="atoi-mk asked" aria-hidden="true">?</span>
-                <span className="grow wrap"><b>{i.task.giverName}</b> {a.groupAsk(i.routines.length)}{i.task.text ? <span className="fg-mut"> · {i.task.text}</span> : null}</span></div>
-              <div className="rt-glist">{i.routines.map(x => {
+                <span className="grow wrap"><b>{i.task.giverName}</b> {a.groupAsk(i.routines.length)}{lang === 'fr' && i.task.text ? <span className="fg-mut"> · {i.task.text}</span> : null}</span></div>
+              <div className="rtn-glist">{i.routines.map(x => {
                 const m = firstMoment(x.schedule);
                 return (
                   <div key={x.id} className="atoi-line">
-                    <span className="rt-mono rt-gwhen">{m ? momentLabel(m, lang) : ''}</span><b className="rt-gname">{x.name}</b><span className="grow" />
-                    <button type="button" className="fg-btn ghost rt-icon" disabled={off} title={r.drop} aria-label={`${r.drop} · ${x.name}`} onClick={() => h.onRefuse([x])}>×</button>
+                    <span className="rtn-mono rtn-gwhen">{m ? momentLabel(m, lang) : ''}</span><b className="rtn-gname">{x.name}</b><span className="grow" />
+                    <button type="button" className="fg-btn ghost rtn-icon" disabled={off} title={r.drop} aria-label={`${r.drop} · ${x.name}`} onClick={() => h.onRefuse([x])}>×</button>
                   </div>
                 );
               })}</div>
-              <div className="atoi-line rt-end">{seeBtn(id)}
+              <div className="atoi-line rtn-end">{seeBtn(id)}
                 <button type="button" className="fg-btn pri" disabled={off} onClick={() => h.onActivate(i.routines)}>{r.activateAll(i.routines.length)}</button>
                 <button type="button" className="fg-btn" disabled={off} onClick={() => h.onRefuse(i.routines)}>{r.refuseAll(i.routines.length)}</button></div>
-              {unfolded.has(id) && ps.map((x, k) => <div key={k} className="rt-unfold">{x}</div>)}
+              {unfolded.has(id) && ps.map((x, k) => <div key={k} className="rtn-unfold">{x}</div>)}
             </div>
           );
         }
         return (
           <div key={id} data-routine-item={id}>
             <div className="atoi-line"><span className="atoi-mk asked" aria-hidden="true">?</span>
-              <span className="grow"><b>{i.task.giverName}</b> {askLine(first.proposal?.spec.schedule ?? first.schedule, first.name, h.dirLabel(first), lang, r)}</span>
+              <span className="grow"><b>{i.task.giverName}</b> {requestText(first, h, lang, r)}</span>
               {seeBtn(id)}
               <button type="button" className="fg-btn pri" disabled={off} onClick={() => h.onActivate([first])}>{r.activate}</button>
               <button type="button" className="fg-btn" disabled={off} onClick={() => h.onRefuse([first])}>{r.refuse}</button></div>
-            {unfolded.has(id) && <div className="rt-unfold">{first.proposal?.spec.prompt ?? first.prompt}</div>}
+            {unfolded.has(id) && <div className="rtn-unfold">{first.proposal?.spec.prompt ?? first.prompt}</div>}
           </div>
         );
       })}</div>
@@ -101,14 +108,14 @@ export function AtoiRoutineCards({ items, ...h }: AtoiRoutineHandlers & { items:
     const failed = i.kind === 'failed';
     const text = failed ? a.failedShort(first.name, reasonOf(i, h, r))
       : i.routines.length > 1 ? a.groupShort(i.routines.length, i.routines.map(x => { const m = firstMoment(x.schedule); return m ? dayMonth(momentDate(m), lang) : ''; }).filter(Boolean).join(', '))
-      : askLine(first.proposal?.spec.schedule ?? first.schedule, first.name, h.dirLabel(first), lang, r);
+      : requestText(first, h, lang, r);
     return (
-      <div key={i.task.id} className="st-card st-task rt-st-card" data-routine-item={i.task.id}>
-        <span className={`st-bot st-task-mark rt-mk ${failed ? 'bad' : 'ask'}`} aria-hidden="true">{failed ? '!' : '?'}</span>
+      <div key={i.task.id} className="st-card st-task rtn-st-card" data-routine-item={i.task.id}>
+        <span className={`st-bot st-task-mark rtn-mk ${failed ? 'bad' : 'ask'}`} aria-hidden="true">{failed ? '!' : '?'}</span>
         <div className="st-card-body">
           <div className="st-l1"><span className="st-req"><strong>{failed ? first.target.name : i.task.giverName}</strong> · {a.kind}</span></div>
-          <span className="rt-st-text" title={text}>{text}</span>
-          <div className="rt-st-acts">
+          <span className="rtn-st-text" title={text}>{text}</span>
+          <div className="rtn-st-acts">
             {failed
               ? <button type="button" className="st-qa pri" disabled={off} onClick={() => h.onRetry(first)}>{r.retry}</button>
               : <>

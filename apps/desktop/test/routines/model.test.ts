@@ -36,6 +36,11 @@ describe('the schedule as Desktop reads it', () => {
     expect(askLine(two, 'bilan-sprint', '~/assistant', 'en', en)).toBe('wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
     expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'fr', fr)).toBe('veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
     expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en)).toBe('wants to schedule “prépa-121”: Thu 3 Dec 16:00, in ~/assistant');
+    // A session's change reads « veut modifier », without the folder (card 29).
+    const week = { kind: 'recurring' as const, times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] as ('mon' | 'tue' | 'wed' | 'thu' | 'fri')[] };
+    expect(askLine(week, 'briefing', '~/assistant', 'fr', fr, true)).toBe('veut modifier « briefing » : 07:30, 13:30, 16:30 (lun–ven)');
+    expect(askLine(week, 'briefing', '~/assistant', 'en', en, true)).toBe('wants to change “briefing”: 07:30, 13:30, 16:30 (Mon–Fri)');
+    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en, true)).toBe('wants to change “prépa-121”: Thu 3 Dec 16:00');
     // Beyond three moments, « … et N autres » (card 28).
     const five = { kind: 'once' as const, at: ['2026-12-31T16:00', '2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00'] };
     expect(askLine(five, 'point-121', '~/assistant', 'fr', fr)).toBe('veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant');

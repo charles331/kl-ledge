@@ -16,5 +16,5 @@ export function AlarmIcon({ size = 16 }: { size?: number }): JSX.Element {
 
 /** A routine's tab (mockup `tabs`): the réveil, an amber « • » while its page has unsaved changes, its name. */
 export function RoutineTabLabel({ title, dirty }: { title: string; dirty: boolean }): JSX.Element {
-  return <span className="rt-tab"><AlarmIcon size={13} />{dirty && <span className="rt-dirty" aria-hidden="true">•</span>}<span className="tab-name">{title}</span></span>;
+  return <span className="rtn-tab"><AlarmIcon size={13} />{dirty && <span className="rtn-dirty" aria-hidden="true">•</span>}<span className="tab-name">{title}</span></span>;
 }

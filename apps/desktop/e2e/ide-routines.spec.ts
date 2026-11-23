@@ -83,37 +83,37 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     await expect(button.locator('.ide-badge')).toHaveText('5');
     await button.click();
     const view = page.getByRole('region', { name: 'Routines' });
-    await expect(view.locator('.rt-grp-h')).toHaveText(fr ? ['Récurrentes · 5', 'Uniques · 3', 'En pause · 1', 'Passées · 1'] : ['Recurring · 5', 'Once · 3', 'Paused · 1', 'Past · 1']);
+    await expect(view.locator('.rtn-grp-h')).toHaveText(fr ? ['Récurrentes · 5', 'Uniques · 3', 'En pause · 1', 'Passées · 1'] : ['Recurring · 5', 'Once · 3', 'Paused · 1', 'Past · 1']);
     // Card 2's order: to activate, failed, then by next run.
-    await expect(view.locator('.rt-grp').first().locator('.rt-row > b')).toHaveText(['point-hebdo', 'veille', 'briefing', 'revue-prs', 'bilan-sprint']);
-    await expect(view.locator('[data-routine="local:r1a2b3c"] .rt-nx')).toHaveText('13:30');
-    await expect(view.locator('[data-routine="local:r5e6f70"] .rt-nx')).toHaveText(fr ? 'demain 09:00' : 'tomorrow 09:00');
+    await expect(view.locator('.rtn-grp').first().locator('.rtn-row > b')).toHaveText(['point-hebdo', 'veille', 'briefing', 'revue-prs', 'bilan-sprint']);
+    await expect(view.locator('[data-routine="local:r1a2b3c"] .rtn-nx')).toHaveText('13:30');
+    await expect(view.locator('[data-routine="local:r5e6f70"] .rtn-nx')).toHaveText(fr ? 'demain 09:00' : 'tomorrow 09:00');
     await expect(view.locator('[data-routine="local:r200001"] small')).toContainText(fr ? 'jeu 16:00 · 1 sem. sur 2' : 'Thu 16:00 · every 2 wks');
-    await expect(view.locator('.rt-prop')).toHaveText(fr ? 'Proposées ensemble par Iris · 3' : 'Proposed together by Iris · 3');
-    await expect(view.locator('.rt-foot')).toHaveText(fr ? 'Heures de ce PC · Europe/Brussels' : 'This PC’s times · Europe/Brussels');
+    await expect(view.locator('.rtn-prop')).toHaveText(fr ? 'Proposées ensemble par Iris · 3' : 'Proposed together by Iris · 3');
+    await expect(view.locator('.rtn-foot')).toHaveText(fr ? 'Heures de ce PC · Europe/Brussels' : 'This PC’s times · Europe/Brussels');
 
     // Card 3: briefing's page.
-    await view.locator('[data-routine="local:r1a2b3c"] .rt-hit').click();
+    await view.locator('[data-routine="local:r1a2b3c"] .rtn-hit').click();
     const tab = page.getByRole('tabpanel', { name: /^briefing/ });
-    await expect(tab.locator('.rt-hd h3')).toHaveText('briefing');
-    await expect(tab.locator('.rt-wakes')).toContainText(fr ? 'Réveille Iris' : 'Wakes Iris');
-    await expect(tab.locator('.rt-runs ul').first().locator('li')).toHaveCount(3);
-    await expect(tab.locator('.rt-runs ul').nth(1).locator('li')).toHaveCount(5);
+    await expect(tab.locator('.rtn-hd h3')).toHaveText('briefing');
+    await expect(tab.locator('.rtn-wakes')).toContainText(fr ? 'Réveille Iris' : 'Wakes Iris');
+    await expect(tab.locator('.rtn-runs ul').first().locator('li')).toHaveCount(3);
+    await expect(tab.locator('.rtn-runs ul').nth(1).locator('li')).toHaveCount(5);
     await expect(view.locator('[data-routine="local:r1a2b3c"]')).toHaveClass(/sel/);
     await expect(page.locator('.ide-explorer')).toBeVisible();
     await shot(page, `vue-${theme}-${lang}`);
     const side = await box(page, '.ide-explorer');
     await shot(page, `sidebar-zoom-${theme}-${lang}`, { x: side.x, y: side.y, width: side.width, height: 520 });
     await page.setViewportSize({ width: 1440, height: 1400 });
-    const p3 = await box(page, '.rt-page');
+    const p3 = await box(page, '.rtn-page');
     await shot(page, `page-zoom-${theme}-${lang}`, { x: p3.x, y: p3.y, width: Math.min(p3.width, 800), height: 1180 });
     await page.setViewportSize({ width: 1440, height: 940 });
 
     // Card 2's hover: the two quick buttons in place of the next run; right click: its menu.
     const revue = view.locator('[data-routine="local:r5e6f70"]');
     await revue.hover();
-    await expect(revue.locator('.rt-qa')).toBeVisible();
-    await expect(revue.locator('.rt-nx')).toBeHidden();
+    await expect(revue.locator('.rtn-qa')).toBeVisible();
+    await expect(revue.locator('.rtn-nx')).toBeHidden();
     const rb = await revue.boundingBox();
     await shot(page, `hover-${theme}-${lang}`, { x: rb!.x - 8, y: rb!.y - 8, width: rb!.width + 16, height: rb!.height + 16 });
     await revue.click({ button: 'right' });
@@ -124,55 +124,55 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     // Card 9: « Lancer maintenant » from the hover waits for the firing, then says how it went.
     await revue.hover();
     await revue.getByRole('button', { name: fr ? 'Lancer maintenant · revue-prs' : 'Run now · revue-prs' }).click();
-    await expect(revue.locator('.rt-x3')).toHaveText(fr ? 'attend que Otto soit libre…' : 'waiting for Otto to be free…');
+    await expect(revue.locator('.rtn-x3')).toHaveText(fr ? 'attend que Otto soit libre…' : 'waiting for Otto to be free…');
     await shot(page, `lancer-${theme}-${lang}`, { x: rb!.x - 8, y: rb!.y - 8, width: rb!.width + 16, height: rb!.height + 30 });
     await expect(page.locator('.toast-region')).toContainText(fr ? '« revue-prs » remise à Otto.' : '“revue-prs” delivered to Otto.', { timeout: 10_000 });
-    await expect(revue.locator('.rt-x3')).toHaveCount(0);
+    await expect(revue.locator('.rtn-x3')).toHaveCount(0);
 
     // Card 4: a time changed brings the bar and the tab's « • »; Ctrl+S saves the patch.
-    await tab.locator('.rt-chip').filter({ hasText: '08:00' }).getByRole('button').click();
-    await expect(tab.locator('.rt-dirtybar')).toContainText(fr ? 'Modifications non enregistrées' : 'Unsaved changes');
-    await expect(page.locator('.dv-tab .rt-dirty')).toBeVisible();
+    await tab.locator('.rtn-chip').filter({ hasText: '08:00' }).getByRole('button').click();
+    await expect(tab.locator('.rtn-dirtybar')).toContainText(fr ? 'Modifications non enregistrées' : 'Unsaved changes');
+    await expect(page.locator('.dv-tab .rtn-dirty')).toBeVisible();
     await shot(page, `dirty-${theme}-${lang}`);
     await tab.locator('textarea').focus();
     await page.keyboard.press('Control+s');
     await expect.poll(() => daemon.received.filter(m => m.type === 'routine.cmd' && m.op === 'update').length).toBe(1);
-    await expect(tab.locator('.rt-dirtybar')).toHaveCount(0);
+    await expect(tab.locator('.rtn-dirtybar')).toHaveCount(0);
 
     // Card 6: a session's request; Activer sends approve.
-    await view.locator('[data-routine="local:r3f9a12"] .rt-hit').click();
+    await view.locator('[data-routine="local:r3f9a12"] .rtn-hit').click();
     const pend = page.getByRole('tabpanel', { name: /^point-hebdo/ });
-    await expect(pend.locator('.rt-bn.ask')).toContainText(fr ? 'Iris demande à programmer cette routine (02:10).' : 'Iris asks to schedule this routine (02:10).');
-    await expect(pend.locator('.rt-hd .fg-btn')).toHaveCount(1);
+    await expect(pend.locator('.rtn-bn.ask')).toContainText(fr ? 'Iris demande à programmer cette routine (02:10).' : 'Iris asks to schedule this routine (02:10).');
+    await expect(pend.locator('.rtn-hd .fg-btn')).toHaveCount(1);
     await shot(page, `demande-${theme}-${lang}`);
-    await pend.locator('.rt-bn').getByRole('button', { name: fr ? 'Activer' : 'Activate' }).click();
+    await pend.locator('.rtn-bn').getByRole('button', { name: fr ? 'Activer' : 'Activate' }).click();
     await expect.poll(() => daemon.received.filter(m => m.type === 'routine.cmd' && m.op === 'approve').length).toBe(1);
 
     // Card 8: veille's failure, the faulty field outlined.
-    await view.locator('[data-routine="local:r81c0d4"] .rt-hit').click();
+    await view.locator('[data-routine="local:r81c0d4"] .rtn-hit').click();
     const fail = page.getByRole('tabpanel', { name: /^veille/ });
-    await expect(fail.locator('.rt-bn.bad')).toContainText(fr ? 'Le tir de 18:00 n’a pas pu partir : dossier introuvable : ~/veille' : 'The 18:00 run could not start: folder not found: ~/veille');
-    await expect(fail.locator('.rt-sel.err')).toBeVisible();
-    await expect(view.locator('[data-routine="local:r81c0d4"] .rt-x3')).toHaveText(fr ? 'dossier introuvable : ~/veille' : 'folder not found: ~/veille');
+    await expect(fail.locator('.rtn-bn.bad')).toContainText(fr ? 'Le tir de 18:00 n’a pas pu partir : dossier introuvable : ~/veille' : 'The 18:00 run could not start: folder not found: ~/veille');
+    await expect(fail.locator('.rtn-sel.err')).toBeVisible();
+    await expect(view.locator('[data-routine="local:r81c0d4"] .rtn-x3')).toHaveText(fr ? 'dossier introuvable : ~/veille' : 'folder not found: ~/veille');
     await shot(page, `echec-${theme}-${lang}`);
 
     // Card 10: delete from the right click, Échap cancels.
     await view.locator('[data-routine="local:r5e6f70"]').click({ button: 'right' });
     await page.getByRole('menuitem', { name: fr ? 'Supprimer…' : 'Delete…' }).click();
     const del = page.getByRole('tabpanel', { name: /^revue-prs/ });
-    await expect(del.locator('.rt-bn.bad')).toContainText(fr ? 'Supprimer la routine « revue-prs » ?' : 'Delete the routine “revue-prs”?');
+    await expect(del.locator('.rtn-bn.bad')).toContainText(fr ? 'Supprimer la routine « revue-prs » ?' : 'Delete the routine “revue-prs”?');
     await shot(page, `supprimer-${theme}-${lang}`);
     await page.keyboard.press('Escape');
-    await expect(del.locator('.rt-bn.bad')).toHaveCount(0);
+    await expect(del.locator('.rtn-bn.bad')).toHaveCount(0);
 
     // Card 24: one of the one-shots proposed together; card 21: the past ones, unfolded.
-    await view.locator('[data-routine="local:r300001"] .rt-hit').click();
+    await view.locator('[data-routine="local:r300001"] .rtn-hit').click();
     const grp = page.getByRole('tabpanel', { name: /^prepa-comite-archi/ });
-    await expect(grp.locator('.rt-bn.ask')).toContainText(fr ? 'Iris propose 3 routines uniques ensemble' : 'Iris proposes 3 one-shot routines together');
-    await expect(grp.locator('.rt-prev3')).toBeVisible();
+    await expect(grp.locator('.rtn-bn.ask')).toContainText(fr ? 'Iris propose 3 routines uniques ensemble' : 'Iris proposes 3 one-shot routines together');
+    await expect(grp.locator('.rtn-prev3')).toBeVisible();
     await shot(page, `groupee-page-${theme}-${lang}`);
     await view.getByRole('button', { name: fr ? 'Passées · 1' : 'Past · 1' }).click();
-    await view.locator('[data-routine="local:r400000"] .rt-hit').click();
+    await view.locator('[data-routine="local:r400000"] .rtn-hit').click();
     const past = page.getByRole('tabpanel', { name: /^prepa-121-nov/ });
     await expect(past.getByRole('button', { name: fr ? 'Programmer à nouveau…' : 'Schedule again…' })).toBeVisible();
     await shot(page, `passee-${theme}-${lang}`);
@@ -182,17 +182,17 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     const nw = page.getByRole('tabpanel', { name: fr ? /^Nouvelle routine/ : /^New routine/ });
     await nw.getByRole('button', { name: fr ? 'Créer la routine' : 'Create the routine' }).click();
     // Card 28: a text under each field in error.
-    await expect(nw.locator('.rt-hint.err')).toHaveText(fr ? ['Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', 'Choisis une session.', 'Au moins une heure.', 'Au moins un jour.', 'Le prompt est vide.']
+    await expect(nw.locator('.rtn-hint.err')).toHaveText(fr ? ['Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', 'Choisis une session.', 'Au moins une heure.', 'Au moins un jour.', 'Le prompt est vide.']
       : ['Invalid name: letters, digits, dot, hyphen and underscore only.', 'Pick a session.', 'At least one time.', 'At least one day.', 'The prompt is empty.']);
     await nw.getByRole('radio', { name: fr ? 'Unique' : 'Once', exact: true }).click();
     await shot(page, `nouvelle-${theme}-${lang}`);
 
     // Card 19: briefing every two weeks, its reference week and the daemon's preview.
-    await view.locator('[data-routine="local:r1a2b3c"] .rt-hit').click();
+    await view.locator('[data-routine="local:r1a2b3c"] .rtn-hit').click();
     await tab.getByLabel(fr ? 'Toutes les deux semaines' : 'Every two weeks').check();
-    await tab.locator('#rt-anchor').fill('2026-11-27');
-    await expect(tab.locator('.rt-fld.anchor .rt-hint')).toContainText(fr ? 'semaine 48, du 23 au 29 novembre' : 'week 48, 23–29 Nov');
-    await expect(tab.locator('.rt-prev3 li')).toHaveCount(3);
+    await tab.locator('#rtn-anchor').fill('2026-11-27');
+    await expect(tab.locator('.rtn-fld.anchor .rtn-hint')).toContainText(fr ? 'semaine 48, du 23 au 29 novembre' : 'week 48, 23–29 Nov');
+    await expect(tab.locator('.rtn-prev3 li')).toHaveCount(3);
     await shot(page, `type-${theme}-${lang}`);
     // Card 4's close question.
     await page.locator('.dv-tab').filter({ hasText: 'briefing' }).hover();
@@ -208,7 +208,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     const fr = lang === 'fr';
     // Card 14: the sidebar's « À toi », short; its amber and red counts.
     await activity(page).getByRole('button', { name: fr ? 'À toi' : 'For you', exact: true }).click();
-    const cards = page.locator('.rt-st-card');
+    const cards = page.locator('.rtn-st-card');
     await expect(cards).toHaveCount(3);
     await expect(cards.nth(0)).toContainText(fr ? 'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant' : 'wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant');
     await expect(cards.nth(2)).toContainText(fr ? 'veut programmer 3 routines uniques' : 'wants to schedule 3 one-shot routines');
@@ -219,7 +219,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     const blk = page.locator('[data-block="routines"]');
     await expect(blk.locator('.fg-blk-h')).toContainText(fr ? 'Routines3 · à activer, ou qui n’ont pas pu partir' : 'Routines3 · to activate, or that could not run');
     await blk.getByRole('button', { name: fr ? '▸ Voir le prompt' : '▸ See the prompt' }).first().click();
-    await expect(blk.locator('.rt-unfold').first()).toContainText('Point de la semaine');
+    await expect(blk.locator('.rtn-unfold').first()).toContainText('Point de la semaine');
     const b = await blk.boundingBox();
     await shot(page, `atoi-page-${theme}-${lang}`, { x: b!.x - 10, y: b!.y - 10, width: b!.width + 20, height: b!.height + 20 });
     // Card 12: the clock on Iris's row; a click shows the Routines view with her two routines lit (more than one).
@@ -229,7 +229,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     const row = await clock.locator('xpath=ancestor::div[contains(@class,"st-agent")]').boundingBox();
     await shot(page, `horloge-${theme}-${lang}`, { x: row!.x - 6, y: row!.y - 6, width: row!.width + 12, height: row!.height + 12 });
     await clock.click();
-    await expect(page.getByRole('region', { name: 'Routines' }).locator('.rt-row.sel')).not.toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Routines' }).locator('.rtn-row.sel')).not.toHaveCount(0);
   });
 }
 
@@ -237,7 +237,7 @@ test('Routines: empty, then the daemon gone', async ({ page }) => {
   await boot(page, 'dark', 'fr', []);
   await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
   const view = page.getByRole('region', { name: 'Routines' });
-  await expect(view.locator('.rt-empty')).toContainText('Aucune routine');
+  await expect(view.locator('.rtn-empty')).toContainText('Aucune routine');
   const side = await box(page, '.ide-explorer');
   await shot(page, 'etats-vide-dark-fr', { x: side.x, y: side.y, width: side.width, height: 400 });
 });

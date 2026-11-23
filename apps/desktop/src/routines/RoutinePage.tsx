@@ -76,7 +76,7 @@ const ORDER: readonly (keyof DraftErrors)[] = ['name', 'session', 'dir', 'times'
 export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const { t } = useI18n();
   if (p.gone) return (
-    <div className="rt-page rt-gone" role="status"><span className="rt-mut"><AlarmIcon size={22} /></span><span>{t.routines.gone}</span>
+    <div className="rtn-page rtn-gone" role="status"><span className="rtn-mut"><AlarmIcon size={22} /></span><span>{t.routines.gone}</span>
       <button type="button" className="fg-btn" onClick={p.onClose}>{t.routines.closeTab}</button></div>
   );
   return <RoutineBody {...p} />;
@@ -204,19 +204,19 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     <button type="button" className={`fg-btn${o.pri ? ' pri' : ''}`} disabled={o.disabled} title={o.title} onClick={onClick}>{label}</button>
   );
   const banner = (kind: 'ask' | 'bad' | 'plain', head: ReactNode, body: ReactNode, go: ReactNode, role: 'status' | 'alert' = 'status') => (
-    <div className={`rt-bn ${kind}`} role={role}><div className="rt-bn-t"><b>{head}</b>{body && <p>{body}</p>}</div>{go && <div className="rt-bn-go">{go}</div>}</div>
+    <div className={`rtn-bn ${kind}`} role={role}><div className="rtn-bn-t"><b>{head}</b>{body && <p>{body}</p>}</div>{go && <div className="rtn-bn-go">{go}</div>}</div>
   );
 
   let top: ReactNode = null;
   if (x && deleting) {
     top = banner('bad', r.delQ(x.name), r.delWhy(x.target.name), <>
       <button type="button" className="fg-btn" autoFocus onClick={() => setDeleting(false)}>{r.cancel}</button>
-      <button type="button" className="fg-btn rt-dangerfill" disabled={off} onClick={() => { void p.actions.remove(x).then(ok => { if (ok) p.onClose(); }); }}>{r.delGo}</button>
+      <button type="button" className="fg-btn rtn-dangerfill" disabled={off} onClick={() => { void p.actions.remove(x).then(ok => { if (ok) p.onClose(); }); }}>{r.delGo}</button>
     </>, 'alert');
   } else if (x && pending && p.group && p.group.routines.length > 1) {
     const g = p.group;
     top = banner('ask', r.groupBanner(g.proposal.who, g.proposal.ids.length, hhmm(g.proposal.task.at)), <>
-      <span className="rt-links">{g.routines.map((o, i) => <span key={o.id}>{i > 0 && ' · '}<button type="button" className="rt-link" aria-current={o.id === x.id || undefined} onClick={() => p.onOpenRoutine(o)}>{o.id === x.id ? <b>{o.name}</b> : o.name}</button></span>)}</span><br />{r.groupBannerHint}
+      <span className="rtn-links">{g.routines.map((o, i) => <span key={o.id}>{i > 0 && ' · '}<button type="button" className="rtn-link" aria-current={o.id === x.id || undefined} onClick={() => p.onOpenRoutine(o)}>{o.id === x.id ? <b>{o.name}</b> : o.name}</button></span>)}</span><br />{r.groupBannerHint}
     </>, <>
       {btn(r.activateAll(g.routines.length), () => { for (const o of g.routines) void activate(o); }, { pri: true, disabled: off })}
       {btn(r.activateThis, () => { void activate(x); }, { disabled: off })}
@@ -227,7 +227,7 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
   } else if (x?.proposal) {
     const changes = proposalChanges(x, lang, r);
     top = banner('ask', r.editAsk(x.proposal.by.name), <>
-      {changes.map(c => <span key={c.label} className="rt-change">{c.label} : <span className="rt-mono"><s>{c.before}</s> → {c.after}</span></span>)}
+      {changes.map(c => <span key={c.label} className="rtn-change">{c.label} : <span className="rtn-mono"><s>{c.before}</s> → {c.after}</span></span>)}
       <span>{r.editOld}</span>
     </>, <>{btn(r.activate, () => { void activate(x); }, { pri: true, disabled: off })}{btn(r.refuse, () => { void refuse(x); }, { disabled: off })}</>);
   } else if (x && failed && last) {
@@ -237,15 +237,15 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     top = banner('plain', r.ranOn(`${dateLong(new Date(last.at), lang)} ${hhmm(last.at)}`, r.out[last.outcome]), r.readonly, null);
   }
 
-  const pill = !x ? null : <span className={`rt-pill ${x.state === 'pending' ? 'ask' : x.state === 'enabled' ? 'ok' : ''}`}>{r.state[x.state]}</span>;
+  const pill = !x ? null : <span className={`rtn-pill ${x.state === 'pending' ? 'ask' : x.state === 'enabled' ? 'ok' : ''}`}>{r.state[x.state]}</span>;
   const more = x && (
-    <Menu open={menu} onOpenChange={setMenu} label={r.more} className="session-menu-wrap rt-more" menuClassName="session-menu"
-      trigger={tr => <button type="button" ref={tr.ref} aria-haspopup="menu" aria-expanded={tr['aria-expanded']} onClick={tr.onClick} className="fg-btn rt-icon" title={r.more} aria-label={r.more}><Icon d={[]} fill={SHELL_ICONS.dots} size={14} /></button>}>
+    <Menu open={menu} onOpenChange={setMenu} label={r.more} className="session-menu-wrap rtn-more" menuClassName="session-menu"
+      trigger={tr => <button type="button" ref={tr.ref} aria-haspopup="menu" aria-expanded={tr['aria-expanded']} onClick={tr.onClick} className="fg-btn rtn-icon" title={r.more} aria-label={r.more}><Icon d={[]} fill={SHELL_ICONS.dots} size={14} /></button>}>
       <MenuItem onSelect={() => { setMenu(false); p.onOpenSession(); }}><span><Icon d={ROUTINE_ICONS.open} size={14} />{r.openSession}</span></MenuItem>
       <hr />
       {done
-        ? <MenuItem className="rt-danger" disabled={off} onSelect={() => { setMenu(false); void p.actions.remove(x).then(ok => { if (ok) p.onClose(); }); }}><span><Icon d={SHELL_ICONS.trash} size={14} />{r.forget}</span></MenuItem>
-        : <MenuItem className="rt-danger" disabled={off} onSelect={() => { setMenu(false); setDeleting(true); }}><span><Icon d={SHELL_ICONS.trash} size={14} />{r.del}</span></MenuItem>}
+        ? <MenuItem className="rtn-danger" disabled={off} onSelect={() => { setMenu(false); void p.actions.remove(x).then(ok => { if (ok) p.onClose(); }); }}><span><Icon d={SHELL_ICONS.trash} size={14} />{r.forget}</span></MenuItem>
+        : <MenuItem className="rtn-danger" disabled={off} onSelect={() => { setMenu(false); setDeleting(true); }}><span><Icon d={SHELL_ICONS.trash} size={14} />{r.del}</span></MenuItem>}
     </Menu>
   );
   const actions = !x ? null : done
@@ -257,52 +257,52 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
       {more}
     </>;
 
-  const nextList = !x ? null : pending ? <li className="rt-mut">{r.noneUntil}</li> : x.state === 'paused' ? <li className="rt-mut">{r.noneWhilePaused}</li>
-    : (x.nextRuns ?? []).map(n => <li key={n}><span className="rt-mono">{hhmm(n)}</span><span className="rt-mut">{runDay(n, new Date(now), lang, r)}</span></li>);
+  const nextList = !x ? null : pending ? <li className="rtn-mut">{r.noneUntil}</li> : x.state === 'paused' ? <li className="rtn-mut">{r.noneWhilePaused}</li>
+    : (x.nextRuns ?? []).map(n => <li key={n}><span className="rtn-mono">{hhmm(n)}</span><span className="rtn-mut">{runDay(n, new Date(now), lang, r)}</span></li>);
   const runs = x?.runs ?? (x?.lastRun ? [x.lastRun] : []);
-  const pastList = !runs.length ? <li className="rt-mut">{r.never}</li> : runs.map((u, i) => (
+  const pastList = !runs.length ? <li className="rtn-mut">{r.never}</li> : runs.map((u, i) => (
     <li key={`${u.at}:${i}`}>
-      <span className={`rt-mk ${u.outcome === 'failed' ? 'bad' : 'ok'}`} aria-hidden="true">{u.outcome === 'failed' ? '!' : '✓'}</span>
-      <span className="rt-mono">{u.slot}</span><span className="rt-mut">{runDay(u.slotAt ?? u.at, new Date(now), lang, r)}</span><span>{r.out[u.outcome]}</span>
-      {u.late && <><span className="rt-pill late">{r.late}</span><span className="rt-mut">{r.lateLong(u.slot, hhmm(u.at))}</span></>}
-      {u.outcome === 'failed' && (u.reason || u.field) && <span className="rt-reason">{whyText(u, x!.target, p.dirLabel, r)}</span>}
+      <span className={`rtn-mk ${u.outcome === 'failed' ? 'bad' : 'ok'}`} aria-hidden="true">{u.outcome === 'failed' ? '!' : '✓'}</span>
+      <span className="rtn-mono">{u.slot}</span><span className="rtn-mut">{runDay(u.slotAt ?? u.at, new Date(now), lang, r)}</span><span>{r.out[u.outcome]}</span>
+      {u.late && <><span className="rtn-pill late">{r.late}</span><span className="rtn-mut">{r.lateLong(u.slot, hhmm(u.at))}</span></>}
+      {u.outcome === 'failed' && (u.reason || u.field) && <span className="rtn-reason">{whyText(u, x!.target, p.dirLabel, r)}</span>}
     </li>
   ));
 
   return (
-    <div className="rt-page" data-keep-scroll onKeyDown={onKey}>
-      <div className="rt-hd">
+    <div className="rtn-page" data-keep-scroll onKeyDown={onKey}>
+      <div className="rtn-hd">
         <AlarmIcon size={18} /><h3>{x ? x.name : r.newTitle}</h3>{pill}
-        {running && <span className="rt-line rt-mut"><span className="rt-spin" aria-hidden="true" />{running}</span>}
-        <span className="rt-sp" />{actions}
+        {running && <span className="rtn-line rtn-mut"><span className="rtn-spin" aria-hidden="true" />{running}</span>}
+        <span className="rtn-sp" />{actions}
       </div>
       {x ? (
-        <div className="rt-wakes">{r.wakes} <ProviderLogo provider={providerOf(x.target.tool)} size={12} /><b>{x.target.name}</b>
-          <span className={`rt-dot ${look.dot}`} aria-hidden="true" /><span className="rt-mut">{look.label}</span><span className="rt-mut">{r.inDir}</span>
-          <span className="rt-mono">{p.dirLabel(x.target.cwd)}</span>
-          {p.machines && p.machines.length > 1 && <span className="rt-mut">· {p.machines.find(m => m.id === x.machineId)?.label ?? x.machineId}</span>}
+        <div className="rtn-wakes">{r.wakes} <ProviderLogo provider={providerOf(x.target.tool)} size={12} /><b>{x.target.name}</b>
+          <span className={`rtn-dot ${look.dot}`} aria-hidden="true" /><span className="rtn-mut">{look.label}</span><span className="rtn-mut">{r.inDir}</span>
+          <span className="rtn-mono">{p.dirLabel(x.target.cwd)}</span>
+          {p.machines && p.machines.length > 1 && <span className="rtn-mut">· {p.machines.find(m => m.id === x.machineId)?.label ?? x.machineId}</span>}
           <button type="button" className="fg-btn ghost" onClick={p.onOpenSession}><Icon d={ROUTINE_ICONS.open} size={12} />{r.openSession}</button></div>
-      ) : <span className="rt-lede">{r.sub} <span className="rt-mut">({localZone()})</span></span>}
+      ) : <span className="rtn-lede">{r.sub} <span className="rtn-mut">({localZone()})</span></span>}
       {top}
       {x && (
-        <section className="rt-sect" aria-label={r.runs}><h4>{r.runs}</h4>
-          <div className={`rt-runs${done ? ' one' : ''}`}>
-            {!done && <div><div className="rt-lbl">{r.nextRuns}</div><ul>{nextList}</ul></div>}
-            <div><div className="rt-lbl">{r.pastRuns}</div><ul>{pastList}</ul></div>
+        <section className="rtn-sect" aria-label={r.runs}><h4>{r.runs}</h4>
+          <div className={`rtn-runs${done ? ' one' : ''}`}>
+            {!done && <div><div className="rtn-lbl">{r.nextRuns}</div><ul>{nextList}</ul></div>}
+            <div><div className="rtn-lbl">{r.pastRuns}</div><ul>{pastList}</ul></div>
           </div>
         </section>
       )}
-      <section className={`rt-sect${done ? ' ro' : ''}`} aria-label={r.config}><h4>{r.config}</h4>
+      <section className={`rtn-sect${done ? ' ro' : ''}`} aria-label={r.config}><h4>{r.config}</h4>
         <RoutineForm draft={draft} onChange={setDraft} errors={shownErrors} focus={focus} fault={fault} refusal={refused}
           machines={!x && p.machines && p.machines.length > 1 && p.onMachine ? { choices: p.machines, value: p.machine, onChange: p.onMachine } : null}
           models={models.models.map(m => ({ id: m.id, label: m.label }))} asked={x?.proposal ? new Set(proposalFields(x)) : undefined}
           readOnly={done} sessions={p.sessions} dirLabel={p.dirLabel} preview={preview} lastSlot={last?.slot ?? null} {...(p.onBrowse ? { onBrowse: p.onBrowse } : {})} />
       </section>
       {!x ? (
-        <div className="rt-dirtybar"><span className="rt-sp" />
+        <div className="rtn-dirtybar"><span className="rtn-sp" />
           {btn(r.cancel, p.onClose)}{btn(r.create, () => { void save(); }, { pri: true, disabled: off || busy })}</div>
       ) : dirty && !done ? (
-        <div className="rt-dirtybar" role="status"><span className="rt-dot ask" aria-hidden="true" /><span>{r.dirty}</span><span className="rt-sp" />
+        <div className="rtn-dirtybar" role="status"><span className="rtn-dot ask" aria-hidden="true" /><span>{r.dirty}</span><span className="rtn-sp" />
           {btn(r.discard, discard)}{btn(r.save, () => { void save(); }, { pri: true, disabled: off || busy })}</div>
       ) : null}
     </div>

@@ -1258,7 +1258,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         const done = () => setCloseAsk(null);
         return (
           <Modal title={`${t.routines.dirty} · ${name}`} onClose={done} role="alertdialog">
-            <div className="rt-closeq">
+            <div className="rtn-closeq">
               <button type="button" className="fg-btn pri" onClick={() => { void d?.save().then(ok => { done(); if (ok) { closeNow(key); then?.(); } }); }}>{t.routines.closeSave}</button>
               <button type="button" className="fg-btn" onClick={() => { d?.discard(); done(); closeNow(key); then?.(); }}>{t.routines.closeDiscard}</button>
               <button type="button" className="fg-btn" autoFocus onClick={done}>{t.routines.cancel}</button>

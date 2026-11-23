@@ -91,7 +91,7 @@ function CtxSignal({ session, near }: { session: Session; near: number }) {
 export function RoutineClock({ of }: { of: { tip: string; onClick(): void } | null | undefined }): JSX.Element | null {
   if (!of) return null;
   return (
-    <span className="rt-clock" title={of.tip} aria-label={of.tip} role="img" data-routine-clock
+    <span className="rtn-clock" title={of.tip} aria-label={of.tip} role="img" data-routine-clock
       onClick={e => { e.stopPropagation(); e.preventDefault(); of.onClick(); }}><Icon d={ROUTINE_ICONS.clock} size={12} /></span>
   );
 }

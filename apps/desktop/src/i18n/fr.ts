@@ -1858,6 +1858,9 @@ export const fr = {
       failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
       failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
       more: (n: number) => ` et ${n} autres`,
+      // A session's change to a routine (its proposal), never « veut programmer » (card 29, owner's choice A).
+      editAsk: (r: string, times: string, days: string) => `veut modifier « ${r} » : ${times} (${days})`,
+      editAskOnce: (r: string, moments: string) => `veut modifier « ${r} » : ${moments}`,
       groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,
       seePrompt: 'Voir le prompt', hidePrompt: 'Masquer le prompt'
     }

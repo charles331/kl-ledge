@@ -63,8 +63,14 @@ function OfflineBanner(): JSX.Element {
 
 /** « Tâches » (old home's TasksTab at the panel's 300 px): two filters, the latest first; a click opens the task in place of the
  *  list, « ‹ Tâches » (and Escape, in ChatPanel) brings the list back at the same place with its filters. */
+/** The tasks the « Tâches » tab lists and counts: all but the routines' « À toi » items. */
+export const shownTasks = (tasks: readonly Task[]): Task[] => tasks.filter(x => !x.routine);
+
 export function TasksPane({ api, task, seen, state, onShow }: { api: TasksApi; task: string | null; seen: number; state: ListState; onShow(id: string | null): void }): JSX.Element {
   const { t } = useI18n();
+  // A routine's « À toi » item is not listed here: the daemon titles it in French only, and its buttons are routine.cmd, not
+  // task.cmd's « Répondre » (routines mockup, cards 13, 14, 29); « À toi » shows it, in the screen's language.
+  const tasks = shownTasks(api.tasks);
   const c = t.home.tasks;
   const [filter, setFilter] = useState<StateFilter>('all');
   const [giver, setGiver] = useState<GiverFilter>('all');
@@ -75,7 +81,7 @@ export function TasksPane({ api, task, seen, state, onShow }: { api: TasksApi; t
   // The list's scroll, kept while a detail replaces it, and given back on the way back.
   const listRef = useRef<HTMLDivElement>(null);
   const scroll = useRef(0);
-  const detail = task ? api.tasks.find(x => x.id === task) : undefined;
+  const detail = task ? tasks.find(x => x.id === task) : undefined;
   useLayoutEffect(() => { if (!detail && listRef.current) listRef.current.scrollTop = scroll.current; }, [detail]);
   useEffect(() => { setAnswering(null); }, [task]);
   // The detail takes the focus on its way back (the row clicked is gone with the list): Escape, in the panel, brings the list back.
@@ -104,10 +110,10 @@ export function TasksPane({ api, task, seen, state, onShow }: { api: TasksApi; t
     );
   }
 
-  const list = api.tasks.filter(x => (filter === 'all' || (filter === 'open') !== taskClosed(x)) && (giver === 'all' || giver === giverOf(x))).slice().reverse();
+  const list = tasks.filter(x => (filter === 'all' || (filter === 'open') !== taskClosed(x)) && (giver === 'all' || giver === giverOf(x))).slice().reverse();
   const open = (id: string) => { scroll.current = listRef.current?.scrollTop ?? 0; onShow(id); };
   return (
-    <div className="rt-pane" role="tabpanel" aria-label={t.home.tabs.tasks(api.tasks.filter(x => !taskClosed(x)).length)}>
+    <div className="rt-pane" role="tabpanel" aria-label={t.home.tabs.tasks(tasks.filter(x => !taskClosed(x)).length)}>
       {offline && <OfflineBanner />}
       <div className="rt-filters" role="group" aria-label={c.filters}>
         <select aria-label={c.filters} value={filter} onChange={e => setFilter(e.target.value as StateFilter)}>
@@ -117,7 +123,7 @@ export function TasksPane({ api, task, seen, state, onShow }: { api: TasksApi; t
           <option value="all">{c.anyGiver}</option><option value="ledge">{c.ledge}</option><option value="sessions">{c.sessions}</option><option value="decisions">{c.decisions}</option>
         </select>
       </div>
-      {api.tasks.length === 0 ? <div className="rt-empty">{c.none}</div>
+      {tasks.length === 0 ? <div className="rt-empty">{c.none}</div>
         : list.length === 0 ? <div className="rt-empty">{c.noneFiltered}<button type="button" className="rt-btn" onClick={() => { setFilter('all'); setGiver('all'); }}>{c.clearFilters}</button></div>
           : (
             <div ref={listRef} className={cls('rt-list', offline && 'dim')}>
