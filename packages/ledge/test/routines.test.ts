@@ -319,6 +319,24 @@ describe('commands', () => {
     await cmd(user, 'run', { routine: 'p' }); await flush(); typedDone();
     expect(only().state).toBe('done');
   });
+  it('a one-shot asked after a partial answer joins the item still open', async () => {
+    const once = (name: string, at: string) => spec({ name, schedule: { kind: 'once', at: [at], tz: TZ } });
+    const a = (await cmd(as('iris'), 'add', { spec: once('a', '2026-12-03T16:00') })).routine!;
+    const b = (await cmd(as('iris'), 'add', { spec: once('b', '2026-12-04T16:00') })).routine!;
+    await cmd(user, 'approve', { routine: a.id });
+    const c = (await cmd(as('iris'), 'add', { spec: once('c', '2026-12-05T16:00') })).routine!;
+    expect(decisions()).toHaveLength(1);
+    expect(decisions()[0]!.routine!.ids).toEqual([a.id, b.id, c.id]);
+    // The first refused (and gone), the next still joins; the item leaves it out.
+    await cmd(user, 'refuse', { routine: b.id });
+    const e = (await cmd(as('iris'), 'add', { spec: once('e', '2026-12-06T16:00') })).routine!;
+    expect(decisions()).toHaveLength(1);
+    expect(decisions()[0]).toMatchObject({ title: 'Iris veut programmer 3 routines uniques', routine: { ids: [a.id, c.id, e.id] } });
+    await cmd(user, 'approve', { routine: c.id });
+    expect(decisions()).toHaveLength(1);
+    await cmd(user, 'refuse', { routine: e.id });
+    expect(decisions()).toEqual([]);
+  });
   it('a recurring routine a session asks for is never grouped with its one-shots', async () => {
     await cmd(as('iris'), 'add', { spec: spec({ name: 'p1', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) });
     await cmd(as('iris'), 'add', { spec: spec({ name: 'cloture' }) });

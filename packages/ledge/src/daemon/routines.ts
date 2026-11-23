@@ -298,12 +298,20 @@ export function createRoutines(d: RoutinesDeps): Routines {
     const asker = r.proposal?.by.name ?? (r.createdBy.kind === 'session' ? r.createdBy.name : 'Ledge');
     for (const t of approvals(r.id)) if (!t.routine!.ids) d.tasks.settle(t.id, 'remplacée par une nouvelle demande');
     const by = r.createdBy.kind === 'session' ? r.createdBy.id : undefined;
-    const joinable = (t: (ReturnType<Tasks['all']>)[number]) => t.routine?.kind === 'approve' && !taskClosed(t) && !(t.routine.ids ?? [t.routine.id]).includes(r.id)
-      && (t.routine.ids ?? [t.routine.id]).every(id => { const o = routines.get(id); return !!o && o.state === 'pending' && !o.proposal && o.schedule.kind === 'once' && o.createdBy.kind === 'session' && o.createdBy.id === by; });
+    // An open item of this session's one-shots: its members already answered (activated, or refused and gone) do not keep the
+    // next one out, as long as one still waits.
+    const ofSession = (o: Routine | undefined) => !!o && o.schedule.kind === 'once' && o.createdBy.kind === 'session' && o.createdBy.id === by;
+    const joinable = (t: (ReturnType<Tasks['all']>)[number]) => {
+      if (t.routine?.kind !== 'approve' || taskClosed(t)) return false;
+      const ids = t.routine.ids ?? [t.routine.id];
+      if (ids.includes(r.id)) return false;
+      const members = ids.map(id => routines.get(id)).filter((o): o is Routine => !!o);
+      return members.every(ofSession) && members.some(o => o.state === 'pending' && !o.proposal);
+    };
     // Only one-shots group (spec §3.1.1: a session's meetings found in the calendar); a recurring routine is asked on its own.
     const group = !r.proposal && r.state === 'pending' && r.schedule.kind === 'once' && by ? d.tasks.all().find(joinable) : undefined;
     if (group) {
-      const ids = [...(group.routine!.ids ?? [group.routine!.id]), r.id];
+      const ids = [...(group.routine!.ids ?? [group.routine!.id]).filter(id => routines.has(id)), r.id];
       const all = ids.map(id => routines.get(id)!);
       // The title as the mockup words it; the routines follow one per line, name and moment, then their prompts.
       const text = [...all.map(o => `${o.name} (${scheduleLabel(o.schedule)})`), '', ...all.map(o => `« ${o.name} » : ${o.prompt}`)].join('\n');
