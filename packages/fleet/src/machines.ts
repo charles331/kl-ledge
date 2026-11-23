@@ -1,4 +1,10 @@
 import type { FleetFollowedSession, FleetForgeStatus, FleetPullRequest } from './forge';
+import type { FleetRoutine, RoutineAsk } from './routines';
+import type { RoutineSchedule } from '@ledge/protocol';
+/** The answer to a `routine.cmd`. */
+export type RoutineResultMessage = Extract<ServerMessage, { type: 'routine.result' }>;
+/** The answer to a `routine.preview`. */
+export type RoutinePreviewedMessage = Extract<ServerMessage, { type: 'routine.previewed' }>;
 import { CONTEXT_NEAR, MachinesSchema, type Machine, type IslandPrefs, type MobileClientMessage, type MobileState, type UsageStateMessage, type OperatorNotice, type ForgeAction, type PrDetail } from '@ledge/protocol';
 import type { DaemonClient, DaemonStatus } from './client';
 import { parseServerMessage, type ClientMessage, type DaemonInfo, type Projects, type Recent, type Session, type ServerMessage, type Task } from '@ledge/protocol';
@@ -86,6 +92,17 @@ export interface Fleet {
   prDetail(prId: string, machineId: string, opts?: { log?: string }): Promise<PrDetail>;
   /** An action on a request, on the machine that read it; resolves with the command run. Rejects as `prDetail`. */
   prAct(prId: string, machineId: string, action: ForgeAction): Promise<{ command: string }>;
+  /** Every machine's routines (spec 2026-11-23), each with the machine that holds it; a fallen machine's are its last list. */
+  routines(): FleetRoutine[];
+  /** Called when a machine's routines change. */
+  onRoutines(cb: () => void): () => void;
+  /** A `routine.cmd` to the machine that holds the routine; resolves with its `routine.result` (the routine as it now is, or
+   *  `removed`). Rejects with `{ code, message }`: `offline` when the machine is down or falls, `outdated` when its daemon does not
+   *  know routines, else the daemon's refusal code. */
+  routineCmd(machineId: string, ask: RoutineAsk): Promise<RoutineResultMessage>;
+  /** The next firings (3 at most) of a schedule not saved yet, as that machine's daemon computes them, or why it cannot fire
+   *  (`reason`); rejects as `routineCmd`. */
+  routinePreview(machineId: string, schedule: RoutineSchedule): Promise<RoutinePreviewedMessage>;
   /** The context threshold the local daemon keeps (context handover spec §3.2): undefined until it speaks of it. */
   contextNear(): number | undefined;
   /** Sets it on the local daemon; the effect arrives on its broadcast. Throws `DaemonOffline` / `DaemonOutdated` as `setIsland`. */

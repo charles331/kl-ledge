@@ -11,3 +11,4 @@ export * from './attachments';
 export * from './usage';
 export * from './forge';
 export * from './latency';
+export * from './routines';
