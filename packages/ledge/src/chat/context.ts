@@ -1,7 +1,7 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { DEFAULT_PROJECTS, type Goal, type HarnessUsage, type HumanAsk, isArchived, projectOf, seatsByRole, taskClosed, type ChatStep, type OpenRigState, type Projects, type Recent, type Routine, type Session, type Task } from '@ledge/protocol';
+import { DEFAULT_PROJECTS, type Goal, type HarnessUsage, type HumanAsk, isArchived, projectOf, seatsByRole, taskClosed, type ChatStep, type OpenRigState, type Projects, type Recent, type Routine, type RoutineRun, type Session, type Task } from '@ledge/protocol';
 import { LEDGE_MD, writeLedgeMd, type LedgeInfo } from './guide.js';
 import { writeNotes } from './notes.js';
 import type { JournalEvent } from '../operator/journal.js';
@@ -107,14 +107,20 @@ export const ROUTINES_MD = 'routines.md';
 /** The most of a routine's prompt written: the whole one is `ledge routine show`. */
 export const ROUTINE_PROMPT_SHOWN = 500;
 
-const ROUTINE_STATE: Record<Routine['state'], string> = { enabled: 'enabled', paused: 'paused', pending: "pending: a session asked for it, it waits for the user's « Activer » or « Refuser » in « À toi »" };
-const OUTCOME: Record<NonNullable<Routine['lastRun']>['outcome'], string> = {
+const ROUTINE_STATE: Record<Routine['state'], string> = {
+  enabled: 'enabled', paused: 'paused', pending: "pending: a session asked for it, it waits for the user's « Activer » or « Refuser » in « À toi »",
+  done: 'done: a one-off routine that has fired, kept for its history'
+};
+const OUTCOME: Record<RoutineRun['outcome'], string> = {
   delivered: 'typed into the live session', resumed: 'the session was resumed, then the prompt typed', launched: 'a new session was launched with the prompt', failed: 'failed'
 };
+/** A firing in one line: when, for which slot, late or not, how it went. */
+const runLine = (run: RoutineRun): string => `${run.at}, slot ${run.slotAt ? run.slotAt.replace('T', ' ') : run.slot}${run.late ? ' (late: fired on wake)' : ''}, ${OUTCOME[run.outcome]}${run.reason ? `: ${oneLine(run.reason)}` : ''}`;
 
 /** `routines.md` (routines spec §3.5): each routine, the session it wakes and whether that session is live now (itself, or the
- *  live end of its reliefs), its times, its next firing and how its last one went, so « qu'est-ce qui est programmé ? » and
- *  « le briefing de ce matin est-il parti ? » have an answer. `sessions`: every session the daemon holds, relieved ones included. */
+ *  live end of its reliefs), its schedule, its next firings and its last ones, and a change a session asked for, so « qu'est-ce
+ *  qui est programmé ? » and « le briefing de ce matin est-il parti ? » have an answer. `sessions`: every session the daemon
+ *  holds, relieved ones included. */
 export function routinesMd(routines: readonly Routine[], sessions: readonly Session[], now: string): string {
   const byId = new Map(sessions.map(s => [s.id, s] as const));
   const live = sessions.filter(s => s.state !== 'exited' && !isArchived(s));
@@ -122,13 +128,15 @@ export function routinesMd(routines: readonly Routine[], sessions: readonly Sess
   if (!routines.length) lines.push('No routines.', '');
   for (const r of routines) {
     const awake = live.find(s => routinesOf([r], { cwd: s.cwd, names: targetNames(s, id => byId.get(id)) }).length > 0);
-    const run = r.lastRun;
+    const runs = r.runs?.length ? r.runs : r.lastRun ? [r.lastRun] : [];
+    const next = r.nextRuns?.length ? r.nextRuns.join(', ') : r.nextRun;
     const prompt = oneLine(r.prompt);
     lines.push(`## ${oneLine(r.name)} → ${oneLine(r.target.name)}`, `- id: ${r.id}`, `- state: ${ROUTINE_STATE[r.state]}`,
       `- wakes: ${oneLine(r.target.name)} (${r.target.tool}${r.target.model ? `, ${oneLine(r.target.model)}` : ''}) in ${r.target.cwd}, ${awake ? `live now as session ${awake.id} (${STATE[awake.state]})` : 'not running now: the next firing resumes or launches it'}`,
-      `- at: ${scheduleText(r.schedule, 'en')}`, `- missed slots (PC asleep or off): ${r.catchUp === 'once' ? 'the latest one fires once on wake' : 'dropped'}`,
-      `- next firing: ${r.state === 'enabled' ? r.nextRun ?? 'not computed yet' : 'none while it is not enabled'}`,
-      `- last firing: ${run ? `${run.at}, slot ${run.slot}${run.late ? ' (late: fired on wake)' : ''}, ${OUTCOME[run.outcome]}${run.reason ? `: ${oneLine(run.reason)}` : ''}` : 'never'}`,
+      `- at: ${scheduleText(r.schedule, 'en')}${r.expiresAfterRun ? ' (one-off: done once fired)' : ''}`, `- missed slots (PC asleep or off): ${r.catchUp === 'once' ? 'the latest one fires once on wake' : 'dropped'}`,
+      `- next firings: ${r.state === 'enabled' ? next ?? 'not computed yet' : 'none while it is not enabled'}`,
+      ...(runs.length ? ['- last firings, newest first:', ...runs.map(run => `  - ${runLine(run)}`)] : ['- last firing: never']),
+      ...(r.proposal ? [`- change asked by session ${oneLine(r.proposal.by.name)} at ${r.proposal.at}, waiting for the user's « Activer » (the routine fires as before until then): at ${scheduleText(r.proposal.spec.schedule, 'en')}, wakes ${oneLine(r.proposal.spec.target.name)} in ${r.proposal.spec.target.cwd}${oneLine(r.proposal.spec.prompt) !== prompt ? ', prompt changed' : ''}`] : []),
       `- created by: ${r.createdBy.kind === 'user' ? 'the user' : `session ${oneLine(r.createdBy.name)}`}, ${r.createdAt}`,
       `- prompt: ${prompt.length > ROUTINE_PROMPT_SHOWN ? `${prompt.slice(0, ROUTINE_PROMPT_SHOWN)}… (cut: \`ledge routine show ${r.id}\` has the rest)` : prompt}`, '');
   }
