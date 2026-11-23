@@ -173,10 +173,11 @@ export function fromRoutines(before: readonly Routine[], after: readonly Routine
   for (const r of after) {
     const run = r.lastRun;
     if (!run || run.outcome === 'failed' || was.get(r.id) === run.at) continue;
-    // The session it reached, by id, found as the scheduler finds it (sessionNamed: the live session of that exact name, else the
-    // relief of the last one relieved under it, in that folder); it is live now, as the run is recorded once typed.
-    const named = sessionNamed({ get, all: () => [...sessions] }, r.target.name);
-    const to = named && named.state !== 'exited' && resolve(named.cwd) === resolve(r.target.cwd) ? named : undefined;
+    // The session it reached, by id. Without the daemon's word, found as the scheduler finds it (sessionNamed: the live session of
+    // that exact name, else the relief of the last one relieved under it, in that folder).
+    // The daemon says which session the run reached (RoutineRun.session); a run recorded without it is resolved here by name.
+    const named = run.session ? undefined : sessionNamed({ get, all: () => [...sessions] }, r.target.name);
+    const to = run.session ? { id: run.session } : named && named.state !== 'exited' && resolve(named.cwd) === resolve(r.target.cwd) ? named : undefined;
     out.push({
       kind: 'routine.fired', subjectKind: 'routine.run', subjectId: `${r.id}@${run.at}`, subjectName: r.name, urgency: 'grouped',
       payload: { routine: r.id, name: r.name, target: r.target.name, cwd: r.target.cwd, slot: run.slot, firedAt: run.at, outcome: run.outcome, ...(run.late ? { late: true } : {}), ...(to ? { session: to.id } : {}) }
