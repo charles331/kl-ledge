@@ -16,7 +16,7 @@ function fleetClient() {
   const fleet = {
     selected: () => 'local', select() {}, terminal: () => null, turnMachine: () => machines[0], configure() {}, probe: async () => ({}), retry() {},
     subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn); },
-    machines: () => machines, operator: () => notices,
+    machines: () => machines, operator: () => notices, routines: () => [], onRoutines: () => () => {},
     sendTo: (machine: string, msg: ClientMessage) => { sent.push({ machine, msg }); return true; }
   };
   const client = { connect() {}, close() {}, send: (msg: ClientMessage) => { if (msg.type !== 'session.thread') sent.push({ machine: 'any', msg }); }, status: () => 'open', onMessage: () => () => {}, onStatus: () => () => {}, fleet } as unknown as DaemonClient;

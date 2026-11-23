@@ -14,7 +14,9 @@ export type LedgeTarget =
   /** A rig's question in « À toi », by its OpenRig queue item. */
   | { kind: 'ask'; id: string }
   /** « À toi » itself: a decision put to the user, listed there. */
-  | { kind: 'atoi' };
+  | { kind: 'atoi' }
+  /** A routine's page (routines mockup, card 15: « Voir »), by the machine that holds it and its id. */
+  | { kind: 'routine'; machine: string; id: string };
 
 /** 'opening' at once; then 'failed' when Ledge Desktop's window could not be shown. */
 export type OpenOutcome = 'opening' | 'failed';

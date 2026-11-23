@@ -160,6 +160,18 @@ const fr = {
     /** A decision a session put to the user: Ledge names who asks, « Voir » opens « À toi ». */
     decision: { asks: ' te demande une décision', see: 'Voir' }
   },
+  /** Routines' items of « À toi » in the island (docs/mockups/ledge-routines.html, cards 15 and 23): an activation request, several
+   *  one-shots proposed together, a run that could not leave; the words a schedule reads with there. */
+  atoi: {
+    routine: {
+      kind: 'routine',
+      ask: (who: string, name: string, when: string, dir: string) => `${who} veut programmer « ${name} » : ${when}, dans ${dir}`,
+      groupAsk: (who: string, n: number, list: string) => `${who} veut programmer ${n} routines uniques : ${list}`,
+      failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
+      activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer', see: 'Voir',
+      days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' }, daily: 'tous les jours', every2: '1 sem. sur 2'
+    }
+  },
   handoff: {
     session: (name: string) => `Ouverture de ${name} dans Ledge Desktop`,
     terminal: (name: string) => `Ouverture du terminal de ${name} dans Ledge Desktop`,
@@ -170,6 +182,7 @@ const fr = {
     machines: 'Ouverture des machines dans Ledge Desktop',
     point: 'Ouverture du point dans Ledge Desktop',
     ask: 'Ouverture de « À toi » dans Ledge Desktop',
+    routine: (name: string) => `Ouverture de la routine ${name} dans Ledge Desktop`,
     failed: 'Ledge Desktop n’a pas pu s’ouvrir.'
   },
   menu: {
@@ -429,6 +442,16 @@ const en: Messages = {
     rigAsk: { colon: ': ', quote: (text: string) => `“${text}”`, open: 'Answer in Ledge' },
     decision: { asks: ' asks you for a decision', see: 'See' }
   },
+  atoi: {
+    routine: {
+      kind: 'routine',
+      ask: (who: string, name: string, when: string, dir: string) => `${who} wants to schedule “${name}”: ${when}, in ${dir}`,
+      groupAsk: (who: string, n: number, list: string) => `${who} wants to schedule ${n} one-shot routines: ${list}`,
+      failed: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
+      activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Run again', see: 'View',
+      days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }, daily: 'every day', every2: 'every 2 wks'
+    }
+  },
   handoff: {
     session: (name: string) => `Opening ${name} in Ledge Desktop`,
     terminal: (name: string) => `Opening ${name}’s terminal in Ledge Desktop`,
@@ -439,6 +462,7 @@ const en: Messages = {
     machines: 'Opening machines in Ledge Desktop',
     point: 'Opening the point in Ledge Desktop',
     ask: 'Opening “For you” in Ledge Desktop',
+    routine: (name: string) => `Opening the routine ${name} in Ledge Desktop`,
     failed: 'Ledge Desktop could not open.'
   },
   menu: {

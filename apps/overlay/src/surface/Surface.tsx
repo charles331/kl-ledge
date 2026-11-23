@@ -5,7 +5,9 @@ import { loadDefaultTool, saveDefaultTool } from '../defaultTool';
 import { useActionCards } from '@ledge/ui/chat/useActionCards';
 import { useDaemon, daemonStore } from '../daemon/store';
 import type { DaemonClient } from '../daemon/client';
-import { useMachines, useOperatorNotices } from '../daemon/machines';
+import { LOCAL_MACHINE, useMachines, useOperatorNotices, useTasks } from '../daemon/machines';
+import { routineNotice } from '../routines';
+import { useRoutines } from './useRoutines';
 import type { DocumentOrigin } from '../documents/useDocumentReader';
 import type { ResidentGesture } from '../bots/ResidentMascot';
 import { groupSessions } from '@ledge/fleet';
@@ -137,6 +139,9 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
   const [finishedUnread, setFinishedUnread] = useState<Record<string, string>>({});
   // The operator's notices from every machine, newest first, each keyed by its machine so two daemons never collide.
   const noticesByMachine = useOperatorNotices(client);
+  const tasks = useTasks(client);
+  const routines = useRoutines(client);
+  const routinesRef = useRef(routines); routinesRef.current = routines;
   const operatorNotices = useMemo(() => {
     const all: Array<{ key: string; machine: string; notice: OperatorNotice }> = [];
     for (const [machine, list] of noticesByMachine) for (const notice of list) all.push({ key: `${machine}|${notice.id}`, machine, notice });
@@ -294,6 +299,7 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
       : target.kind === 'document' ? t.handoff.document(target.path)
       // « À toi » opens alike for a rig's question and for a decision.
       : target.kind === 'atoi' ? t.handoff.ask
+      : target.kind === 'routine' ? t.handoff.routine(routinesRef.current.find(r => r.machineId === target.machine && r.id === target.id)?.name ?? target.id)
       : t.handoff[target.kind];
     setHandoff(`${line}…`);
   }), [sessions, t]);
@@ -725,6 +731,24 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
   // The operator's bubble acts on the notice's own machine: a point is set aside or opened in Desktop's chat, a rig question
   // answered through the point holding it, or opened in « À toi » when no point holds it yet.
   const bubbleNotice = st.bubbleKind === 'operator' ? operatorNotices.find(o => o.key === st.bubbleId) : undefined;
+  // A decision that is a routine's item of « À toi » (routines mockup, cards 15 and 23): its task is the local daemon's.
+  const bubbleTask = bubbleNotice?.notice.kind === 'decision' && bubbleNotice.machine === LOCAL_MACHINE.id ? tasks.find(x => `decision:${x.id}` === bubbleNotice.notice.id) : undefined;
+  const bubbleRoutine = bubbleNotice ? routineNotice(bubbleNotice.notice, bubbleNotice.machine, bubbleTask, routines, t) : null;
+  const [routineBusy, setRoutineBusy] = useState<string | null>(null);
+  /** A routine item's button: each routine still waiting is answered in turn on its machine; a refusal says why, a success sets the
+   *  notice aside until the daemon closes its task. « Voir » opens the routine's page in Desktop. */
+  const routineAct = async (o: { key: string }, r: NonNullable<typeof bubbleRoutine>, action: 'approve' | 'refuse' | 'run' | 'see') => {
+    if (action === 'see') { openInLedge({ kind: 'routine', machine: r.machine, id: r.first.id }); dispatch({ type: 'close' }); return; }
+    const fleet = client.fleet;
+    if (!fleet || routineBusy) return;
+    setRoutineBusy(o.key); setOperatorFailure(null);
+    try {
+      for (const id of action === 'run' ? [r.first.id] : r.ids) await fleet.routineCmd(r.machine, { op: action, routine: id });
+      setAside(o.key, true); sounds.user(action === 'refuse' ? 'deny' : 'accept');
+    } catch (e) {
+      setOperatorFailure({ key: o.key, message: (e as { message?: string }).message ?? String(e) });
+    } finally { setRoutineBusy(null); }
+  };
   const sendOn = (machine: string, m: Parameters<DaemonClient['send']>[0]): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
   const [operatorFailure, setOperatorFailure] = useState<{ key: string; message: string } | null>(null);
   const noticeLater = (o: { key: string; machine: string; notice: OperatorNotice }) => {
@@ -841,9 +865,14 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
         </div>
         <div data-zoom="panel" style={{ position: 'absolute', left: 0, top: 0, zoom: ps }}>
         <Bubble ref={bubbleRef} maxH={openMaxH(screenH / ps) - SURFACE_CHROME_Y} kind={st.bubbleKind} preview={offlineMachine?.label} session={bubbleSession} moreCount={Math.max(0, st.queue.length - 1)} visible={st.mode === 'bubble'} paused={bubblePaused} remainingMs={ctl.bubbleRemaining() ?? undefined}
-          notice={bubbleNotice?.notice} failure={bubbleNotice ? (operatorFailure?.key === bubbleNotice.key ? operatorFailure.message : undefined) : st.bubbleId ? asks.failures[st.bubbleId] : undefined}
+          notice={bubbleNotice?.notice}
+          {...(bubbleRoutine && bubbleNotice ? {
+            routine: { kind: bubbleRoutine.kind, who: bubbleRoutine.who, text: bubbleRoutine.text, count: bubbleRoutine.ids.length, at: new Date(bubbleNotice.notice.at).toLocaleTimeString(t.time.locale, { hour: '2-digit', minute: '2-digit', hour12: false }) },
+            onRoutine: (a: 'approve' | 'refuse' | 'run' | 'see') => { void routineAct(bubbleNotice, bubbleRoutine, a); }
+          } : {})}
+          failure={bubbleNotice ? (operatorFailure?.key === bubbleNotice.key ? operatorFailure.message : undefined) : st.bubbleId ? asks.failures[st.bubbleId] : undefined}
           onLater={() => { if (bubbleNotice) noticeLater(bubbleNotice); }} onSeePoint={() => { if (bubbleNotice) noticeOpen(bubbleNotice); }} onOption={id => { if (bubbleNotice) noticeAnswer(bubbleNotice, id); }}
-          quick={quick} ack={bubbleAck} deciding={!!st.bubbleId && asks.inFlight.has(st.bubbleId)} blocked={bubbleSession ? blockedFor(bubbleSession) : bubbleNotice && client.fleet && !machines.find(m => m.id === bubbleNotice.machine)?.ready ? t.offline : null} frozen={unreachable} reducedMotion={reducedMotion}
+          quick={quick} ack={bubbleAck} deciding={(!!st.bubbleId && asks.inFlight.has(st.bubbleId)) || (!!bubbleNotice && routineBusy === bubbleNotice.key)} blocked={bubbleSession ? blockedFor(bubbleSession) : bubbleNotice && client.fleet && !machines.find(m => m.id === bubbleNotice.machine)?.ready ? t.offline : null} frozen={unreachable} reducedMotion={reducedMotion}
           onOpen={() => { if (bubbleNotice) noticeOpen(bubbleNotice); else if (st.bubbleId?.startsWith('machine:')) openInLedge({ kind: 'machines' }); else if (st.bubbleId) openInLedge({ kind: 'session', id: st.bubbleId }); }}
           onDismiss={() => dispatch({ type: st.bubbleKind === 'ask' ? 'defer' : 'close' })}
           onDecide={d => { if (st.bubbleId && !ctl.state().ack && decide(st.bubbleId, d)) dispatch({ type: 'decidedInBubble' }); }}
