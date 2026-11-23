@@ -472,7 +472,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const waits = useWaits(sessions);
   const order = useMemo(() => mainOrder(sessions, projects), [sessions, projects]);
   // Putting an agent away: drag and drop or « Ranger dans… » write a folder rule; the toast says how it went.
-  const { notice, action: noticeAction, notify, act: toastAct, undo } = useToast();
+  const { notice, action: noticeAction, mark: noticeMark, notify, act: toastAct, undo } = useToast();
   // A device back with its passkey, or an attempt refused (docs/mockups/ledge-mobile-passkey, 5): « Voir » opens its row in Settings.
   useRecoveryToast(fleet, notify, id => { dispatch({ type: 'settings', section: 'mobile' }); requestDeviceView(id); });
   // Applying a disposition (docs/mockups/ledge-ide-layouts-palette.html, « Appliquer »): its tabs whose session, rig or machine is
@@ -1274,7 +1274,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           </Modal>
         );
       })()}
-      <Toast notice={notice} action={noticeAction} onAction={toastAct} />
+      <Toast notice={notice} action={noticeAction} mark={noticeMark} onAction={toastAct} />
     </TabExtrasContext.Provider></TermStoreContext.Provider></ScreenKeysContext.Provider>
   );
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Routine, RoutineSpec } from '@ledge/protocol';
 import type { Fleet, FleetRoutine, RoutineFailure } from '@ledge/fleet';
 import type { Messages } from '../i18n/messages';
-import type { ToastAction } from '../shell/Toast';
+import type { ToastAction, ToastMark } from '../shell/Toast';
 import { lastRunOf, routineRef, whyText } from './model';
 
 type R = Messages['routines'];
@@ -36,7 +36,7 @@ export type Refused = (failure: RoutineFailure) => boolean;
  *  opens the routine's page (card 9). The daemon answers `run` at once and tells the firing's outcome later, in a `routine.changed`
  *  whose last run is new: « attend que X soit libre… » stays until then. `refused` sees a refusal first: true when it says it
  *  where it belongs. */
-export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction) => void, onSee: (ref: string) => void, routines: readonly FleetRoutine[] = [], dirLabel: (r: FleetRoutine, path: string) => string = (_r, path) => path): RoutineActions {
+export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction, mark?: ToastMark) => void, onSee: (ref: string) => void, routines: readonly FleetRoutine[] = [], dirLabel: (r: FleetRoutine, path: string) => string = (_r, path) => path): RoutineActions {
   const [running, setRunning] = useState<ReadonlyMap<string, string>>(new Map());
   // A firing asked for, by ref: the last run it started from (its `at`), and the session named in the toast.
   const asked = useRef(new Map<string, { before: string | undefined; session: string; name: string; r: FleetRoutine }>());
@@ -62,7 +62,8 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     const f = e as RoutineFailure;
     if (refused.current?.(f)) return;
     // The daemon's reason is French: a folder or a moment past, which the mockup words, read in the screen's language.
-    notify(f?.code === 'outdated' ? t.err.outdated : f?.field === 'cwd' ? t.err.dir : f?.field === 'at' ? t.err.past : f?.message || String(e));
+    if (f?.code === 'outdated') { notify(t.err.outdated, undefined, 'bad'); return; }
+    notify(f?.field === 'cwd' ? t.err.dir : f?.field === 'at' ? t.err.past : f?.message || String(e));
   }, [notify, t]);
   const cmd = useCallback(async (machine: string, ask: Parameters<Source['routineCmd']>[1]): Promise<Routine | null | false> => {
     if (!fleet) return false;
@@ -103,7 +104,7 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
       const [head] = rs;
       if (!fleet || !head) return false;
       const g = grouped(rs);
-      if (g === 'outdated') { notify(t.err.outdatedGroup); return false; }
+      if (g === 'outdated') { notify(t.err.outdatedGroup, undefined, 'bad'); return false; }
       // A member read without its key cannot be bound to the version shown: nothing sent, its machine read again (card 32).
       if (g === 'unkeyed') { fleet.rereadRoutines?.(head.machineId); return 'stale'; }
       try { await fleet.routineCmd(head.machineId, { op: 'approve', routine: head.id, ...g }); return true; }
@@ -113,7 +114,7 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     refuseAll: async rs => {
       const [head, ...rest] = rs;
       if (!head) return false;
-      if (rest.length && !fleet?.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) { notify(t.err.outdatedGroup); return false; }
+      if (rest.length && !fleet?.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) { notify(t.err.outdatedGroup, undefined, 'bad'); return false; }
       return (await cmd(head.machineId, { op: 'refuse', routine: head.id, ...(rest.length ? { others: rest.map(o => ({ routine: o.id })) } : {}) })) !== false;
     },
     refuse: async r => (await cmd(r.machineId, { op: 'refuse', routine: r.id })) !== false,

@@ -139,7 +139,22 @@ test('a daemon without grouped commands is said in the screen\'s language (revie
   await page.locator('[data-block="routines"]').getByRole('button', { name: 'Activate all 3' }).click();
   await expect(page.locator('.toast-region')).toContainText('This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.');
   await expect(page.locator('.toast-region')).not.toContainText('version trop ancienne');
+  // Card 33: the toast opens on a red « ! ».
+  await expect(page.locator('.toast-region .toast-mk.bad')).toHaveText('!');
 });
+
+for (const [theme, lang] of [['dark', 'fr'], ['dark', 'en'], ['light', 'fr'], ['light', 'en']] as const) {
+  test(`card 33's toast (${theme}, ${lang})`, async ({ page }) => {
+    await boot(page, theme, lang, routines(), true);
+    await activity(page).getByRole('button', { name: lang === 'fr' ? 'À toi' : 'For you', exact: true }).click();
+    await page.getByRole('button', { name: 'Page', exact: true }).click();
+    await page.locator('[data-block="routines"]').getByRole('button', { name: lang === 'fr' ? 'Refuser les 3' : 'Refuse all 3' }).click();
+    const toast = page.locator('.toast-region .toast');
+    await expect(toast.locator('.toast-mk.bad')).toBeVisible();
+    const b = (await toast.boundingBox())!;
+    await shot(page, `card33-${theme}-${lang}`, { x: b.x - 12, y: b.y - 12, width: b.width + 24, height: b.height + 24 });
+  });
+}
 
 test('a stale reread keeps a weekday moved elsewhere when the owner only added a time (review of c1ecf1ea)', async ({ page }) => {
   const list = routines();

@@ -9,17 +9,19 @@ export function recordToastsForTests(): string[] { return (history = []); }
  *  `undo: false` for a button that undoes nothing (« Réglages », lot 11): no Ctrl Z, neither shown nor taken. */
 /** `tone` puts the mockup's glyph before the text: a check (`ok`) or a warning in its colour (`warn`, docs/mockups/ledge-mobile-passkey 5 b). */
 export interface ToastAction { label: string; run(): void; ms?: number; undo?: false; tone?: 'ok' | 'warn' }
-interface Shown { text: string; action?: ToastAction }
+/** A toast without a button may still open on the mockup's red « ! » (`bad`, docs/mockups/ledge-routines card 33). */
+export type ToastMark = 'bad';
+interface Shown { text: string; action?: ToastAction; mark?: ToastMark }
 
 /** One notice at a time (observatory.tsx's `notice`): it stays `ms` (6 s by default, like the mockup; an action sets its own), and a new one
  *  replaces it and restarts the clock. `act()` runs the visible toast's action (its button), once, and says whether there was one;
  *  `undo()` is Ctrl Z: the same, but only for an action that undoes. */
-export function useToast(ms = 6000): { notice: string | null; action: ToastAction | null; notify(text: string, action?: ToastAction): void; act(): boolean; undo(): boolean } {
+export function useToast(ms = 6000): { notice: string | null; action: ToastAction | null; mark: ToastMark | null; notify(text: string, action?: ToastAction, mark?: ToastMark): void; act(): boolean; undo(): boolean } {
   // An object per notice, so the same text said twice still restarts the clock.
   const [toast, setToast] = useState<Shown | null>(null);
   const current = useRef<Shown | null>(null);
   const show = (next: Shown | null) => { current.current = next; setToast(next); };
-  const notify = useCallback((text: string, action?: ToastAction) => { history?.push(text); show({ text, action }); }, []);
+  const notify = useCallback((text: string, action?: ToastAction, mark?: ToastMark) => { history?.push(text); show({ text, action, ...(mark ? { mark } : {}) }); }, []);
   const act = useCallback(() => {
     const action = current.current?.action;
     if (!action) return false;
@@ -33,7 +35,7 @@ export function useToast(ms = 6000): { notice: string | null; action: ToastActio
     const timer = setTimeout(() => show(null), toast.action?.ms ?? ms);
     return () => clearTimeout(timer);
   }, [toast, ms]);
-  return { notice: toast?.text ?? null, action: toast?.action ?? null, notify, act, undo };
+  return { notice: toast?.text ?? null, action: toast?.action ?? null, mark: toast?.mark ?? null, notify, act, undo };
 }
 
 const keys = new WeakMap<ToastAction, number>();
@@ -42,7 +44,7 @@ const keyOf = (a: ToastAction): number => keys.get(a) ?? (keys.set(a, ++seq), se
 
 /** The mockup's toast (observatory.css `.toast`; manage.css `.undo-toast` with an action), at the bottom of the window. The live region is always mounted, empty
  *  without a notice: a region that mounts already holding its text may not be announced. The thin bar runs down the action's lifetime. */
-export function Toast({ notice, action, onAction }: { notice: string | null; action?: ToastAction | null; onAction?: () => void }): JSX.Element {
+export function Toast({ notice, action, mark, onAction }: { notice: string | null; action?: ToastAction | null; mark?: ToastMark | null; onAction?: () => void }): JSX.Element {
   return (
     <div className="toast-region" role="status">
       {notice !== null && (
@@ -51,7 +53,7 @@ export function Toast({ notice, action, onAction }: { notice: string | null; act
           ? <div className={action.tone === 'warn' ? 'toast undo-toast warn' : 'toast undo-toast'} key={keyOf(action)}>{action.tone && <Icon d={action.tone === 'warn' ? ICONS.warning.d : ICONS.check.d} size={16} />}<span>{notice}</span>{action.undo === false
             ? <button type="button" onClick={onAction}>{action.label}</button>
             : <button type="button" aria-keyshortcuts="Control+Z" onClick={onAction}>{action.label} <kbd>Ctrl Z</kbd></button>}<i style={{ animationDuration: `${(action.ms ?? 6000) / 1000}s` }} /></div>
-          : <div className="toast">{notice}</div>
+          : mark ? <div className="toast toast-marked"><span className={`toast-mk ${mark}`} aria-hidden="true">!</span><span>{notice}</span></div> : <div className="toast">{notice}</div>
       )}
     </div>
   );
