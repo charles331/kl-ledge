@@ -1,6 +1,6 @@
-import type { FleetRoutine } from '@ledge/fleet';
+import { LOCAL_MACHINE, type FleetRoutine } from '@ledge/fleet';
 import type { Routine, Task } from '@ledge/protocol';
-import { daysText } from '../../routine-text.js';
+import { askScheduleText, daysText, momentOnce, onceDaysText } from '../../routine-text.js';
 import type { Glyphs } from '../glyphs.js';
 import type { Lang, Messages } from '../i18n/lang.js';
 import { C } from '../theme.js';
@@ -27,12 +27,21 @@ export const failedLast = (r: Pick<Routine, 'lastRun'>): boolean => r.lastRun?.o
  * owner's approval, then those whose last firing failed, then by next firing, the paused ones last. A one-shot already fired
  * (`done`) is the PC's history, not listed here.
  */
-export function routineOrder(routines: readonly FleetRoutine[]): FleetRoutine[] {
+export function routineOrder(routines: readonly FleetRoutine[], machines: readonly string[] = []): FleetRoutine[] {
   const rank = (r: Routine) => (r.state === 'pending' ? 0 : r.state === 'paused' ? 3 : failedLast(r) ? 1 : 2);
-  const by = (a: FleetRoutine, b: FleetRoutine) => rank(a) - rank(b) || (a.nextRun ?? '￿').localeCompare(b.nextRun ?? '￿') || a.name.localeCompare(b.name);
+  const last = '\uffff';
+  const by = (a: FleetRoutine, b: FleetRoutine) => rank(a) - rank(b) || (a.nextRun ?? last).localeCompare(b.nextRun ?? last) || a.name.localeCompare(b.name);
   const live = routines.filter(r => r.state !== 'done');
-  return [...live.filter(r => r.schedule.kind === 'recurring').sort(by), ...live.filter(r => r.schedule.kind === 'once').sort(by)];
+  // Machine by machine, in the fleet's order (card 27); one machine is one group.
+  const ids = [...machines, ...live.map(r => r.machineId)].filter((id, i, all) => all.indexOf(id) === i);
+  return ids.flatMap(id => {
+    const mine = live.filter(r => r.machineId === id);
+    return [...mine.filter(r => r.schedule.kind === 'recurring').sort(by), ...mine.filter(r => r.schedule.kind === 'once').sort(by)];
+  });
 }
+
+/** A machine as the list's group title names it (card 27): its label, and whether its daemon is up. */
+export interface RoutineMachine { id: string; label: string; up: boolean; /** Its daemon does not know routines. */ old?: boolean }
 
 /** A moment as the list names it: « 13:30 » today, « demain 09:00 », « jeu. 26 16:00 » within the week, else « 4 déc. 09:00 ». */
 export function momentText(iso: string, now: number, lang: Lang, t: Messages, o: { today?: 'bare' | 'next' } = {}): string {
@@ -45,26 +54,25 @@ export function momentText(iso: string, now: number, lang: Lang, t: Messages, o:
   return `${date} ${h}`;
 }
 
-/** A one-shot's moment written whole (« jeu. 3 déc. 16:00 »): its `at` is a local date-time without a zone. */
-const onceText = (at: string, lang: Lang): string => {
-  const [date, time] = at.split('T');
-  const [y, m, d] = date!.split('-').map(Number);
-  return `${new Intl.DateTimeFormat(locale(lang), { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(y!, m! - 1, d!))} ${time}`;
-};
+/** The days of a list line: French days alone keep their dot (« jeu. », « lun.,mer. »), a range stays « lun-ven »; English ones
+ *  take a capital (« Thu », « Mon-Fri »). */
+function listDays(days: Parameters<typeof daysText>[0], lang: Lang): string {
+  const text = daysText(days, lang);
+  if (lang === 'en') return text.replace(/\b(mon|tue|wed|thu|fri|sat|sun)\b/g, d => d[0]!.toUpperCase() + d.slice(1));
+  return text.split(',').map(p => (/^(lun|mar|mer|jeu|ven|sam|dim)$/.test(p) ? `${p}.` : p)).join(',');
+}
 
 /**
  * A routine's schedule as the TUI says it, the only code of the TUI that reads `schedule.times/days/every/at`: in the list
- * (`list`) « 08:00 13:30 16:30 · lun-ven », « jeu 16:00 · 1 sem./2 », a one-shot « unique » or its moments (`dated`, when the
- * line's right side does not already give its date); in a request of « À toi » (`ask`) « 17:00 (ven) », as Desktop says it.
+ * (`list`) « 08:00 13:30 16:30 · lun-ven », « jeu. 16:00 · 1 sem./2 », a one-shot « unique » or its moments (`dated`, when the
+ * line's right side does not already give its date); in a request of « À toi » (`ask`) « 17:00 (ven) », « 16:00 (jeu, 1 sem. sur
+ * 2) », a one-shot « jeu. 3 déc. 16:00 » (the owner's words of 2026-11-23, shared with « le point » through `askScheduleText`).
  */
 export function whenText(r: Pick<Routine, 'schedule'>, mode: 'list' | 'ask', lang: Lang, t: Messages, o: { dated?: boolean } = {}): string {
   const s = r.schedule;
-  if (s.kind === 'once') {
-    const moments = [...s.at].sort().map(a => onceText(a, lang)).join(', ');
-    return mode === 'ask' || o.dated ? moments : t.routines.oneShot;
-  }
-  const times = [...s.times].sort(), days = daysText(s.days, lang);
-  if (mode === 'ask') return `${times.join(', ')} (${days})`;
+  if (mode === 'ask') return askScheduleText(s, lang);
+  if (s.kind === 'once') return o.dated ? [...s.at].sort().map(a => momentOnce(a, lang)).join(', ') : t.routines.oneShot;
+  const days = listDays(s.days, lang), times = [...s.times].sort();
   if (s.every?.weeks === 2) return `${days} ${times.join(' ')} · ${t.routines.every2}`;
   return `${times.join(' ')} · ${days}`;
 }
@@ -97,12 +105,23 @@ function subText(r: Routine, lang: Lang, t: Messages): string {
  * The list's lines: per routine its name in bold and its state on the right, then a grey line below; the chosen one on the
  * selection's background with the coral bar on its left; a paused one dimmed; « UNIQUES » above the one-shots.
  */
-export function routineLines(rows: readonly Routine[], o: { sel: number; width: number; now: number; lang: Lang }, t: Messages, g: Glyphs): { lines: Line[]; selLine: number } {
+export function routineLines(rows: readonly FleetRoutine[], o: { sel: number; width: number; now: number; lang: Lang; machines?: readonly RoutineMachine[] }, t: Messages, g: Glyphs): { lines: Line[]; selLine: number } {
   const lines: Line[] = [];
   let selLine = 0;
+  // With several machines, each one's title, then its routines; one whose daemon is too old says so under its title.
+  const groups = (o.machines?.length ?? 0) > 1 ? o.machines! : [];
+  const title = (m: RoutineMachine) => {
+    if (lines.length) lines.push([]);
+    lines.push([{ text: ` ${m.label} `, color: C.coral, bold: true }, { text: m.up ? g.machine : '○', color: m.up ? C.green : C.faint }]);
+    if (m.old) lines.push(cut([{ text: `   ${t.routines.oldDaemon}`, color: C.yellow }], o.width));
+  };
+  for (const m of groups) if (m.old && !rows.some(r => r.machineId === m.id)) title(m);
   rows.forEach((r, i) => {
-    if (r.schedule.kind === 'once' && rows[i - 1]?.schedule.kind !== 'once') {
-      if (i > 0) lines.push([]);
+    const prev = rows[i - 1];
+    const newMachine = groups.length > 0 && prev?.machineId !== r.machineId;
+    if (newMachine) { const m = groups.find(x => x.id === r.machineId); if (m) title(m); }
+    if (r.schedule.kind === 'once' && (newMachine || prev?.schedule.kind !== 'once')) {
+      if (i > 0 && !newMachine) lines.push([]);
       lines.push([{ text: ` ${t.routines.groupOnce}`, color: C.dim }]);
     }
     const on = i === o.sel, dim = r.state === 'paused';
@@ -117,25 +136,36 @@ export function routineLines(rows: readonly Routine[], o: { sel: number; width: 
   return { lines, selLine };
 }
 
-/** A routine's « À toi » item in the overview: what it says, and its mark (? a request, ! a failure). */
-export interface RoutineItem { id: string; mark: 'ask' | 'fail'; text: string }
+/** A routine's « À toi » item in the overview (mockup card 27): what it says, its mark (? a request, ! a failure), the routines
+ *  its keys act on (a group's every one), and the machine that holds them. */
+export interface RoutineItem { id: string; kind: 'approve' | 'failed'; mark: 'ask' | 'fail'; text: string; routines: string[]; machineId: string }
 
 /**
- * The open items of « À toi » a routine made (an activation request, a failure), in words the TUI writes from the routine
- * itself; the daemon's own title when the routine is not listed (another machine's, or not read yet).
+ * The open items of « À toi » a routine made (an activation request, a group of them, a failure), in words the TUI writes from the
+ * routine itself; the daemon's own title when the routine is not listed (another machine's, or not read yet). A group of recurring
+ * routines is not one the daemon makes: it shows its title.
  */
-export function routineItems(tasks: readonly Task[], routines: readonly Routine[], lang: Lang, t: Messages): RoutineItem[] {
+export function routineItems(tasks: readonly Task[], routines: readonly FleetRoutine[], lang: Lang, t: Messages): RoutineItem[] {
   return tasks.flatMap((task): RoutineItem[] => {
     const rt = task.routine;
     if (!rt) return [];
     const r = routines.find(x => x.id === rt.id);
-    if (rt.kind === 'failed') return [{ id: task.id, mark: 'fail' as const, text: r ? t.routines.failed(rt.name, r.target.name, rt.reason ?? t.routines.out.failed) : task.title }];
-    const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : r?.target.name);
+    const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: r?.machineId ?? LOCAL_MACHINE.id };
+    if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, rt.reason ?? t.routines.out.failed) : task.title }];
+    const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : undefined);
+    const spec = r?.proposal?.spec ?? r;
     let text = task.title;
-    if (r && who && rt.ids) {
+    if (who && rt.ids) {
       const all = rt.ids.map(id => routines.find(x => x.id === id));
-      if (all.every(x => x?.schedule.kind === 'once')) text = t.routines.groupAsk(who, rt.ids.length);
-    } else if (r && who && r.state === 'pending' && !r.proposal) text = t.routines.ask(who, r.name, whenText(r, 'ask', lang, t), tilde(r.target.cwd));
-    return [{ id: task.id, mark: 'ask' as const, text }];
+      if (all.every(x => x?.schedule.kind === 'once')) text = t.routines.groupAsk(who, rt.ids.length, onceDaysText(all.flatMap(x => (x!.schedule.kind === 'once' ? x!.schedule.at : [])), lang));
+    } else if (who && spec) text = t.routines.ask(who, spec.name, whenText(spec, 'ask', lang, t), tilde(spec.target.cwd));
+    return [{ ...base, mark: 'ask', text }];
   });
+}
+
+/** The keys an item of « À toi » answers to, as the line under it says them: y and n, or y alone for a failure. */
+export function routineItemKeys(item: RoutineItem, t: Messages): Array<[string, string]> {
+  const k = t.routines.itemKeys, n = item.routines.length;
+  if (item.kind === 'failed') return [['y', k.retry]];
+  return n > 1 ? [['y', k.activateAll(n)], ['n', k.refuseAll(n)]] : [['y', k.activate], ['n', k.refuse]];
 }

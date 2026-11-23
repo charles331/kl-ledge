@@ -73,3 +73,36 @@ export function scheduleText(s: RoutineSchedule, lang: 'fr' | 'en'): string {
 
 /** Whether a routine can still fire: a one-off that has fired (`done`) is kept for its history only. */
 export const routineLive = (r: Pick<Routine, 'state'>): boolean => r.state !== 'done';
+
+const LOCALE = { fr: 'fr-FR', en: 'en-GB' } as const;
+const EVERY_TWO = { fr: '1 sem. sur 2', en: 'every 2 wks' } as const;
+/** English names its days with a capital on a screen (« Thu », « Mon-Fri »), as the mockup writes them. */
+const shownDays = (days: readonly Weekday[], lang: 'fr' | 'en'): string =>
+  lang === 'en' ? daysText(days, lang).replace(/\b(mon|tue|wed|thu|fri|sat|sun)\b/g, d => d[0]!.toUpperCase() + d.slice(1)) : daysText(days, lang);
+/** A one-shot's local moment (« 2026-12-03T16:00 ») as a screen writes it: « jeu. 3 déc. 16:00 », « Thu 3 Dec 16:00 ». */
+export function momentOnce(at: string, lang: 'fr' | 'en'): string {
+  const [date, time] = at.split('T');
+  const [y, m, d] = date!.split('-').map(Number);
+  return `${new Intl.DateTimeFormat(LOCALE[lang], { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(y!, m! - 1, d!))} ${time}`;
+}
+
+/** A schedule as an activation request says it on a screen and in « le point » (owner's words, 2026-11-23): « 17:00 (ven) »,
+ *  « 16:00 (jeu, 1 sem. sur 2) », a one-shot « jeu. 3 déc. 16:00 ». */
+export function askScheduleText(s: RoutineSchedule, lang: 'fr' | 'en'): string {
+  if (s.kind === 'once') return [...s.at].sort().map(a => momentOnce(a, lang)).join(', ');
+  return `${[...s.times].sort().join(', ')} (${shownDays(s.days, lang)}${s.every?.weeks === 2 ? `, ${EVERY_TWO[lang]}` : ''})`;
+}
+
+/** The days of several one-shots, month by month (mockup card 27): « 3, 7 et 8 déc. », « 3, 7 and 8 Dec ». */
+export function onceDaysText(ats: readonly string[], lang: 'fr' | 'en'): string {
+  const list = new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' });
+  const months: Array<{ key: string; label: string; days: number[] }> = [];
+  for (const at of [...ats].sort()) {
+    const [y, m, d] = at.slice(0, 10).split('-').map(Number);
+    const key = `${y}-${m}`;
+    let g = months.find(x => x.key === key);
+    if (!g) { g = { key, label: new Intl.DateTimeFormat(LOCALE[lang], { month: 'short' }).format(new Date(y!, m! - 1, 1)), days: [] }; months.push(g); }
+    if (!g.days.includes(d!)) g.days.push(d!);
+  }
+  return list.format(months.map(g => `${list.format(g.days.map(String))} ${g.label}`));
+}

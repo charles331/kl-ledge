@@ -612,8 +612,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     resumable: s => s.source !== 'rig' && resumeKey(s) !== undefined,
     resume: s => respawn(s, resumeKey(s)!, s.model, s.effort),
     launch: req => launch(req),
-    onChange: m => broadcast(m) });
+    // A routine's change also feeds « le point » (a new firing is a routine.fired event); `routines` is still unset when a firing
+    // interrupted at restart is recorded failed during construction.
+    onChange: m => { broadcast(m); if (routines) operator?.routinesChanged(routines.all()); } });
   const routineList = routines;
+  operator?.routinesChanged(routineList.all());
   /** Each session's state last seen: a turn's end (→ idle) is when its context is read again. */
   const lastState = new Map<string, Session['state']>();
   /** Reads a session's context after a turn (§3.1). */
@@ -1209,6 +1212,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     answerBrain: (task, yes) => { const r = answerProposal(task, { yes }, randomUUID()); return r.reason !== undefined ? { message: r.reason } : undefined; },
     applySuggestion: (qid, itemId, row, confirmed, by, onMark) => applySuggestionRow(qid, itemId, row, confirmed, (card, cardQid, ok) => actOnCard(card, cardQid, randomUUID(), [0], ok, undefined, by), onMark),
     isBrain: task => tasks.all().find(t => t.id === task)?.brain !== undefined,
+    // A routine's « À toi » row: « Relancer » fires it again as the owner would (routines spec §3.2).
+    routine: {
+      of: taskId => tasks.all().find(t => t.id === taskId)?.routine,
+      run: async id => { const r = await routineList.run({ type: 'routine.cmd', rid: randomUUID(), op: 'run', routine: id }, { kind: 'user' }); return r.code ? { message: r.reason ?? r.code } : undefined; }
+    },
     operator: {
       settle: (...a) => { try { operator?.operator.settle(...a); } catch (e) { log(`operator: point not settled: ${(e as Error).message}`); } },
       expect: (...a) => operator?.operator.expect(...a) ?? (() => {})
@@ -2152,6 +2160,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         onNotices: n => notices.tell(n),
         onPointPush: (lead, qidByDevice) => notifyPoint?.(lead, qidByDevice), onUrgentAsks: asks => notifyAsks?.(asks) });
       operator.start();
+      // The routines as they are at start: their baseline, so a firing from before it is not news.
+      operator.routinesChanged(routineList.all());
       // OpenRig's asks are followed for the journal too, where OpenRig is installed; the first list read is the baseline.
       // Max's goals too: the first list read is their baseline.
       void openrig.state().then(st => {

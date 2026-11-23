@@ -1158,7 +1158,7 @@ export function createPhoneGateway(deps: {
     if (!deps.routines) return { status: 'rejected', reason: 'unavailable' };
     if (!r) return { status: 'rejected', reason: 'not_found' };
     if (msg.action === 'approve') {
-      if (r.state !== 'pending') return { status: 'rejected', reason: 'not_pending' };
+      if (r.state !== 'pending' && !r.proposal) return { status: 'rejected', reason: 'not_pending' };
       if (msg.routineKey !== routineKey(r)) return { status: 'rejected', reason: 'stale' };
       const refused = checkAssertion(deviceId, msg.assertion, 'routine', `${r.id}:${msg.routineKey}`);
       if (refused) return refused;
@@ -1773,10 +1773,10 @@ export function createPhoneGateway(deps: {
           return push(deviceId, { type: 'confirm.challenge', purpose: 'forge', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
         if (msg.purpose === 'routine') {
-          // Bound to that pending routine as the phone showed it (its key): a check covers no other prompt, folder or schedule.
+          // Bound to that request (a pending routine, or a routine's proposal) as the phone showed it (its key): a check covers no other prompt, folder or schedule.
           const cred = deps.credential(deviceId);
           const r = deps.routines?.().find(x => x.id === msg.routine);
-          if (!cred || cred.rpId !== rp.rpId || !r || r.state !== 'pending' || msg.routineKey !== routineKey(r)) return invalid();
+          if (!cred || cred.rpId !== rp.rpId || !r || (r.state !== 'pending' && !r.proposal) || msg.routineKey !== routineKey(r)) return invalid();
           const challenge = deps.challenges.issue({ deviceId, purpose: 'routine', subject: `${r.id}:${msg.routineKey}` });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'routine', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
