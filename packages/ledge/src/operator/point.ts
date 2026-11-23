@@ -87,12 +87,15 @@ function liveTarget(live: LiveState, name: string, cwd: string): Session | undef
  * the session works on the routine's latest firing (« routine · depuis 4 min »), then done at the time the session went quiet.
  * The payload is `fromRoutines`'s.
  */
-function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], item: PointItem): void {
+function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], item: PointItem, turns: Turns): void {
   const p = e.payload;
   const name = str(p.name) || e.subjectName, slot = str(p.slot), firedAt = str(p.firedAt) || e.at;
   const s = liveTarget(live, str(p.target), str(p.cwd));
   const latest = live.routines?.find(r => r.id === str(p.routine))?.lastRun?.at;
-  const on = !!s && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
+  // The turn the firing started ends at the session's first end after it: later work is not the routine's.
+  const end = s ? turns.ends.get(s.id)?.find(at => at >= firedAt) : undefined;
+  if (end) turns.of.set(item.id, { session: s!.id, end });
+  const on = !!s && !end && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
   item.who = clip(s?.name ?? (str(p.target) || name), 100);
   item.text = clip(p.late === true ? t.routineLate(name, slot, clock(firedAt)) : t.routine(name, slot), 400);
   if (s) item.nav = [{ kind: 'session', id: s.id }];
@@ -102,10 +105,18 @@ function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], it
     return;
   }
   item.group = 'done'; item.tone = 'idle'; item.sub = t.routineSub;
-  // A done row says when it ended: the session's last move after its latest firing, else (a newer firing came since, or the
-  // session is gone) the firing itself.
-  const quiet = s && (latest === undefined || latest === firedAt) && s.lastActivityAt > firedAt ? s.lastActivityAt : firedAt;
-  if (!Number.isNaN(Date.parse(quiet))) item.at = new Date(quiet).toISOString();
+  // A done row says when its turn ended; without a known end (the session gone, or its end not in the journal), when it left.
+  const when = end ?? firedAt;
+  if (!Number.isNaN(Date.parse(when))) item.at = new Date(when).toISOString();
+}
+
+/** Each session's turn ends (`session.finished`) in the journal read, oldest first; and the end each routine row was given. */
+interface Turns { ends: Map<string, string[]>; of: Map<string, { session: string; end: string }> }
+function turnsOf(events: readonly JournalEvent[]): Turns {
+  const ends = new Map<string, string[]>();
+  for (const e of events) if (e.kind === 'session.finished') ends.set(e.subjectId, [...(ends.get(e.subjectId) ?? []), e.at]);
+  for (const list of ends.values()) list.sort();
+  return { ends, of: new Map() };
 }
 
 const tilde = (p: string): string => p.replace(/^\/home\/[^/]+(?=\/|$)/, '~').replace(/^\/root(?=\/|$)/, '~');
@@ -142,7 +153,7 @@ function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], lang: Lan
   }
 }
 
-function build(e: JournalEvent, live: LiveState, t: (typeof L)[Lang]): Built | undefined {
+function build(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], turns: Turns = turnsOf([])): Built | undefined {
   const group = GROUP_OF[e.kind];
   if (!group) return undefined;
   const p = e.payload;
@@ -237,7 +248,7 @@ function build(e: JournalEvent, live: LiveState, t: (typeof L)[Lang]): Built | u
       item.tone = 'ask'; item.text = clip(str(p.text), 400) || t.goalUpdate; item.rig = str(p.rig) ? clip(str(p.rig), 100) : undefined;
       if (item.rig) item.nav = [{ kind: 'rig', id: item.rig }];
       break;
-    case 'routine.fired': routineFiring(e, live, t, item); break;
+    case 'routine.fired': routineFiring(e, live, t, item, turns); break;
     default: return undefined;
   }
   if (item.rig === undefined) delete item.rig;
@@ -277,8 +288,9 @@ export function buildPoint(events: readonly JournalEvent[], live: LiveState, sin
   }
   const urgent = new Map<string, boolean>();
   const items: PointItem[] = [];
+  const turns = turnsOf(events);
   for (const e of latest.values()) {
-    const b = build(e, live, t);
+    const b = build(e, live, t, turns);
     if (!b) continue;
     if (b.settledNow) {
       const where = ['terminal', 'phone', 'desktop', 'chat', 'elsewhere'].includes(str(e.payload.where)) ? (str(e.payload.where) as 'elsewhere') : 'elsewhere';
@@ -291,27 +303,21 @@ export function buildPoint(events: readonly JournalEvent[], live: LiveState, sin
     if (taskClosed(task) || openDecision(task) || task.brain || items.some(i => i.id === `task:${task.id}`)) continue;
     items.push(ongoingTask(task, 0, t));
   }
-  mergeRoutineEnds(items, [...latest.values()]);
+  mergeRoutineEnds(items, turns);
   const rank = (i: PointItem): number => GROUP_ORDER.indexOf(i.group);
   items.sort((a, b) => rank(a) - rank(b) || (a.group === 'atoi' ? Number(urgent.get(b.id)) - Number(urgent.get(a.id)) : 0) || BY_AGE(a, b));
   return { since, lead: clip(lead.text, 300), leadBy: lead.by, items: cap(items) };
 }
 
 /**
- * A session that went free at the end of a routine's firing says it once (mockup card 26): its « a terminé » row gives way to the
- * routine's done row, which takes its time. An end with no firing before it in that session keeps its usual row.
+ * A session that went free at the end of a routine's firing says it once (mockup card 26): the « a terminé » row of that very end
+ * gives way to the routine's done row. A later end, of work that is not the routine's, keeps its own row.
  */
-function mergeRoutineEnds(items: PointItem[], events: readonly JournalEvent[]): void {
-  const byEvent = new Map(events.map(e => [e.id, e]));
-  for (const end of items.filter(i => i.id.startsWith('session:') && byEvent.get(i.event)?.kind === 'session.finished')) {
+function mergeRoutineEnds(items: PointItem[], turns: Turns): void {
+  for (const end of items.filter(i => i.id.startsWith('session:'))) {
     const sid = end.id.slice('session:'.length);
-    const fired = items.filter(i => i.group === 'done' && byEvent.get(i.event)?.kind === 'routine.fired' && i.nav?.[0]?.kind === 'session' && i.nav[0].id === sid)
-      .map(i => ({ i, at: str(byEvent.get(i.event)!.payload.firedAt) || byEvent.get(i.event)!.at }))
-      .filter(x => x.at <= end.at)
-      .sort((a, b) => b.at.localeCompare(a.at))[0];
-    if (!fired) continue;
-    fired.i.at = end.at;
-    items.splice(items.indexOf(end), 1);
+    const mine = [...turns.of.values()].some(x => x.session === sid && x.end === end.at);
+    if (mine && turns.ends.get(sid)?.includes(end.at)) items.splice(items.indexOf(end), 1);
   }
 }
 

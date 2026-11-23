@@ -153,6 +153,18 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     const pending = CARD25.map(r => (r.id === 'rb11111' ? { ...r, state: 'pending' as const, createdBy: { kind: 'session' as const, id: 'iris1', name: 'Iris' } } : r));
     expect(routineItems([two], pending, 'en', en)[0]!.text).toBe('Iris wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
   });
+
+  it('routes local decisions to the local machine when remote routine IDs collide', () => {
+    const task: Task = { giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: local(23, 2, 10), updatedAt: local(23, 2, 10), log: [], id: 't1', title: 'local', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } };
+    const localRoutine = CARD18[4]!;
+    const remoteRoutine = { ...localRoutine, machineId: 'laptop', name: 'autre' };
+    expect(routineItems([task], [remoteRoutine, localRoutine], 'fr', fr)[0]!.machineId).toBe('local');
+    // A group's ids are the local machine's too: a remote namesake neither words it nor receives its answers.
+    const group: Task = { ...task, id: 't2', routine: { kind: 'approve', id: 'rc22222', name: 'prépa-121', ids: ['rc22222', 'rd33333'] } };
+    const remote = CARD25.map(r => ({ ...r, machineId: 'laptop', schedule: { kind: 'recurring' as const, times: ['09:00'], days: ['mon' as const] } }));
+    const [item] = routineItems([group], [...remote, ...CARD25], 'fr', fr);
+    expect(item).toMatchObject({ machineId: 'local', routines: ['rc22222', 'rd33333'], text: 'Iris veut programmer 2 routines uniques : 3 et 4 déc.' });
+  });
 });
 
 const sent = <T extends ClientMessage['type']>(received: ClientMessage[], type: T) => received.filter((m): m is Extract<ClientMessage, { type: T }> => m.type === type);

@@ -57,10 +57,13 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     expect(p.items.some(i => i.group === 'atoi')).toBe(false);
   });
 
-  it('done once the session is free again, at its last move; English words', () => {
-    const p = buildPoint([now], live({ lang: 'en', sessions: [session({ state: 'idle', lastActivityAt: at(13, 51) })] }), at(8, 0), lead);
+  it('done at the end of the turn it started (its « a terminé » folded in); without a known end, at its firing; English words', () => {
+    const ended: JournalEvent = { id: ++n, at: at(13, 51), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null };
+    const p = buildPoint([now, ended], live({ lang: 'en', sessions: [session({ state: 'idle', lastActivityAt: at(13, 51) })] }), at(8, 0), lead);
     expect(p.items).toHaveLength(1);
     expect(p.items[0]).toMatchObject({ group: 'done', text: '13:30 briefing', sub: 'routine', at: at(13, 51) });
+    // Later activity is not the routine's: with no end in the journal, the row keeps its firing's time.
+    expect(buildPoint([now], live({ sessions: [session({ state: 'idle', lastActivityAt: at(15, 0) })] }), at(8, 0), lead).items[0]!.at).toBe(at(13, 30));
     const pl = buildPoint([late], live({ lang: 'en', sessions: [session({ state: 'idle' })] }), at(8, 0), lead);
     expect(pl.items[0]!.text).toBe(`08:00 briefing, sent at ${hhmm(at(8, 42))} on wake`);
   });
@@ -125,6 +128,22 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     expect(p.items[0]).toMatchObject({ group: 'done', who: 'Iris', text: 'briefing de 13:30', sub: 'routine', at: at(13, 52) });
     const before = buildPoint([end(at(12, 0)), now], idle, at(8, 0), lead);
     expect(before.items.map(i => i.id).sort()).toEqual(['routine.run:r1a2b3c@' + at(13, 30), 'session:iris1']);
+  });
+
+  it('keeps a later unrelated session finish separate from a previous completed routine', () => {
+    const firstEnd: JournalEvent = { id: ++n, at: at(13, 52), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null };
+    const secondEnd: JournalEvent = { ...firstEnd, id: ++n, at: at(15, 0), payload: { text: 'Unrelated manual work' } };
+    const idle = live({ sessions: [session({ state: 'idle', lastActivityAt: at(15, 0) })], routines: [routine({ lastRun: run('13:30', at(13, 30)) })] });
+    const p = buildPoint([now, firstEnd, secondEnd], idle, at(8, 0), lead);
+    expect(p.items.map(i => i.id)).toContain('session:iris1');
+    expect(p.items.find(i => i.id.startsWith('routine.run:'))?.at).toBe(at(13, 52));
+  });
+
+  it('does not say an earlier routine is ongoing when the session starts unrelated work', () => {
+    const end: JournalEvent = { id: ++n, at: at(13, 52), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null };
+    const working = live({ sessions: [session({ state: 'working', lastActivityAt: at(15, 0) })], routines: [routine({ lastRun: run('13:30', at(13, 30)) })] });
+    const p = buildPoint([now, end], working, at(8, 0), lead);
+    expect(p.items.find(i => i.id.startsWith('routine.run:'))?.group).toBe('done');
   });
 });
 
