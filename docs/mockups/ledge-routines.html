@@ -1058,11 +1058,34 @@ function precDesktopCards(){
   return C;
 }
 
+/* Phone and island précisions confirmed by jde on 2026-11-23 (qitem-20261123043446-d17b1d260b705767). */
+function precPhoneCards(){
+  const x = t(), fr = L==='fr';
+  const P = fr ? {open:'Ouverture de la routine « briefing » dans Ledge Desktop', edit:'<b>Iris</b> veut modifier « briefing » : 07:30, 13:30, 16:30 (lun–ven)', see:'Voir'}
+               : {open:'Opening the routine “briefing” in Ledge Desktop', edit:'<b>Iris</b> wants to change “briefing”: 07:30, 13:30, 16:30 (Mon–Fri)', see:'View'};
+  const stat = `<div class="stat"><span>13:02</span><span>●●● 5G</span></div>`;
+  const tabbar = (on) => `<div class="tabbar">${x.tabs.map((n,i)=>`<span class="${i===on?'on':''}"><i></i>${n}${i===0?`<em class="b">2</em>`:''}</span>`).join('')}</div>`;
+  const atoi = `<div class="phone">${stat}<div class="hd"><h3>${x.atoi}</h3></div><div class="cnt">
+    <div class="pcard pending"><div class="top"><span class="pill ask">${x.pAsk}</span><span class="meta">${x.pRoutine} · 03:40</span></div><div style="display:flex;gap:9px;align-items:flex-start">${bot('#e8735a','work')}<div>${P.edit}</div></div>
+      <div class="unfold" style="margin:0;font-size:12px">${R()[2].prompt}</div><div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button></div></div>
+    <div class="pcard failed"><div class="top"><span class="pill bad">${x.pFail}</span><span class="meta">${x.pRoutine} · 18:00</span></div><div style="display:flex;gap:9px;align-items:flex-start">${bot('#e8735a','off')}<div>${x.failLine('veille','Nova', x.failNoDir)}</div></div><div class="acts"><button class="btn pri">${x.retry}</button><button class="btn" style="box-shadow:0 0 0 2px var(--note)">${P.see}</button></div></div>
+    </div>${tabbar(0)}</div>`;
+  const r = R()[1];
+  const list = `<div class="phone">${stat}<div class="hd"><span class="back">${I.back(16)}${x.pBack}</span></div><div class="hd" style="padding-top:0"><h3>${x.routines}</h3></div><div class="cnt">
+    <div class="pcard failed" style="box-shadow:0 0 0 2px var(--note);background:color-mix(in srgb,var(--note) 10%,var(--card))"><div class="top">${bot('#e8735a','off')}<div style="flex:1"><b>veille</b><div class="meta">Nova · 18:00 · ${x.daily}</div></div></div><div class="meta">${x.pNext(x.today+' 18:00')}</div><div class="meta"><span class="mk bad">!</span> ${x.lastAt('18:00', x.out.failed)}</div><div class="meta reason">${r.reason}</div><div class="acts"><button class="btn">${I.play(14)}${x.retry}</button><button class="btn">${x.pause}</button></div></div>
+    </div>${tabbar(1)}</div>`;
+  const island = `<div class="island" style="align-self:flex-start"><div class="ih"><b>Ledge</b><span>· ${x.atoi}</span></div><div class="it" style="flex-direction:row;align-items:center;gap:9px"><span class="spin" style="border-color:#a1a1aa;border-top-color:transparent"></span><span>${P.open}</span></div></div>`;
+  return [{tag:'add', title:'Téléphone et île : ouverture, modification demandée, « Voir » d’un échec (validé)', wide:true,
+    why:'<b>Île</b> : « Voir » sur un item de routine affiche « Ouverture de la routine « briefing » dans Ledge Desktop » pendant que Desktop s’ouvre sur la page de la routine, sur le modèle des autres textes d’ouverture de l’île. <b>Téléphone</b> : une modification demandée par une session est une carte de demande dont le titre dit <b>« veut modifier »</b>, avec les réglages demandés et le prompt (pas d’« avant → demandé » sur le téléphone). <b>« Voir » d’un échec</b> ouvre l’écran Routines et y fait défiler jusqu’à la carte de la routine, entourée 1,5 s (violet de liaison).',
+    keys:'overlay : open.routine(name) · mobile : atoi.routine.editAsk(who,name,schedule)',
+    scene: island + atoi + list}];
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
