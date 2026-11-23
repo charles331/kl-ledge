@@ -28,7 +28,8 @@ const L = {
     routine: (name: string, slot: string) => `${name} de ${slot}`, routineLate: (name: string, slot: string, at: string) => `${name} de ${slot}, lancé à ${at} au réveil`,
     routineSub: 'routine', routineSince: (n: number) => `routine · depuis ${n} min`, routineFailed: (name: string) => `: la routine ${name} n’a pas pu partir`, retry: 'Relancer',
     routineAsk: (name: string, when: string, dir: string) => `veut programmer « ${name} » : ${when}, dans ${dir}`,
-    routineGroupAsk: (n: number, days: string) => `veut programmer ${n} routines uniques : ${days}`
+    routineGroupAsk: (n: number, days: string) => `veut programmer ${n} routines uniques : ${days}`,
+    routineChange: (name: string, when: string) => `veut modifier « ${name} » : ${when}`, routineWaits: (name: string) => `« ${name} » attend ton accord`
   },
   en: {
     deny: 'Deny', accept: 'Allow', add: 'Add', refuse: 'Refuse',
@@ -40,7 +41,8 @@ const L = {
     routine: (name: string, slot: string) => `${slot} ${name}`, routineLate: (name: string, slot: string, at: string) => `${slot} ${name}, sent at ${at} on wake`,
     routineSub: 'routine', routineSince: (n: number) => `routine · for ${n} min`, routineFailed: (name: string) => `: routine ${name} could not run`, retry: 'Run again',
     routineAsk: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
-    routineGroupAsk: (n: number, days: string) => `wants to schedule ${n} one-shot routines: ${days}`
+    routineGroupAsk: (n: number, days: string) => `wants to schedule ${n} one-shot routines: ${days}`,
+    routineChange: (name: string, when: string) => `wants to change “${name}”: ${when}`, routineWaits: (name: string) => `“${name}” awaits your approval`
   }
 } as const;
 
@@ -90,10 +92,13 @@ function liveTarget(live: LiveState, name: string, cwd: string): Session | undef
 function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], item: PointItem, turns: Turns): void {
   const p = e.payload;
   const name = str(p.name) || e.subjectName, slot = str(p.slot), firedAt = str(p.firedAt) || e.at;
+  // When the prompt reached the session: the event is recorded as the daemon records the run, once the mailbox typed it (a busy
+  // session's firing waits there); `firedAt` is when the firing began.
+  const deliveredAt = e.at > firedAt ? e.at : firedAt;
   const s = liveTarget(live, str(p.target), str(p.cwd));
   const latest = live.routines?.find(r => r.id === str(p.routine))?.lastRun?.at;
   // The turn the firing started ends at the session's first end after it: later work is not the routine's.
-  const end = s ? turns.ends.get(s.id)?.find(at => at >= firedAt) : undefined;
+  const end = s ? turns.ends.get(s.id)?.find(at => at >= deliveredAt) : undefined;
   if (end) turns.of.set(item.id, { session: s!.id, end });
   const on = !!s && !end && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
   item.who = clip(s?.name ?? (str(p.target) || name), 100);
@@ -101,12 +106,12 @@ function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], it
   if (s) item.nav = [{ kind: 'session', id: s.id }];
   if (on) {
     item.group = 'ongoing'; item.tone = 'work';
-    item.sub = t.routineSince(Math.max(0, Math.round(((live.now ?? Date.now()) - Date.parse(firedAt)) / 60_000)));
+    item.sub = t.routineSince(Math.max(0, Math.round(((live.now ?? Date.now()) - Date.parse(deliveredAt)) / 60_000)));
     return;
   }
   item.group = 'done'; item.tone = 'idle'; item.sub = t.routineSub;
   // A done row says when its turn ended; without a known end (the session gone, or its end not in the journal), when it left.
-  const when = end ?? firedAt;
+  const when = end ?? deliveredAt;
   if (!Number.isNaN(Date.parse(when))) item.at = new Date(when).toISOString();
 }
 
@@ -145,11 +150,15 @@ function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], lang: Lan
   if (who && group && group.every(r => r?.schedule.kind === 'once')) {
     const ats = group.flatMap(r => (r!.schedule.kind === 'once' ? r!.schedule.at : []));
     item.who = clip(who, 100); item.text = clip(t.routineGroupAsk(group.length, onceDaysText(ats, lang)), 400);
+  } else if (who && routine?.proposal) {
+    // A session's change to its routine (owner's decision, mockup card 29): « veut modifier », never taken for a new one.
+    item.who = clip(who, 100); item.text = clip(t.routineChange(routine.proposal.spec.name, askScheduleText(routine.proposal.spec.schedule, lang)), 400);
   } else if (who && spec && !rt.ids) {
     item.who = clip(who, 100); item.text = clip(t.routineAsk(spec.name, askScheduleText(spec.schedule, lang), tilde(spec.target.cwd)), 400);
   } else {
-    // A routine not read yet, or a group the screens have no words for: the daemon's own title.
-    item.who = 'Ledge'; item.text = clip(task.title, 400);
+    // A routine not read yet, or a group the screens have no words for: its name, in the point's language (the daemon's title is
+    // French only).
+    item.who = 'Ledge'; item.text = clip(t.routineWaits(rt.name), 400);
   }
 }
 
