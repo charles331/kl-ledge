@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { openDecision, type Routine, type RoutineSpec, type Session, type Weekday } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { createTasks, type Tasks } from '../src/daemon/tasks.js';
-import { createRoutines, daysLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
+import { createRoutines, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
 
 const TZ = 'Europe/Brussels';
 const T0 = '2026-11-20T06:00:00.000Z'; // Friday 07:00 in Brussels
@@ -104,7 +104,9 @@ describe('slots', () => {
     for (const [name, s, want] of cases) expect([name, next3(s, T0)]).toEqual([name, want]);
   });
   it('words the days as « À toi » shows them', () => {
-    expect(daysLabel(['mon', 'tue', 'wed', 'thu', 'fri'])).toBe('lun-ven');
+    expect(daysLabel(['mon', 'tue', 'wed', 'thu', 'fri'])).toBe('lun–ven');
+    expect(scheduleLabel({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } })).toBe('16:00 (jeu, 1 sem. sur 2)');
+    expect(scheduleLabel({ kind: 'once', at: ['2026-12-03T16:00', '2026-12-07T15:00'] })).toBe('jeu. 3 déc. 16:00, lun. 7 déc. 15:00');
     expect(daysLabel(['mon', 'wed', 'fri'])).toBe('lun, mer, ven');
     expect(daysLabel(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'])).toBe('tous les jours');
   });
@@ -153,7 +155,7 @@ describe('firing', () => {
     await cmd(user, 'run', { routine: 'briefing' }); await flush();
     expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'dossier introuvable : /home/jde/assistant' });
     expect(decisions().map(t => [t.title, t.routine])).toEqual([[
-      "La routine briefing (Iris) n'a pas pu partir : dossier introuvable : /home/jde/assistant", { kind: 'failed', id: only().id, name: 'briefing', reason: 'dossier introuvable : /home/jde/assistant' }]]);
+      'La routine briefing (Iris) n’a pas pu partir : dossier introuvable : /home/jde/assistant', { kind: 'failed', id: only().id, name: 'briefing', reason: 'dossier introuvable : /home/jde/assistant' }]]);
     // The next firing that leaves closes it.
     missing.clear();
     await cmd(user, 'run', { routine: 'briefing' }); await flush();
@@ -232,7 +234,7 @@ describe('commands', () => {
     expect(r).toMatchObject({ state: 'pending', createdBy: { kind: 'session', id: 'iris', name: 'Iris' } });
     expect(r.nextRun).toBeUndefined();
     expect(decisions().map(t => [t.title, t.text, t.routine])).toEqual([[
-      'Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun-ven), dans ~/assistant', r.prompt, { kind: 'approve', id: r.id, name: 'briefing' }]]);
+      'Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun–ven), dans ~/assistant', r.prompt, { kind: 'approve', id: r.id, name: 'briefing' }]]);
     clock = at('2026-11-20T07:00:30.000Z'); routines.tick(); await flush();
     expect(typed).toEqual([]);
     expect(await cmd(as('iris'), 'approve', { routine: r.id })).toMatchObject({ code: 'forbidden' });
@@ -277,7 +279,8 @@ describe('commands', () => {
     const a = (await cmd(as('iris'), 'add', { spec: spec({ name: 'prepa-121', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) })).routine!;
     const b = (await cmd(as('iris'), 'add', { spec: spec({ name: 'prepa-arch', schedule: { kind: 'once', at: ['2026-12-09T16:00'], tz: TZ } }) })).routine!;
     expect(decisions()).toHaveLength(1);
-    expect(decisions()[0]).toMatchObject({ title: 'Iris veut programmer 2 routines : « prepa-121 », « prepa-arch »', routine: { kind: 'approve', id: a.id, ids: [a.id, b.id] } });
+    expect(decisions()[0]!.text).toMatch(/^prepa-121 \(jeu\. 3 déc\. 16:00\)\nprepa-arch \(mer\. 9 déc\. 16:00\)\n/);
+    expect(decisions()[0]).toMatchObject({ title: 'Iris veut programmer 2 routines uniques', routine: { kind: 'approve', id: a.id, ids: [a.id, b.id] } });
     await cmd(user, 'approve', { routine: a.id });
     expect(decisions()).toHaveLength(1);
     await cmd(user, 'refuse', { routine: b.id });
@@ -315,6 +318,37 @@ describe('commands', () => {
     missing.clear();
     await cmd(user, 'run', { routine: 'p' }); await flush(); typedDone();
     expect(only().state).toBe('done');
+  });
+  it('a recurring routine a session asks for is never grouped with its one-shots', async () => {
+    await cmd(as('iris'), 'add', { spec: spec({ name: 'p1', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) });
+    await cmd(as('iris'), 'add', { spec: spec({ name: 'cloture' }) });
+    expect(decisions().map(t => t.routine?.ids)).toEqual([undefined, undefined]);
+  });
+  it('a one-shot whose first moment failed stays, failed, though its second leaves; its relaunch closes it', async () => {
+    store.upsert(mk('iris', 'Iris'));
+    await cmd(user, 'add', { spec: spec({ name: 'p', schedule: { kind: 'once', at: ['2026-11-20T16:00', '2026-11-21T09:00'], tz: TZ } }) });
+    missing.add('/home/jde/assistant');
+    clock = at('2026-11-20T15:00:20.000Z'); routines.tick(); await flush();
+    missing.clear();
+    clock = at('2026-11-21T08:00:20.000Z'); routines.tick(); await flush(); typedDone();
+    expect(only()).toMatchObject({ state: 'enabled', lastRun: { outcome: 'delivered' } });
+    expect(decisions()).toHaveLength(1);
+    await cmd(user, 'run', { routine: 'p' }); await flush(); typedDone();
+    expect(only().state).toBe('done');
+    expect(decisions()).toEqual([]);
+  });
+  it('a firing decided when the daemon stops is reported failed on restart, never lost', async () => {
+    store.upsert(mk('iris', 'Iris'));
+    await cmd(user, 'add', { spec: spec({ name: 'p', schedule: { kind: 'once', at: ['2026-11-20T16:00'], tz: TZ } }) });
+    let release!: () => void;
+    routines.close(); await journal.flush();
+    routines = createRoutines(deps({ folder: () => new Promise(r => { release = () => r(undefined); }) }));
+    clock = at('2026-11-20T15:00:20.000Z'); routines.tick();
+    // The daemon stops while the folder is checked.
+    routines.close(); await journal.flush(); void release;
+    routines = createRoutines(deps());
+    expect(only()).toMatchObject({ state: 'enabled', lastRun: { outcome: 'failed', reason: 'interrompue par un redémarrage de Ledge', slot: '16:00' } });
+    expect(decisions().map(t => t.routine?.kind)).toEqual(['failed']);
   });
   it('keeps only the last 5 firings, newest first', async () => {
     await cmd(user, 'add', { spec: spec() });

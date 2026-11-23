@@ -20,10 +20,13 @@ type RoutineChanged = Extract<ServerMessage, { type: 'routine.changed' }>;
 type RoutinePreviewed = Extract<ServerMessage, { type: 'routine.previewed' }>;
 
 /** A firing typed into a live (or resumed) session, waiting for the mailbox to type it: `outcome` is what it becomes once typed. */
-export interface RoutineWaiting { id: string; rid: string; slot: string; slotAt: string; at: string; late: boolean; outcome: 'delivered' | 'resumed'; session: string }
+export interface RoutineWaiting { id: string; rid: string; slot: string; slotAt: string; at: string; late: boolean; outcome: 'delivered' | 'resumed'; session: string; manual?: true }
+/** A firing decided and not yet typed or recorded (a folder checked, a session resumed or launched): written before the routine
+ *  moves to its next slot, so a daemon stopped meanwhile reports it as failed instead of losing it. */
+export interface RoutineStarting { id: string; slot: string; slotAt: string; at: string; late: boolean }
 /** What `~/.ledge/routines.json` holds: the routines listed (the fired one-shots among them, `done`, for 30 days), the firings
  *  still to type, and the fired one-shots out of the list, kept for the record. */
-export interface RoutinesState { routines: Routine[]; waiting: RoutineWaiting[]; archived?: Routine[] }
+export interface RoutinesState { routines: Routine[]; waiting: RoutineWaiting[]; starting?: RoutineStarting[]; archived?: Routine[] }
 export type RoutinesJournal = Journal<RoutinesState>;
 
 /** Who sends a command: the owner (a terminal outside Ledge's sessions, a screen, the phone), or a session, its key checked. */
@@ -178,15 +181,18 @@ export function daysLabel(days: readonly Weekday[]): string {
   if (idx.length === 7) return 'tous les jours';
   const runs: number[][] = [];
   for (const i of idx) { const last = runs.at(-1); if (last && last.at(-1) === i - 1) last.push(i); else runs.push([i]); }
-  return runs.map(r => (r.length >= 3 ? `${DAY_WORDS[WEEKDAYS[r[0]!]!]}-${DAY_WORDS[WEEKDAYS[r.at(-1)!]!]}` : r.map(i => DAY_WORDS[WEEKDAYS[i]!]).join(', '))).join(', ');
+  return runs.map(r => (r.length >= 3 ? `${DAY_WORDS[WEEKDAYS[r[0]!]!]}–${DAY_WORDS[WEEKDAYS[r.at(-1)!]!]}` : r.map(i => DAY_WORDS[WEEKDAYS[i]!]).join(', '))).join(', ');
 }
-/** When a schedule fires, as « À toi » words it: « 08:00, 13:30 (lun-ven) », « 16:00 (jeu, toutes les deux semaines) », « le 2026-12-03 à 16:00 ». */
+const MOMENT = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+/** A one-shot's moment as « À toi » words it (mockup cards 23, 25): « jeu. 3 déc. 16:00 », never ISO. */
+export function momentLabel(a: string): string {
+  const [y, m, d] = a.slice(0, 10).split('-').map(Number) as [number, number, number];
+  return `${MOMENT.format(new Date(Date.UTC(y, m - 1, d)))} ${a.slice(11)}`;
+}
+/** When a schedule fires, as « À toi » words it (mockup card 13): « 08:00, 13:30 (lun–ven) », « 16:00 (jeu, 1 sem. sur 2) », « jeu. 3 déc. 16:00 ». */
 export function scheduleLabel(s: RoutineSchedule): string {
-  if (s.kind === 'once') {
-    const at = [...s.at].sort().map(a => a.replace('T', ' à '));
-    return at.length === 1 ? `le ${at[0]}` : `les ${at.join(', ')}`;
-  }
-  return `${s.times.join(', ')} (${daysLabel(s.days)}${s.every?.weeks === 2 ? ', toutes les deux semaines' : ''})`;
+  if (s.kind === 'once') return [...s.at].sort().map(momentLabel).join(', ');
+  return `${s.times.join(', ')} (${daysLabel(s.days)}${s.every?.weeks === 2 ? ', 1 sem. sur 2' : ''})`;
 }
 const title = (s: string) => (s.length > TASK_TITLE_MAX ? `${s.slice(0, TASK_TITLE_MAX - 1)}…` : s);
 const reasonOf = (s: string) => (s.length > ROUTINE_REASON_MAX ? `${s.slice(0, ROUTINE_REASON_MAX - 1)}…` : s);
@@ -206,7 +212,8 @@ function readState(raw: unknown): RoutinesState | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Partial<RoutinesState>;
   const waiting = Array.isArray(r.waiting) ? r.waiting.filter((w): w is RoutineWaiting => !!w && typeof w === 'object' && typeof (w as RoutineWaiting).rid === 'string') : [];
-  return { routines: routinesIn(r.routines), waiting, archived: routinesIn(r.archived) };
+  const starting = Array.isArray(r.starting) ? r.starting.filter((w): w is RoutineStarting => !!w && typeof w === 'object' && typeof (w as RoutineStarting).id === 'string' && typeof (w as RoutineStarting).slotAt === 'string') : [];
+  return { routines: routinesIn(r.routines), waiting, starting, archived: routinesIn(r.archived) };
 }
 export function routinesJournal(path: string): RoutinesJournal & { flush(): Promise<void> } {
   return jsonJournal<RoutinesState>(path, 'routines', readState);
@@ -235,11 +242,12 @@ export function createRoutines(d: RoutinesDeps): Routines {
   const loaded = d.journal?.load();
   const routines = new Map<string, Routine>((loaded?.routines ?? []).map(r => [r.id, r]));
   const waiting = new Map<string, RoutineWaiting>((loaded?.waiting ?? []).filter(w => routines.has(w.id)).map(w => [w.id, w]));
+  const starting = new Map<string, RoutineStarting>((loaded?.starting ?? []).filter(w => routines.has(w.id)).map(w => [w.id, w]));
   let archived: Routine[] = loaded?.archived ?? [];
   /** Routines being fired (a resume or a launch in flight): a second firing meanwhile is dropped. */
   const firing = new Set<string>();
 
-  const save = () => d.journal?.save({ routines: [...routines.values()], waiting: [...waiting.values()], archived });
+  const save = () => d.journal?.save({ routines: [...routines.values()], waiting: [...waiting.values()], starting: [...starting.values()], archived });
   const put = (r: Routine): Routine => { routines.set(r.id, r); save(); d.onChange?.({ type: 'routine.changed', routine: r }); return r; };
   const drop = (id: string) => {
     routines.delete(id);
@@ -291,13 +299,15 @@ export function createRoutines(d: RoutinesDeps): Routines {
     for (const t of approvals(r.id)) if (!t.routine!.ids) d.tasks.settle(t.id, 'remplacée par une nouvelle demande');
     const by = r.createdBy.kind === 'session' ? r.createdBy.id : undefined;
     const joinable = (t: (ReturnType<Tasks['all']>)[number]) => t.routine?.kind === 'approve' && !taskClosed(t) && !(t.routine.ids ?? [t.routine.id]).includes(r.id)
-      && (t.routine.ids ?? [t.routine.id]).every(id => { const o = routines.get(id); return !!o && o.state === 'pending' && !o.proposal && o.createdBy.kind === 'session' && o.createdBy.id === by; });
-    const group = !r.proposal && r.state === 'pending' && by ? d.tasks.all().find(joinable) : undefined;
+      && (t.routine.ids ?? [t.routine.id]).every(id => { const o = routines.get(id); return !!o && o.state === 'pending' && !o.proposal && o.schedule.kind === 'once' && o.createdBy.kind === 'session' && o.createdBy.id === by; });
+    // Only one-shots group (spec §3.1.1: a session's meetings found in the calendar); a recurring routine is asked on its own.
+    const group = !r.proposal && r.state === 'pending' && r.schedule.kind === 'once' && by ? d.tasks.all().find(joinable) : undefined;
     if (group) {
       const ids = [...(group.routine!.ids ?? [group.routine!.id]), r.id];
       const all = ids.map(id => routines.get(id)!);
-      const text = all.map(o => `« ${o.name} » : ${scheduleLabel(o.schedule)}, dans ${shown(o.target.cwd)}\n${o.prompt}`).join('\n\n');
-      d.tasks.amend(group.id, { title: title(`${asker} veut programmer ${ids.length} routines : ${all.map(o => `« ${o.name} »`).join(', ')}`),
+      // The title as the mockup words it; the routines follow one per line, name and moment, then their prompts.
+      const text = [...all.map(o => `${o.name} (${scheduleLabel(o.schedule)})`), '', ...all.map(o => `« ${o.name} » : ${o.prompt}`)].join('\n');
+      d.tasks.amend(group.id, { title: title(`${asker} veut programmer ${ids.length} routines uniques`),
         text: text.length > TASK_TEXT_MAX ? `${text.slice(0, TASK_TEXT_MAX - 1)}…` : text, routine: { kind: 'approve', id: ids[0]!, name: all[0]!.name, ids } });
       return;
     }
@@ -317,19 +327,21 @@ export function createRoutines(d: RoutinesDeps): Routines {
 
   // ── Firing ──
 
-  /** A firing's outcome: kept among the last ones; a failure is an « À toi » item, a success closes the earlier one; a
-   *  one-shot whose last moment has left is done. */
-  const record = (id: string, run: RoutineRun) => {
+  /** A firing's outcome: kept among the last ones; a failure is an « À toi » item. A success closes the earlier failure, but
+   *  for a one-shot only when it is the relaunch (`manual`): another moment that leaves does not make up for a missed one
+   *  (spec §3.1.1). A one-shot whose last moment has left, with no failure open, is done. */
+  const record = (id: string, run: RoutineRun, manual = false) => {
     const r = routines.get(id);
     if (!r) return;
     log(`routine ${r.name} (${r.target.name}) ${run.slot}${run.late ? ' late' : ''}: ${run.outcome}${run.reason ? ` (${run.reason})` : ''}`);
+    const once = r.schedule.kind === 'once';
+    const success = run.outcome !== 'failed';
+    if (success && (!once || manual)) settleFailures(id, 'la routine est repartie');
+    if (!success) settleFailures(id, 'remplacée par un nouvel échec');
     const runs = [run, ...(r.runs ?? [])].slice(0, ROUTINE_RUNS_MAX);
-    const over = r.schedule.kind === 'once' && run.outcome !== 'failed' && r.state === 'enabled' && !nextSlot(r.schedule, now(), zone(r.schedule));
+    const over = once && success && r.state === 'enabled' && !failures(id).length && !nextSlot(r.schedule, now(), zone(r.schedule));
     put(scheduled({ ...r, runs, lastRun: run, ...(over ? { state: 'done' as const } : {}) }));
-    if (run.outcome === 'failed') {
-      settleFailures(id, 'remplacée par un nouvel échec');
-      d.tasks.raise({ title: title(`La routine ${r.name} (${r.target.name}) n'a pas pu partir : ${run.reason ?? ''}`), routine: { kind: 'failed', id, name: r.name, ...(run.reason ? { reason: run.reason } : {}) } });
-    } else settleFailures(id, 'la routine est repartie');
+    if (!success) d.tasks.raise({ title: title(`La routine ${r.name} (${r.target.name}) n’a pas pu partir : ${run.reason ?? ''}`), routine: { kind: 'failed', id, name: r.name, ...(run.reason ? { reason: run.reason } : {}) } });
     if (over) keepDone();
   };
   const fail = (id: string, s: { slot: string; slotAt: string }, at: string, late: boolean, reason: string) =>
@@ -359,48 +371,58 @@ export function createRoutines(d: RoutinesDeps): Routines {
     return gone ? { gone } : {};
   };
 
-  async function fire(id: string, s: Slot, late: boolean): Promise<void> {
-    const r = routines.get(id);
-    if (!r || firing.has(id)) { if (r) log(`routine ${r.name}: a firing is already under way, ${s.slot} dropped`); return; }
+  /** Writes a firing down before anything moves (the routine's next slot included); false when one is already under way. */
+  const begin = (id: string, s: Slot, late: boolean): boolean => {
+    if (firing.has(id)) { log(`routine ${routines.get(id)?.name ?? id}: a firing is already under way, ${s.slot} dropped`); return false; }
     firing.add(id);
+    starting.set(id, { id, slot: s.slot, slotAt: iso(s.at), at: iso(), late });
+    return true;
+  };
+
+  /** Fires a routine `begin` wrote down. */
+  async function fire(id: string, s: Slot, late: boolean, manual = false): Promise<void> {
+    const r = routines.get(id);
     const at = now(); const atIso = iso(at);
     const slot = { slot: s.slot, slotAt: iso(s.at) };
+    const record_ = (run: RoutineRun) => record(id, run, manual);
+    const fail = (sl: typeof slot, a: string, l: boolean, reason: string) => record_({ at: a, slot: sl.slot, slotAt: sl.slotAt, outcome: 'failed', reason: reasonOf(reason), ...(l ? { late: true as const } : {}) });
+    if (!r) { firing.delete(id); starting.delete(id); save(); return; }
     try {
       // Two firings never pile up: one still waiting to be typed gives way to this one.
       const before = waiting.get(id);
       if (before) { d.mailbox.withdraw(before.rid); waiting.delete(id); save(); log(`routine ${r.name}: the ${before.slot} firing, never typed, replaced by ${s.slot}`); }
       const text = formatLedgeRoutine({ name: r.name, slot: s.slot, late, text: expand(r, s.slot, at) });
       const why = await folder(r.target.cwd);
-      if (why) return fail(id, slot, atIso, late, why);
+      if (why) return fail(slot, atIso, late, why);
       const { live, gone } = findTarget(r);
       const deliver = (target: Session, outcome: RoutineWaiting['outcome']) => {
         const rid = `routine:${id}:${at}`;
-        if (!d.mailbox.notify(target.id, text, rid)) return fail(id, slot, atIso, late, `${target.name} ne peut pas recevoir de texte de Ledge`);
-        waiting.set(id, { id, rid, ...slot, at: atIso, late, outcome, session: target.id }); save();
+        if (!d.mailbox.notify(target.id, text, rid)) return fail(slot, atIso, late, `${target.name} ne peut pas recevoir de texte de Ledge`);
+        waiting.set(id, { id, rid, ...slot, at: atIso, late, outcome, session: target.id, ...(manual ? { manual: true as const } : {}) }); save();
       };
       if (live) {
-        if (!reachable(live)) return fail(id, slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`);
+        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`);
         return deliver(live, 'delivered');
       }
       if (gone && d.resumable(gone)) {
         const refused = await d.resume(gone);
-        if (refused) return fail(id, slot, atIso, late, `reprise impossible : ${refused}`);
+        if (refused) return fail(slot, atIso, late, `reprise impossible : ${refused}`);
         const back = d.store.get(gone.id);
-        return back ? deliver(back, 'resumed') : fail(id, slot, atIso, late, 'la session reprise a disparu');
+        return back ? deliver(back, 'resumed') : fail(slot, atIso, late, 'la session reprise a disparu');
       }
       const launched = await d.launch({ tool: r.target.tool, cwd: r.target.cwd, name: r.target.name, ...(r.target.model ? { model: r.target.model } : {}), prompt: text });
       log(`routine ${r.name}: launched ${launched.name} as ${launched.id}`);
-      record(id, { at: atIso, ...slot, outcome: 'launched', ...(late ? { late: true as const } : {}) });
+      record_({ at: atIso, ...slot, outcome: 'launched', ...(late ? { late: true as const } : {}) });
     } catch (e) {
-      fail(id, slot, atIso, late, (e as Error).message);
-    } finally { firing.delete(id); }
+      fail(slot, atIso, late, (e as Error).message);
+    } finally { firing.delete(id); starting.delete(id); save(); }
   }
 
   function noticeDone(rid: string, typed: boolean, reason?: string): void {
     const w = [...waiting.values()].find(x => x.rid === rid);
     if (!w) return;
     waiting.delete(w.id); save();
-    if (typed) record(w.id, { at: w.at, slot: w.slot, slotAt: w.slotAt, outcome: w.outcome, ...(w.late ? { late: true as const } : {}) });
+    if (typed) record(w.id, { at: w.at, slot: w.slot, slotAt: w.slotAt, outcome: w.outcome, ...(w.late ? { late: true as const } : {}) }, !!w.manual);
     else fail(w.id, w, w.at, w.late, reason ?? 'non remise');
   }
 
@@ -424,10 +446,13 @@ export function createRoutines(d: RoutinesDeps): Routines {
       const due = latestSlot(r.schedule, t, tz, Date.parse(r.nextRun) - 1)
         ?? { at: Date.parse(r.nextRun), slot: (() => { const w = wallOf(Date.parse(r.nextRun!), tz); return `${pad2(w.h)}:${pad2(w.mi)}`; })() };
       const late = t - due.at > lateMs;
+      // Missed slots (sleep, PC off, daemon down) fire once, for the latest; `skip` drops them. A firing is written down in
+      // the same save that moves the routine to its next slot.
+      const skip = late && r.catchUp === 'skip';
+      const go = !skip && begin(r.id, due, late);
       put(scheduled(r, t));
-      // Missed slots (sleep, PC off, daemon down) fire once, for the latest; `skip` drops them.
-      if (late && r.catchUp === 'skip') { log(`routine ${r.name}: the ${due.slot} slot was missed, skipped`); continue; }
-      void fire(r.id, due, late);
+      if (skip) { log(`routine ${r.name}: the ${due.slot} slot was missed, skipped`); continue; }
+      if (go) void fire(r.id, due, late);
     }
     for (const w of [...waiting.values()]) {
       if (t - Date.parse(w.at) <= deliverMs) continue;
@@ -438,7 +463,12 @@ export function createRoutines(d: RoutinesDeps): Routines {
     arm();
   }
 
-  // What the last daemon left: a firing whose line is no longer in the mailbox was lost with it.
+  // What the last daemon left: a firing it had decided but not typed or recorded failed with it, never silently.
+  for (const w of [...starting.values()]) {
+    starting.delete(w.id);
+    fail(w.id, w, w.at, w.late, 'interrompue par un redémarrage de Ledge');
+  }
+  // A firing whose line is no longer in the mailbox was lost with it.
   for (const w of [...waiting.values()]) {
     if (d.mailbox.waiting(w.rid)) continue;
     waiting.delete(w.id);
@@ -550,7 +580,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
       case 'run': {
         if (r.state === 'pending') return refuse('forbidden', `la routine ${r.name} attend encore l'accord de l'utilisateur`);
         const t = now(); const w = wallOf(t, zone(r.schedule));
-        void fire(r.id, { at: t, slot: `${pad2(w.h)}:${pad2(w.mi)}` }, false);
+        const slot = { at: t, slot: `${pad2(w.h)}:${pad2(w.mi)}` };
+        if (begin(r.id, slot, false)) { save(); void fire(r.id, slot, false, true); }
         return ok(r);
       }
       case 'rm': {
