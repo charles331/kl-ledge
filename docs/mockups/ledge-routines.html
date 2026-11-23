@@ -1021,13 +1021,13 @@ function precCards(){
 function precDesktopCards(){
   const x = t(), fr = L==='fr', C = [];
   const P = fr ? {
-    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, - et _ seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
+    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
     gone:'Cette routine n’existe plus : elle a été supprimée ailleurs.', closeTab:'Fermer l’onglet',
     many:'Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant',
     wakesOn:'· PC du bureau',
     refusals:[['cwd','Ce dossier n’existe pas sur ce PC.'],['at','Ce moment est déjà passé.'],['name','Iris a déjà une routine « briefing ».'],['tz','Fuseau horaire inconnu : <tz>.'],['session','Cette session ne répond pas.  /  Cette session n’est pas suivie par Ledge.'],['tool','Outil absent sur ce PC : <outil>.'],['model','Modèle inconnu pour <outil> : <modèle>.'],['schedule','Au moins une heure.  /  Au moins un jour.  /  Choisis la semaine de référence.'],['prompt','Le prompt est vide.'],['?','la raison brute du daemon, sous le champ indiqué (ou en tête de la configuration)']],
   } : {
-    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, - and _ only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
+    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, dot, hyphen and underscore only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
     gone:'This routine no longer exists: it was deleted elsewhere.', closeTab:'Close the tab',
     many:'Iris wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant',
     wakesOn:'· Office PC',
@@ -1074,11 +1074,13 @@ function precPhoneCards(){
   const list = `<div class="phone">${stat}<div class="hd"><span class="back">${I.back(16)}${x.pBack}</span></div><div class="hd" style="padding-top:0"><h3>${x.routines}</h3></div><div class="cnt">
     <div class="pcard failed" style="box-shadow:0 0 0 2px var(--note);background:color-mix(in srgb,var(--note) 10%,var(--card))"><div class="top">${bot('#e8735a','off')}<div style="flex:1"><b>veille</b><div class="meta">Nova · 18:00 · ${x.daily}</div></div></div><div class="meta">${x.pNext(x.today+' 18:00')}</div><div class="meta"><span class="mk bad">!</span> ${x.lastAt('18:00', x.out.failed)}</div><div class="meta reason">${r.reason}</div><div class="acts"><button class="btn">${I.play(14)}${x.retry}</button><button class="btn">${x.pause}</button></div></div>
     </div>${tabbar(1)}</div>`;
-  const island = `<div class="island" style="align-self:flex-start"><div class="ih"><b>Ledge</b><span>· ${x.atoi}</span></div><div class="it" style="flex-direction:row;align-items:center;gap:9px"><span class="spin" style="border-color:#a1a1aa;border-top-color:transparent"></span><span>${P.open}</span></div></div>`;
-  return [{tag:'add', title:'Téléphone et île : ouverture, modification demandée, « Voir » d’un échec (validé)', wide:true,
-    why:'<b>Île</b> : « Voir » sur un item de routine affiche « Ouverture de la routine « briefing » dans Ledge Desktop » pendant que Desktop s’ouvre sur la page de la routine, sur le modèle des autres textes d’ouverture de l’île. <b>Téléphone</b> : une modification demandée par une session est une carte de demande dont le titre dit <b>« veut modifier »</b>, avec les réglages demandés et le prompt (pas d’« avant → demandé » sur le téléphone). <b>« Voir » d’un échec</b> ouvre l’écran Routines et y fait défiler jusqu’à la carte de la routine, entourée 1,5 s (violet de liaison).',
-    keys:'overlay : open.routine(name) · mobile : atoi.routine.editAsk(who,name,schedule)',
-    scene: island + atoi + list}];
+  const island = `<div class="island" style="align-self:flex-start"><div class="ih"><b>Ledge</b><span>· ${x.atoi}</span></div><div class="it" style="flex-direction:row;align-items:center;gap:9px"><span class="spin" style="border-color:#a1a1aa;border-top-color:transparent"></span><span>${P.open}</span></div>
+    <div class="it"><div class="who"><span class="mk ask">?</span><b>Iris</b><span>· ${x.pRoutine.toLowerCase()} · 03:40</span></div><span>${P.edit}</span><div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button><button class="btn ghost">${P.see}</button></div></div></div>
+    <div class="side" style="align-self:flex-start"><span class="h">${x.atoi}</span><div class="row"><span class="mk ask">?</span><div>${P.edit}<div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button><button class="btn ghost">${P.see}</button></div></div></div></div>`;
+  return [{tag:'add', title:'Téléphone, île et Desktop : ouverture, modification demandée, « Voir » d’un échec (validé)', wide:true,
+    why:'<b>Île</b> : « Voir » sur un item de routine affiche « Ouverture de la routine « briefing » dans Ledge Desktop » pendant que Desktop s’ouvre sur la page de la routine, sur le modèle des autres textes d’ouverture de l’île. <b>Modification demandée par une session</b> : partout (téléphone, île, « À toi » du Desktop, page et barre latérale), le texte dit <b>« veut modifier »</b> / “wants to change”, jamais « veut programmer », pour qu’on ne la prenne pas pour une nouvelle routine (choix A de jde). Sur le téléphone, la carte montre les réglages demandés et le prompt, sans « avant → demandé ». <b>« Voir » d’un échec</b> ouvre l’écran Routines et y fait défiler jusqu’à la carte de la routine, entourée 1,5 s (violet de liaison).',
+    keys:'overlay : open.routine(name), atoi.routine.editAsk · desktop et mobile : atoi.routine.editAsk(who,name,schedule)',
+    scene: `<div class="col" style="gap:14px">${island}</div>` + atoi + list}];
 }
 
 function render(){

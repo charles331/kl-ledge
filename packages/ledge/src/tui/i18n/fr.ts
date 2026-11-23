@@ -390,7 +390,9 @@ export const fr = {
     ask: (s: string, r: string, when: string, dir: string) => `${s} veut programmer « ${r} » : ${when}, dans ${dir}`,
     groupAsk: (s: string, n: number, days: string) => `${s} veut programmer ${n} routines uniques : ${days}`,
     itemKeys: { activate: 'activer', refuse: 'refuser', retry: 'relancer', activateAll: (n: number) => `activer les ${n}`, refuseAll: (n: number) => `refuser les ${n}` },
-    failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`
+    failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
+    failedNamed: (r: string, why: string) => `La routine ${r} n’a pas pu partir : ${why}`,
+    change: (s: string, r: string, when: string) => `${s} veut modifier « ${r} » : ${when}`, waits: (r: string) => `« ${r} » attend votre accord`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui s’ouvre dans l’onglet Ledge.', loadingProfile: 'Windows Terminal charge le profil Ledge…' }
 };

@@ -145,6 +145,20 @@ describe('phone routines', () => {
     expect(await cmd(g, { action: 'refuse', routine: pending.id, others: refs })).toMatchObject({ status: 'applied' });
     expect(await cmd(g, { action: 'run', routine: pending.id, others: refs })).toMatchObject({ status: 'rejected', reason: 'invalid' });
   });
+  it('passes each routine\'s key to the daemon, which refuses one changed while the others were answered', async () => {
+    const second: Routine = { ...pending, id: 'r4d5e6f', name: 'prepa-arch' };
+    const sent: Extract<ClientMessage, { type: 'routine.cmd' }>[] = [];
+    const g = setup({ dispatch: async (m, reply) => { if (m.type !== 'routine.cmd') return; sent.push(m);
+      reply(m.routine === second.id ? { type: 'routine.result', rid: m.rid, code: 'stale', reason: 'x' } : { type: 'routine.result', rid: m.rid, routine: pending }); }, deps: { routines: () => [pending, second] } });
+    const auth = await enroll(g);
+    const refs = [{ routine: second.id, routineKey: routineKey(second) }];
+    g.send('dev1', { type: 'confirm.prepare', purpose: 'routine', routine: pending.id, routineKey: routineKey(pending), routineOthers: refs });
+    await flush();
+    const ch = g.got('dev1').filter(m => m.type === 'confirm.challenge').at(-1);
+    if (ch?.type !== 'confirm.challenge') throw new Error('no challenge');
+    expect(await cmd(g, { action: 'approve', routine: pending.id, routineKey: routineKey(pending), others: refs, assertion: auth.get(rp, ch.challenge, { counter: 1 }) })).toMatchObject({ status: 'rejected', reason: 'stale' });
+    expect(sent.map(c => [c.routine, c.expect])).toEqual([[pending.id, routineKey(pending)], [second.id, routineKey(second)]]);
+  });
   it('forwards each change, without the prompt', async () => {
     const { g } = make();
     g.send('dev1', { type: 'snapshot.request' });

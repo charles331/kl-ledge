@@ -28,6 +28,7 @@ ledge routine run <id|nom>               la lancer maintenant
 ledge routine pause|resume <id|nom>      la mettre en pause, la reprendre
 ledge routine edit <id|nom> [options de add ou de once] [-- "<prompt>"]
 ledge routine rm <id|nom>                la supprimer (une unique passée : la retirer de l'historique)
+ledge routine approve|refuse <id|nom>    activer ou refuser une routine (ou sa modification) qu'une session demande
 --days : mon-fri, mon,wed,fri, daily. Le prompt peut contenir {slot} {date} {last}.
 Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'utilisateur dans « À toi ».`,
     noDaemon: "Ledge ne tourne pas (lance une session avec `ledge claude`, ou `ledge daemon`)",
@@ -44,6 +45,8 @@ Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'
     paused: (r: Routine) => `routine ${r.name} en pause`, resumed: (r: Routine) => `routine ${r.name} reprise`,
     ran: (r: Routine) => `routine ${r.name} lancée : son issue sera dans ledge routine show ${r.id}`,
     removed: (id: string) => `routine ${id} supprimée`,
+    approved: (r: Routine) => `routine ${r.name} activée : la session est prévenue`,
+    refusedChange: (r: Routine) => `modification de ${r.name} refusée : la routine reste telle quelle, la session est prévenue`,
     labels: { session: 'session', folder: 'dossier', tool: 'outil', schedule: 'horaire', catchUp: 'rattrapage', by: 'créée par', you: "l'utilisateur", proposal: 'modification demandée par', runs: 'derniers tirs', prompt: 'prompt' }
   },
   en: {
@@ -56,6 +59,7 @@ ledge routine run <id|name>              fire it now
 ledge routine pause|resume <id|name>     pause it, resume it
 ledge routine edit <id|name> [add or once options] [-- "<prompt>"]
 ledge routine rm <id|name>               remove it (a fired one-shot: take it out of the history)
+ledge routine approve|refuse <id|name>   approve or refuse a routine (or a change to one) a session asks for
 --days: mon-fri, mon,wed,fri, daily. The prompt may hold {slot} {date} {last}.
 From a Ledge session, a routine (or a change to one) waits for the user's approval in « À toi ».`,
     noDaemon: 'daemon not running (start a session with `ledge claude`, or run `ledge daemon`)',
@@ -72,6 +76,8 @@ From a Ledge session, a routine (or a change to one) waits for the user's approv
     paused: (r: Routine) => `routine ${r.name} paused`, resumed: (r: Routine) => `routine ${r.name} resumed`,
     ran: (r: Routine) => `routine ${r.name} fired: its outcome will be in ledge routine show ${r.id}`,
     removed: (id: string) => `routine ${id} removed`,
+    approved: (r: Routine) => `routine ${r.name} approved: the session is told`,
+    refusedChange: (r: Routine) => `change to ${r.name} refused: the routine stays as it was, the session is told`,
     labels: { session: 'session', folder: 'folder', tool: 'tool', schedule: 'schedule', catchUp: 'catch-up', by: 'created by', you: 'the user', proposal: 'change asked by', runs: 'last firings', prompt: 'prompt' }
   }
 };
@@ -80,7 +86,7 @@ type Cmd = Extract<ClientMessage, { type: 'routine.cmd' }>;
 /** What `ledge routine` asks, parsed: `edit` keeps its flags apart, for they are merged with the routine as it is. */
 export type RoutineArgs =
   | { op: 'list' }
-  | { op: 'show' | 'run' | 'pause' | 'resume' | 'rm'; routine: string }
+  | { op: 'show' | 'run' | 'pause' | 'resume' | 'rm' | 'approve' | 'refuse'; routine: string }
   | { op: 'add'; spec: RoutineSpec }
   | { op: 'edit'; routine: string; flags: Flags };
 
@@ -153,7 +159,7 @@ export function routineArgs(args: string[], cwd = process.cwd()): RoutineArgs | 
   const [op, name, ...rest] = args;
   switch (op) {
     case 'list': return name === undefined ? { op } : undefined;
-    case 'show': case 'run': case 'pause': case 'resume': case 'rm': return name && rest.length === 0 ? { op, routine: name } : undefined;
+    case 'show': case 'run': case 'pause': case 'resume': case 'rm': case 'approve': case 'refuse': return name && rest.length === 0 ? { op, routine: name } : undefined;
     case 'add': case 'once': {
       if (!name || !RoutineNameSchema.safeParse(name).success) return undefined;
       const f = parseFlags(rest, cwd);
@@ -299,6 +305,8 @@ export async function routineOnClient(client: Client, args: string[], o: { by?: 
       case 'pause': return { line: t.paused(routine), code: 0 };
       case 'resume': return { line: t.resumed(routine), code: 0 };
       case 'run': return { line: t.ran(routine), code: 0 };
+      case 'approve': return { line: t.approved(routine), code: 0 };
+      case 'refuse': return { line: t.refusedChange(routine), code: 0 };
       default: return { line: formatRoutine(routine, o.lang), code: 0 };
     }
   } catch (e) {

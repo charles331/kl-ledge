@@ -117,7 +117,16 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     const group = failure({ id: 'ta2', title: 'daemon words', routine: { kind: 'approve', id: 'r000003', name: 'a', ids: ['r000003', 'r000007', 'r000008'] } });
     const rs = [once('r000003', '3T16:00'), once('r000007', '7T15:00'), once('r000008', '8T09:30')];
     expect(buildPoint([asked(group)], live({ tasks: [group], routines: rs }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Iris', text: 'veut programmer 3 routines uniques : 3, 7 et 8 déc.' });
-    expect(buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: 'daemon words' });
+    // Not read yet: its name in the point's language, never the daemon's French title.
+    expect(buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: '« point-hebdo » attend ton accord' });
+    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: '“point-hebdo” awaits your approval' });
+  });
+
+  it('a session’s change to its routine reads « veut modifier » with the asked settings (card 29), in English too', () => {
+    const t = failure({ id: 'ta3', title: 'Iris veut modifier « briefing » : …', routine: { kind: 'approve', id: 'r1a2b3c', name: 'briefing' } });
+    const asked2 = routine({ proposal: { spec: { name: 'briefing', target: { name: 'Iris', cwd: '/home/u/assistant', tool: 'claude' }, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, prompt: 'p' }, by: { id: 'iris1', name: 'Iris' }, at: at(2, 0) } });
+    expect(buildPoint([asked(t)], live({ tasks: [t], routines: [asked2] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Iris', text: 'veut modifier « briefing » : 07:30, 13:30, 16:30 (lun-ven)', nav: [{ kind: 'routine', id: 'r1a2b3c' }] });
+    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t], routines: [asked2] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Iris', text: 'wants to change “briefing”: 07:30, 13:30, 16:30 (Mon-Fri)' });
   });
 
   it('a session’s end after a firing is one line: the routine’s, at the end’s time; an end with no firing keeps its row', () => {
@@ -144,6 +153,14 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     const working = live({ sessions: [session({ state: 'working', lastActivityAt: at(15, 0) })], routines: [routine({ lastRun: run('13:30', at(13, 30)) })] });
     const p = buildPoint([now, end], working, at(8, 0), lead);
     expect(p.items.find(i => i.id.startsWith('routine.run:'))?.group).toBe('done');
+  });
+
+  it('keeps the previous session end when the firing waited for that turn to finish', () => {
+    const previousEnd: JournalEvent = { id: 200, at: at(13, 50), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: { text: 'Previous work' }, settledAt: null };
+    const delivered: JournalEvent = { ...now, id: 201, at: at(13, 51) };
+    const working = live({ sessions: [session({ state: 'working', lastActivityAt: at(13, 52) })], routines: [routine({ lastRun: run('13:30', at(13, 30)) })] });
+    const p = buildPoint([previousEnd, delivered], working, at(8, 0), lead);
+    expect({ group: p.items.find(i => i.id.startsWith('routine.run:'))?.group, previousEndVisible: p.items.some(i => i.id === 'session:iris1') }).toEqual({ group: 'ongoing', previousEndVisible: true });
   });
 });
 

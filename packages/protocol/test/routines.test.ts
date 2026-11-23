@@ -87,6 +87,12 @@ describe('routine wire messages', () => {
     const approve = { type: 'routine.cmd', rid: 'q8', op: 'approve', routine: 'r1a2b3c', spec: { name: 'briefing', target: routine.target, schedule: routine.schedule, prompt: 'corrigé' } };
     expect(wire(ClientMessageSchema, approve)).toEqual(approve);
   });
+  it('reads a refusal code it does not know yet as a refusal', () => {
+    const r = ServerMessageSchema.parse({ type: 'routine.result', rid: 'q', code: 'future_reason', reason: 'x' });
+    expect(r.type === 'routine.result' && r.code).toBe('invalid');
+    const none = ServerMessageSchema.parse({ type: 'routine.result', rid: 'q' });
+    expect(none.type === 'routine.result' && none.code).toBeUndefined();
+  });
   it('refuses an unknown op', () => {
     expect(ClientMessageSchema.safeParse({ type: 'routine.cmd', rid: 'q', op: 'fire', routine: 'r1a2b3c' }).success).toBe(false);
   });

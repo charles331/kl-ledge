@@ -134,7 +134,7 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       { ...base, id: 't1', title: 'daemon words', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } },
       { ...base, id: 't2', title: 'daemon words', routine: { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' } },
       { ...base, id: 't3', title: 'Iris veut programmer 2 routines : …', routine: { kind: 'approve', id: 'rc22222', name: 'prépa-121', ids: ['rc22222', 'rd33333'] } },
-      { ...base, id: 't4', title: 'La routine x (Y) n’a pas pu partir : z', routine: { kind: 'failed', id: 'r0000ff', name: 'x' } },
+      { ...base, id: 't4', title: 'La routine x (Y) n’a pas pu partir : z', routine: { kind: 'failed', id: 'r0000ff', name: 'x', reason: 'routine inconnue' } },
       { ...base, id: 't5', title: 'Fusionner ?' }
     ];
     const items = routineItems(tasks, [...CARD18, ...CARD25], 'fr', fr);
@@ -142,7 +142,7 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       { id: 't1', mark: 'ask', text: 'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', routines: ['r3f9a12'] },
       { id: 't2', mark: 'fail', text: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille', routines: ['r81c0d4'] },
       { id: 't3', mark: 'ask', text: 'Iris veut programmer 2 routines uniques : 3 et 4 déc.', routines: ['rc22222', 'rd33333'] },
-      { id: 't4', mark: 'fail', text: 'La routine x (Y) n’a pas pu partir : z', routines: ['r0000ff'] }
+      { id: 't4', mark: 'fail', text: 'La routine x n’a pas pu partir : routine inconnue', routines: ['r0000ff'] }
     ]);
     // The line under each says its keys (card 27).
     expect(items.map(x => routineItemKeys(x, fr))).toEqual([[['y', 'activer'], ['n', 'refuser']], [['y', 'relancer']], [['y', 'activer les 2'], ['n', 'refuser les 2']], [['y', 'relancer']]]);
@@ -152,6 +152,17 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     const two = { ...tasks[0]!, routine: { kind: 'approve' as const, id: 'rb11111', name: 'bilan-sprint' } };
     const pending = CARD25.map(r => (r.id === 'rb11111' ? { ...r, state: 'pending' as const, createdBy: { kind: 'session' as const, id: 'iris1', name: 'Iris' } } : r));
     expect(routineItems([two], pending, 'en', en)[0]!.text).toBe('Iris wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
+  });
+
+  it('a session’s change reads « veut modifier » (card 29); English never shows the daemon’s French title', () => {
+    const base = { giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open' as const, at: local(23, 2, 10), updatedAt: local(23, 2, 10), log: [] };
+    const task: Task = { ...base, id: 't1', title: 'Iris veut modifier « briefing » : …', routine: { kind: 'approve', id: 'r1a2b3c', name: 'briefing' } };
+    const briefing = { ...CARD18[2]!, proposal: { spec: { name: 'briefing', target: CARD18[2]!.target, schedule: { kind: 'recurring' as const, times: ['07:30', '13:30', '16:30'], days: [...MONFRI] }, prompt: 'p' }, by: { id: 'iris1', name: 'Iris' }, at: local(23, 2, 10) } };
+    expect(routineItems([task], [briefing], 'fr', fr)[0]!.text).toBe('Iris veut modifier « briefing » : 07:30, 13:30, 16:30 (lun-ven)');
+    expect(routineItems([task], [briefing], 'en', en)[0]!.text).toBe('Iris wants to change “briefing”: 07:30, 13:30, 16:30 (Mon-Fri)');
+    expect(routineItems([task], [], 'en', en)[0]!.text).toBe('“briefing” awaits your approval');
+    const failed: Task = { ...base, id: 't2', title: 'La routine veille (Nova) n’a pas pu partir : x', routine: { kind: 'failed', id: 'r0000aa', name: 'veille', reason: 'folder not found' } };
+    expect(routineItems([failed], [], 'en', en)[0]!.text).toBe('The routine veille could not run: folder not found');
   });
 
   it('routes local decisions to the local machine when remote routine IDs collide', () => {

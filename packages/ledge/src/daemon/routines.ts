@@ -11,6 +11,7 @@ import type { Mailbox } from './mailbox.js';
 import type { Tasks } from './tasks.js';
 import { reachable, sessionNamed } from './mailbox.js';
 import { formatLedgeRoutine } from './crossSession.js';
+import { routineKey } from '../routineKey.js';
 import { jsonJournal, type Journal } from './journal.js';
 import { log } from '../log.js';
 
@@ -325,7 +326,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         text: text.length > TASK_TEXT_MAX ? `${text.slice(0, TASK_TEXT_MAX - 1)}…` : text, routine: { kind: 'approve', id: ids[0]!, name: all[0]!.name, ids } });
       return;
     }
-    d.tasks.raise({ title: title(`${asker} veut programmer « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
+    // A session's change reads « veut modifier » (owner's decision, 2026-11-23); a new routine « veut programmer ».
+    d.tasks.raise({ title: title(`${asker} veut ${r.proposal ? 'modifier' : 'programmer'} « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
       routine: { kind: 'approve', id: r.id, name: spec.name } });
   };
   /** The session that asked (or its relief) is told the owner's answer. */
@@ -416,7 +418,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
         waiting.set(id, { id, rid, ...slot, at: atIso, late, outcome, session: target.id, ...(manual ? { manual: true as const } : {}) }); save();
       };
       if (live) {
-        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`, 'session');
+        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`, 'session_untracked');
         return deliver(live, 'delivered');
       }
       if (gone && d.resumable(gone)) {
@@ -541,6 +543,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
       if (active().length >= ROUTINES_ACTIVE_MAX) return refuse('invalid', `${ROUTINES_ACTIVE_MAX} routines actives au plus`);
       const spec = await checked(cmd.spec, true);
       if ('reason' in spec) return refused(spec);
+      // Others may have been added while the folder was checked.
+      if (active().length >= ROUTINES_ACTIVE_MAX) return refuse('invalid', `${ROUTINES_ACTIVE_MAX} routines actives au plus`);
       if (taken(spec)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
       const r = put(scheduled({ ...spec, id: newId(), catchUp: spec.catchUp ?? 'once', state: session ? 'pending' : 'enabled',
         createdBy: session ? { kind: 'session', id: session.id, name: session.name } : { kind: 'user' }, createdAt: iso() }));
@@ -570,6 +574,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         const what = material(merged.data, specOf(r));
         const next = await checked(merged.data, what);
         if ('reason' in next) return refused(next);
+        // Changed while its folder was checked (an approval, another change): this change was made on what is no longer there.
+        if (routines.get(r.id) !== r) return refuse('stale', `la routine ${r.name} a changé pendant la modification`);
         if (taken(next, r.id)) return refuse('name_taken', `${next.target.name} a déjà une routine « ${next.name} »`, 'name');
         // A session's change to what runs, when or where: the routine keeps firing as it is until the owner answers (spec §3.4).
         if (session && what && r.state !== 'pending') {
@@ -611,6 +617,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
       case 'refuse': {
         if (session) return refuse('forbidden', "seul l'utilisateur active ou refuse une routine");
         if (r.state !== 'pending' && !r.proposal) return refuse('not_pending', `la routine ${r.name} n'attend pas de réponse`);
+        if (cmd.expect !== undefined && cmd.expect !== routineKey(r)) return refuse('stale', `la routine ${r.name} a changé depuis qu'elle a été montrée`);
         const change = !!r.proposal;
         const asker = r.proposal?.by ?? (r.createdBy.kind === 'session' ? { id: r.createdBy.id, name: r.createdBy.name } : undefined);
         if (cmd.op === 'refuse') {
@@ -627,6 +634,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         // « Activer » saves the request, or the owner's correction of it.
         const spec = await checked(cmd.spec ?? r.proposal?.spec ?? specOf(r), true);
         if ('reason' in spec) return refused(spec);
+        // Changed while its folder was checked: what was shown is no longer what would be saved.
+        if (routines.get(r.id) !== r) return refuse('stale', `la routine ${r.name} a changé pendant l'activation`);
         if (taken(spec, r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
         const { proposal: _p, expiresAfterRun: _e, ...base } = r;
         const approved = put(scheduled({ ...base, ...spec, catchUp: spec.catchUp ?? r.catchUp, state: r.state === 'pending' ? 'enabled' : r.state }));
