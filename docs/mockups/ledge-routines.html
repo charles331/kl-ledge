@@ -334,6 +334,7 @@ main{padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(380
 .prev3.shift .hint{color:var(--st-ask)}
 .rs-prop{grid-column:1/-1;font-size:10.5px;color:var(--muted-foreground);padding:4px 6px 2px 27px;border-left:2px solid color-mix(in srgb,var(--st-ask) 60%,transparent);margin:2px 0 0 9px}
 .rsrow.dimrow{opacity:.6}
+.rs-mach{display:flex;align-items:center;gap:7px;padding:10px 6px 2px;font-size:12px;font-weight:600}
 .glist{margin-left:22px;border-left:2px solid var(--border);padding-left:10px;display:flex;flex-direction:column;gap:4px}
 .glinks a{color:var(--note);cursor:pointer}
 section.fiche{grid-column:1/-1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
@@ -690,7 +691,7 @@ function cards(){
     scene: `<div class="paneframe" style="max-height:330px;overflow:hidden">${rpage(revue, {banner: bannerBox('bad', x.delQ('revue-prs'), x.delWhy('Otto'), `<button class="btn">${x.cancel}</button><button class="btn dangerfill">${x.delGo}</button>`), noRuns:true, form:{name:'revue-prs', times:['09:00'], s:'Otto', tool:'codex', st:'idle', stTxt:x.st.idle, dir:'~/Workspace/ledge'}})}</div>`});
 
   C.push({tag:'new', title:'États : vide, connexion, daemon hors ligne', wide:true,
-    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : l’IDE n’a pas de machine choisie dans la barre de titre ; règle en attente de jde (proposition : un titre par machine dans la barre latérale, comme la TUI, carte 27). <b>Beaucoup de routines</b> : la barre latérale défile.',
+    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : l’IDE n’a pas de machine choisie dans la barre de titre ; un titre par machine dans la barre latérale, comme la TUI (validé, carte 28). <b>Beaucoup de routines</b> : la barre latérale défile.',
     keys:'routines.empty.{title,side} · routines.connecting · routines.offlineShort',
     scene: `${rside({empty:true})}${rside({connecting:true})}${rside({offline:true})}`});
 
@@ -1016,11 +1017,52 @@ function precCards(){
   return C;
 }
 
+/* Desktop précisions confirmed by jde on 2026-11-23 (qitem-20261123042718-96d4f615fce34eb1), after dev-front's 11 questions. */
+function precDesktopCards(){
+  const x = t(), fr = L==='fr', C = [];
+  const P = fr ? {
+    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, - et _ seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
+    gone:'Cette routine n’existe plus : elle a été supprimée ailleurs.', closeTab:'Fermer l’onglet',
+    many:'Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant',
+    wakesOn:'· PC du bureau',
+    refusals:[['cwd','Ce dossier n’existe pas sur ce PC.'],['at','Ce moment est déjà passé.'],['name','Iris a déjà une routine « briefing ».'],['tz','Fuseau horaire inconnu : <tz>.'],['session','Cette session ne répond pas.  /  Cette session n’est pas suivie par Ledge.'],['tool','Outil absent sur ce PC : <outil>.'],['model','Modèle inconnu pour <outil> : <modèle>.'],['schedule','Au moins une heure.  /  Au moins un jour.  /  Choisis la semaine de référence.'],['prompt','Le prompt est vide.'],['?','la raison brute du daemon, sous le champ indiqué (ou en tête de la configuration)']],
+  } : {
+    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, - and _ only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
+    gone:'This routine no longer exists: it was deleted elsewhere.', closeTab:'Close the tab',
+    many:'Iris wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant',
+    wakesOn:'· Office PC',
+    refusals:[['cwd','This folder doesn’t exist on this PC.'],['at','This moment has already passed.'],['name','Iris already has a routine “briefing”.'],['tz','Unknown time zone: <tz>.'],['session','This session isn’t responding.  /  This session isn’t followed by Ledge.'],['tool','Tool not found on this PC: <tool>.'],['model','Unknown model for <tool>: <model>.'],['schedule','At least one time.  /  At least one day.  /  Pick the reference week.'],['prompt','The prompt is empty.'],['?','the daemon’s raw reason, under the field it names (or at the top of the settings)']],
+  };
+  const esc = s => s.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const mrow = (name, right, sub, mark='<span class="dot idle" style="margin:5px 3px 0"></span>') => `<div class="rsrow">${mark}<b>${name}</b><span class="nx">${right}</span><small>${logo('claude',11)}<span>${sub}</span></small></div>`;
+  const mhead = (n, on=true) => `<div class="rs-mach"><span class="dot ${on?'idle':''}"></span>${n}</div>`;
+  const side = `<aside class="exp rside" style="min-height:360px"><div class="h"><span>${x.routines}</span><span class="hb">${I.plus(14)}</span></div>
+    ${mhead(P.m1)}<div class="rs-grp">▾ ${fr?'Récurrentes':'Recurring'} · 2</div>${mrow('briefing','13:30',`Iris · 08:00 13:30 16:30 · ${x.monfri}`,'<span class="dot work" style="margin:5px 3px 0"></span>')}${mrow('cloture','17:15',`Iris · 17:15 · ${x.monfri}`,'<span class="dot work" style="margin:5px 3px 0"></span>')}
+    ${mhead(P.m2)}<div class="rs-grp">▾ ${fr?'Récurrentes':'Recurring'} · 1</div>${mrow('garde-mr','15:00',`Garde · 10:30 15:00 · ${x.monfri}`)}<div class="rs-grp">▾ ${fr?'Uniques':'Once'} · 1</div>${mrow('rappel-conges',fr?'4 déc. 09:00':'4 Dec 09:00',`Garde · ${fr?'unique':'once'}`)}
+    <div class="rs-foot">${x.tzFoot}</div></aside>`;
+  C.push({tag:'add', title:'Desktop : plusieurs machines, erreurs, routine supprimée, refus (validé)', wide:true,
+    why:'<b>Plusieurs machines</b> : avec plus d’une machine, la barre latérale a un niveau de plus, <b>un titre par machine</b> (nom et point d’état), avec dedans les groupes Récurrentes / Uniques / En pause / Passées ; la page dit « Réveille Iris … dans ~/assistant · PC du bureau » ; « Nouvelle routine » gagne un champ <b>Machine</b> en tête de la configuration. Avec une machine, rien ne change (même règle que la TUI). <b>Erreurs</b> : chaque contour rouge a son texte sous le champ. <b>Routine supprimée ailleurs</b> : son onglet remplace la page par une phrase et « Fermer l’onglet ». <b>Au-delà de 3 moments</b> dans un texte « À toi » : « … et N autres ». <b>Refus du daemon</b> : un texte du front par champ (le daemon garde ses raisons en français ; contrat ff7a19c2).',
+    keys:'routines.machine · routines.err.{name,session,prompt,date,anchor,tz,unreachable,notLedge,tool(t),model(t,m)} · routines.gone · .closeTab · atoi.routine.more(n)',
+    scene: `${side}
+      <div class="col" style="gap:14px;width:100%;max-width:700px">
+        <div class="paneframe" style="width:100%"><div class="rp2"><section class="sect" style="border:0"><h4>${x.config}</h4><div class="form">
+          ${field(P.machine, `<div class="inp sel" style="max-width:260px"><span class="dot idle"></span>${P.m1}</div>`)}
+          ${field(x.fName, `<div class="col"><div class="inp err">brief ing!</div><span class="hint err">${P.errName}</span></div>`)}
+          ${field(x.fSession, `<div class="col"><div class="inp sel err"><span class="ph">${x.pickSession}</span></div><span class="hint err">${P.errSession}</span></div>`)}
+          ${field(x.fPrompt, `<div class="col"><div class="ta" style="min-height:44px;border-color:var(--st-perm)"></div><span class="hint err">${P.errPrompt}</span></div>`)}
+        </div></section></div></div>
+        <div class="paneframe" style="width:100%;padding:28px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center"><span class="mut">${I.alarm(22)}</span><span>${P.gone}</span><button class="btn">${P.closeTab}</button></div>
+        <div class="line" style="font-size:12.5px;background:var(--pane);border:1px solid var(--border);border-radius:8px;padding:9px 12px"><span class="mk ask">?</span><span class="grow wrap">${P.many}</span></div>
+        <div class="paneframe" style="width:100%;padding:12px 16px"><table style="border-collapse:collapse;width:100%;font-size:12px">${P.refusals.map(([f,txt])=>`<tr><td class="mono" style="padding:4px 10px 4px 0;color:var(--muted-foreground);vertical-align:top">${f}</td><td style="padding:4px 0">${esc(txt)}</td></tr>`).join('')}</table></div>
+      </div>`});
+  return C;
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
