@@ -403,6 +403,10 @@ Les sessions groupées par projet, puis par rig OpenRig. Les filtres en haut : �
 
 Sur un téléphone, « Liste · Atelier » à côté du titre montre les agents en îlots : un îlot par projet puis par rig, ou, avec « Rigs », les rigs puis « Hors rig ». Chaque agent est un siège avec son point d'état ; ses sous-agents sont de petits sièges en pointillés, que l'œil masque (leur nombre revient alors sur l'agent, « +2 »). Toucher un siège ouvre le fil, un appui long ses actions. En bas, le bureau de Ledge ouvre l'onglet Ledge. Le téléphone garde ces choix.
 
+### Routines (`routines`)
+
+La ligne « Routines », en tête de Sessions, dit combien de routines le PC garde et quand part le prochain tir ; une pastille rouge compte celles qui attendent ton accord ou dont le dernier tir a échoué. Elle ouvre l'écran Routines (« Retour aux sessions ») : les routines en lecture seule, les récurrentes puis les uniques, chacune avec la session qu'elle réveille, ses heures et ses jours (« 1 semaine sur 2 » pour une routine toutes les deux semaines, « unique » pour une routine unique), son prochain tir et son dernier tir (« en retard » s'il est parti au réveil du PC, la raison s'il a échoué). « Lancer maintenant » (« Relancer » après un échec) et « Pause » / « Reprendre » agissent sur place ; une routine qui attend ton accord renvoie à « À toi ». Créer ou modifier une routine se fait sur le PC, ou en le demandant à Ledge. Les sessions qu'une routine réveille portent une petite horloge dans la liste. Dans « À toi », une demande d'activation montre sa consigne en entier : « Activer » demande Face ID ou la vérification de l'appareil, « Refuser » non ; plusieurs routines uniques proposées ensemble se règlent d'un coup (« Activer les 3 » / « Refuser les 3 »), le tri une par une se fait sur le PC. Un tir qui n'a pas pu partir y arrive avec « Relancer » et « Voir ».
+
 ### Nouvelle session (`launch`)
 
 « Nouvelle », en haut de Sessions, lance un agent sur le PC. Sur un téléphone, l'écran s'ouvre par-dessus les onglets. Il reprend les champs de Ledge Desktop :

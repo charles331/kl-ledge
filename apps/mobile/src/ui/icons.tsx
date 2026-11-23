@@ -64,6 +64,9 @@ export const ICONS = {
   face: ['M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1M15 9v1M12 9v4h-1M9 15.5a4 4 0 0 0 6 0'],
   unlink: ['M18.8 13.4l1.6-1.6a4.5 4.5 0 0 0-6.4-6.4l-1.6 1.6M5.2 10.6l-1.6 1.6a4.5 4.5 0 0 0 6.4 6.4l1.6-1.6M8 2v3M2 8h3M16 22v-3M22 16h-3'],
   clock: [circle(12, 12, 9), 'M12 7v5l3 2'],
+  /** Routines (docs/mockups/ledge-routines.html): the alarm clock of their entry, and the triangle of « Lancer maintenant ». */
+  alarm: [circle(12, 13, 8), 'M12 9v4l2.5 1.5M5 3 2 6M19 3l3 3'],
+  play: ['M7 5v14l11-7z'],
   lock: [rect(3, 11, 18, 11, 2), 'M7 11V7a5 5 0 0 1 10 0v4'],
   bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0'],
   alert: ['M12 3l10 18H2z', 'M12 10v4M12 17.5v.01'],

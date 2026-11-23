@@ -7,6 +7,8 @@ export type Route =
   /** « Sessions » (`#/sessions`; `#/agents`, its old address, still leads there); `#/sessions/working` opens it on « Au travail »
    *  (« Voir les N autres » in « À toi »), `#/sessions/waiting` on « En attente ». */
   | { name: 'sessions'; filter?: 'waiting' | 'working' }
+  /** « Routines » (`#/routines`), opened from the top of Sessions: the PC's routines, read-only (docs/mockups/ledge-routines.html, card 17). */
+  | { name: 'routines' }
   /** « MR/PR » and « Rigs »: what the PC does not send to the phone yet (docs/mockups/ledge-mobile-refonte/m0-socle.html, §3). */
   | { name: 'prs' }
   | { name: 'rigs' }
@@ -32,10 +34,10 @@ export type Route =
   | { name: 'pr'; id: string };
 
 /** Every route, as the Ledge guide (docs/ledge-guide.md) must describe them: a Record, so a new route fails to compile until it is listed here. */
-const ROUTE_NAME: Record<Route['name'], true> = { atoi: true, sessions: true, prs: true, rigs: true, atelier: true, chat: true, thread: true, terminal: true, request: true, ask: true, connection: true, rig: true, kernel: true, max: true, launch: true, pr: true };
+const ROUTE_NAME: Record<Route['name'], true> = { atoi: true, sessions: true, routines: true, prs: true, rigs: true, atelier: true, chat: true, thread: true, terminal: true, request: true, ask: true, connection: true, rig: true, kernel: true, max: true, launch: true, pr: true };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME) as Route['name'][];
 
-const SIMPLE = ['sessions', 'prs', 'rigs', 'chat', 'connection', 'kernel', 'max'] as const;
+const SIMPLE = ['sessions', 'routines', 'prs', 'rigs', 'chat', 'connection', 'kernel', 'max'] as const;
 /** Routes whose address is not their name. */
 const NEW = 'new';
 

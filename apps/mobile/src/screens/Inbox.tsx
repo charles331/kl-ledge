@@ -4,6 +4,7 @@ import { copy, locale } from '../copy';
 import { askEndOf, cardMode, CHIPS_FROM, pillOf, sortAsks, whoOf, workingOf, WORKING_MAX } from '../model/atoi';
 import { outcomeFor } from '../model/requestOutcome';
 import { ageLabel, filterItems, firstLine, headline, requestsOf, type Filter, type InboxItem } from '../model/requests';
+import { routineItems } from '../model/routines';
 import { doingLine } from '../model/sessions';
 import { indicators } from '../model/usage';
 import { href, useRoute } from '../router';
@@ -18,6 +19,7 @@ import { useWide } from '../ui/layout';
 import { Mascot } from '../ui/MobileBot';
 import { useNow } from '../useNow';
 import { AskCard } from './atoi/AskCard';
+import { RoutineItem } from './atoi/RoutineItem';
 import { useSticky } from './atoi/Receipt';
 import { SessionCard } from './atoi/SessionCard';
 import { usePlatform } from './device';
@@ -110,13 +112,15 @@ export function Inbox({ store, onReconnect, forge }: { store: MobileStore; onRec
   const sessions = [...state.sessions.values()];
   const items = requestsOf(sessions);
   const asks = sortAsks(state.asks ?? []);
+  // The routines' items (docs/mockups/ledge-routines.html, cards 17 and 25): after the sessions' requests, before the rigs.
+  const routineTasks = routineItems(state.tasks.values());
   const fresh = state.fresh;
   const canConfirm = state.device?.confirm === true && platform;
   const enroll = platform && state.device?.confirm !== true;
   const machine = state.daemon?.name ?? '';
   const threshold = state.device?.contextNear ?? CONTEXT_NEAR;
 
-  const total = items.length + asks.length;
+  const total = items.length + asks.length + routineTasks.length;
   const chips = total >= CHIPS_FROM;
   // The chips leave once the list is short again: everything shows.
   const f: AtoiFilter = chips ? filter : 'all';
@@ -180,14 +184,16 @@ export function Inbox({ store, onReconnect, forge }: { store: MobileStore; onRec
       />
     </Box>
   );
-  const filteredEmpty = !nothing && shownItems.length === 0 && shownAsks.length === 0 && (
+  const filteredEmpty = !nothing && shownItems.length === 0 && shownAsks.length === 0 && !(f === 'all' && routineTasks.length > 0) && (
     <EmptyState glyph={<Icon name="inbox" />} title={copy.inbox.emptyFilter} body={copy.inbox.emptyFilterHint} />
   );
 
   // « Mettre à jour ta passkey » at the top, not counted (passkey-reinstall.html, 4 a).
   const update = <div className="flex flex-col gap-3 empty:hidden"><UpdateCard store={store} /></div>;
 
-  if (wide) return <WideList update={update} state={state} items={shownItems} asks={showRigs ? shownAsks : []} working={working} showRigs={showRigs} chipBar={chipBar} empty={empty || filteredEmpty} subtitle={subtitle} threshold={threshold} now={now} machine={machine} />;
+  const routineCards = f === 'all' && routineTasks.map(task => <RoutineItem key={task.id} store={store} task={task} state={state} canConfirm={canConfirm} />);
+
+  if (wide) return <WideList update={update} state={state} items={shownItems} asks={showRigs ? shownAsks : []} working={working} showRigs={showRigs} chipBar={chipBar} empty={empty || filteredEmpty} subtitle={subtitle} threshold={threshold} now={now} machine={machine} routines={routineCards} />;
 
   return (
     <TabPage title={copy.inbox.title} subtitle={subtitle} offlinePill={false}>
@@ -208,6 +214,7 @@ export function Inbox({ store, onReconnect, forge }: { store: MobileStore; onRec
           />
         );
       })}
+      {routineCards}
       {showRigs && (
         <>
           <h2 className="mt-1 flex items-center gap-2 text-[13px] font-semibold">
@@ -235,9 +242,11 @@ export function Inbox({ store, onReconnect, forge }: { store: MobileStore; onRec
 }
 
 /** The list of a wide screen (§12): compact rows grouped Demandes, Rigs OpenRig, En cours; the one open on the right is lit. */
-function WideList({ update, state, items, asks, working, showRigs, chipBar, empty, subtitle, threshold, now, machine }: {
+function WideList({ update, state, items, asks, working, showRigs, chipBar, empty, subtitle, threshold, now, machine, routines }: {
   update: ReactNode; state: MobileState; items: InboxItem[]; asks: HumanAsk[]; working: PhoneSession[]; showRigs: boolean;
   chipBar: ReactNode; empty: ReactNode; subtitle: string | undefined; threshold: number; now: number; machine: string;
+  /** The routines' items, as their cards: they are answered in the list, with no pane of their own. */
+  routines: ReactNode;
 }) {
   const route = useRoute();
   const offline = !state.fresh;
@@ -260,6 +269,7 @@ function WideList({ update, state, items, asks, working, showRigs, chipBar, empt
           ))}
         </Box>
       )}
+      {routines}
       {showRigs && (
         <Box title={copy.atoi.rigs} dot="rig" count={asks.length} tone="rigs">
           <div className="p-2 empty:hidden"><ChannelStrip state={state} machine={machine} /></div>
