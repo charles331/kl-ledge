@@ -1,5 +1,5 @@
 import {
-  contextNear, openDecision, pendingKey, taskClosed, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigState, type Pending, type Session, type Task
+  contextNear, openDecision, pendingKey, taskClosed, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigState, type Pending, type Routine, type Session, type Task
 } from '@ledge/protocol';
 import type { JournalEvent } from './journal.js';
 import { STALE_TASK_MS } from './constants.js';
@@ -14,7 +14,8 @@ import { STALE_TASK_MS } from './constants.js';
  *   - `rig.seat`: a seat of a rig; subjectId `<rig>/<seat logical id>`;
  *   - `rig`: a whole rig; subjectId is the rig name;
  *   - `rig.goal`: a goal given to Max; subjectId is its goal id;
- *   - `pr`: a pull or merge request; subjectId is its id (`prIdOf`).
+ *   - `pr`: a pull or merge request; subjectId is its id (`prIdOf`);
+ *   - `routine.run`: one firing of a routine; subjectId `<routine id>@<firing time>`.
  */
 
 /** An event the journal has not stamped yet (it adds the id, the machine, the time and the settling). */
@@ -155,6 +156,24 @@ export function fromGoals(before: readonly Goal[], after: readonly Goal[]): Draf
     if (text === null) continue;
     out.push({ kind: 'rig.goal_update', subjectKind: 'rig.goal', subjectId: g.goalId, subjectName: g.to, urgency: 'grouped',
       payload: { goalId: g.goalId, goal: clip(g.text), state: g.state, text: clip(text), ...(rigOf(g.to) ? { rig: rigOf(g.to) } : {}) } });
+  }
+  return out;
+}
+
+/**
+ * A routine's firings that reached their session (routines spec §3.5): a `lastRun` that changed and did not fail, one event per
+ * firing. A failure is not one: the scheduler raises it as an « À toi » item (a task given to Ledge), which `fromTasks` already sees.
+ */
+export function fromRoutines(before: readonly Routine[], after: readonly Routine[]): Draft[] {
+  const was = new Map(before.map(r => [r.id, r.lastRun?.at]));
+  const out: Draft[] = [];
+  for (const r of after) {
+    const run = r.lastRun;
+    if (!run || run.outcome === 'failed' || was.get(r.id) === run.at) continue;
+    out.push({
+      kind: 'routine.fired', subjectKind: 'routine.run', subjectId: `${r.id}@${run.at}`, subjectName: r.name, urgency: 'grouped',
+      payload: { routine: r.id, name: r.name, target: r.target.name, cwd: r.target.cwd, slot: run.slot, firedAt: run.at, outcome: run.outcome, ...(run.late ? { late: true } : {}) }
+    });
   }
   return out;
 }
