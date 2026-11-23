@@ -23,9 +23,12 @@ export const RoutineTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, '
 /** The most times a day and the longest prompt a routine holds. */
 export const ROUTINE_TIMES_MAX = 24;
 export const ROUTINE_PROMPT_MAX = 8000;
-/** The longest reason a failed firing carries, and the most routines a list holds. */
+/** The longest reason a failed firing carries, and the most routines the daemon keeps (a list then fits the phone's frame). */
 export const ROUTINE_REASON_MAX = 500;
-export const ROUTINES_MAX = 200;
+export const ROUTINES_MAX = 50;
+/** The longest folder the phone's list carries (clipped, with `cut`), and a routine's key: what an approval is bound to. */
+export const PHONE_ROUTINE_CWD_MAX = 512;
+export const RoutineKeySchema = z.string().min(1).max(64);
 
 const unique = <T>(xs: readonly T[]): boolean => new Set(xs).size === xs.length;
 
@@ -125,7 +128,7 @@ export const TaskRoutineSchema = z.object({
 export type TaskRoutine = z.infer<typeof TaskRoutineSchema>;
 
 /** What the phone may do to a routine: read the list, fire one now, pause or resume it, answer a pending one. `approve`
- *  carries a device assertion, purpose `routine`, bound to that routine. */
+ *  carries the key of the routine the phone showed whole (`routine.detail`) and a device assertion, purpose `routine`, bound to both. */
 export const PHONE_ROUTINE_ACTIONS = ['run', 'pause', 'resume', 'approve', 'refuse'] as const;
 export const PhoneRoutineActionSchema = z.enum(PHONE_ROUTINE_ACTIONS);
 export type PhoneRoutineAction = z.infer<typeof PhoneRoutineActionSchema>;

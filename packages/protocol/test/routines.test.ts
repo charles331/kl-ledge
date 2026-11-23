@@ -77,19 +77,25 @@ describe('routine phone messages', () => {
     for (const m of [
       { type: 'routine.list' },
       { type: 'routine.cmd', op: OP, action: 'run', routine: 'r1a2b3c' },
-      { type: 'routine.cmd', op: OP, action: 'approve', routine: 'r1a2b3c', assertion },
-      { type: 'confirm.prepare', purpose: 'routine', routine: 'r1a2b3c' }
+      { type: 'routine.show', routine: 'r1a2b3c' },
+      { type: 'routine.cmd', op: OP, action: 'approve', routine: 'r1a2b3c', routineKey: 'k3y', assertion },
+      { type: 'confirm.prepare', purpose: 'routine', routine: 'r1a2b3c', routineKey: 'k3y' }
     ]) expect(wire(PhoneClientMessageSchema, m)).toEqual(m);
-    const { prompt: _p, ...seen } = routine;
+    const { prompt, ...rest } = routine;
+    const seen = { ...rest, key: 'k3y' };
     for (const m of [
       { type: 'routines', routines: [seen] },
       { type: 'routine.changed', routine: seen },
       { type: 'routine.changed', removed: 'r1a2b3c' },
+      { type: 'routine.detail', id: 'r1a2b3c', routine: { ...seen, prompt } },
+      { type: 'routine.detail', id: 'r1a2b3c', gone: true },
       { type: 'operation.result', op: OP, status: 'rejected', reason: 'not_pending' }
     ]) expect(wire(PhoneServerMessageSchema, m)).toEqual(m);
   });
   it('keeps the prompt off the phone\'s list and refuses an action the phone does not have', () => {
-    expect(PhoneRoutineSchema.safeParse(routine).success).toBe(false);
+    expect(PhoneRoutineSchema.safeParse({ ...routine, key: 'k3y' }).success).toBe(false);
+    const { prompt: _p, ...rest } = routine;
+    expect(PhoneRoutineSchema.safeParse({ ...rest, key: 'k3y', target: { ...routine.target, cwd: `/${'a'.repeat(600)}` } }).success).toBe(false);
     expect(PhoneClientMessageSchema.safeParse({ type: 'routine.cmd', op: OP, action: 'rm', routine: 'r1a2b3c' }).success).toBe(false);
     expect(PhoneClientMessageSchema.safeParse({ type: 'routine.cmd', op: OP, action: 'add', routine: 'r1a2b3c' }).success).toBe(false);
   });

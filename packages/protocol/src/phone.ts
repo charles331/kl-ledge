@@ -24,7 +24,7 @@ import { ForgeActionSchema } from './forge.js';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, PhoneForgeErrorSchema, PhoneForgeRejectedSchema, PhoneForgeStateSchema, PhonePrDetailSchema } from './phoneForge.js';
 import { BrainChoiceSchema } from './tasks.js';
 import { BrainProposalSchema } from './tasks.js';
-import { PhoneRoutineActionSchema, RoutineIdSchema, RoutineSchema, ROUTINES_MAX, TaskRoutineSchema } from './routines.js';
+import { PHONE_ROUTINE_CWD_MAX, PhoneRoutineActionSchema, RoutineIdSchema, RoutineKeySchema, RoutineSchema, RoutineTargetSchema, ROUTINES_MAX, TaskRoutineSchema } from './routines.js';
 
 /** A queue row's state on the phone (docs/mockups/ledge-openrig-messages.html, decision 2): the PC's own, its summary shortened. */
 export const PHONE_ROW_SUMMARY_MAX = 200;
@@ -265,9 +265,15 @@ export const PhoneTaskSchema = z.object({
 }).strict();
 export type PhoneTask = z.infer<typeof PhoneTaskSchema>;
 
-/** A routine as the phone sees it: everything but its prompt, which an activation request carries in its item's detail. */
-export const PhoneRoutineSchema = RoutineSchema.omit({ prompt: true });
+/** A routine as the phone's list sees it: everything but its prompt, its folder clipped (`cut`), and `key`, the digest of what it
+ *  does (name, target, schedule, prompt, catch-up): an « Activer » names the key the phone showed, and is refused once it changed. */
+export const PhoneRoutineSchema = RoutineSchema.omit({ prompt: true, target: true }).extend({
+  target: RoutineTargetSchema.extend({ cwd: z.string().min(1).max(PHONE_ROUTINE_CWD_MAX) }), cut: z.literal(true).optional(), key: RoutineKeySchema
+}).strict();
 export type PhoneRoutine = z.infer<typeof PhoneRoutineSchema>;
+/** One routine whole, prompt included (`routine.show`): what the phone shows before « Activer ». */
+export const PhoneRoutineDetailSchema = PhoneRoutineSchema.extend({ prompt: RoutineSchema.shape.prompt }).strict();
+export type PhoneRoutineDetail = z.infer<typeof PhoneRoutineDetailSchema>;
 
 /** Why a question ended without an answer. */
 export const ChatErrorCodeSchema = z.enum(['busy', 'timeout', 'cancelled', 'failed']);
@@ -417,8 +423,8 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
     launch: PhoneLaunchSchema.optional(),
     /** A `forge` challenge: the request and the action it covers, exactly as they will be sent. */
     forge: z.object({ prId: z.string().min(1).max(500), action: ForgeActionSchema }).strict().optional(),
-    /** A `routine` challenge: the pending routine its « Activer » covers. */
-    routine: RoutineIdSchema.optional() }),
+    /** A `routine` challenge: the pending routine its « Activer » covers, and its key as the phone showed it. */
+    routine: RoutineIdSchema.optional(), routineKey: RoutineKeySchema.optional() }),
   /** `userId`: the passkey's `user.id` as the phone made it (« L1 » ‖ the PC key's digest ‖ random, docs/mobile-passkey-recover-contract.md);
    *  given and made for this PC, the passkey can bring the device back after a reinstall (the snapshot's `device.recover`). */
   z.object({ type: z.literal('credential.register'), op: OperationIdSchema, credential: CredentialSchema, userId: B64U.max(128).optional() }),
@@ -530,9 +536,12 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('task.seen'), op: OperationIdSchema, task: z.string().min(1).max(40) }),
   /** The routines (routines spec §3.7): answered by `routines`, then each change comes as `routine.changed`. */
   z.object({ type: z.literal('routine.list') }).strict(),
+  /** One routine whole, its prompt included: answered by `routine.detail`. The phone shows it before « Activer ». */
+  z.object({ type: z.literal('routine.show'), routine: RoutineIdSchema }).strict(),
   /** « Lancer maintenant », « Pause » / « Reprendre », and « Activer » / « Refuser » from « À toi »; answered by `operation.result`.
-   *  An `approve` carries an assertion of purpose `routine` bound to that routine. */
-  z.object({ type: z.literal('routine.cmd'), op: OperationIdSchema, action: PhoneRoutineActionSchema, routine: RoutineIdSchema, assertion: AssertionSchema.optional() }).strict(),
+   *  An `approve` names the key of the routine the phone showed (`routineKey`, refused as `stale` once it changed) and carries an
+   *  assertion of purpose `routine` bound to that routine and that key. */
+  z.object({ type: z.literal('routine.cmd'), op: OperationIdSchema, action: PhoneRoutineActionSchema, routine: RoutineIdSchema, routineKey: RoutineKeySchema.optional(), assertion: AssertionSchema.optional() }).strict(),
   /** Streams a session's pane, read-only; answered by `term.opened` or `operation.result` (rejected). `helper`: one of the
    *  session's subagents (`helpers[].id`), whose terminal is its parent's, read-only for good (`term.opened.readOnly`). */
   z.object({ type: z.literal('term.open'), op: OperationIdSchema, id: sessionId, helper: z.string().min(1).max(200).optional() }),
@@ -703,6 +712,8 @@ export const PhoneServerMessageSchema = z.discriminatedUnion('type', [
   /** The routines, newest first, without their prompt (the phone's list is read-only); then each change, or `removed` (its id). */
   z.object({ type: z.literal('routines'), routines: z.array(PhoneRoutineSchema).max(ROUTINES_MAX) }).strict(),
   z.object({ type: z.literal('routine.changed'), routine: PhoneRoutineSchema.optional(), removed: RoutineIdSchema.optional() }).strict(),
+  /** The answer to `routine.show`: the routine whole, or `gone` when there is no such routine now. */
+  z.object({ type: z.literal('routine.detail'), id: RoutineIdSchema, routine: PhoneRoutineDetailSchema.optional(), gone: z.literal(true).optional() }).strict(),
   AttachmentStoredSchema,
   AttachmentDataSchema,
   AttachmentErrorSchema,
