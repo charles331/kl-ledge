@@ -326,7 +326,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         text: text.length > TASK_TEXT_MAX ? `${text.slice(0, TASK_TEXT_MAX - 1)}…` : text, routine: { kind: 'approve', id: ids[0]!, name: all[0]!.name, ids } });
       return;
     }
-    d.tasks.raise({ title: title(`${asker} veut programmer « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
+    // A session's change reads « veut modifier » (owner's decision, 2026-11-23); a new routine « veut programmer ».
+    d.tasks.raise({ title: title(`${asker} veut ${r.proposal ? 'modifier' : 'programmer'} « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
       routine: { kind: 'approve', id: r.id, name: spec.name } });
   };
   /** The session that asked (or its relief) is told the owner's answer. */

@@ -256,7 +256,7 @@ describe('commands', () => {
     const r = (await cmd(user, 'add', { spec: spec() })).routine!;
     const edited = (await cmd(as('iris'), 'update', { routine: 'briefing', patch: { schedule: { kind: 'recurring', times: ['03:00'], days: ['sun'], tz: TZ } } })).routine!;
     expect(edited).toMatchObject({ state: 'enabled', schedule: { times: ['08:00', '13:30', '16:30'] }, proposal: { spec: { schedule: { times: ['03:00'] } }, by: { id: 'iris', name: 'Iris' } } });
-    expect(decisions().map(t => t.title)).toEqual(['Iris veut programmer « briefing » : 03:00 (dim), dans ~/assistant']);
+    expect(decisions().map(t => t.title)).toEqual(['Iris veut modifier « briefing » : 03:00 (dim), dans ~/assistant']);
     clock = at('2026-11-20T07:00:30.000Z'); routines.tick(); await flush();
     expect(typed).toHaveLength(1);
     const back = (await cmd(user, 'refuse', { routine: r.id })).routine!;
