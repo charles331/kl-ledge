@@ -172,7 +172,7 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
     expect(f.cmds).toEqual([]);
-    expect(bubble()).toHaveTextContent(MESSAGES.en.machines.problem.ledge);
+    expect(bubble()).toHaveTextContent('This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.');
   });
 
   it('an approval refused as stale (card 32): the amber words, never the daemon’s reason; nothing more sent, Activate again', async () => {
@@ -199,6 +199,16 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     expect(screen.getByRole('button', { name: 'Activate' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Refuse' })).toBeEnabled();
+  });
+
+  it('a routine command refused as outdated says card 33’s words', async () => {
+    const f = fleetClient([task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })], [pointHebdo]);
+    mount(f);
+    f.set({ local: [decision('t1')] });
+    tick(540);
+    f.failWith('ancien', 'outdated');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
+    expect(bubble()).toHaveTextContent('This machine’s Ledge is too old for this action: update it. Nothing changed.');
   });
 
   it('a failure: Run again fires it, View opens its page in Desktop', async () => {

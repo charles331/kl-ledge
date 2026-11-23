@@ -179,7 +179,10 @@ const fr = {
       stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
       fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
       /** Past three moments in a request (card 28). */
-      more: (list: string, n: number) => `${list} et ${n} autres`
+      more: (list: string, n: number) => `${list} et ${n} autres`,
+      /** A daemon too old for a grouped answer, or for any routine command (card 33): nothing was sent, nothing changed. */
+      groupTooOld: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
+      tooOld: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'
     }
   },
   handoff: {
@@ -464,7 +467,9 @@ const en: Messages = {
       why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
       stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
       fallbackAsk: (name: string) => `“${name}” awaits your approval`, fallbackFailed: (name: string, why: string) => `The routine ${name} could not run: ${why}`,
-      more: (list: string, n: number) => `${list} and ${n} more`
+      more: (list: string, n: number) => `${list} and ${n} more`,
+      groupTooOld: 'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
+      tooOld: 'This machine’s Ledge is too old for this action: update it. Nothing changed.'
     }
   },
   handoff: {

@@ -746,8 +746,8 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
     setRoutineBusy(o.key); setOperatorFailure(null); setRoutineStale(null);
     try {
       const [head, ...rest] = action === 'run' ? [r.first.id] : r.ids;
-      // A daemon that does not answer groups would drop `others` and answer the first routine alone: the island says it is too old.
-      if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { setOperatorFailure({ key: o.key, message: t.machines.problem.ledge }); return; }
+      // A daemon that does not answer groups would drop `others` and answer the first routine alone: the island says it is too old (card 33).
+      if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { setOperatorFailure({ key: o.key, message: t.atoi.routine.groupTooOld }); return; }
       // An approval names, for each routine, what the bubble showed (its key): one changed since makes the daemon refuse them all (`stale`).
       // A refusal needs no key (refusing what changed is harmless): a member not read yet is still named, without one.
       const keyed = (id: string) => ({ routine: id, ...(r.keys[id] !== undefined ? { expect: r.keys[id] } : {}) });
@@ -762,7 +762,7 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
     } catch (e) {
       // The island's own words for a machine down or too old; a daemon's refusal is said with its reason (French, the daemon's).
       const f = e as { code?: string; message?: string };
-      setOperatorFailure({ key: o.key, message: f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.machines.problem.ledge : f.message ?? String(e) });
+      setOperatorFailure({ key: o.key, message: f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.atoi.routine.tooOld : f.message ?? String(e) });
     } finally { setRoutineBusy(null); }
   };
   const sendOn = (machine: string, m: Parameters<DaemonClient['send']>[0]): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
