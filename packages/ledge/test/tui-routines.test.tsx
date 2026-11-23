@@ -159,6 +159,11 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     const localRoutine = CARD18[4]!;
     const remoteRoutine = { ...localRoutine, machineId: 'laptop', name: 'autre' };
     expect(routineItems([task], [remoteRoutine, localRoutine], 'fr', fr)[0]!.machineId).toBe('local');
+    // A group's ids are the local machine's too: a remote namesake neither words it nor receives its answers.
+    const group: Task = { ...task, id: 't2', routine: { kind: 'approve', id: 'rc22222', name: 'prépa-121', ids: ['rc22222', 'rd33333'] } };
+    const remote = CARD25.map(r => ({ ...r, machineId: 'laptop', schedule: { kind: 'recurring' as const, times: ['09:00'], days: ['mon' as const] } }));
+    const [item] = routineItems([group], [...remote, ...CARD25], 'fr', fr);
+    expect(item).toMatchObject({ machineId: 'local', routines: ['rc22222', 'rd33333'], text: 'Iris veut programmer 2 routines uniques : 3 et 4 déc.' });
   });
 });
 

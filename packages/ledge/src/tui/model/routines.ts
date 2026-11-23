@@ -146,17 +146,20 @@ export interface RoutineItem { id: string; kind: 'approve' | 'failed'; mark: 'as
  * routines is not one the daemon makes: it shows its title.
  */
 export function routineItems(tasks: readonly Task[], routines: readonly FleetRoutine[], lang: Lang, t: Messages): RoutineItem[] {
+  // The fleet keeps the local daemon's tasks only: an item is about the local machine's routines, whatever another machine holds
+  // under the same id.
+  const local = routines.filter(x => x.machineId === LOCAL_MACHINE.id);
   return tasks.flatMap((task): RoutineItem[] => {
     const rt = task.routine;
     if (!rt) return [];
-    const r = routines.find(x => x.id === rt.id);
-    const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: r?.machineId ?? LOCAL_MACHINE.id };
+    const r = local.find(x => x.id === rt.id);
+    const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: LOCAL_MACHINE.id };
     if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, rt.reason ?? t.routines.out.failed) : task.title }];
     const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : undefined);
     const spec = r?.proposal?.spec ?? r;
     let text = task.title;
     if (who && rt.ids) {
-      const all = rt.ids.map(id => routines.find(x => x.id === id));
+      const all = rt.ids.map(id => local.find(x => x.id === id));
       if (all.every(x => x?.schedule.kind === 'once')) text = t.routines.groupAsk(who, rt.ids.length, onceDaysText(all.flatMap(x => (x!.schedule.kind === 'once' ? x!.schedule.at : [])), lang));
     } else if (who && spec) text = t.routines.ask(who, spec.name, whenText(spec, 'ask', lang, t), tilde(spec.target.cwd));
     return [{ ...base, mark: 'ask', text }];
