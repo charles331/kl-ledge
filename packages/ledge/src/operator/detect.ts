@@ -2,7 +2,7 @@ import {
   contextNear, openDecision, pendingKey, taskClosed, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigState, type Pending, type Routine, type Session, type Task
 } from '@ledge/protocol';
 import { resolve } from 'node:path';
-import { targetNames } from '../routine-text.js';
+import { sessionNamed } from '../daemon/mailbox.js';
 import type { JournalEvent } from './journal.js';
 import { STALE_TASK_MS } from './constants.js';
 
@@ -173,8 +173,10 @@ export function fromRoutines(before: readonly Routine[], after: readonly Routine
   for (const r of after) {
     const run = r.lastRun;
     if (!run || run.outcome === 'failed' || was.get(r.id) === run.at) continue;
-    // The session it reached, by id: it is live now, as the run is recorded once typed; a later session of the same name is not it.
-    const to = sessions.find(s => s.state !== 'exited' && resolve(s.cwd) === resolve(r.target.cwd) && targetNames(s, get).includes(r.target.name));
+    // The session it reached, by id, found as the scheduler finds it (sessionNamed: the live session of that exact name, else the
+    // relief of the last one relieved under it, in that folder); it is live now, as the run is recorded once typed.
+    const named = sessionNamed({ get, all: () => [...sessions] }, r.target.name);
+    const to = named && named.state !== 'exited' && resolve(named.cwd) === resolve(r.target.cwd) ? named : undefined;
     out.push({
       kind: 'routine.fired', subjectKind: 'routine.run', subjectId: `${r.id}@${run.at}`, subjectName: r.name, urgency: 'grouped',
       payload: { routine: r.id, name: r.name, target: r.target.name, cwd: r.target.cwd, slot: run.slot, firedAt: run.at, outcome: run.outcome, ...(run.late ? { late: true } : {}), ...(to ? { session: to.id } : {}) }

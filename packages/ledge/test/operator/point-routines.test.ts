@@ -165,6 +165,14 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
 });
 
 describe('a routine’s firing keeps the session it reached (review of 8b9e5ed0)', () => {
+  it('records the recipient as the scheduler finds it: the exact name before an older relief, never an archived session (review of 069e5d5a)', () => {
+    const relief = session({ id: 'relief', name: 'Iris-2', relieves: { id: 'old', name: 'Iris', at: at(12, 0) } });
+    const actual = session({ id: 'new-iris', name: 'Iris' });
+    expect(fromRoutines([routine()], [routine({ lastRun: run('13:30', at(13, 30)) })], [relief, actual])[0]!.payload.session).toBe('new-iris');
+    const archived = session({ id: 'archived', archivedAt: at(12, 0) });
+    const active = session({ id: 'active' });
+    expect(fromRoutines([routine()], [routine({ lastRun: run('13:30', at(13, 30)) })], [archived, active])[0]!.payload.session).toBe('active');
+  });
   it('records the live recipient’s id, and a later session of the same name and folder does not take the firing over', () => {
     const iris1 = session({ id: 'iris1' });
     const [d] = fromRoutines([routine()], [routine({ lastRun: run('13:30', at(13, 30)) })], [iris1]);
