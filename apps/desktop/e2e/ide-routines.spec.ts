@@ -132,6 +132,34 @@ test('a stale reread shows the new prompt and keeps the owner\'s own edit (revie
   expect(list[0]!.name).toBe('point-personnel');
 });
 
+test('a daemon without grouped commands is said in the screen\'s language (review of c1ecf1ea)', async ({ page }) => {
+  await boot(page, 'dark', 'en', routines(), true);
+  await activity(page).getByRole('button', { name: 'For you', exact: true }).click();
+  await page.getByRole('button', { name: 'Page', exact: true }).click();
+  await page.locator('[data-block="routines"]').getByRole('button', { name: 'Activate all 3' }).click();
+  await expect(page.locator('.toast-region')).toContainText('This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.');
+  await expect(page.locator('.toast-region')).not.toContainText('version trop ancienne');
+});
+
+test('a stale reread keeps a weekday moved elsewhere when the owner only added a time (review of c1ecf1ea)', async ({ page }) => {
+  const list = routines();
+  await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+  await page.getByRole('region', { name: 'Routines' }).locator('[data-routine="local:r3f9a12"] .rtn-hit').click();
+  const tab = page.getByRole('tabpanel', { name: /^point-hebdo/ });
+  await tab.getByRole('button', { name: 'Ajouter une heure' }).click();
+  await tab.getByLabel('Ajouter une heure').fill('18:00');
+  await tab.getByLabel('Ajouter une heure').press('Enter');
+  list[0] = { ...list[0]!, schedule: { kind: 'recurring', times: ['17:00'], days: ['mon'] } };
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect(tab.locator('.rtn-stale')).toBeVisible();
+  await expect(tab.getByRole('button', { name: 'lun', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 5000 });
+  await expect(tab.getByRole('button', { name: 'ven', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect.poll(() => list[0]!.state).toBe('enabled');
+  expect(list[0]!.schedule).toMatchObject({ days: ['mon'], times: ['17:00', '18:00'] });
+});
+
 test('« Activer les 3 » sends nothing while a member was read without its key (review of 1de4cbb8)', async ({ page }) => {
   const list = routines();
   const daemon = await boot(page, 'dark', 'fr', list);
@@ -157,9 +185,27 @@ test('a daemon without grouped commands activates no member of a group (review o
   const second = list.findIndex(r => r.id === 'r300001');
   list[second] = { ...list[second]!, prompt: 'Changed before group approval' };
   await blk.getByRole('button', { name: 'Activer les 3' }).click();
-  await expect(page.locator('.toast-region')).toContainText('version trop ancienne');
+  await expect(page.locator('.toast-region')).toContainText('Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.');
   expect(daemon.received.some(m => m.type === 'routine.cmd' && (m.op === 'approve' || m.op === 'refuse'))).toBe(false);
   expect(list.filter(r => r.id.startsWith('r3000')).every(r => r.state === 'pending')).toBe(true);
+});
+
+test('« Refuser les 3 » refuses every member, one changed and one without its key (dev-back 26169bb9)', async ({ page }) => {
+  const list = routines();
+  const daemon = await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
+  await page.getByRole('button', { name: 'Page', exact: true }).click();
+  const blk = page.locator('[data-block="routines"]');
+  await expect(blk.getByRole('button', { name: 'Refuser les 3' })).toBeVisible();
+  const second = list.findIndex(r => r.id === 'r300001');
+  list[second] = { ...list[second]!, prompt: 'Changed before group refusal' };
+  daemon.push({ type: 'routine.changed', routine: list.find(r => r.id === 'r300002') });
+  await page.waitForTimeout(500);
+  await blk.getByRole('button', { name: 'Refuser les 3' }).click();
+  await expect.poll(() => list.filter(r => r.id.startsWith('r3000')).length).toBe(0);
+  const sent = daemon.received.find(m => m.type === 'routine.cmd' && m.op === 'refuse') as { expect?: string; others?: unknown };
+  expect(sent.expect).toBeUndefined();
+  expect(sent.others).toEqual([{ routine: 'r300001' }, { routine: 'r300002' }]);
 });
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {

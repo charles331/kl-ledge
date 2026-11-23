@@ -152,16 +152,33 @@ export function specPatch(saved: RoutineSpec, d: SpecDraft): Partial<RoutineSpec
   for (const k of ['name', 'target', 'schedule', 'prompt', 'catchUp'] as const) if (JSON.stringify(next[k]) !== JSON.stringify(was[k])) (out as Record<string, unknown>)[k] = next[k];
   return out;
 }
-/** The owner's edits (the fields `d` changes from `was`, the version the form was read from) laid over `now`, a newer version
- *  read after a stale refusal (card 32): every field the owner did not touch shows the new version, so the next « Activer » never
- *  sends an old value the owner did not see. A field both changed keeps the owner's value, which is the one on screen. */
-export function rebaseDraft(was: RoutineSpec, d: SpecDraft, now: RoutineSpec): SpecDraft {
-  const edited = specPatch(was, d);
-  const out = specDraft(now, d.mode);
-  for (const k of ['name', 'target', 'schedule', 'prompt', 'catchUp'] as const) if (k in edited) (out as unknown as Record<string, unknown>)[k] = d[k];
+/** `now` with, for each group of keys the owner changed from `was` (compared in `mine`, the owner's draft normalized), the
+ *  owner's own values (taken from `raw`, the draft as typed). */
+function overlay<T extends object>(was: T, mine: T, raw: T, now: T, groups: readonly (readonly (keyof T)[])[]): T {
+  const out = { ...now };
+  const same = (k: keyof T) => JSON.stringify(mine[k]) === JSON.stringify(was[k]);
+  for (const g of groups) if (!g.every(same)) for (const k of g) { if (raw[k] === undefined) delete out[k]; else out[k] = raw[k]; }
   return out;
 }
-export const isDirty =(saved: RoutineSpec | null, d: SpecDraft, blank: SpecDraft): boolean =>
+
+/** The owner's edits laid over `now`, a newer version read after a stale refusal (card 32), field by field down to a schedule's
+ *  times, days and frequency and a target's parts: every part the owner did not touch shows the new version, so the next
+ *  « Activer » never sends an old value the owner did not see. A part both changed keeps the owner's value, which is the one on
+ *  screen; a schedule whose kind changed on either side is taken whole from the side that changed it last (the owner's when
+ *  they edited it). `was` is the version the form was read from. */
+export function rebaseDraft(was: RoutineSpec, d: SpecDraft, now: RoutineSpec): SpecDraft {
+  const w = specDraft(was, d.mode);
+  const mine = specDraft(specOf(d), d.mode);
+  const n = specDraft(now, d.mode);
+  const top = overlay(w, mine, d, n, [['name'], ['prompt'], ['catchUp']]);
+  const target = overlay(w.target, mine.target, d.target, n.target, [['name'], ['cwd'], ['tool'], ['model']]);
+  const scheduleEdited = JSON.stringify(mine.schedule) !== JSON.stringify(w.schedule);
+  const schedule = mine.schedule.kind !== w.schedule.kind || n.schedule.kind !== w.schedule.kind
+    ? (scheduleEdited ? d.schedule : n.schedule)
+    : overlay(w.schedule, mine.schedule, d.schedule, n.schedule, [['times'], ['days'], ['weeks', 'anchor'], ['at'], ['tz']]);
+  return { ...top, mode: d.mode, target, schedule };
+}
+export const isDirty = (saved: RoutineSpec | null, d: SpecDraft, blank: SpecDraft): boolean =>
   saved ? Object.keys(specPatch(saved, d)).length > 0 : JSON.stringify(d) !== JSON.stringify(blank);
 
 /** What keeps a draft from being saved, field by field (cards 5, 19); `name` when another routine of that session has it. */

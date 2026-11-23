@@ -139,6 +139,20 @@ describe('the Routines screens rules', () => {
     expect(out.catchUp).toBe('skip');
     expect(specPatch(now, out)).toEqual({ name: 'mine' });
   });
+  it('keeps a schedule\'s parts changed elsewhere when the owner edited another part (review of c1ecf1ea)', () => {
+    const was = routine('a');
+    const draft = specDraft(was);
+    const edited = { ...draft, schedule: { ...draft.schedule, times: ['09:00'] } };
+    const now = { ...was, schedule: { kind: 'recurring' as const, times: ['08:00'], days: ['sat' as const] } };
+    expect(scheduleOf(rebaseDraft(was, edited, now).schedule)).toMatchObject({ times: ['09:00'], days: ['sat'] });
+    // A target's parts too: the owner's model, the session's new folder.
+    const t = { ...draft, target: { ...draft.target, model: 'opus' } };
+    const moved = { ...was, target: { ...was.target, cwd: '~/elsewhere' } };
+    expect(rebaseDraft(was, t, moved).target).toMatchObject({ model: 'opus', cwd: '~/elsewhere' });
+    // A kind changed elsewhere, the schedule untouched here: the new one whole.
+    const once = { ...was, schedule: { kind: 'once' as const, at: ['2026-11-30T08:00:00Z'] } };
+    expect(scheduleOf(rebaseDraft(was, { ...draft, name: 'x' }, once).schedule)).toEqual(once.schedule);
+  });
   it('patches only what the form changed, and checks it', () => {
     const r = routine('a');
     const d = specDraft(r);

@@ -1747,6 +1747,8 @@ export const en: Messages = {
       name: (session: string, name: string) => `${session} already has a routine “${name}”.`, times: 'At least one time.', days: 'At least one day.',
       dir: 'This folder doesn’t exist on this PC.', dirExisting: 'This session’s folder no longer exists on this PC.', dup: (h: string) => `${h} is already in the list.`,
       past: 'This moment has already passed.',
+      outdatedGroup: 'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
+      outdated: 'This machine’s Ledge is too old for this action: update it. Nothing changed.',
       nameInvalid: 'Invalid name: letters, digits, dot, hyphen and underscore only.', session: 'Pick a session.', prompt: 'The prompt is empty.',
       date: 'At least one date.', anchor: 'Pick the reference week.', tz: (tz: string) => `Unknown time zone: ${tz}.`,
       unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',

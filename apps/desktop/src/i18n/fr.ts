@@ -1846,6 +1846,8 @@ export const fr = {
       name: (session: string, name: string) => `${session} a déjà une routine « ${name} ».`, times: 'Au moins une heure.', days: 'Au moins un jour.',
       dir: 'Ce dossier n’existe pas sur ce PC.', dirExisting: 'Le dossier de cette session n’existe plus sur ce PC.', dup: (h: string) => `${h} est déjà dans la liste.`,
       past: 'Ce moment est déjà passé.',
+      outdatedGroup: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
+      outdated: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.',
       // Card 28: a text under each field in error, and the front's text for each field the daemon refuses (ff7a19c2).
       nameInvalid: 'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', session: 'Choisis une session.', prompt: 'Le prompt est vide.',
       date: 'Au moins une date.', anchor: 'Choisis la semaine de référence.', tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,

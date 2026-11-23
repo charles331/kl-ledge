@@ -123,6 +123,13 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
             list[i] = next; ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(next) }));
           }
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, routine: keyed(list[list.findIndex(x => x.id === was!.id)]!) }));
+        } else if (msg.op === 'refuse' && msg.others?.length) {
+          // A grouped refusal needs no key and goes through a changed member (dev-back 26169bb9): every one waiting is removed.
+          for (const g of group) {
+            const i = g.r ? list.indexOf(g.r) : -1;
+            if (i >= 0 && g.r!.state === 'pending') { list.splice(i, 1); ws.send(JSON.stringify({ type: 'routine.changed', removed: g.r!.id })); }
+          }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));
         } else if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
           if (at >= 0) list.splice(at, 1);
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));

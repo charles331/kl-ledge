@@ -6,8 +6,6 @@ import type { ToastAction } from '../shell/Toast';
 import { lastRunOf, routineRef, whyText } from './model';
 
 type R = Messages['routines'];
-/** The fleet's own word for a daemon too old for a command (its `outdated` failure), shown by the same toast. */
-const OUTDATED = 'version trop ancienne';
 type Source = Pick<Fleet, 'routineCmd'> & Partial<Pick<Fleet, 'rereadRoutines' | 'machines'>>;
 
 /** What the Routines screens ask the daemons (spec §3.4): every button of the sidebar, a page and « À toi » goes through here. */
@@ -64,13 +62,13 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     const f = e as RoutineFailure;
     if (refused.current?.(f)) return;
     // The daemon's reason is French: a folder or a moment past, which the mockup words, read in the screen's language.
-    notify(f?.field === 'cwd' ? t.err.dir : f?.field === 'at' ? t.err.past : f?.message || String(e));
+    notify(f?.code === 'outdated' ? t.err.outdated : f?.field === 'cwd' ? t.err.dir : f?.field === 'at' ? t.err.past : f?.message || String(e));
   }, [notify, t]);
   const cmd = useCallback(async (machine: string, ask: Parameters<Source['routineCmd']>[1]): Promise<Routine | null | false> => {
     if (!fleet) return false;
     try { const res = await fleet.routineCmd(machine, ask); return res.routine ?? null; } catch (e) { fail(e); return false; }
   }, [fleet, fail]);
-  // A group's command, all or nothing (dev-back ccfa3df6): every member bound to the key it was shown with. A daemon that does not
+  // A group's approval, all or nothing (dev-back ccfa3df6): every member bound to the key it was shown with. A daemon that does not
   // announce grouped commands (4e04e476) would apply the first only, and one command each could stop halfway: refused as outdated.
   const grouped = useCallback((rs: readonly FleetRoutine[]): { expect: string; others?: { routine: string; expect: string }[] } | 'outdated' | 'unkeyed' => {
     const [head, ...rest] = rs;
@@ -102,22 +100,21 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
       catch (e) { if ((e as RoutineFailure)?.code === 'stale') { fleet.rereadRoutines?.(r.machineId); return 'stale'; } fail(e); return false; }
     },
     approveAll: async rs => {
-      const [head, ...rest] = rs;
+      const [head] = rs;
       if (!fleet || !head) return false;
       const g = grouped(rs);
-      if (g === 'outdated') { fail({ code: 'outdated', message: OUTDATED } satisfies RoutineFailure); return false; }
+      if (g === 'outdated') { notify(t.err.outdatedGroup); return false; }
       // A member read without its key cannot be bound to the version shown: nothing sent, its machine read again (card 32).
       if (g === 'unkeyed') { fleet.rereadRoutines?.(head.machineId); return 'stale'; }
       try { await fleet.routineCmd(head.machineId, { op: 'approve', routine: head.id, ...g }); return true; }
       catch (e) { if ((e as RoutineFailure)?.code === 'stale') { fleet.rereadRoutines?.(head.machineId); return 'stale'; } fail(e); return false; }
     },
+    // A refusal is bound to no version (dev-back 26169bb9: refusing what changed is harmless), but still all or nothing.
     refuseAll: async rs => {
-      const [head] = rs;
+      const [head, ...rest] = rs;
       if (!head) return false;
-      const g = grouped(rs);
-      if (g === 'outdated') { fail({ code: 'outdated', message: OUTDATED } satisfies RoutineFailure); return false; }
-      if (g === 'unkeyed') { fleet?.rereadRoutines?.(head.machineId); return false; }
-      return (await cmd(head.machineId, { op: 'refuse', routine: head.id, ...g })) !== false;
+      if (rest.length && !fleet?.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) { notify(t.err.outdatedGroup); return false; }
+      return (await cmd(head.machineId, { op: 'refuse', routine: head.id, ...(rest.length ? { others: rest.map(o => ({ routine: o.id })) } : {}) })) !== false;
     },
     refuse: async r => (await cmd(r.machineId, { op: 'refuse', routine: r.id })) !== false,
     remove: async r => (await cmd(r.machineId, { op: 'rm', routine: r.id })) !== false,
