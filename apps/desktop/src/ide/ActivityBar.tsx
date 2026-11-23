@@ -5,12 +5,13 @@ import type { IdeLayout, LayoutAction, SideView } from '../workspace/layout';
 import { keyOf, type Tab } from '../workspace/model';
 import { ATELIER_TAB, SETTINGS_TAB } from '../workspace/store';
 import { PrIcon } from '../forge/PrIcon';
+import { AlarmIcon } from '../routines/icons';
 import '../styles/ide.css';
 
-/** The IDE's activity bar (mockup `activity()`): the four sidebar views (« MR et PR », lot 8b, with the open requests whose
- *  pipeline failed), then the tabs that open in the workspace. */
-export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFailing = 0 }: {
-  layout: IdeLayout; onLayout(a: LayoutAction): void; onTab(t: Tab): void; activeTab: Tab | null; badge: { perm: number; ask: number }; prsFailing?: number;
+/** The IDE's activity bar (mockup `activity()`): the sidebar views (« MR et PR », lot 8b, with the open requests whose pipeline
+ *  failed; « Routines », with those to activate or whose last run failed), then the tabs that open in the workspace. */
+export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFailing = 0, routinesBadge = 0 }: {
+  layout: IdeLayout; onLayout(a: LayoutAction): void; onTab(t: Tab): void; activeTab: Tab | null; badge: { perm: number; ask: number }; prsFailing?: number; routinesBadge?: number;
 }) {
   const { t } = useI18n();
   const view = (v: SideView, d: readonly string[] | React.ReactNode, label: string, extra?: React.ReactNode) => (
@@ -31,6 +32,7 @@ export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFail
       {view('rigs', SHELL_ICONS.rig, t.ide.rigs)}
       {view('atoi', SHELL_ICONS.inbox, t.ide.atoi, mark)}
       {view('prs', <PrIcon />, t.forge.view, prsFailing > 0 ? <span className="ide-badge">{prsFailing}</span> : null)}
+      {view('routines', <AlarmIcon size={18} />, t.routines.view, routinesBadge > 0 ? <span className="ide-badge">{routinesBadge}</span> : null)}
       {tab(ATELIER_TAB, SHELL_ICONS.grid, t.ide.atelierTab)}
       <span className="grow" />
       {tab(SETTINGS_TAB, SHELL_ICONS.gear, t.ide.settingsTab)}

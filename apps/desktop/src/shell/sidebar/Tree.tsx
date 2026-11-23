@@ -8,6 +8,7 @@ import { taskOf } from '../../nav/agents';
 import { ProjectSwatch } from '../../projects/ProjectSwatch';
 import { RigTag } from '../../openrig/RigTag';
 import { cls } from '../cls';
+import { ROUTINE_ICONS } from '../../routines/icons';
 import { SHELL_ICONS } from '../icons';
 import { ProviderLogo } from '../../ide/ProviderLogo';
 import { providerOf } from '../../workspace/sessionTab';
@@ -85,6 +86,16 @@ function CtxSignal({ session, near }: { session: Session; near: number }) {
   return <span className="st-ctx" title={t.handover.gauge(pct)}><Icon d={CTX_GAUGE} size={11} />{pct} %</span>;
 }
 
+/** A routine's clock after a session's name (card 12): a click shows the Routines view and the routine's page, without opening
+ *  the session (the row's own click). Inside the row's button, so it answers the mouse; the keyboard reaches routines in their view. */
+export function RoutineClock({ of }: { of: { tip: string; onClick(): void } | null | undefined }): JSX.Element | null {
+  if (!of) return null;
+  return (
+    <span className="rt-clock" title={of.tip} aria-label={of.tip} role="img" data-routine-clock
+      onClick={e => { e.stopPropagation(); e.preventDefault(); of.onClick(); }}><Icon d={ROUTINE_ICONS.clock} size={12} /></span>
+  );
+}
+
 export function Tree(p: {
   groups: ProjectGroup[];
   /** « Contexte max »: past it a row says its context, compactly (docs/mockups/ledge-harness-usage.html, « ◔ 88 % »). */
@@ -127,6 +138,8 @@ export function Tree(p: {
   onNewProject(): void;
   /** The IDE's Projects view: no « +N projets sans agent actif » row (the user, 2026-11-09: a project without a live session stays out). */
   ide?: boolean;
+  /** The small clock on a session a routine wakes (routines mockup, card 12): its tooltip and its click; null for none. */
+  clock?(s: Session): { tip: string; onClick(): void } | null;
   paused: boolean;
 }): JSX.Element {
   const { t } = useI18n();
@@ -241,7 +254,7 @@ export function Tree(p: {
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
         <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
-          <strong>{name}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          <strong>{name}{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
           {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
         </button>
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>

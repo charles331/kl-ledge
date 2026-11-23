@@ -158,6 +158,12 @@ Ce qui attend l'utilisateur, tranchable sur place : les autorisations et les que
 
 Toutes les MR GitLab et les PR GitHub de l'utilisateur, lues par `gh` et `glab` sur chaque forge connectée, quel que soit le dépôt : celles qu'il a créées, celles qui lui sont assignées, celles qu'il doit relire, et celles des branches des sessions et des sièges. En tête, une recherche (réf, titre, dépôt) et un filtre par rôle : « Toutes », « Créées », « Assignées », « À relire », chacun avec le nombre de ses ouvertes. Les ouvertes viennent d'abord ; les fusionnées et fermées des 7 derniers jours sont repliées en bas. Chacune montre ses rôles (« créée », « assignée », « à relire », « branche suivie »), son hôte, son dépôt, son état, son agent, son pipeline et ses commentaires ouverts. Une même MR ou PR lue par plusieurs machines n'a qu'une ligne. Un clic l'ouvre dans un onglet. Quand `gh` ou `glab` manque ou n'est pas connecté sur une machine, la vue le dit et donne la commande à lancer.
 
+#### Routines (`routines`)
+
+L'icône réveil de la barre d'activité, après « MR et PR » ; sa pastille rouge compte les routines à activer et celles dont le dernier tir a échoué. Les routines y sont rangées en groupes repliables : **Récurrentes**, **Uniques**, **En pause** et **Passées** (ces deux-là repliées ; une unique passée y reste 30 jours). Dans chaque groupe : celles à activer, puis celles en échec, puis par prochain tir. Une ligne donne le nom et le prochain tir (l'heure seule si c'est aujourd'hui), puis la session réveillée, les heures et les jours (« 1 sem. sur 2 » pour une routine toutes les deux semaines, « unique » pour une unique), et au besoin « Attend ton accord », la raison d'un échec ou « en retard ». Les uniques qu'une session propose ensemble restent groupées sous « Proposées ensemble par … ». Au survol, « Lancer maintenant » et « Pause » / « Reprendre » ; au clic droit, aussi « Ouvrir la session » et « Supprimer… ». Le « + » ouvre « Nouvelle routine ». En pied, le fuseau des heures. Daemon local hors ligne : la vue le dit et rien ne part. Dans l'explorateur des projets, une petite horloge suit le nom d'une session qu'une routine réveille ; un clic ouvre la routine.
+
+Y renvoyer l'utilisateur pour voir ce qui est programmé, lancer une routine tout de suite, la mettre en pause ou en créer une.
+
 ### Onglets
 
 #### Session (`session`)
@@ -197,6 +203,18 @@ Une MR ou une PR, en quatre vues :
 « Ouvrir sur GitHub / GitLab » est là aussi.
 
 Y renvoyer l'utilisateur pour suivre une MR ou une PR, faire corriger un pipeline ou fusionner.
+
+#### Routine (`routine`)
+
+Une routine dans un onglet (son nom, l'icône réveil ; « • » tant que des modifications ne sont pas enregistrées) :
+- l'en-tête : son état (« Active », « En pause », « Attend ton accord », « Passée »), « Lancer maintenant » (« Relancer » après un échec), « Pause » / « Reprendre » et ⋯ (« Ouvrir la session », « Supprimer… ») ; « Réveille X dans dossier » ;
+- un bandeau quand il le faut : une demande d'une session (« Activer », « Refuser » ; on peut la corriger avant de l'activer), une modification demandée par une session (avant → demandé), un tir échoué (« Relancer »), la confirmation de suppression ;
+- « Tirs » : les 3 prochains et les 5 derniers (issue, retard, raison d'un échec) ;
+- « Configuration », modifiable sur place : nom, session (existante ou nouvelle), type (récurrente ou unique), heures et jours, fréquence (chaque semaine, ou toutes les deux semaines avec sa semaine de référence), dates d'une unique, les 3 prochains passages calculés par Ledge, créneau manqué, prompt et ses variables `{slot}`, `{date}`, `{last}`. « Enregistrer » (`Ctrl+S`) ou « Annuler les modifications ».
+
+Une unique passée se lit sans se modifier : « Programmer à nouveau… » en crée une nouvelle à partir d'elle. « Nouvelle routine » est la même page, vide. Les demandes et les échecs des routines arrivent aussi dans « À toi ».
+
+Y renvoyer l'utilisateur pour régler une routine, activer la demande d'une session ou relancer un tir échoué.
 
 #### Rig (`rig`)
 

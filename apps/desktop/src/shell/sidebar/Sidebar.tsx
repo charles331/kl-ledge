@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import { BROADCAST_SESSIONS_MAX, type HumanAsk, type Project, type Projects, type Session } from '@ledge/protocol';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import { Icon } from '@ledge/ui/ui/icons';
@@ -47,6 +47,10 @@ export function Sidebar(p: {
   onSeeAsk?(id: string): void;
   /** « Page » opens the page « À toi ». */
   onAtoiPage?(): void;
+  /** « À toi »: the routines' items (routines mockup, card 14). */
+  routines?: { count: number; node: ReactNode };
+  /** The small clock on a session a routine wakes (card 12): its tooltip and what a click does; null for none. */
+  clock?(s: Session): { tip: string; onClick(): void } | null;
   /** The view shown: « Projets » or « À toi » (the IDE's other views have their own explorers). */
   section: Extract<SideView, 'projects' | 'atoi'>;
 }): JSX.Element {
@@ -151,7 +155,7 @@ export function Sidebar(p: {
           onDecide={(s, ok) => { p.decisions.decide(s, ok ? 'accept' : 'deny'); }}
           decisions={decisions} answer={p.tasksApi?.answer} answerNote={p.tasksApi?.answerNote}
           ledgeTasks={p.tasksApi ? closedLedgeTasks(p.tasksApi.tasks) : []} onSeeTask={id => p.dispatch({ type: 'ledge', tab: 'tasks', task: id })} onDismissTask={id => p.tasksApi?.seen(id)}
-          near={near} onHandover={id => { void p.tasksApi?.handover(id); }}
+          near={near} onHandover={id => { void p.tasksApi?.handover(id); }} {...(p.routines ? { routines: p.routines } : {})}
           onLater={id => { const s = p.sessions.find(x => x.id === id); if (s) p.tasksApi?.putLater(s); }}
           onMenu={(id, e) => {
             const host = e.currentTarget instanceof HTMLElement ? e.currentTarget : undefined;
@@ -169,7 +173,7 @@ export function Sidebar(p: {
             onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onTerminal={p.onTerminal}
             onToggleHide={() => setPrefs(v => ({ ...v, hideDone: !v.hideDone }))} onToggleDense={() => setPrefs(v => ({ ...v, dense: !v.dense }))}
             onToggleBranches={() => setPrefs(v => ({ ...v, byBranch: !v.byBranch }))}
-            onNewProject={() => p.dispatch({ type: 'modal', modal: { kind: 'project' } })} ide />
+            onNewProject={() => p.dispatch({ type: 'modal', modal: { kind: 'project' } })} ide {...(p.clock ? { clock: p.clock } : {})} />
           {p.filing.dragging && <p className="st-help">{t.side.dropHelp(p.filing.dragging.name)}</p>}
         </section>}
       </div>
@@ -177,7 +181,7 @@ export function Sidebar(p: {
         project={s => { const found = projectOf(s); return found ? { color: found.color } : null; }}
         onRead={id => p.dispatch({ type: 'open', id })} onRestore={id => p.actions.restore(id)} onResume={id => p.actions.resume(id)}
         onDelete={ids => p.actions.request('delete', ids)} allowed={p.actions.allowed} paused={p.nav.paused}
-        onMenu={(target, at, opener) => p.menu.openOn(target, at, opener)} />}
+        onMenu={(target, at, opener) => p.menu.openOn(target, at, opener)} {...(p.clock ? { clock: p.clock } : {})} />}
       <SidebarMenuHost state={p.menu} projects={p.projects} groups={groups} archived={p.archived} actions={p.actions} dispatch={p.dispatch}
         broadcast={!!p.broadcast} closed={closed} onClosed={setClosed} archivesOpen={archivesOpen} onArchivesOpen={setArchivesOpen} notify={p.notify} />
       {p.broadcast && pickedIds.length >= 2 && (

@@ -23,7 +23,9 @@ export interface WorkspaceStore {
 
 /** `closed`: told of each tab the USER closes (`close`, `closeOthers`), after it left the model; never of a tab `update` drops
  *  (reconcile, a move): a bottom-panel shell's tab closed kills its shell (R9), a tab moved keeps it. */
-export function createWorkspaceStore(initial: Workspace = loadWorkspace(), opts: { closed?(key: string): void } = {}): WorkspaceStore {
+/** `guard`: asked before the user closes a tab; true when it takes the close over (a routine's page with unsaved changes asks
+ *  first, then closes it through `close` again with the guard letting it pass). */
+export function createWorkspaceStore(initial: Workspace = loadWorkspace(), opts: { closed?(key: string): void; guard?(key: string): boolean } = {}): WorkspaceStore {
   let state = initial;
   // The tabs closed by the user, the last on top (CLOSED_MAX); this run only, never saved.
   let closed: readonly Closed[] = [];
@@ -40,7 +42,7 @@ export function createWorkspaceStore(initial: Workspace = loadWorkspace(), opts:
     update,
     subscribe(cb) { subs.add(cb); return () => { subs.delete(cb); }; },
     close(key) {
-      if (!find(state, key)) return;
+      if (!find(state, key) || opts.guard?.(key)) return;
       closed = remember(closed, state, key);
       update(w => close(w, key));
       opts.closed?.(key);

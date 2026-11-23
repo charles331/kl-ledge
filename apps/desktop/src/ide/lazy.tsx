@@ -13,6 +13,10 @@ import type { RigOutputEntry } from '../openrig/rigOutput';
 import type { PrsViewProps } from '../forge/PrsView';
 import type { PrPageProps } from '../forge/PrPage';
 import type { AtoiPageProps } from './atoi/AtoiPage';
+import type { RoutinesViewProps } from '../routines/RoutinesView';
+import type { RoutinePageProps } from '../routines/RoutinePage';
+import type { AtoiRoutineHandlers } from '../routines/AtoiRoutines';
+import type { AtoiRoutineItem } from '../routines/model';
 
 type IdeModule = typeof import('./IdeFrame');
 let loaded: IdeModule | undefined;
@@ -23,7 +27,7 @@ export function loadIde(): Promise<IdeModule> {
 }
 
 // A chunk already loaded is handed over synchronously: React.lazy then resolves within the same render, without suspending.
-function fromChunk<K extends 'IdeFrame' | 'DockHost' | 'BottomPanel' | 'OutputView' | 'AtelierBar' | 'RigsView' | 'RigView' | 'RigLaunchModal' | 'OpenRigView' | 'PrsView' | 'PrPage' | 'PrsStatus' | 'PrTabLabel' | 'AtoiPage' | 'IdePalette'>(key: K) {
+function fromChunk<K extends 'IdeFrame' | 'DockHost' | 'BottomPanel' | 'OutputView' | 'AtelierBar' | 'RigsView' | 'RigView' | 'RigLaunchModal' | 'OpenRigView' | 'PrsView' | 'PrPage' | 'PrsStatus' | 'PrTabLabel' | 'AtoiPage' | 'IdePalette' | 'RoutinesView' | 'RoutinePage' | 'AtoiRoutinesBlock' | 'AtoiRoutineCards'>(key: K) {
   type Loaded = { default: IdeModule[K] };
   return lazy(() => (loaded
     ? { then: (ok: (m: Loaded) => void) => ok({ default: loaded![key] }) } as PromiseLike<Loaded> as Promise<Loaded>
@@ -44,6 +48,10 @@ const Pr = fromChunk('PrPage');
 const PrsCount = fromChunk('PrsStatus');
 const PrLabel = fromChunk('PrTabLabel');
 const Atoi = fromChunk('AtoiPage');
+const Routines = fromChunk('RoutinesView');
+const Routine = fromChunk('RoutinePage');
+const AtoiRoutines = fromChunk('AtoiRoutinesBlock');
+const AtoiRoutineSide = fromChunk('AtoiRoutineCards');
 
 /** The IDE shell, behind a sober wait (an empty window) the first time its chunk is fetched; a chunk that fails to load leaves a note (ChunkBoundary). */
 export function IdePlace(props: IdeFrameProps): JSX.Element {
@@ -100,6 +108,13 @@ export function IdePrTabLabel(props: { pr: PrPageProps['pr'] | undefined; title:
 
 /** The page « À toi » in its tab (D3): inside the frame, its chunk is already there. */
 export function IdeAtoi(props: AtoiPageProps): JSX.Element { return <Atoi {...props} />; }
+
+/** Routines (docs/mockups/ledge-routines.html): the sidebar view, a routine's tab, and « À toi »'s block and cards. They render
+ *  inside the frame, so its chunk (and routines.css) is already there. */
+export function IdeRoutines(props: RoutinesViewProps): JSX.Element { return <Routines {...props} />; }
+export function IdeRoutine(props: RoutinePageProps): JSX.Element { return <Routine {...props} />; }
+export function IdeAtoiRoutines(props: AtoiRoutineHandlers & { items: readonly AtoiRoutineItem[] }): JSX.Element { return <AtoiRoutines {...props} />; }
+export function IdeAtoiRoutineCards(props: AtoiRoutineHandlers & { items: readonly AtoiRoutineItem[] }): JSX.Element { return <AtoiRoutineSide {...props} />; }
 
 /** The IDE palette (Ctrl+K): App.tsx draws it over the frame, whose chunk is there by then. */
 export function IdePaletteHost(props: IdePaletteProps): JSX.Element {

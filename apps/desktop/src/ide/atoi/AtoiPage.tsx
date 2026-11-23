@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import type { DaemonClient } from '@ledge/fleet';
 import { ReportDecision } from '../../report/ReportDecision';
 import type { Fleet, FleetPullRequest } from '@ledge/fleet';
@@ -61,6 +61,8 @@ export interface AtoiPageProps {
   onAskFocused?(): void;
   askSourceOf?(ask: HumanAsk): ((path: string) => void) | null;
   onOpenSeat?(sessionId: string): void;
+  /** The block « Routines » (routines mockup, card 13), placed after Décisions: hidden when empty by itself. */
+  routines?: ReactNode;
   /** Issue #9: an agent's report among the decisions, its buttons answered here. */
   report?: { client: DaemonClient; desktop: string | null; onEdit(task: string): void; onCreated(n: number, url: string | undefined): void; onOpenUrl(url: string): void };
 }
@@ -158,6 +160,7 @@ export function AtoiPage(p: AtoiPageProps): JSX.Element {
           <div className="fg-blk-b">{asked.map(x => decision(x, api))}</div>
         </div>
       )}
+      {p.routines}
       {p.asks && rigAsksShown(p.asks) && <RigAsks view={p.asks} sessions={p.sessions} machineLabel={p.asksMachine ?? 'local'} focus={p.askFocus ?? null}
         {...(p.askSourceOf ? { sourceOf: p.askSourceOf } : {})} {...(p.onAskFocused ? { onFocused: p.onAskFocused } : {})} {...(p.onOpenSeat ? { onOpenSeat: p.onOpenSeat } : {})} />}
       <div className="fg-blk">
