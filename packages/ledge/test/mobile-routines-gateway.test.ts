@@ -2,7 +2,7 @@
 // bound by the device's check to the routine as the phone showed it.
 import { describe, it, expect, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import type { ClientMessage, Routine, ServerMessage } from '@ledge/protocol';
+import type { ClientMessage, Routine, ServerMessage, Task } from '@ledge/protocol';
 import { routineKey } from '../src/mobile/project.js';
 import { softAuthenticator } from './mobile-soft-authenticator.js';
 import { flush, setup, stopAll } from './helpers/gateway.js';
@@ -109,6 +109,41 @@ describe('phone routines', () => {
     const plain = make(); const enabled: Routine = { ...pending, state: 'enabled' };
     plain.set([enabled]);
     expect(await cmd(plain.g, { action: 'approve', routine: 'r1a2b3c', routineKey: routineKey(enabled) })).toMatchObject({ status: 'rejected', reason: 'not_pending' });
+  });
+  it('gives a task\'s routine item only to a phone that asked for the routines (an older phone\'s strict task would refuse the list)', async () => {
+    const task: Task = { id: 't1', title: 'Iris veut programmer « prepa-121 »', giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: AT, updatedAt: AT, log: [],
+      routine: { kind: 'approve', id: 'r1a2b3c', name: 'prepa-121' } };
+    const g = setup({ tasks: () => [task], deps: { routines: () => [pending] } });
+    g.send('dev1', { type: 'snapshot.request' });
+    await flush();
+    const first = g.got('dev1').filter(m => m.type === 'tasks').at(-1);
+    expect(first?.type === 'tasks' && first.tasks[0]).not.toHaveProperty('routine');
+    g.send('dev1', { type: 'routine.list' });
+    await flush();
+    const again = g.got('dev1').filter(m => m.type === 'tasks').at(-1);
+    expect(again?.type === 'tasks' && again.tasks[0]!.routine).toEqual({ kind: 'approve', id: 'r1a2b3c', name: 'prepa-121' });
+    g.gw.forward({ type: 'task.updated', task });
+    await flush();
+    const updated = g.got('dev1').filter(m => m.type === 'task.updated').at(-1);
+    expect(updated?.type === 'task.updated' && updated.task.routine).toBeDefined();
+  });
+  it('« Activer les N » of a grouped request: one device check bound to every routine and its key', async () => {
+    const second: Routine = { ...pending, id: 'r4d5e6f', name: 'prepa-arch', schedule: { kind: 'once', at: ['2026-12-07T15:00'] } };
+    const { g, cmds, set } = make();
+    set([pending, second]);
+    const auth = await enroll(g);
+    const refs = [{ routine: second.id, routineKey: routineKey(second) }];
+    g.send('dev1', { type: 'confirm.prepare', purpose: 'routine', routine: pending.id, routineKey: routineKey(pending), routineOthers: refs });
+    await flush();
+    const ch = g.got('dev1').filter(m => m.type === 'confirm.challenge').at(-1);
+    if (ch?.type !== 'confirm.challenge' || ch.purpose !== 'routine') throw new Error('no challenge');
+    const assertion = auth.get(rp, ch.challenge, { counter: 1 });
+    // A check for both does not cover one alone, nor a changed other.
+    expect(await cmd(g, { action: 'approve', routine: pending.id, routineKey: routineKey(pending), others: [{ routine: second.id, routineKey: 'autre' }], assertion })).toMatchObject({ status: 'rejected', reason: 'stale' });
+    expect(await cmd(g, { action: 'approve', routine: pending.id, routineKey: routineKey(pending), others: refs, assertion })).toMatchObject({ status: 'applied' });
+    expect(cmds.map(c => [c.op, c.routine])).toEqual([['approve', pending.id], ['approve', second.id]]);
+    expect(await cmd(g, { action: 'refuse', routine: pending.id, others: refs })).toMatchObject({ status: 'applied' });
+    expect(await cmd(g, { action: 'run', routine: pending.id, others: refs })).toMatchObject({ status: 'rejected', reason: 'invalid' });
   });
   it('forwards each change, without the prompt', async () => {
     const { g } = make();

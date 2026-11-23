@@ -52,11 +52,15 @@ interface BubbleProps {
   onSeePoint?: () => void;
   /** One of a rig question's options, by id; without options, the question opens in Ledge (`onOpen`). */
   onOption?: (id: string) => void;
+  /** A `decision` notice that is a routine's item of « À toi » (docs/mockups/ledge-routines.html, card 15): its head, its words. */
+  routine?: { kind: 'approve' | 'failed'; who: string; at: string; text: string; count: number };
+  /** « Activer » (every routine still waiting), « Refuser », « Relancer », or « Voir » (the routine's page in Desktop). */
+  onRoutine?: (action: 'approve' | 'refuse' | 'run' | 'see') => void;
   theme?: 'dark' | 'light';
   ref?: Ref<HTMLDivElement>;
 }
 
-export function Bubble({ session, moreCount, visible, paused, remainingMs, ack = null, kind = 'ask', preview, failure, deciding = false, quick = true, blocked = null, frozen = false, reducedMotion, onOpen, onDismiss, onDecide, onReply, notice: opNotice, onLater, onSeePoint, onOption, theme = 'dark', ref, maxH }: BubbleProps) {
+export function Bubble({ session, moreCount, visible, paused, remainingMs, ack = null, kind = 'ask', preview, failure, deciding = false, quick = true, blocked = null, frozen = false, reducedMotion, onOpen, onDismiss, onDecide, onReply, notice: opNotice, onLater, onSeePoint, onOption, routine, onRoutine, theme = 'dark', ref, maxH }: BubbleProps) {
   const pending = session?.pending;
   const notice = kind !== 'ask';
   const holdMs = FINISHED_BUBBLE_MS;
@@ -121,6 +125,33 @@ export function Bubble({ session, moreCount, visible, paused, remainingMs, ack =
 
   /** The card's frame, shared by a request, a notice and an operator notice. */
   const shell = { position: 'absolute', left: 0, top: 0, width: SIZES.bubbleW, maxHeight: maxH, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px 12px', opacity: visible ? 1 : 0, transform: `translateY(${visible ? 0 : -8}px)`, pointerEvents: visible ? 'auto' : 'none', transition: transition([['opacity', visible ? 'fadeIn' : 'fadeOut'], ['transform', visible ? 'grow' : 'fadeOut', visible ? 140 : 0]]) } as const;
+  /** A routine's item (card 15): « ? » or « ! », who and « routine · 02:10 », its words, then its buttons; the prompt is not unfolded
+   *  here (« Voir » shows it in Desktop). */
+  if (kind === 'operator' && routine) {
+    const R = t.atoi.routine;
+    const failed = routine.kind === 'failed';
+    const off = deciding || blocked !== null;
+    return (
+      <div ref={setRoot} data-layer="bubble" data-kind="operator" data-notice="decision" data-routine={routine.kind} data-ack="none" inert={!visible} style={shell}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, fontSize: 12, lineHeight: '16px', color: 'var(--muted-foreground)' }}>
+          <span aria-hidden="true" style={{ width: 14, textAlign: 'center', fontWeight: 600, color: failed ? 'var(--danger-text)' : 'var(--warning)' }}>{failed ? '!' : '?'}</span>
+          <b style={{ fontWeight: 600, color: 'var(--foreground)' }}>{routine.who}</b>{' '}
+          <span>· {R.kind} · {routine.at}</span>
+        </div>
+        <span data-ledge-sentence style={{ fontSize: 14, lineHeight: '20px', minWidth: 0, overflowWrap: 'anywhere' }}>{routine.text}</span>
+        {failure && <span role="status" style={{ fontSize: 12, lineHeight: '16px', color: 'var(--danger-text)' }}>{failure}</span>}
+        <div data-actions style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {failed
+            ? <Button variant="primary" size="sm" disabled={off} title={blocked ?? undefined} onClick={() => onRoutine?.('run')}>{R.retry}</Button>
+            : <>
+                <Button variant="primary" size="sm" disabled={off || routine.count === 0} title={blocked ?? undefined} onClick={() => onRoutine?.('approve')}>{routine.count > 1 ? R.activateAll(routine.count) : R.activate}</Button>
+                <Button variant="outline" size="sm" disabled={off || routine.count === 0} title={blocked ?? undefined} onClick={() => onRoutine?.('refuse')}>{R.refuse}</Button>
+              </>}
+          <Button variant="ghost" size="sm" onClick={() => onRoutine?.('see')}>{R.see}</Button>
+        </div>
+      </div>
+    );
+  }
   /** Ledge speaks for the operator: its mark (amber, something waits on the user), its sentence, the notice's own actions. */
   if (kind === 'operator') {
     const rig = opNotice?.kind === 'rig.ask';

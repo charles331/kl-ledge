@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   DevicePollResponseSchema, DeviceStartResponseSchema, PHONE_PROTOCOL,
-  type PhoneChatTurn, type PhoneClientMessage, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage
+  type PhoneChatTurn, type PhoneClientMessage, type PhoneRoutine, type PhoneRoutineDetail, type PhoneTask, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage
 } from '@ledge/protocol';
 import { startAccountsRelay } from '../../relay/src/app';
 import type { AccountsConfig } from '../../relay/src/config';
@@ -114,6 +114,13 @@ export interface FakeDaemon {
   forge: FakeForge | null;
   /** The forge actions the PC took (`forge.act`, the device's check passed), in order. */
   forgeActs: Extract<PhoneClientMessage, { type: 'forge.act' }>[];
+  /** Set: the PC answers `routine.list` and `routine.show` from these (docs/mockups/ledge-routines.html); null: an older PC, which
+   *  never answers them. `prompts`: each routine's prompt, by id, as its detail carries it. */
+  routines: { list: PhoneRoutine[]; prompts: Record<string, string>; proposals?: Record<string, NonNullable<PhoneRoutineDetail['proposal']>> } | null;
+  /** The tasks the PC sends after each snapshot: Ledge's, the decisions, the routines' items of « À toi ». */
+  tasks: PhoneTask[];
+  /** The routine commands the phone sent (`routine.cmd`), in order; each is applied. */
+  routineCmds: Extract<PhoneClientMessage, { type: 'routine.cmd' }>[];
   /** Replaces a session (or adds it) and tells the phone. */
   update(s: PhoneSession): Promise<void>;
   stop(): void;
@@ -124,7 +131,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   let seen = 0;
   let busy = false;
   const d: FakeDaemon = {
-    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [],
+    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
     finishChat() { d.turns = d.turns.map((t) => (t.answer === undefined ? finished(t) : t)); },
     async update(s) {
       d.sessions = [...d.sessions.filter((x) => x.id !== s.id), s];
@@ -267,7 +274,21 @@ function runDaemon(pc: FakePc): FakeDaemon {
       return pc.send({ type: 'folder.listing', path, parent: path === '/' ? null : path.split('/').slice(0, -1).join('/') || '/', entries: pf.listings[path] ?? [], repos: [] });
     }
     if (pf && m.type === 'project.folders') return pc.send({ type: 'project.folders', id: m.id, folders: pf.folders[m.id] ?? [] });
-    if (m.type === 'snapshot.request') { await pc.send(snapshot()); if (d.usage) await pc.send({ type: 'usage.state', harnesses: d.usage, prefs: { alert: 0.8 } }); return; }
+    if (m.type === 'snapshot.request') {
+      await pc.send(snapshot());
+      if (d.usage) await pc.send({ type: 'usage.state', harnesses: d.usage, prefs: { alert: 0.8 } });
+      if (d.tasks.length) await pc.send({ type: 'tasks', tasks: d.tasks });
+      return;
+    }
+    if (d.routines && m.type === 'routine.list') return pc.send({ type: 'routines', routines: d.routines.list });
+    if (d.routines && m.type === 'routine.show') {
+      const r = d.routines.list.find(x => x.id === m.routine);
+      if (!r) return pc.send({ type: 'routine.detail', id: m.routine, gone: true });
+      const { cut: _c, proposed: _p, ...rest } = r;
+      const proposal = d.routines.proposals?.[r.id];
+      return pc.send({ type: 'routine.detail', id: m.routine, routine: { ...rest, prompt: d.routines.prompts[r.id] ?? '…', ...(proposal ? { proposal } : {}) } });
+    }
+    if (d.routines && m.type === 'routine.cmd') { d.routineCmds.push(m); return pc.send({ type: 'operation.result', op: m.op, status: 'applied' }); }
     if (d.terminal && m.type.startsWith('term.')) return terminalMessage(m);
     if (d.chat && (m.type === 'chat.history' || m.type === 'chat.ask' || m.type === 'chat.relay' || m.type === 'chat.launch' || m.type === 'chat.close')) return chatMessage(m);
     if (d.openrig && m.type.startsWith('rigs.')) return rigsMessage(d.openrig, m);

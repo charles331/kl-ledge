@@ -1,4 +1,4 @@
-import type { HumanAsk } from '@ledge/protocol';
+import type { HumanAsk, TaskRoutine } from '@ledge/protocol';
 import type { InboxItem } from '../model/requests';
 import { href, type Route } from '../router';
 
@@ -13,7 +13,7 @@ export const PHONE_TABS = ['atoi', 'sessions', 'prs', 'rigs', 'chat'] as const s
 export function tabOf(r: Route): Tab | null {
   switch (r.name) {
     case 'atoi': case 'request': case 'ask': return 'atoi';
-    case 'sessions': case 'thread': case 'terminal': case 'launch': return 'sessions';
+    case 'sessions': case 'routines': case 'thread': case 'terminal': case 'launch': return 'sessions';
     case 'prs': case 'rigs': case 'chat': return r.name;
     // A rig, the kernel and Max belong to the Rigs tab, even opened from Sessions (m4-rigs.html, §11, Q48).
     case 'rig': case 'kernel': case 'max': return 'rigs';
@@ -46,11 +46,12 @@ export const forgetTabs = (): void => left.clear();
 
 /**
  * À toi's badge (m0-socle.html, §1, Desktop's rule): the permissions in red; without one, the questions and what OpenRig asks
- * the person (its decisions and the rows parked on them; a piece of news is no ask) in amber; past 99, « 99+ ».
+ * the person (its decisions and the rows parked on them; a piece of news is no ask) in amber; past 99, « 99+ ». A routine's item
+ * counts as Desktop counts it (docs/mockups/ledge-routines.html, card 14): a run that failed in red, an activation request in amber.
  */
-export function atoiBadge(items: readonly InboxItem[], asks: readonly Pick<HumanAsk, 'kind'>[] = []): { text: string; tone: 'red' | 'amber' } | null {
-  const perm = items.filter(i => i.filter === 'permission').length;
-  const ask = items.length - perm + asks.filter(a => a.kind !== 'update').length;
+export function atoiBadge(items: readonly InboxItem[], asks: readonly Pick<HumanAsk, 'kind'>[] = [], routines: readonly { routine: Pick<TaskRoutine, 'kind'> }[] = []): { text: string; tone: 'red' | 'amber' } | null {
+  const perm = items.filter(i => i.filter === 'permission').length + routines.filter(r => r.routine.kind === 'failed').length;
+  const ask = items.filter(i => i.filter !== 'permission').length + asks.filter(a => a.kind !== 'update').length + routines.filter(r => r.routine.kind === 'approve').length;
   const n = perm || ask;
   if (!n) return null;
   return { text: n > 99 ? '99+' : String(n), tone: perm ? 'red' : 'amber' };
