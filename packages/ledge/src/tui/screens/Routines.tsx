@@ -6,7 +6,7 @@ import { targetNames } from '../../routine-text.js';
 import { useScreenKeys, useScreenSize, useTui } from '../context.js';
 import { step } from '../model/openrig.js';
 import { machineOf } from '../model/overview.js';
-import { routineLines, routineOrder, type RoutineMachine } from '../model/routines.js';
+import { routineLines, routineOrder, runReason, type RoutineMachine } from '../model/routines.js';
 import { C } from '../theme.js';
 import { Frame } from '../ui/Frame.js';
 import { LineText } from '../ui/Lines.js';
@@ -58,7 +58,7 @@ export function RoutinesScreen() {
       runs.current.delete(k);
       const run = r.lastRun;
       const said = run.outcome === 'resumed' ? x.toast.resumed : run.outcome === 'launched' ? x.toast.launched : x.toast.delivered;
-      tui.toast(run.outcome === 'failed' ? { text: `! ${x.toast.failed(r.name, run.reason ?? x.out.failed)}`, tone: 'error' } : { text: `${g.ok} ${said(r.name, r.target.name)}`, tone: 'ok' });
+      tui.toast(run.outcome === 'failed' ? { text: `! ${x.toast.failed(r.name, runReason(run, t))}`, tone: 'error' } : { text: `${g.ok} ${said(r.name, r.target.name)}`, tone: 'ok' });
     }
   });
 

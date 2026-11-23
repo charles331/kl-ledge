@@ -29,7 +29,8 @@ const L = {
     routineSub: 'routine', routineSince: (n: number) => `routine · depuis ${n} min`, routineFailed: (name: string) => `: la routine ${name} n’a pas pu partir`, retry: 'Relancer',
     routineAsk: (name: string, when: string, dir: string) => `veut programmer « ${name} » : ${when}, dans ${dir}`,
     routineGroupAsk: (n: number, days: string) => `veut programmer ${n} routines uniques : ${days}`,
-    routineChange: (name: string, when: string) => `veut modifier « ${name} » : ${when}`, routineWaits: (name: string) => `« ${name} » attend ton accord`
+    routineChange: (name: string, when: string) => `veut modifier « ${name} » : ${when}`, routineWaits: (name: string) => `« ${name} » attend ton accord`,
+    routineTimeout: 'pas tapée en 30 min (session occupée)'
   },
   en: {
     deny: 'Deny', accept: 'Allow', add: 'Add', refuse: 'Refuse',
@@ -42,7 +43,8 @@ const L = {
     routineSub: 'routine', routineSince: (n: number) => `routine · for ${n} min`, routineFailed: (name: string) => `: routine ${name} could not run`, retry: 'Run again',
     routineAsk: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
     routineGroupAsk: (n: number, days: string) => `wants to schedule ${n} one-shot routines: ${days}`,
-    routineChange: (name: string, when: string) => `wants to change “${name}”: ${when}`, routineWaits: (name: string) => `“${name}” awaits your approval`
+    routineChange: (name: string, when: string) => `wants to change “${name}”: ${when}`, routineWaits: (name: string) => `“${name}” awaits your approval`,
+    routineTimeout: 'not typed within 30 min (session busy)'
   }
 } as const;
 
@@ -144,7 +146,10 @@ function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], lang: Lan
   delete item.sub;
   if (rt.kind === 'failed') {
     item.tone = 'perm'; item.who = clip(routine?.target.name ?? task.giverName, 100); item.text = clip(t.routineFailed(rt.name), 400);
-    if (rt.reason) item.sub = clip(rt.reason, 200);
+    // A cause without a field is worded in the point's language; the daemon's reason is French.
+    const last = routine?.lastRun?.outcome === 'failed' ? routine.lastRun : undefined;
+    const why = last && !last.field && last.cause === 'timeout' ? t.routineTimeout : rt.reason;
+    if (why) item.sub = clip(why, 200);
     if (!gone) item.answers = [{ id: 'retry', label: t.retry, style: 'primary' }];
     return;
   }

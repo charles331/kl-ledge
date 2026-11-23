@@ -391,6 +391,8 @@ export const fr = {
     groupAsk: (s: string, n: number, days: string) => `${s} veut programmer ${n} routines uniques : ${days}`,
     itemKeys: { activate: 'activer', refuse: 'refuser', retry: 'relancer', activateAll: (n: number) => `activer les ${n}`, refuseAll: (n: number) => `refuser les ${n}` },
     failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
+    stale: (r: string) => `« ${r} » a changé : relisez-la avant d’activer.`,
+    causes: { timeout: 'pas tapée en 30 min (session occupée)' },
     failedNamed: (r: string, why: string) => `La routine ${r} n’a pas pu partir : ${why}`,
     change: (s: string, r: string, when: string) => `${s} veut modifier « ${r} » : ${when}`, waits: (r: string) => `« ${r} » attend votre accord`
   },

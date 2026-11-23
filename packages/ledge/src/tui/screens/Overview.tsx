@@ -61,10 +61,25 @@ export function Overview() {
   const [routineFocus, setRoutineFocus] = useState<string | null>(null);
   const focused = routineRows.find(x => x.id === routineFocus);
   useEffect(() => { if (routineFocus && !focused) setRoutineFocus(null); }, [routineFocus, focused]);
-  const answerRoutine = (x: RoutineItem, yes: boolean) => {
+  // An activation the daemon refused because the routine changed since it was shown (card 32), by item: the routine's name. The
+  // fleet's list already holds the new version, which the item now shows; nothing was activated, y activates the new one.
+  const [stale, setStale] = useState<ReadonlyMap<string, string>>(new Map());
+  const answerRoutine = async (x: RoutineItem, yes: boolean) => {
     if (x.kind === 'failed' && !yes) return;
     const op = x.kind === 'failed' ? 'run' : yes ? 'approve' : 'refuse';
-    for (const id of x.routines) tui.fleet.routineCmd(x.machineId, { op, routine: id }).catch((e: { message?: string; code?: string }) => tui.toast({ text: t.toast.answerFailed(e.message || e.code || '?'), tone: 'error' }));
+    setStale(m => { if (!m.has(x.id)) return m; const n = new Map(m); n.delete(x.id); return n; });
+    // One at a time, each bound to the version shown (`expect`): a group stops at the first routine that changed.
+    for (const id of x.routines) {
+      const r = routines.find(o => o.machineId === x.machineId && o.id === id);
+      try {
+        await tui.fleet.routineCmd(x.machineId, { op, routine: id, ...(op === 'approve' && r?.key ? { expect: r.key } : {}) });
+      } catch (e) {
+        const f = e as { message?: string; code?: string };
+        if (f.code === 'stale') setStale(m => new Map(m).set(x.id, r?.name ?? id));
+        else tui.toast({ text: t.toast.answerFailed(f.message || f.code || '?'), tone: 'error' });
+        return;
+      }
+    }
   };
   const [deciding, setDeciding] = useState<{ id: string; draft: string; confirm: boolean } | null>(null);
   const decision = deciding ? decisions.find(x => x.id === deciding.id) : undefined;
@@ -122,7 +137,7 @@ export function Overview() {
     }
     // x puts away the oldest closed task Ledge gave (« À toi »).
     if (input === 'x' && closed[0]) { tui.client.send({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'seen', task: closed[0].id }); return true; }
-    if (focused && (input === 'y' || input === 'n')) { answerRoutine(focused, input === 'y'); return true; }
+    if (focused && (input === 'y' || input === 'n')) { void answerRoutine(focused, input === 'y'); return true; }
     if (input === 'j' || key.downArrow) { setRoutineFocus(null); select(step(view.order, sel, 1)); return true; }
     if (input === 'k' || key.upArrow) { setRoutineFocus(null); select(step(view.order, sel, -1)); return true; }
     if (key.tab) {
@@ -172,8 +187,13 @@ export function Overview() {
   });
   const yoursCount = view.yours.length + decisions.length + routineRows.length + closed.length + usageLines.length + near.length;
   // A routine's item takes two lines: its words, then its keys.
-  const rl = routineRows.length * 2;
-  const yoursHeight = Math.max(1, Math.min(yoursCount + routineRows.length, 8));
+  const routineEls = routineRows.flatMap(x => [
+    <Text key={`routine:${x.id}`} wrap="truncate" backgroundColor={x.id === focused?.id ? C.sel : undefined}><Text color={x.mark === 'fail' ? C.red : C.yellow}>{x.mark === 'fail' ? '!' : g.question} </Text><Text color={C.fg}>{x.text}</Text></Text>,
+    ...(stale.has(x.id) ? [<Text key={`routine-stale:${x.id}`} wrap="truncate" color={C.yellow}>  {t.routines.stale(stale.get(x.id)!)}</Text>] : []),
+    <Text key={`routine-keys:${x.id}`} wrap="truncate" color={C.dim}>  {routineItemKeys(x, t).map(([k, label]) => `${k} ${label}`).join('  ')}</Text>
+  ]);
+  const rl = routineEls.length;
+  const yoursHeight = Math.max(1, Math.min(yoursCount - routineRows.length + rl, 8));
   // The status bar, the key bar, the toast, the boxes' borders and titles.
   // The answer's field, or the answer read again whole, across the screen under the boxes.
   const answerLines = deciding?.confirm ? wrap(deciding.draft.trim(), Math.max(10, columns - 4)) : [];
@@ -205,10 +225,7 @@ export function Overview() {
         );
       }), ...decisions.slice(0, Math.max(0, yoursHeight - view.yours.length)).map(x => (
         <Text key={`decision:${x.id}`} wrap="truncate"><Text color={C.red}>{g.question} </Text><Text color={C.fg}>{t.overview.decision(x.giverName, x.title)}</Text>{x.text ? <Text color={C.dim}> · {oneLine(x.text)}</Text> : null}</Text>
-      )), ...routineRows.slice(0, Math.max(0, Math.floor((yoursHeight - view.yours.length - decisions.length) / 2))).flatMap(x => [
-        <Text key={`routine:${x.id}`} wrap="truncate" backgroundColor={x.id === focused?.id ? C.sel : undefined}><Text color={x.mark === 'fail' ? C.red : C.yellow}>{x.mark === 'fail' ? '!' : g.question} </Text><Text color={C.fg}>{x.text}</Text></Text>,
-        <Text key={`routine-keys:${x.id}`} wrap="truncate" color={C.dim}>  {routineItemKeys(x, t).map(([k, label]) => `${k} ${label}`).join('  ')}</Text>
-      ]), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl)).map(x => (
+      )), ...routineEls.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl)).map(x => (
         <Text key={x.id} wrap="truncate"><Text color={x.state === 'done' ? C.green : C.yellow}>{x.state === 'done' ? g.ok : g.fail} </Text><Text color={C.fg}>{t.overview.ledgeTask(x.ownerName, x.title, x.state as 'done' | 'refused' | 'dropped')}</Text></Text>
       )), ...usageLines.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl - closed.length)).map(x => (
         <Text key={`usage:${x.id}`} wrap="truncate"><Text color={x.full ? C.red : C.yellow}>{g.gauge} </Text><Text color={C.fg}>{x.text}</Text></Text>

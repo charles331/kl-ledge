@@ -5,7 +5,7 @@ import type { ClientMessage, Routine, Task, Weekday } from '@ledge/protocol';
 import { glyphsFor } from '../src/tui/glyphs.js';
 import { en } from '../src/tui/i18n/en.js';
 import { fr } from '../src/tui/i18n/fr.js';
-import { momentText, routineItemKeys, routineItems, routineLines, routineOrder, whenText } from '../src/tui/model/routines.js';
+import { momentText, routineItemKeys, routineItems, routineLines, routineOrder, runReason, whenText } from '../src/tui/model/routines.js';
 import { until } from './helpers.js';
 import { mockupSessions, startTui } from './tui-fixture.js';
 
@@ -113,6 +113,17 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     expect(text(routineLines(rows.slice(0, 1), { sel: 0, width: 80, now: NOW, lang: 'fr', machines: machines.slice(0, 1) }, fr, g).lines)[0]).toContain('briefing');
   });
 
+  it('a failure that timed out is worded by its cause, not the daemon’s French reason', () => {
+    const timedOut = rt({ id: 'r777777', name: 'veille', target: { name: 'Nova', cwd: '/home/u/veille', tool: 'claude' }, nextRun: local(23, 18, 0),
+      lastRun: { at: local(22, 18, 0), slot: '18:00', outcome: 'failed', reason: 'pas tapée en 30 min', cause: 'timeout' } });
+    expect(text(routineLines([timedOut], { sel: 9, width: 90, now: NOW, lang: 'en' }, en, g).lines)[1]).toBe('   Nova · 09:00 · Mon-Fri · not typed within 30 min (session busy)');
+    expect(text(routineLines([timedOut], { sel: 9, width: 90, now: NOW, lang: 'fr' }, fr, g).lines)[1]).toContain('pas tapée en 30 min (session occupée)');
+    expect(runReason({ reason: 'dossier introuvable', field: 'cwd', cause: 'timeout' }, en)).toBe('dossier introuvable');
+    const base = { giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open' as const, at: local(23, 2, 10), updatedAt: local(23, 2, 10), log: [] };
+    const task: Task = { ...base, id: 't9', title: 'x', routine: { kind: 'failed', id: 'r777777', name: 'veille', reason: 'pas tapée en 30 min' } };
+    expect(routineItems([task], [timedOut], 'en', en)[0]!.text).toBe('The routine veille (Nova) could not run: not typed within 30 min (session busy)');
+  });
+
   it('names a moment as the list does, and a schedule once for each use', () => {
     expect(momentText(local(23, 18, 0), NOW, 'fr', fr)).toBe('18:00');
     expect(momentText(local(24, 9, 0), NOW, 'en', en)).toBe('tomorrow 09:00');
@@ -189,6 +200,8 @@ async function routinesTui(list: Routine[], o: { sessions?: ReturnType<typeof mo
       const r = list.find(x => x.id === m.routine);
       if (!r) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'not_found', reason: 'routine inconnue' }); return; }
       if (o.refuse) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'forbidden', reason: o.refuse }); return; }
+      // An approve bound to another version than the routine's own is refused, as the daemon does (card 32).
+      if (m.op === 'approve' && r.key && m.expect !== r.key) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'stale', reason: 'la routine a changé (texte du daemon)' }); return; }
       const next = m.op === 'pause' ? { ...r, state: 'paused' as const } : m.op === 'resume' ? { ...r, state: 'enabled' as const } : r;
       tui.daemon.push({ type: 'routine.result', rid: m.rid, routine: next });
     }
@@ -285,6 +298,37 @@ describe('ledge tui: the Routines screen (7)', () => {
       expect(tui.frame()).toContain('ROUTINES · 0');
     } finally { await tui.cleanup(); }
   });
+
+  it('y on a request sends the version shown; a stale refusal says so in the screen’s words, activates nothing and stays (card 32)', async () => {
+    const hebdo = { ...strip(CARD18[4]!), key: 'k1' };
+    const list: Routine[] = [hebdo];
+    const tui = await routinesTui(list);
+    const base = { giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open' as const, at: local(23, 2, 10), updatedAt: local(23, 2, 10), log: [] };
+    try {
+      await tui.resize(160, 40);
+      tui.daemon.push({ type: 'task.updated', task: { ...base, id: 't1', title: 'x', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } } });
+      await until(() => tui.frame().includes('veut programmer « point-hebdo » : 17:00 (ven)'));
+      // The session changes the routine (17:00 → 16:30) after the screen showed it; the daemon's key moves on.
+      const changed = { ...hebdo, schedule: { kind: 'recurring' as const, times: ['16:30'], days: ['fri' as const] }, key: 'k2' };
+      await tui.press('\t'); await tui.press('\t');
+      list[0] = changed;
+      tui.daemon.push({ type: 'routine.changed', routine: changed });
+      await until(() => tui.frame().includes('veut programmer « point-hebdo » : 16:30 (ven)'));
+      // y was meant for the version shown before: send it as the old one to see the daemon refuse it.
+      list[0] = { ...changed, key: 'k3' };
+      await tui.press('y');
+      await until(() => tui.frame().includes('« point-hebdo » a changé : relisez-la avant d’activer.'));
+      expect(sent(tui.daemon.received, 'routine.cmd')[0]).toMatchObject({ op: 'approve', routine: 'r3f9a12', expect: 'k2' });
+      expect(tui.frame()).not.toContain('texte du daemon');
+      // Nothing activated, still on the request; y again sends the version now listed.
+      tui.daemon.push({ type: 'routine.changed', routine: list[0]! });
+      await new Promise(r => setTimeout(r, 100));
+      await tui.press('y');
+      await until(() => sent(tui.daemon.received, 'routine.cmd').length === 2);
+      expect(sent(tui.daemon.received, 'routine.cmd')[1]).toMatchObject({ op: 'approve', expect: 'k3' });
+      await until(() => !tui.frame().includes('a changé : relisez-la'));
+    } finally { await tui.cleanup(); }
+  }, 20_000);
 
   it('« À toi » of the overview shows a routine’s request and failure, not as decisions: D does not answer them', async () => {
     const tui = await routinesTui(CARD18.map(strip));
