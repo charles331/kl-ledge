@@ -265,14 +265,19 @@ export const PhoneTaskSchema = z.object({
 }).strict();
 export type PhoneTask = z.infer<typeof PhoneTaskSchema>;
 
-/** A routine as the phone's list sees it: everything but its prompt, its folder clipped (`cut`), and `key`, the digest of what it
- *  does (name, target, schedule, prompt, catch-up): an « Activer » names the key the phone showed, and is refused once it changed. */
-export const PhoneRoutineSchema = RoutineSchema.omit({ prompt: true, target: true }).extend({
-  target: RoutineTargetSchema.extend({ cwd: z.string().min(1).max(PHONE_ROUTINE_CWD_MAX) }), cut: z.literal(true).optional(), key: RoutineKeySchema
+/** A routine as the phone's list sees it: no prompt, no history but its last firing, its folder clipped (`cut`), `proposed`
+ *  when a session's change waits for the owner, and `key`, the digest of what an « Activer » applies (the routine, or its
+ *  proposal): an « Activer » names the key the phone showed, and is refused once it changed. */
+export const PhoneRoutineSchema = RoutineSchema.omit({ prompt: true, target: true, runs: true, proposal: true }).extend({
+  target: RoutineTargetSchema.extend({ cwd: z.string().min(1).max(PHONE_ROUTINE_CWD_MAX) }), cut: z.literal(true).optional(),
+  proposed: z.literal(true).optional(), key: RoutineKeySchema
 }).strict();
 export type PhoneRoutine = z.infer<typeof PhoneRoutineSchema>;
-/** One routine whole (`routine.show`), its folder entire and its prompt included: what the phone shows before « Activer ». */
-export const PhoneRoutineDetailSchema = PhoneRoutineSchema.omit({ cut: true }).extend({ target: RoutineTargetSchema, prompt: RoutineSchema.shape.prompt }).strict();
+/** One routine whole (`routine.show`), its folder entire, its prompt, its proposal and its last firings included: what the
+ *  phone shows before « Activer ». */
+export const PhoneRoutineDetailSchema = PhoneRoutineSchema.omit({ cut: true, proposed: true }).extend({
+  target: RoutineTargetSchema, prompt: RoutineSchema.shape.prompt, proposal: RoutineSchema.shape.proposal, runs: RoutineSchema.shape.runs
+}).strict();
 export type PhoneRoutineDetail = z.infer<typeof PhoneRoutineDetailSchema>;
 
 /** Why a question ended without an answer. */
