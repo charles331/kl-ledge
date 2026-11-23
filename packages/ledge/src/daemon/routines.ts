@@ -299,7 +299,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
     for (const t of approvals(r.id)) if (!t.routine!.ids) d.tasks.settle(t.id, 'remplacée par une nouvelle demande');
     const by = r.createdBy.kind === 'session' ? r.createdBy.id : undefined;
     // An open item of this session's one-shots: its members already answered (activated, or refused and gone) do not keep the
-    // next one out, as long as one still waits.
+    // next one out, as long as one still waits; they leave the item when it is reworded.
     const ofSession = (o: Routine | undefined) => !!o && o.schedule.kind === 'once' && o.createdBy.kind === 'session' && o.createdBy.id === by;
     const joinable = (t: (ReturnType<Tasks['all']>)[number]) => {
       if (t.routine?.kind !== 'approve' || taskClosed(t)) return false;
@@ -311,7 +311,9 @@ export function createRoutines(d: RoutinesDeps): Routines {
     // Only one-shots group (spec §3.1.1: a session's meetings found in the calendar); a recurring routine is asked on its own.
     const group = !r.proposal && r.state === 'pending' && r.schedule.kind === 'once' && by ? d.tasks.all().find(joinable) : undefined;
     if (group) {
-      const ids = [...(group.routine!.ids ?? [group.routine!.id]).filter(id => routines.has(id)), r.id];
+      // The item names the routines still waiting, the new one last: those answered leave it, so it never holds more than the
+      // active routines can (ROUTINES_ACTIVE_MAX, the protocol's bound on `ids`).
+      const ids = [...(group.routine!.ids ?? [group.routine!.id]).filter(id => waitsForOwner(id)), r.id];
       const all = ids.map(id => routines.get(id)!);
       // The title as the mockup words it; the routines follow one per line, name and moment, then their prompts.
       const text = [...all.map(o => `${o.name} (${scheduleLabel(o.schedule)})`), '', ...all.map(o => `« ${o.name} » : ${o.prompt}`)].join('\n');

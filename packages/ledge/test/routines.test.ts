@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openDecision, type Routine, type RoutineSpec, type Session, type Weekday } from '@ledge/protocol';
+import { openDecision, TaskSchema, type Routine, type RoutineSpec, type Session, type Weekday } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { createTasks, type Tasks } from '../src/daemon/tasks.js';
 import { createRoutines, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
@@ -326,16 +326,34 @@ describe('commands', () => {
     await cmd(user, 'approve', { routine: a.id });
     const c = (await cmd(as('iris'), 'add', { spec: once('c', '2026-12-05T16:00') })).routine!;
     expect(decisions()).toHaveLength(1);
-    expect(decisions()[0]!.routine!.ids).toEqual([a.id, b.id, c.id]);
+    // Only the routines still waiting stay named: the item stays within the protocol's bound however many were answered.
+    expect(decisions()[0]!.routine!.ids).toEqual([b.id, c.id]);
+    expect(TaskSchema.safeParse(decisions()[0]).success).toBe(true);
     // The first refused (and gone), the next still joins; the item leaves it out.
     await cmd(user, 'refuse', { routine: b.id });
     const e = (await cmd(as('iris'), 'add', { spec: once('e', '2026-12-06T16:00') })).routine!;
     expect(decisions()).toHaveLength(1);
-    expect(decisions()[0]).toMatchObject({ title: 'Iris veut programmer 3 routines uniques', routine: { ids: [a.id, c.id, e.id] } });
+    expect(decisions()[0]).toMatchObject({ title: 'Iris veut programmer 2 routines uniques', routine: { ids: [c.id, e.id] } });
     await cmd(user, 'approve', { routine: c.id });
     expect(decisions()).toHaveLength(1);
     await cmd(user, 'refuse', { routine: e.id });
     expect(decisions()).toEqual([]);
+  });
+  it('a request stays within the protocol\'s 50 ids however many one-shots were answered and fired', async () => {
+    const once = (i: number, at: string) => spec({ name: `p${i}`, schedule: { kind: 'once', at: [at], tz: TZ } });
+    const made: Routine[] = [];
+    for (let i = 0; i < 50; i++) made.push((await cmd(as('iris'), 'add', { spec: once(i, i < 30 ? '2026-11-20T08:00' : '2026-12-03T16:00') })).routine!);
+    for (const r of made.slice(0, 30)) await cmd(user, 'approve', { routine: r.id });
+    clock = at('2026-11-20T07:00:10.000Z'); routines.tick(); await flush(); await flush();
+    for (let i = 0; i < typed.length; i++) if (queued.has(typed[i]!.rid)) typedDone(i);
+    // Thirty fired; the list keeps the last 20 (ROUTINES_DONE_MAX), the others are on record.
+    expect(routines.all().filter(r => r.state === 'done')).toHaveLength(20);
+    expect(routines.all().filter(r => r.state === 'pending')).toHaveLength(20);
+    for (let i = 50; i < 61; i++) await cmd(as('iris'), 'add', { spec: once(i, '2026-12-04T16:00') });
+    const items = decisions();
+    expect(items).toHaveLength(1);
+    expect(items[0]!.routine!.ids).toHaveLength(31);
+    expect(TaskSchema.safeParse(items[0]).success).toBe(true);
   });
   it('a recurring routine a session asks for is never grouped with its one-shots', async () => {
     await cmd(as('iris'), 'add', { spec: spec({ name: 'p1', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) });
