@@ -406,6 +406,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
     const fail = (sl: typeof slot, a: string, l: boolean, reason: string, field?: RoutineField, cause?: RoutineCause) =>
       record_({ at: a, slot: sl.slot, slotAt: sl.slotAt, outcome: 'failed', reason: reasonOf(reason), ...(field ? { field } : {}), ...(cause ? { cause } : {}), ...(l ? { late: true as const } : {}) });
     if (!r) { firing.delete(id); starting.delete(id); save(); return; }
+    // The step under way, so an exception is told by what failed: none known before the session is resumed or launched.
+    let step: RoutineCause | undefined;
     try {
       // Two firings never pile up: one still waiting to be typed gives way to this one.
       const before = waiting.get(id);
@@ -424,16 +426,19 @@ export function createRoutines(d: RoutinesDeps): Routines {
         return deliver(live, 'delivered');
       }
       if (gone && d.resumable(gone)) {
+        step = 'resume_failed';
         const refused = await d.resume(gone);
+        step = undefined;
         if (refused) return fail(slot, atIso, late, `reprise impossible : ${refused}`, undefined, 'resume_failed');
         const back = d.store.get(gone.id);
         return back ? deliver(back, 'resumed') : fail(slot, atIso, late, 'la session reprise a disparu', undefined, 'gone');
       }
+      step = 'launch_failed';
       const launched = await d.launch({ tool: r.target.tool, cwd: r.target.cwd, name: r.target.name, ...(r.target.model ? { model: r.target.model } : {}), prompt: text });
       log(`routine ${r.name}: launched ${launched.name} as ${launched.id}`);
       record_({ at: atIso, ...slot, outcome: 'launched', session: launched.id, ...(late ? { late: true as const } : {}) });
     } catch (e) {
-      fail(slot, atIso, late, (e as Error).message, undefined, 'launch_failed');
+      fail(slot, atIso, late, (e as Error).message, undefined, step);
     } finally { firing.delete(id); starting.delete(id); save(); }
   }
 
@@ -442,7 +447,11 @@ export function createRoutines(d: RoutinesDeps): Routines {
     if (!w) return;
     waiting.delete(w.id); save();
     if (typed) record(w.id, { at: w.at, slot: w.slot, slotAt: w.slotAt, outcome: w.outcome, session: w.session, ...(w.late ? { late: true as const } : {}) }, !!w.manual);
-    else fail(w.id, w, w.at, w.late, reason ?? 'non remise', 'gone');
+    // `gone` only when the session is: a typing the terminal refused, the session still there, has no cause a front can word.
+    else {
+      const s = d.store.get(w.session);
+      fail(w.id, w, w.at, w.late, reason ?? 'non remise', !s || s.state === 'exited' ? 'gone' : undefined);
+    }
   }
 
   // ── The clock ──

@@ -147,6 +147,30 @@ describe('firing', () => {
     expect(approved.reason ?? '').toBe('');
     expect(approved.routine).toMatchObject({ state: 'enabled' });
   });
+  it('calls a failed typing gone only when the session is', async () => {
+    store.upsert(mk('iris', 'Iris', { state: 'working' }));
+    await cmd(user, 'add', { spec: spec() });
+    await cmd(user, 'run', { routine: 'briefing' }); await flush();
+    routines.noticeDone(typed.at(-1)!.rid, false, 'terminal write failed');
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'terminal write failed' });
+    expect(only().lastRun).not.toHaveProperty('cause');
+    await cmd(user, 'run', { routine: 'briefing' }); await flush();
+    store.upsert(mk('iris', 'Iris', { state: 'exited' }));
+    routines.noticeDone(typed.at(-1)!.rid, false, "la session s'est terminée avant de le recevoir");
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', cause: 'gone' });
+  });
+  it('tells a failed launch from a failed resume, and an earlier exception from both', async () => {
+    routines.close();
+    routines = createRoutines(deps({ launch: async () => { throw new Error('tmux refused'); } }));
+    await cmd(user, 'add', { spec: spec() });
+    await cmd(user, 'run', { routine: 'briefing' }); await flush();
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'tmux refused', cause: 'launch_failed' });
+    routines.close(); await journal.flush();
+    routines = createRoutines(deps({ folder: async () => { throw new Error('stat exploded'); } }));
+    await cmd(user, 'run', { routine: 'briefing' }); await flush();
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'stat exploded' });
+    expect(only().lastRun).not.toHaveProperty('cause');
+  });
   it('reaches the relief of a relieved session', async () => {
     store.upsert(mk('iris', 'Iris', { state: 'exited', handover: { state: 'done', to: 'nova', at: T0 } as Session['handover'] }));
     store.upsert(mk('nova', 'Nova'));
