@@ -278,6 +278,46 @@ main{padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(380
 .tui .sel{background:var(--tui-sel);display:inline-block;width:100%;box-shadow:-4px 0 0 var(--tui-acc)}
 .tui .k{background:var(--tui-key);padding:1px 6px;border-radius:3px;color:var(--tui-fg)}
 
+
+/* v2: the Routines sidebar view and a routine's page. */
+.rside{gap:0;position:relative}
+.rside .hb{display:grid;place-items:center;width:22px;height:22px;border-radius:5px;color:var(--muted-foreground)}
+.rsrow{position:relative;display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:1px 7px;padding:5px 6px;border-radius:5px;font-size:12.5px;align-items:center}
+.rsrow.sel{background:var(--muted)}.rsrow.hov{background:var(--hover)}
+.rsrow>b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsrow .nx{font:11px 'Geist Mono',monospace;color:var(--muted-foreground);white-space:nowrap}
+.rsrow small{grid-column:2/4;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted-foreground);min-width:0}
+.rsrow small span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsrow .x3{grid-column:2/4;display:flex;align-items:center;gap:6px;font-size:11px;min-width:0;white-space:nowrap;overflow:hidden}
+.rsrow .x3.reason{display:block;text-overflow:ellipsis}
+.rsrow .qa{display:flex;gap:1px;margin:-3px -3px -3px 0}
+.rsrow .qa .btn{width:22px;height:22px}
+.rs-grp{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);padding:10px 6px 4px}
+.rs-empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:var(--muted-foreground);font-size:12px;padding:26px 12px}
+.rs-empty b{color:var(--foreground);font-size:13px}
+.rs-foot{margin-top:auto;padding:8px 6px 2px;font-size:11px;color:var(--muted-foreground)}
+.exp.rside{height:auto;min-height:420px;width:248px;border:1px solid var(--border);border-radius:6px}
+.ide .exp.rside{border:0;border-right:1px solid var(--border);border-radius:0;min-height:0}
+.rp2{position:relative;padding:16px 22px 0;display:flex;flex-direction:column;gap:14px;max-width:760px}
+.rhd{position:relative;display:flex;align-items:center;gap:9px}
+.rhd h3{margin:0;font-size:17px;font-weight:650}
+.wakes{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;margin-top:-6px}
+.wakes .btn{margin-left:2px}
+.sect{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.sect h4{margin:0;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);font-weight:500}
+.runs{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px}
+.runs .lbl{font-size:11.5px;color:var(--muted-foreground);margin-bottom:5px}
+.runs ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.runs li{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.runs .mono{font-size:11.5px}
+.bn{display:flex;gap:12px;align-items:center;padding:9px 12px;border-radius:8px;font-size:12.5px}
+.bn p{margin:3px 0 0;color:var(--muted-foreground);font-size:12px}
+.bn .go{display:flex;gap:6px;flex-shrink:0}
+.bn.ask{border:1px solid color-mix(in srgb,var(--st-ask) 55%,var(--border));background:color-mix(in srgb,var(--st-ask) 8%,transparent)}
+.bn.bad{border:1px solid color-mix(in srgb,var(--st-perm) 50%,var(--border));background:color-mix(in srgb,var(--st-perm) 7%,transparent)}
+.dirtybar{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;margin:0 -22px;padding:10px 22px;border-top:1px solid var(--border);background:var(--pane);font-size:12.5px}
+.paneframe{width:684px;max-width:100%;background:var(--pane);border:1px solid var(--border);border-radius:6px;padding-bottom:16px}
+.pane .rp2{height:100%;overflow:hidden}
 section.fiche{grid-column:1/-1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
 section.fiche h2{font-size:13px;margin:0 0 6px}
 section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
@@ -299,7 +339,12 @@ section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
    packages/ui chat/pointCopy.ts; the new ones are listed per card and in the handoff sheet. */
 const T = {
   fr: {
-    h1:'Ledge — Routines', hsub:'Maquette pour jde · Desktop (IDE de main 756fd2a2), « À toi », « Le point », téléphone, ledge tui',
+    h1:'Ledge — Routines', hsub:'v2 (retour de jde du 23/11) · Desktop (IDE de main 756fd2a2), « À toi », « Le point », téléphone, ledge tui',
+    tomorrowDay:'demain (mar.)', wednesday:'mer. 25', saturday:'sam. 21', pickSession:'Choisir une session…', yesterday:'hier', friday:'ven. 20', stEnabled:'Active', stPaused:'En pause', wakes:'Réveille ', inDir:'dans', runs:'Tirs', nextRuns:'Prochains', pastRuns:'Derniers', config:'Configuration',
+    noneUntil:'aucun tant qu’elle n’est pas activée', noneWhilePaused:'aucun tant qu’elle est en pause', dirty:'Modifications non enregistrées', discard:'Annuler les modifications', promptPh:'Ce que Ledge tapera dans la session à chaque tir…',
+    pendBanner:(s,h)=>`${s} demande à programmer cette routine (${h}). Elle ne partira qu’une fois activée.`, pendEditHint:'Tu peux la corriger avant de l’activer : Activer enregistre tes modifications.',
+    failBanner:(h,why)=>`Le tir de ${h} n’a pas pu partir : ${why}`, failHint:'Corrige le champ entouré ci-dessous, puis relance.', errDirExisting:'Le dossier de cette session n’existe plus sur ce PC.',
+    pausedGroup:n=>`En pause · ${n}`, tzFoot:'Heures de ce PC · Europe/Bruxelles', emptySide:'Une routine réveille une session à heures fixes et lui donne un prompt.', offlineShort:'Daemon local hors ligne : rien ne part.',
     routines:'Routines', routinesTab:'Routines (onglet)',
     sub:'Ledge réveille une session à heures fixes et lui tape un prompt. Les heures sont celles de ce PC.',
     tz:'Europe/Bruxelles', add:'Nouvelle routine',
@@ -358,7 +403,12 @@ const T = {
     tToast:(r,s)=>`« ${r} » remise à ${s}`, tEmpty:'Aucune routine. `ledge routine add` en crée une.',
   },
   en: {
-    h1:'Ledge — Routines', hsub:'Mockup for jde · Desktop (IDE of main 756fd2a2), “For you”, the point, phone, ledge tui',
+    h1:'Ledge — Routines', hsub:'v2 (jde’s feedback, 23 Nov) · Desktop (IDE of main 756fd2a2), “For you”, the point, phone, ledge tui',
+    tomorrowDay:'tomorrow (Tue)', wednesday:'Wed 25', saturday:'Sat 21', pickSession:'Pick a session…', yesterday:'yesterday', friday:'Fri 20', stEnabled:'Active', stPaused:'Paused', wakes:'Wakes ', inDir:'in', runs:'Runs', nextRuns:'Next', pastRuns:'Recent', config:'Settings',
+    noneUntil:'none until it’s activated', noneWhilePaused:'none while paused', dirty:'Unsaved changes', discard:'Discard changes', promptPh:'What Ledge will type into the session at each run…',
+    pendBanner:(s,h)=>`${s} asks to schedule this routine (${h}). It won’t run until it’s activated.`, pendEditHint:'You can correct it before activating: Activate saves your changes.',
+    failBanner:(h,why)=>`The ${h} run could not start: ${why}`, failHint:'Fix the outlined field below, then run it again.', errDirExisting:'This session’s folder no longer exists on this PC.',
+    pausedGroup:n=>`Paused · ${n}`, tzFoot:'This PC’s times · Europe/Brussels', emptySide:'A routine wakes a session at set times and gives it a prompt.', offlineShort:'Local daemon offline: nothing runs.',
     routines:'Routines', routinesTab:'Routines (tab)',
     sub:'Ledge wakes a session at set times and types a prompt into it. Times are this PC’s.',
     tz:'Europe/Brussels', add:'New routine',
@@ -445,7 +495,7 @@ const bot = (c, st) => `<span class="bot"><svg viewBox="0 0 30 30"><rect x="5" y
 const R = () => { const x = t(); return [
   {id:'r3f9a12', name:'point-hebdo', s:'Iris', tool:'claude', dir:'~/assistant', st:'idle', times:['17:00'], days:x.fri, state:'pending', by:'Iris', asked:'02:10',
     prompt:'Point de la semaine du {date} : relis journal/, résume ce qui a avancé et ce qui reste, mets les décisions dans À toi.'},
-  {id:'r81c0d4', name:'veille', s:'Nova', tool:'claude', dir:'~/veille', st:'gone', times:['18:00'], days:x.daily, state:'enabled', next:[x.today,'18:00'], last:['08:00','failed'], reason:x.failNoDir},
+  {id:'r81c0d4', name:'veille', s:'Nova', tool:'claude', dir:'~/veille', st:'gone', times:['18:00'], days:x.daily, state:'enabled', next:[x.today,'18:00'], last:['18:00','failed'], reason:x.failNoDir},
   {id:'r1a2b3c', name:'briefing', s:'Iris', tool:'claude', dir:'~/assistant', st:'working', times:['08:00','13:30','16:30'], days:x.monfri, state:'enabled', next:[x.today,'13:30'], last:['08:00','resumed'], late:'08:42',
     prompt:'Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi.'},
   {id:'r5e6f70', name:'revue-prs', s:'Otto', tool:'codex', dir:'~/Workspace/ledge', st:'idle', times:['09:00'], days:x.monfri, state:'enabled', next:[x.tomorrow,'09:00'], last:['09:00','delivered']},
@@ -472,27 +522,6 @@ const acts = (r, o={}) => { const x = t();
   const pz = r.state === 'paused' ? `<button class="btn" ${off}>${x.resume}</button>` : `<button class="btn" ${off} title="${x.pause}">${I.pause(12)}${x.pause}</button>`;
   return `${run}${pz}<button class="btn icon ghost ${o.menu?'hov':''}" title="${x.more}">${I.dots(14)}</button>`;
 };
-const row = (r, o={}) => { const x = t();
-  const cls = [r.state==='pending'?'pending':'', r.last&&r.last[1]==='failed'?'failed':'', r.state==='paused'?'paused':'', o.hov?'hov':''].join(' ');
-  const idc = r.state==='pending' ? `<span class="mut">${x.pendingBy(r.by, r.asked)}</span>` : '';
-  return `<div class="rrow ${cls}">
-    <div class="c main">
-      <div class="l"><b style="font-size:13px" title="${r.id}">${r.name}</b><span class="times">${r.times.join(' · ')}</span><span class="mut">${r.days}</span><span class="cut">${idc}</span></div>
-      <div class="l">${who(r)}<span class="mono mut cut" style="font-size:10.5px">${r.dir}</span></div>
-      <div class="l last">${o.running?`<span class="spin"></span><span class="mut">${o.running}</span>`:lastCell(r)}</div>
-    </div>
-    <div class="c">${nextCell(r)}</div>
-    <div class="c acts">${acts(r, o)}</div>
-    ${o.prompt?`<div class="sub2"><button class="btn ghost" style="margin-left:-6px">▾ ${x.hidePrompt}</button><div class="prompt">${r.prompt}</div></div>`:r.state==='pending'?`<div class="sub2"><button class="btn ghost" style="margin-left:-6px">▸ ${x.seePrompt}</button></div>`:''}
-    ${o.menu?menu():''}
-    ${o.confirm?`<div class="confirm"><strong>${x.delQ(r.name)}</strong><span class="mut" style="font-size:11.5px">${x.delWhy(r.s)}</span><div class="go"><button class="btn">${x.cancel}</button><button class="btn dangerfill">${x.delGo}</button></div></div>`:''}
-  </div>`;
-};
-const menu = () => { const x = t(); return `<div class="menu"><span>${I.pen(14)}${x.edit}</span><span class="hov">${I.open(14)}${x.openSession}</span><hr><span class="d">${I.trash(14)}${x.del}</span></div>`; };
-const head = () => { const c = t().cols; return `<div class="rhead"><span>${c.name}</span><span>${c.next}</span><span></span></div>`; };
-const pageTop = () => { const x = t(); return `<div class="rtop"><div style="flex:1"><h3>${x.routines}</h3><span class="psub">${x.sub} <span class="tz">(${x.tz})</span></span></div><button class="btn pri">${I.plus(13)}${x.add}</button></div>`; };
-const listPage = (rows, o={}) => `<div class="rpage ${o.free?'free':''}">${pageTop()}${o.banner||''}<div class="rlist ${o.dim?'dimmed':''}" style="${o.dim?'opacity:.55':''}">${head()}${rows}</div>${o.after||''}</div>`;
-
 /* The IDE around a page. */
 const activity = (on='routines', o={}) => { const x = t();
   const b = (k, ic, extra='') => `<span class="${on===k?'on':''} ${o.flag===k?'flag':''}" title="${k}">${ic}${extra}</span>`;
@@ -513,99 +542,144 @@ const status = (o={}) => { const x = t();
   return `<div class="sb"><span class="it"><span class="dot idle"></span>${x.machine}</span><span class="it">${L==='fr'?'2 demandes':'2 requests'}</span>${o.next?`<span class="it ${o.flagSb?'flag':''}">${I.clock(12)}${x.sbNext('briefing','13:30')}</span>`:''}<span class="sp"></span><span>Claude · 5 h : 38 %</span><span>${L==='fr'?'Disposition':'Layout'}</span></div>`;
 };
 const ide = (pane, o={}) => `<div class="ide ${o.short?'short':''} ${o.tall?'tall':''}"><div class="tb"><b>Ledge</b><span class="search">${L==='fr'?'Session, commande, tâche, rig…':'Session, command, task, rig…'}<span style="margin-left:auto" class="mono">Ctrl K</span></span></div>
-  <div class="body ${o.noside?'noside':''}">${activity(o.on||'routines', o)}${o.noside?'':explorer(o)}<section class="edit"><div class="tabs">${(o.tabs||[['Iris',''],[t().routines,'on']]).map(([n,c])=>`<span class="${c}">${n==='Iris'?logo('claude',12):n===t().routines?I.alarm(13):''}${n}<span class="x">×</span></span>`).join('')}</div><div class="pane">${pane}</div></section>${rightChat(o.chat||'')}</div>${status(o)}</div>`;
+  <div class="body ${o.noside?'noside':''}">${activity(o.on||'routines', o)}${o.noside?'':(o.side||explorer(o))}<section class="edit"><div class="tabs">${(o.tabs||[['Iris',''],[t().routines,'on']]).map(([n,c])=>`<span class="${c}">${n==='Iris'?logo('claude',12):I.alarm(13)}${n.startsWith('• ')?`<span style="color:var(--st-ask)">•</span>${n.slice(2)}`:n}<span class="x">×</span></span>`).join('')}</div><div class="pane">${pane}</div></section>${rightChat(o.chat||'')}</div>${status(o)}</div>`;
+
+/* v2 (jde, 2026-11-23): the activity bar's Routines icon turns the sidebar into the list of routines; a routine opens as a page
+   (detail + configuration) in an editor tab. */
+const RUNS = () => { const x = t(); return {
+  next: [[x.today,'13:30'],[x.today,'16:30'],[x.tomorrowDay,'08:00']],
+  past: [[x.today,'08:00','resumed','08:42'],[x.yesterday,'16:30','delivered'],[x.yesterday,'13:30','delivered'],[x.yesterday,'08:00','launched'],[x.friday,'16:30','failed', null, x.failTimeout]],
+}; };
+const mark = r => r.state==='pending' ? '<span class="mk ask">?</span>' : r.last && r.last[1]==='failed' ? '<span class="mk bad">!</span>' : r.state==='paused' ? `<span class="mk" style="color:var(--muted-foreground);display:grid;place-items:center">${I.pause(11)}</span>` : `<span class="dot ${r.st==='working'?'work':r.st==='idle'?'idle':''}" style="margin:5px 3px 0"></span>`;
+const quick = r => { const x = t(); return `<span class="qa"><button class="btn icon ghost" title="${r.last&&r.last[1]==='failed'?x.retry:x.runNow}">${I.play(12)}</button><button class="btn icon ghost" title="${r.state==='paused'?x.resume:x.pause}">${r.state==='paused'?I.play(12):I.pause(12)}</button></span>`; };
+const srow = (r, o={}) => { const x = t();
+  const right = o.hov && r.state!=='pending' ? quick(r) : r.state==='pending' || r.state==='paused' ? '' : `<span class="nx">${r.next[0]===x.today?'':r.next[0]+' '}${r.next[1]}</span>`;
+  const third = o.running ? `<span class="x3"><span class="spin"></span><span class="mut">${o.running}</span></span>`
+    : r.state==='pending' ? `<span class="x3"><span class="pill ask">${x.pending}</span></span>`
+    : r.last && r.last[1]==='failed' ? `<span class="x3 reason">${r.reason}</span>`
+    : r.late ? `<span class="x3"><span class="pill late">${x.late}</span><span class="mut">${x.lateLong(r.last[0], r.late)}</span></span>` : '';
+  return `<div class="rsrow ${o.sel?'sel':''} ${o.hov?'hov':''}">${mark(r)}<b>${r.name}</b>${right}<small>${logo(r.tool,11)}<span>${r.s} · ${r.times.join(' ')} · ${r.days}</span></small>${third}${o.menu?ctxMenu(r):''}</div>`;
+};
+const ctxMenu = r => { const x = t(); return `<div class="menu" style="top:26px;right:-6px;left:auto"><span>${I.play(14)}${x.runNow}</span><span>${I.pause(14)}${x.pause}</span><span class="hov">${I.open(14)}${x.openSession}</span><hr><span class="d">${I.trash(14)}${x.del}</span></div>`; };
+const rside = (o={}) => { const x = t(), rs = R();
+  const active = rs.filter(r => r.state!=='paused'), paused = rs.filter(r => r.state==='paused');
+  const body = o.empty ? `<div class="rs-empty">${I.alarm(22)}<b>${x.emptyT}</b><span>${x.emptySide}</span><button class="btn pri">${I.plus(12)}${x.add}</button></div>`
+    : o.connecting ? `<div class="rs-empty"><span style="display:flex;gap:7px;align-items:center"><span class="spin"></span>${x.connecting}</span></div>`
+    : `${o.offline?`<div class="banner" style="margin:0 2px 6px;font-size:11.5px"><span class="dot"></span>${x.offlineShort}</div>`:''}<div style="${o.offline?'opacity:.55':''}">${active.map(r => srow(r, {sel:o.sel===r.name, hov:o.hov===r.name, menu:o.menu===r.name, running:o.running&&o.running[0]===r.name?o.running[1]:null})).join('')}
+      <div class="rs-grp">▾ ${x.pausedGroup(paused.length)}</div>${paused.map(r => srow(r, {sel:o.sel===r.name})).join('')}</div>`;
+  return `<aside class="exp rside"><div class="h"><span>${x.routines}</span><span class="hb" title="${x.add}">${I.plus(14)}</span></div>${body}<div class="rs-foot">${x.tzFoot}</div></aside>`;
+};
+const field = (label, body) => `<div class="fld"><label>${label}</label>${body}</div>`;
+const formFields = (o={}) => { const x = t();
+  const sessionNew = o.newSession;
+  return `${field(x.fName, `<div class="col"><div class="inp ${o.errName?'err':''} ${o.dirtyName?'foc':''}">${o.blank?`<span class="ph">briefing</span>`:o.name||'briefing'}</div>${o.errName?`<span class="hint err">${x.errName}</span>`:`<span class="hint">${x.fNameHint}</span>`}</div>`)}
+    ${field(x.fSession, `<div class="radios"><div class="radio"><i class="${sessionNew?'':'on'}"></i><div>${x.fExisting}<small>${x.fExistingHint}</small></div></div>
+      ${sessionNew?'':o.blank?`<div class="sub"><div class="inp sel"><span class="ph">${x.pickSession}</span></div></div>`:`<div class="sub"><div class="inp sel ${o.errDir?'err':''}">${logo(o.tool||'claude',12)}<b style="font-weight:500">${o.s||'Iris'}</b><span class="dot ${o.st ?? 'work'}"></span><span class="mut" style="font-size:11.5px">${o.stTxt||x.st.working}</span><span class="mono mut" style="margin-left:6px">${o.dir||'~/assistant'}</span></div>${o.errDir?`<span class="hint err">${x.errDirExisting}</span>`:''}</div>`}
+      <div class="radio"><i class="${sessionNew?'on':''}"></i><div>${x.fNew}<small>${x.fNewHint}</small></div></div>
+      ${sessionNew?`<div class="sub">${['fSName','fDir','fTool','fModel'].map(k => `<div class="fld" style="grid-template-columns:110px 1fr"><label>${x[k]}</label>${
+        k==='fSName'?`<div class="inp"><span class="ph">Iris</span></div>`:k==='fDir'?`<div class="col"><div style="display:flex;gap:6px"><div class="inp ${o.errDir?'err':''}" style="flex:1">${I.folder(13)}<span class="mono">~/assistant</span></div><button class="btn">${x.browse}</button></div>${o.errDir?`<span class="hint err">${x.errDir}</span>`:''}</div>`
+        :k==='fTool'?`<div class="inp sel">${logo('claude',12)}Claude Code</div>`:`<div class="inp sel"><span class="ph">${x.modelDefault}</span></div>`}</div>`).join('')}</div>`:''}</div>`)}
+    ${field(x.fTimes, `<div class="col"><div class="chips" style="${o.askTimes?'outline:1.5px solid var(--st-ask);outline-offset:3px;border-radius:6px':''}">${o.blank?'':(o.times||['08:00','13:30','16:30']).map(h=>`<span class="chip">${h}<span class="x">×</span></span>`).join('')}<button class="btn ghost">${I.plus(12)}${x.addTime}</button></div>${o.blank&&o.errs?`<span class="hint err">${x.errTimes}</span>`:''}</div>`)}
+    ${field(x.fDays, `<div class="col"><div class="chips"><span class="days">${x.letters.map((d,i)=>`<span class="${!o.blank&&(o.daysOn||[0,1,2,3,4]).includes(i)?'on':''}">${d}</span>`).join('')}</span><button class="btn ghost">${x.presetWeek}</button><button class="btn ghost">${x.presetDaily}</button></div>${o.blank&&o.errs?`<span class="hint err">${x.errDays}</span>`:''}</div>`)}
+    ${field(x.fCatch, `<div class="radios"><div class="radio"><i class="on"></i><div>${x.catchOnce}<small>${x.catchOnceHint}</small></div></div><div class="radio"><i></i><div>${x.catchSkip}<small>${x.catchSkipHint}</small></div></div></div>`)}
+    ${field(x.fPrompt, `<div class="col" style="gap:6px"><div class="ta">${o.blank?`<span class="mut">${x.promptPh}</span>`:o.prompt||`Briefing de <span class="v">{slot}</span> (précédent : <span class="v">{last}</span>). Relis etat.md, collecte, compare, écris journal/<span class="v">{date}</span>.md, mets les décisions dans À toi.`}</div>
+      <div class="vars">${x.varsLabel}<button>{slot}</button>${x.vSlot}<button>{date}</button>${x.vDate}<button>{last}</button>${x.vLast}</div>
+      ${o.blank?'':`<div class="preview">${x.previewAt(o.previewAt||'13:30')} <b>${o.preview||'Briefing de 13:30 (précédent : 08:00). Relis etat.md, collecte, compare, écris journal/2026-11-23.md, mets les décisions dans À toi.'}</b></div>`}</div>`)}`;
+};
+/* A routine's page: header (name, state, actions), the session it wakes, its runs, then its configuration. */
+const rpage = (r, o={}) => { const x = t(), runs = RUNS();
+  const stPill = r.state==='pending' ? `<span class="pill ask">${x.pending}</span>` : r.state==='paused' ? `<span class="pill">${x.stPaused}</span>` : `<span class="pill ok">${x.stEnabled}</span>`;
+  const failed = r.last && r.last[1]==='failed';
+  const actions = r.state==='pending' ? `<button class="btn icon ghost ${o.menu?'hov':''}" title="${x.more}">${I.dots(14)}</button>`
+    : `<button class="btn ${failed?'pri':''}" ${o.off?'disabled':''}>${I.play(12)}${failed?x.retry:x.runNow}</button><button class="btn" ${o.off?'disabled':''}>${r.state==='paused'?I.play(12)+x.resume:I.pause(12)+x.pause}</button><button class="btn icon ghost ${o.menu?'hov':''}" title="${x.more}">${I.dots(14)}</button>`;
+  const banner = o.banner || '';
+  const nextList = o.nextList ? o.nextList.map(([d,h]) => `<li><span class="mono">${h}</span><span class="mut">${d}</span></li>`).join('') : r.state==='pending' ? `<li class="mut">${x.noneUntil}</li>` : r.state==='paused' ? `<li class="mut">${x.noneWhilePaused}</li>` : runs.next.map(([d,h]) => `<li><span class="mono">${h}</span><span class="mut">${d}</span></li>`).join('');
+  const past = o.pastList || (r.state==='pending' ? [] : runs.past);
+  const pastList = past.length ? past.map(([d,h,out,late,why]) => `<li>${out==='failed'?'<span class="mk bad">!</span>':'<span class="mk ok">✓</span>'}<span class="mono">${h}</span><span class="mut">${d}</span><span>${x.out[out]}</span>${late?`<span class="pill late">${x.late}</span><span class="mut">${x.lateLong(h, late)}</span>`:''}${why?`<span class="reason">${why}</span>`:''}</li>`).join('') : `<li class="mut">${x.never}</li>`;
+  return `<div class="rp2">
+    <div class="rhd">${I.alarm(18)}<h3>${r.name}</h3>${stPill}<span style="flex:1"></span>${actions}${o.menu?`<div class="menu" style="top:34px;right:0"><span class="hov">${I.open(14)}${x.openSession}</span><hr><span class="d">${I.trash(14)}${x.del}</span></div>`:''}</div>
+    <div class="wakes">${x.wakes}${logo(r.tool,12)}<b>${r.s}</b><span class="dot ${r.st==='working'?'work':r.st==='idle'?'idle':''}"></span><span class="mut">${x.st[r.st==='gone'?'off':r.st]}</span><span class="mut">${x.inDir}</span><span class="mono">${r.dir}</span><button class="btn ghost">${I.open(12)}${x.openSession}</button></div>
+    ${banner}
+    ${o.noRuns?'':`<section class="sect"><h4>${x.runs}</h4><div class="runs"><div><div class="lbl">${x.nextRuns}</div><ul>${nextList}</ul></div><div><div class="lbl">${x.pastRuns}</div><ul>${pastList}</ul></div></div></section>`}
+    <section class="sect"><h4>${x.config}</h4><div class="form">${formFields(o.form||{})}</div></section>
+    ${o.dirty?`<div class="dirtybar"><span class="dot ask"></span><span>${x.dirty}</span><span style="flex:1"></span><button class="btn">${x.discard}</button><button class="btn pri">${x.save}</button></div>`:''}
+    ${o.footer||''}
+  </div>`;
+};
+const newPage = (o={}) => { const x = t();
+  return `<div class="rp2"><div class="rhd">${I.alarm(18)}<h3>${x.newTitle}</h3><span style="flex:1"></span></div><span class="mut" style="font-size:12px;margin-top:-8px">${x.sub} <span class="tz">(${x.tz})</span></span>
+    <section class="sect"><h4>${x.config}</h4><div class="form">${formFields({blank:true, newSession:o.newSession, errs:o.errs, errDir:o.errDir})}</div></section>
+    <div class="dirtybar"><span style="flex:1"></span><button class="btn">${x.cancel}</button><button class="btn pri">${x.create}</button></div></div>`;
+};
+const bannerBox = (kind, head, body, btns) => `<div class="bn ${kind}"><div style="flex:1;min-width:0"><b>${head}</b>${body?`<p>${body}</p>`:''}</div>${btns?`<div class="go">${btns}</div>`:''}</div>`;
 
 function cards(){
   const x = t(), C = [], rs = R();
   const [pend, fail, brief, revue, paused] = rs;
+  const tabsBrief = [['Iris',''],['briefing','on']];
 
-  C.push({tag:'q', title:'Où vit la vue Routines : trois emplacements', wide:true,
-    why:'<b>A (recommandé) : une entrée de la barre d’activité</b>, un réveil entre « MR et PR » et Atelier, qui ouvre un <b>onglet « Routines »</b> comme Atelier et Réglages ouvrent le leur. La liste a cinq colonnes et des actions par ligne : la barre latérale (248 px) est trop étroite pour elle, l’onglet a la place. La pastille rouge compte les routines à activer ou en échec (les mêmes qui sont dans « À toi »). <b>B : une section de Réglages</b> : discret, mais une routine n’est pas un réglage, et on y viendrait chaque jour pour voir si le briefing est parti. <b>C : une section de l’Atelier</b> : l’Atelier montre des gens au travail, pas un planning ; la liste y serait à l’étroit. <b>jde tranche.</b> Les cartes suivantes dessinent A ; avec B ou C, la même page s’insère telle quelle.',
-    keys:'ide.routines « Routines » / “Routines” · ide.routinesTab (nouveaux) · palette : « Routines : ouvrir », « Routines : nouvelle routine »',
-    scene: `<div class="col"><div class="cap">A · ${L==='fr'?'barre d’activité (recommandé)':'activity bar (recommended)'}</div><div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;height:300px">${activity('routines',{flag:'routines', rBadge:2})}<div style="width:240px;background:var(--pane);padding:10px"><div class="tabs" style="margin:-10px -10px 10px"><span class="on">${I.alarm(13)}${x.routines}<span class="x">×</span></span></div><b>${x.routines}</b><p class="mut" style="font-size:11.5px">${x.sub}</p></div></div></div>
-      <div class="col"><div class="cap">B · ${L==='fr'?'Réglages':'Settings'}</div><div style="width:300px;height:300px;border:1px solid var(--border);border-radius:6px;background:var(--pane);display:grid;grid-template-columns:110px 1fr;overflow:hidden"><div style="background:var(--side);padding:10px 8px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted-foreground)"><span>${L==='fr'?'Général':'General'}</span><span>${L==='fr'?'Apparence':'Appearance'}</span><span>${L==='fr'?'Projets':'Projects'}</span><span class="flag" style="color:var(--foreground);background:var(--hover);padding:2px 4px;border-radius:4px">${x.routines}</span><span>${L==='fr'?'Machines':'Machines'}</span><span>${L==='fr'?'Mobile':'Mobile'}</span></div><div style="padding:10px"><b>${x.routines}</b><p class="mut" style="font-size:11.5px">${x.sub}</p></div></div></div>
-      <div class="col"><div class="cap">C · Atelier</div><div style="width:300px;height:300px;border:1px solid var(--border);border-radius:6px;background:var(--pane);padding:10px;display:flex;flex-direction:column;gap:8px"><div style="flex:1;border:1px dashed var(--input);border-radius:6px;display:grid;place-items:center" class="mut">${L==='fr'?'les tables et les sessions':'tables and sessions'}</div><div class="flag" style="border:1px solid var(--border);border-radius:6px;padding:8px"><b>${x.routines}</b> <span class="mut">· 5</span><div class="mut" style="font-size:11.5px">briefing 13:30 · veille 18:00 …</div></div></div></div>`});
+  C.push({tag:'new', title:'La barre d’activité bascule la barre latérale sur les routines', wide:true,
+    why:'Retour de jde : l’icône réveil de la barre d’activité <b>remplace l’explorateur par la liste des routines</b>, comme Projets, Rigs, « À toi » et MR et PR changent la barre latérale. Un clic sur une routine <b>ouvre sa page dans l’éditeur</b> : son détail en haut, sa configuration dessous. Une routine = un onglet (titre : son nom, icône réveil) ; recliquer la ramène devant. La ligne de la routine dont l’onglet est devant est surlignée. La pastille rouge de l’icône compte les routines à activer ou en échec. Palette : « Routines : afficher », « Routines : nouvelle routine ».',
+    keys:'ide.routines « Routines » (barre d’activité, en-tête de la barre latérale) · routines.* (cartes suivantes)',
+    scene: ide(rpage(brief), {side:rside({sel:'briefing'}), tabs:tabsBrief, rBadge:2, atoiBadge:2, tall:true})});
 
-  C.push({tag:'new', title:'La vue Routines : la liste', wide:true,
-    why:'Un onglet de l’éditeur, la même page que « À toi » (titre, sous-titre, bouton à droite). L’onglet n’a qu’environ 680 px quand l’explorateur et le chat sont ouverts : pas de tableau, une ligne de trois niveaux par routine. <b>1</b> : le nom (son id pour le CLI en infobulle), les heures, les jours. <b>2</b> : la session réveillée (logo de l’outil comme dans l’explorateur de l’IDE, son état en point et en mot, son dossier). <b>3</b> : le dernier tir (✓ ou !, l’issue : remise, reprise puis remise, lancée, échouée ; « en retard » en pastille pointillée, avec l’heure réelle ; la raison en rouge). À droite : le <b>prochain tir</b> (heure, puis jour), puis les actions. Plus large (panneaux masqués), la même ligne s’étire. <b>Ordre</b> : à activer, puis en échec, puis par prochain tir ; les routines en pause en dernier, estompées sauf leurs boutons. Le liseré gauche dit l’état qui demande quelque chose : ambre = à activer, rouge = dernier tir échoué. Survol : fond de ligne. Clic sur une ligne : rien (les actions sont des boutons) ; double-clic : Modifier.',
-    keys:'routines.title · .sub · .add · .cols.{name,session,when,next,last} · .outcome.{delivered,resumed,launched,failed} · .late · .lateLong(slot,at) · .paused · .pending · .pendingBy(who,at) · .never · .state.off',
-    scene: ide(listPage(row(pend)+row(fail)+row(brief,{hov:true})+row(revue)+row(paused)), {rBadge:2, atoiBadge:2})});
+  C.push({tag:'new', title:'La barre latérale : une routine par ligne, de près', wide:true,
+    why:'Largeur de l’explorateur (248 px), donc deux lignes : <b>le nom</b> et, à droite, <b>le prochain tir</b> (l’heure seule si c’est aujourd’hui, « demain 09:00 » sinon) ; dessous, <b>logo · session · heures · jours</b>, coupé avec « … » (tout au survol). Une troisième ligne seulement quand il y a quelque chose à dire : « Attend ton accord », la raison d’un échec en rouge, « en retard ». À gauche, l’état de la session réveillée (point), remplacé par <b>?</b> (à activer), <b>!</b> (dernier tir échoué) ou <b>‖</b> (en pause). Ordre : à activer, en échec, par prochain tir ; les routines en pause dans un groupe repliable « En pause » en bas, comme Archives dans l’explorateur. <b>Survol</b> : le prochain tir laisse la place à deux boutons, Lancer maintenant et Pause / Reprendre. <b>Clic droit</b> : Lancer maintenant, Pause, Ouvrir la session, Supprimer…. Le <b>+</b> de l’en-tête ouvre une page « Nouvelle routine ». En pied, le fuseau.',
+    keys:'routines.pausedGroup(n) · .tzFoot · .runNow · .pause · .resume · .openSession · .delete · .pending · .late · .lateLong(slot,at)',
+    scene: `<div class="col"><div class="cap">${L==='fr'?'au repos':'at rest'}</div>${rside({sel:'briefing'})}</div><div class="col"><div class="cap">${L==='fr'?'survol':'hover'}</div>${rside({hov:'revue-prs'})}</div><div class="col" style="position:relative"><div class="cap">${L==='fr'?'clic droit':'right click'}</div>${rside({menu:'briefing', hov:'briefing'})}</div>`});
 
-  C.push({tag:'new', title:'Une ligne : ses actions et le menu ⋯', wide:true,
-    why:'Toujours visibles : <b>Lancer maintenant</b> (Relancer si le dernier tir a échoué) et <b>Pause</b> / <b>Reprendre</b>. Le reste dans ⋯ : <b>Modifier</b>, <b>Ouvrir la session</b> (son onglet, comme un clic dans l’explorateur), puis <b>Supprimer…</b> en rouge, séparé. Clavier : la liste se parcourt avec ↑ ↓, Entrée = Lancer maintenant n’est <b>pas</b> proposé (trop facile à déclencher) ; Entrée ouvre Modifier, Suppr ouvre la confirmation. Focus visible : l’anneau du design system.',
-    keys:'routines.runNow · .retry · .pause · .resume · .edit · .openSession · .delete · .more',
-    scene: `<div class="rpage free" style="max-width:820px;padding:12px;min-height:200px"><div class="rlist" style="overflow:visible">${row(brief,{hov:true, menu:true})}</div></div>`});
+  C.push({tag:'new', title:'La page d’une routine : détail, puis configuration', wide:true,
+    why:'En haut : le nom, son état (<b>Active</b>, <b>En pause</b>, <b>Attend ton accord</b>), puis <b>Lancer maintenant</b>, <b>Pause</b> / <b>Reprendre</b> et ⋯ (Ouvrir la session, Supprimer…). Dessous, une phrase : « Réveille Iris (état) dans ~/assistant », avec Ouvrir la session. <b>Tirs</b> : les trois prochains, et les derniers (heure du créneau, jour, issue, « en retard » avec l’heure réelle, raison d’un échec). <b>Configuration</b> : le formulaire, toujours modifiable sur place (pas de mode « Modifier ») ; dès qu’un champ change, une barre collée en bas propose Annuler les modifications / Enregistrer (carte 4). La page défile ; l’en-tête ne reste pas collé.',
+    keys:'routines.state.{enabled,paused,pending} · .wakes · .inDir · .runs · .nextRuns · .pastRuns · .config · .noneUntil · .noneWhilePaused · formulaire : routines.form.* (inchangé depuis la v1)',
+    scene: `<div class="paneframe">${rpage(brief)}</div>`});
 
-  C.push({tag:'new', title:'Supprimer : la confirmation dans la ligne', wide:true,
-    why:'Pas de fenêtre par-dessus : la ligne s’ouvre sur la question, comme la confirmation de fusion d’une MR. Annuler a le focus ; Échap annule. La session n’est jamais touchée : seule la routine part. Une session peut supprimer ses propres routines sans demander (spec §3.4) : elle passe par le CLI, pas par ici.',
-    keys:'routines.del.question(name) · .del.why(session) · .del.confirm · common cancel',
-    scene: `<div class="rpage free" style="max-width:820px;padding:12px"><div class="rlist">${row(revue,{confirm:true})}</div></div>`});
+  C.push({tag:'new', title:'Modifier : la barre « Modifications non enregistrées »', wide:true,
+    why:'Un champ changé : un point ambre devant le nom de l’onglet (« • briefing »), et la barre en bas de la page. <b>Enregistrer</b> (Ctrl+S) applique tout et le daemon recalcule le prochain tir ; <b>Annuler les modifications</b> remet la page comme elle était. Fermer l’onglet ou cliquer une autre routine dans la barre latérale avec des modifications en cours : la question habituelle « Enregistrer / Ne pas enregistrer / Annuler ». Les erreurs s’affichent sous le champ, comme en v1 ; Enregistrer avec une erreur met le focus dessus.',
+    keys:'routines.dirty · .discard · .save · routines.err.* (v1) · question de fermeture : celle des dispositions (existante)',
+    scene: ide(rpage(brief, {dirty:true, noRuns:true, form:{times:['07:30','13:30','16:30']}}), {side:rside({sel:'briefing'}), tabs:[['Iris',''],['• briefing','on']], tall:true})});
+
+  C.push({tag:'new', title:'Nouvelle routine : la même page, vide', wide:true,
+    why:'Le <b>+</b> de la barre latérale (ou « Nouvelle routine » de l’état vide, ou la palette) ouvre un onglet « Nouvelle routine » : la configuration seule, sans Tirs. La barre du bas porte <b>Annuler</b> / <b>Créer la routine</b> dès l’ouverture. Créer ferme cette page et ouvre celle de la routine créée ; sa ligne apparaît dans la barre latérale. À droite, la variante « Une nouvelle session » avec les erreurs (aucune heure, aucun jour, dossier absent).',
+    keys:'routines.form.newTitle · .create · .promptPh · routines.err.*',
+    scene: `<div class="paneframe">${newPage()}</div><div class="paneframe">${newPage({newSession:true, errs:true, errDir:true})}</div>`});
+
+  C.push({tag:'new', title:'Une routine qu’une session demande', wide:true,
+    why:'La ligne est en tête de la barre latérale, avec <b>?</b> et « Attend ton accord ». Sa page commence par un bandeau ambre : « Iris demande à programmer cette routine (02:10). Elle ne partira qu’une fois activée. », avec <b>Activer</b> et <b>Refuser</b>. Le prompt est lisible dans la configuration, dessous. <b>Proposition</b> : tu peux corriger la routine avant de l’activer (une heure, le prompt) ; Activer enregistre alors tes modifications. Pas de Lancer maintenant ni de Pause tant qu’elle n’est pas activée. Refuser supprime la routine, prévient la session et ferme l’onglet.',
+    keys:'routines.pendBanner(who,at) · .pendEditHint · .activate · .refuse',
+    scene: ide(rpage(pend, {banner: bannerBox('ask', x.pendBanner('Iris','02:10'), x.pendEditHint, `<button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button>`),
+      form:{name:'point-hebdo', times:['17:00'], daysOn:[4], s:'Iris', st:'idle', stTxt:x.st.idle, prompt:'Point de la semaine du <span class="v">{date}</span> : relis journal/, résume ce qui a avancé et ce qui reste, mets les décisions dans À toi.', previewAt:'17:00', preview:'Point de la semaine du 2026-11-27 : relis journal/, résume ce qui a avancé et ce qui reste, mets les décisions dans À toi.'}}),
+      {side:rside({sel:'point-hebdo'}), tabs:[['Iris',''],['point-hebdo','on']], rBadge:2, atoiBadge:2, tall:true})});
+
+  C.push({tag:'q', title:'Une session modifie sa routine : le bandeau montre ce qui change', wide:true,
+    why:'Même bandeau ambre, avec la liste des champs qui changent, <b>avant → demandé</b> (« Heures : 08:00, 13:30, 16:30 → 07:30, 13:30, 16:30 »). Les champs concernés sont entourés en ambre dans la configuration, qui montre déjà la version demandée. Activer applique, Refuser garde l’ancienne version. <b>Question ouverte</b> (comportement) : en attendant, la routine garde-t-elle ses anciennes heures (dessiné : « 13:30 » reste le prochain tir) ou s’arrête-t-elle ?',
+    keys:'routines.editBanner(who) · .editKeeps',
+    scene: `<div class="paneframe">${rpage(brief, {noRuns:false, banner: bannerBox('ask', x.editAsk('Iris'), `${x.fTimes} : <span class="mono"><s>08:00</s>, 13:30, 16:30 → 07:30, 13:30, 16:30</span><br>${x.editOld}`, `<button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button>`), form:{times:['07:30','13:30','16:30'], askTimes:true}})}</div>`});
+
+  C.push({tag:'new', title:'Dernier tir échoué', wide:true,
+    why:'Dans la barre latérale, <b>!</b> et la raison en rouge. Sur la page, un bandeau rouge : « Le tir de 18:00 n’a pas pu partir : dossier introuvable : ~/veille », avec <b>Relancer</b>. Quand la raison vient d’un champ (dossier, outil), ce champ est entouré de rouge dans la configuration pour qu’on le corrige là. Le bandeau part au prochain tir réussi ; l’échec reste dans les derniers tirs.',
+    keys:'routines.failBanner(slot,why) · .failHint · .retry · routines.err.dirExisting',
+    scene: `<div class="paneframe">${rpage(fail, {banner: bannerBox('bad', x.failBanner('18:00', x.failNoDir), x.failHint, `<button class="btn pri">${I.play(12)}${x.retry}</button>`),
+      pastList:[[x.yesterday,'18:00','failed',null,x.failNoDir],[x.saturday,'18:00','launched']], nextList:[[x.today,'18:00'],[x.tomorrowDay,'18:00'],[x.wednesday,'18:00']], form:{name:'veille', times:['18:00'], daysOn:[0,1,2,3,4,5,6], s:'Nova', st:'', stTxt:x.st.off, dir:'~/veille', errDir:true, prompt:'Veille du <span class="v">{date}</span> : lis les flux de sources.md, note ce qui compte dans veille/{date}.md.', previewAt:'18:00', preview:'Veille du 2026-11-23 : lis les flux de sources.md, note ce qui compte dans veille/2026-11-23.md.'}})}</div>`});
 
   C.push({tag:'new', title:'Lancer maintenant : pendant et après', wide:true,
-    why:'Le clic part tout de suite, sans confirmation (c’est le test d’une routine, ou un briefing à la demande). Pendant que le prompt attend son tour, la colonne « Dernier tir » dit ce qui se passe : <b>attend que Iris soit libre…</b> (session occupée, le prompt est tapé à son prochain moment libre) ou <b>Iris redémarre…</b> (session arrêtée, reprise en cours). Les boutons de la ligne sont désactivés pendant ce temps. Puis un toast en bas à droite, comme les autres toasts de l’IDE : remise, reprise puis remise, ou l’échec avec <b>Voir</b> (vers « À toi »). Le prochain tir prévu ne change pas.',
+    why:'Depuis la page ou le survol d’une ligne, sans confirmation. Pendant l’attente, la ligne de la barre latérale et le haut de la page disent ce qui se passe : <b>attend que Iris soit libre…</b> ou <b>Iris redémarre…</b> ; les boutons attendent. Puis le toast habituel (remise, reprise puis remise, ou l’échec avec <b>Voir</b>, qui ouvre la page de la routine), et le tir rejoint « Derniers ».',
     keys:'routines.waiting(session) · .starting(session) · .toast.{delivered,resumed,failed}',
-    scene: `<div class="col" style="width:100%;max-width:820px"><div class="rpage free" style="padding:12px"><div class="rlist">${row(brief,{running:x.waiting('Iris')})}${row(revue,{running:x.starting('Otto')})}</div></div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end"><div class="toast"><span class="mk ok">✓</span>${x.toastRun('briefing','Iris')}</div><div class="toast"><span class="mk ok">✓</span>${x.toastResumed('revue-prs','Otto')}</div><div class="toast"><span class="mk bad">!</span>${x.toastFailed('veille', x.failNoDir)}<button class="btn">${x.see}</button></div></div></div>`});
+    scene: `${rside({sel:'briefing', running:['briefing', x.waiting('Iris')]})}<div class="col" style="gap:8px;align-items:flex-start;align-self:center"><div class="toast"><span class="mk ok">✓</span>${x.toastRun('briefing','Iris')}</div><div class="toast"><span class="mk ok">✓</span>${x.toastResumed('revue-prs','Otto')}</div><div class="toast"><span class="mk bad">!</span>${x.toastFailed('veille', x.failNoDir)}<button class="btn">${x.see}</button></div></div>`});
 
-  C.push({tag:'new', title:'Créer : une session existante', wide:true,
-    why:'« Nouvelle routine » remplace la liste par le formulaire (« ‹ Routines » ramène, Échap aussi, avec une question si un champ a changé ; pas de modale : le prompt a besoin de place). <b>Session</b> : la liste des sessions connues, celles qui tournent et les archivées, avec logo, état et dossier. <b>Heures</b> : des puces, « + Ajouter une heure » ouvre un champ HH:MM (24 h, les deux langues) ; triées à l’enregistrement. <b>Jours</b> : sept bascules, plus deux raccourcis. <b>Créneau manqué</b> : « Au réveil, une fois » par défaut (décision de jde). <b>Prompt</b> : texte libre, trois boutons insèrent <code>{slot}</code> <code>{date}</code> <code>{last}</code> au curseur, surlignés en violet dans le champ ; l’aperçu dessous remplit le prochain créneau. Modifier = le même formulaire, rempli, titre « Modifier « briefing » », bouton Enregistrer.',
-    keys:'routines.form.{newTitle,editTitle(name),name,nameHint,session,existing,existingHint,new,newHint,times,addTime,days,presetWeek,presetDaily,catchUp,catchOnce,catchOnceHint,catchSkip,catchSkipHint,prompt,vars,var.slot,var.date,var.last,previewAt(time),create,save} · routines.back',
-    scene: ide(`<div class="rpage"><button class="btn ghost" style="align-self:flex-start;margin-left:-6px">${I.back(13)}${x.back}</button><h3 style="margin:0;font-size:15px">${x.newTitle}</h3>
-      <div class="form">
-        <div class="fld"><label>${x.fName}</label><div class="col"><div class="inp">briefing</div><span class="hint">${x.fNameHint}</span></div></div>
-        <div class="fld"><label>${x.fSession}</label><div class="radios">
-          <div class="radio"><i class="on"></i><div>${x.fExisting}<small>${x.fExistingHint}</small></div></div>
-          <div class="sub"><div class="inp sel">${logo('claude',12)}<b style="font-weight:500">Iris</b><span class="dot work"></span><span class="mut" style="font-size:11.5px">${x.st.working}</span><span class="mono mut" style="margin-left:6px">~/assistant</span></div></div>
-          <div class="radio"><i></i><div>${x.fNew}<small>${x.fNewHint}</small></div></div></div></div>
-        <div class="fld"><label>${x.fTimes}</label><div class="chips"><span class="chip">08:00<span class="x">×</span></span><span class="chip">13:30<span class="x">×</span></span><span class="chip">16:30<span class="x">×</span></span><button class="btn ghost">${I.plus(12)}${x.addTime}</button></div></div>
-        <div class="fld"><label>${x.fDays}</label><div class="chips"><span class="days">${x.letters.map((d,i)=>`<span class="${i<5?'on':''}">${d}</span>`).join('')}</span><button class="btn ghost">${x.presetWeek}</button><button class="btn ghost">${x.presetDaily}</button></div></div>
-        <div class="fld"><label>${x.fCatch}</label><div class="radios"><div class="radio"><i class="on"></i><div>${x.catchOnce}<small>${x.catchOnceHint}</small></div></div><div class="radio"><i></i><div>${x.catchSkip}<small>${x.catchSkipHint}</small></div></div></div></div>
-        <div class="fld"><label>${x.fPrompt}</label><div class="col" style="gap:6px"><div class="ta">Briefing de <span class="v">{slot}</span> (précédent : <span class="v">{last}</span>). Relis etat.md, collecte, compare, écris journal/<span class="v">{date}</span>.md, mets les décisions dans À toi.</div>
-          <div class="vars">${x.varsLabel}<button>{slot}</button>${x.vSlot}<button>{date}</button>${x.vDate}<button>{last}</button>${x.vLast}</div>
-          <div class="preview">${x.previewAt('13:30')} <b>Briefing de 13:30 (précédent : 08:00). Relis etat.md, collecte, compare, écris journal/2026-11-23.md, mets les décisions dans À toi.</b></div></div></div>
-        <div class="fgo"><button class="btn">${x.cancel}</button><button class="btn pri">${x.create}</button></div>
-      </div></div>`, {tall:true, rBadge:2, atoiBadge:2})});
+  C.push({tag:'new', title:'Supprimer', wide:true,
+    why:'Depuis ⋯ de la page ou le clic droit d’une ligne. La page s’ouvre (si elle ne l’était pas) sur un bandeau rouge en haut : la question, ce qu’elle fait et ne fait pas, <b>Annuler</b> (focus) / <b>Supprimer</b>. Échap annule. Supprimée : l’onglet se ferme, la ligne quitte la barre latérale, la session reste.',
+    keys:'routines.del.question(name) · .del.why(session) · .del.confirm',
+    scene: `<div class="paneframe" style="max-height:330px;overflow:hidden">${rpage(revue, {banner: bannerBox('bad', x.delQ('revue-prs'), x.delWhy('Otto'), `<button class="btn">${x.cancel}</button><button class="btn dangerfill">${x.delGo}</button>`), noRuns:true, form:{name:'revue-prs', times:['09:00'], s:'Otto', tool:'codex', st:'idle', stTxt:x.st.idle, dir:'~/Workspace/ledge'}})}</div>`});
 
-  C.push({tag:'new', title:'Créer : une nouvelle session, et les erreurs', wide:true,
-    why:'« Une nouvelle session » déplie ses quatre champs, ceux de la fenêtre « Nouvelle session » : nom, dossier (avec Parcourir…), outil, modèle (« par défaut de l’outil » si vide). Rien n’est lancé à la création : la session naît au premier tir. <b>Erreurs</b> sous le champ, en rouge, au moment d’enregistrer puis en direct : nom déjà pris pour cette session, aucune heure, aucun jour, dossier absent. Une heure en double est refusée à la saisie. Le bouton reste actif ; un clic avec une erreur met le focus sur la première.',
-    keys:'routines.form.{sessionName,folder,browse,tool,model,modelDefault} · routines.err.{name,times,days,folder,dupTime(time)}',
-    scene: `<div class="rpage free" style="max-width:720px;padding:14px"><div class="form">
-      <div class="fld"><label>${x.fName}</label><div class="col"><div class="inp err">briefing</div><span class="hint err">${x.errName}</span></div></div>
-      <div class="fld"><label>${x.fSession}</label><div class="radios"><div class="radio"><i></i><div>${x.fExisting}</div></div><div class="radio"><i class="on"></i><div>${x.fNew}<small>${x.fNewHint}</small></div></div>
-        <div class="sub"><div class="fld" style="grid-template-columns:110px 1fr"><label>${x.fSName}</label><div class="inp">Iris</div></div>
-        <div class="fld" style="grid-template-columns:110px 1fr"><label>${x.fDir}</label><div class="col"><div style="display:flex;gap:6px"><div class="inp err" style="flex:1">${I.folder(13)}<span class="mono">~/assistant</span></div><button class="btn">${x.browse}</button></div><span class="hint err">${x.errDir}</span></div></div>
-        <div class="fld" style="grid-template-columns:110px 1fr"><label>${x.fTool}</label><div class="inp sel">${logo('claude',12)}Claude Code</div></div>
-        <div class="fld" style="grid-template-columns:110px 1fr"><label>${x.fModel}</label><div class="inp sel"><span class="ph">${x.modelDefault}</span></div></div></div></div></div>
-      <div class="fld"><label>${x.fTimes}</label><div class="col"><div class="chips"><span class="chip">08:00<span class="x">×</span></span><span class="inp foc" style="width:80px;height:26px"><span class="mono">08:00</span></span></div><span class="hint err">${x.dup}</span></div></div>
-      <div class="fld"><label>${x.fDays}</label><div class="col"><span class="days">${x.letters.map(d=>`<span>${d}</span>`).join('')}</span><span class="hint err">${x.errDays}</span></div></div>
-      <div class="fgo"><button class="btn">${x.cancel}</button><button class="btn pri">${x.create}</button></div></div></div>`});
-
-  C.push({tag:'new', title:'Une routine qu’une session demande : Activer / Refuser sur place', wide:true,
-    why:'Créée par une session (<code>LEDGE_SESSION</code>), la routine arrive <b>en attente</b> : en tête de liste, liseré ambre, « Demandée par Iris · 02:10 », « Attend ton accord » à la place du dernier tir, pas de prochain tir (—). <b>Activer</b> et <b>Refuser</b> sur la ligne font la même chose que dans « À toi » (les deux restent synchronisés). « ▸ Voir le prompt » le déplie dans la ligne : on ne valide pas un travail sans surveillance sans l’avoir lu. Refuser supprime la routine et prévient la session, sans confirmation (rien ne tournait).',
-    keys:'routines.pending · .pendingBy(who,at) · .activate · .refuse · .seePrompt · .hidePrompt',
-    scene: `<div class="rpage free" style="max-width:820px;padding:12px"><div class="rlist">${row(pend,{prompt:true})}</div></div>`});
-
-  C.push({tag:'q', title:'Une session modifie sa routine : la demande montre ce qui change', wide:true,
-    why:'Spec §3.4 : une modification par la session des heures, des jours, de la cible ou du prompt repasse par l’accord. La ligne montre <b>avant → demandé</b>, seulement les champs qui changent. <b>Question ouverte</b> (comportement, pas visuel) : pendant l’attente, la routine garde-t-elle ses anciennes heures (dessiné ici, recommandé : un briefing ne s’arrête pas parce qu’on n’a pas encore répondu) ou s’arrête-t-elle ? Le schéma de la spec n’a qu’un état <code>pending</code>.',
-    keys:'routines.editAsk(who) · .editWas · .editNow · .editKeeps',
-    scene: `<div class="rpage free" style="max-width:720px;padding:12px"><div class="rlist"><div class="rrow pending">
-      <div class="c main"><div class="l"><b style="font-size:13px">briefing</b><span class="times"><s class="mut">08:00</s> → 07:30 · 13:30 · 16:30</span><span class="mut">${x.monfri}</span><span class="cut mut">${x.editAsk('Iris')}</span></div>
-      <div class="l">${who(brief)}<span class="mono mut" style="font-size:10.5px">~/assistant</span></div><div class="l last">${lastCell(brief)}</div></div>
-      <div class="c"><span class="nx">13:30</span><small>${x.today}</small></div>
-      <div class="c acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button></div>
-      <div class="sub2"><span>${x.editOld}</span></div></div></div></div>`});
-
-  C.push({tag:'new', title:'États : vide, connexion, hors ligne, beaucoup de routines', wide:true,
-    why:'<b>Vide</b> : une phrase qui dit ce qu’est une routine, le bouton, et la commande du CLI pour qui préfère le terminal. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : la dernière liste, estompée, sous un bandeau qui dit que <b>rien ne part</b> tant que le daemon est arrêté ; boutons désactivés. <b>Plusieurs machines</b> : la page montre les routines de la machine choisie dans la barre de titre, comme le reste de l’IDE (pas de colonne machine). <b>Beaucoup de routines</b> : la page défile, l’en-tête de colonnes reste collé en haut. Nom long : coupé avec « … », nom complet au survol.',
-    keys:'routines.empty.{title,body,cli} · routines.connecting · routines.offline',
-    scene: `<div class="rpage free" style="max-width:600px;padding:14px">${pageTop()}<div class="empty">${I.alarm(28)}<h4>${x.emptyT}</h4><span style="max-width:440px">${x.emptyB}</span><button class="btn pri">${I.plus(13)}${x.add}</button><span style="font-size:11.5px;display:flex;flex-direction:column;align-items:center;gap:5px">${x.emptyCli}<code style="white-space:nowrap">ledge routine add briefing --session Iris --at 08:00 --days mon-fri -- "…"</code></span></div></div>
-      <div class="col" style="flex:1;min-width:520px;max-width:900px;gap:14px"><div class="rpage free" style="padding:14px">${pageTop()}<div class="empty" style="padding:18px"><span style="display:flex;gap:8px;align-items:center"><span class="spin"></span>${x.connecting}</span></div></div>
-      ${listPage(row(brief,{offline:true})+row(revue,{offline:true}), {free:true, dim:true, banner:`<div class="banner"><span class="dot"></span>${x.offline}</div>`})}</div>`});
+  C.push({tag:'new', title:'États : vide, connexion, daemon hors ligne', wide:true,
+    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : les routines de la machine choisie dans la barre de titre, comme le reste de l’IDE. <b>Beaucoup de routines</b> : la barre latérale défile.',
+    keys:'routines.empty.{title,side} · routines.connecting · routines.offlineShort',
+    scene: `${rside({empty:true})}${rside({connecting:true})}${rside({offline:true})}`});
 
   C.push({tag:'q', title:'La petite horloge sur une session réveillée par une routine', wide:true,
-    why:'<b>Recommandé : dans la ligne de session de l’explorateur</b>, une horloge grise de 12 px après le nom, sans chiffre (la ligne a déjà le point d’état et la branche). Infobulle : « Routine « briefing » · prochain tir aujourd’hui 13:30 », ou « 2 routines · prochain tir … ». Clic sur l’horloge : l’onglet Routines. Une session archivée garde l’horloge : c’est elle qui sera reprise. <b>Option en plus</b> (à trancher) : dans la barre d’état, le prochain tir de toutes les routines (« ⏱ briefing 13:30 »), clic = onglet Routines. Je ne la recommande pas : la barre d’état est déjà chargée (demandes, MR/PR, limites, disposition) et l’horloge de la ligne suffit. Les deux emplacements sont entourés en pointillé.',
+    why:'Inchangé dans le fond : <b>recommandé, dans la ligne de session de l’explorateur</b> (horloge grise 12 px, infobulle avec le prochain tir). Ce qui change avec la v2 : un clic sur l’horloge passe la barre latérale sur Routines et ouvre la page de la routine (ou, s’il y en a plusieurs, la barre latérale sur Routines avec ses lignes surlignées). <b>Option</b> (non recommandée) : le prochain tir dans la barre d’état. Les deux emplacements sont entourés en pointillé.',
     keys:'routines.clockTip(name,next) · routines.clockTipMany(n,next) · routines.statusNext(name,time) (option)',
-    scene: ide(listPage(row(brief)+row(revue)), {flagClock:true, next:true, flagSb:true, short:true, sel:'Iris'})});
+    scene: ide(rpage(brief, {noRuns:true}), {on:'projects', flagClock:true, next:true, flagSb:true, short:true, sel:'Iris', tabs:tabsBrief})});
   return C;
 }
 
@@ -614,7 +688,7 @@ function atoiCards(){
   const askLine = (unfold) => `<div class="line"><span class="mk ask">?</span><span class="grow"><b>Iris</b> ${x.askLine('', 'point-hebdo', '17:00', x.fri, '~/assistant').replace(/^ /,'')}</span><button class="btn ghost">${unfold?'▾ '+x.hidePrompt:'▸ '+x.seePrompt}</button><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button></div>${unfold?`<div class="unfold">${R()[0].prompt}</div>`:''}`;
   const failLine = `<div class="line"><span class="mk bad">!</span><span class="grow">${x.failLine('veille','Nova', x.failNoDir)}</span><button class="btn pri">${x.retry}</button><button class="btn">${x.see}</button></div>`;
   C.push({tag:'new', title:'« À toi », la page : un bloc Routines', wide:true,
-    why:'Un bloc <b>Routines</b> (« à activer, ou qui n’ont pas pu partir »), <b>caché quand il est vide</b> comme Décisions et Rigs, placé après Décisions : ce qui se décide d’abord. Deux lignes possibles, dans le style des lignes voisines. <b>Demande d’activation</b> : « ? » ambre, le texte de la spec (« Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant »), « Voir le prompt » qui le déplie dessous, <b>Activer</b> / <b>Refuser</b>. <b>Échec</b> : « ! » rouge, « La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille », <b>Relancer</b> / <b>Voir</b> (Voir = l’onglet Routines, ligne surlignée 1,5 s en violet de liaison). Activer, Refuser, Relancer réglés : la ligne part. L’échec part aussi au tir réussi suivant.',
+    why:'Un bloc <b>Routines</b> (« à activer, ou qui n’ont pas pu partir »), <b>caché quand il est vide</b> comme Décisions et Rigs, placé après Décisions : ce qui se décide d’abord. Deux lignes possibles, dans le style des lignes voisines. <b>Demande d’activation</b> : « ? » ambre, le texte de la spec (« Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant »), « Voir le prompt » qui le déplie dessous, <b>Activer</b> / <b>Refuser</b>. <b>Échec</b> : « ! » rouge, « La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille », <b>Relancer</b> / <b>Voir</b> (Voir = la page de cette routine, comme un clic dans la barre latérale Routines). Activer, Refuser, Relancer réglés : la ligne part. L’échec part aussi au tir réussi suivant.',
     keys:'atoiPage.routines · atoiPage.routinesSub · atoi.routine.ask(who,name,times,days,dir) · atoi.routine.failed(name,who,why) · routines.activate/.refuse/.retry/.seePrompt (partagés)',
     scene: `<div class="atoipage"><div style="display:flex;gap:12px"><div style="flex:1"><h3>${x.atoi}</h3><span class="mut" style="font-size:12px">${x.atoiSub}</span></div></div>
       <div class="blk"><div class="blk-h"><span class="dot perm"></span><b>${x.requests}</b><span class="psub">1</span></div><div class="blk-b"><div class="line"><span class="dot perm"></span><b>Lu</b><span class="grow mut">${x.allowCommand} · <code>pnpm test</code></span><button class="btn pri">${x.allow}</button><button class="btn">${x.deny}</button></div></div></div>
@@ -622,13 +696,13 @@ function atoiCards(){
       <div class="blk" style="border-color:color-mix(in srgb,var(--note) 55%,var(--border))"><div class="blk-h"><span class="mut" style="display:inline-flex">${I.alarm(14)}</span><b>${x.blkRoutines}</b><span class="psub">2 · ${x.blkRoutinesSub}</span><span class="sp"></span><span class="newmark">${L==='fr'?'nouveau':'new'}</span></div><div class="blk-b">${askLine(true)}${failLine}</div></div>
       <div class="blk"><div class="blk-h"><span class="dot idle"></span><b>${x.finished}</b><span class="psub">1</span></div><div class="blk-b"><div class="line"><span class="dot idle"></span><b>Iris</b><span class="grow mut">${L==='fr'?'Briefing de 08:00 écrit : journal/2026-11-23.md, 3 décisions.':'08:00 briefing written: journal/2026-11-23.md, 3 decisions.'}</span><button class="btn">${L==='fr'?'Ouvrir':'Open'}</button></div></div></div></div>`});
   C.push({tag:'new', title:'« À toi », la barre latérale de l’IDE',
-    why:'La vue « À toi » de la barre latérale (248 px) reprend les deux lignes en format court : qui, puis le texte sur deux lignes au plus, puis les boutons dessous. La demande garde Activer / Refuser (le prompt se lit par « Voir », qui ouvre la page « À toi » sur la ligne dépliée). La pastille ambre de l’entrée « À toi » de la barre d’activité les compte comme les autres décisions ; un échec compte en rouge.',
+    why:'La vue « À toi » de la barre latérale (248 px) reprend les deux lignes en format court : qui, puis le texte sur deux lignes au plus, puis les boutons dessous. La demande garde Activer / Refuser (« Voir » ouvre la page de la routine, où le prompt se lit dans la configuration). La pastille ambre de l’entrée « À toi » de la barre d’activité les compte comme les autres décisions ; un échec compte en rouge.',
     keys:'(mêmes textes que la page)',
     scene: `<div class="side"><span class="h">${x.atoi}</span>
       <div class="row"><span class="mk ask">?</span><div><b>Iris</b> · ${x.pRoutine.toLowerCase()}<small>${L==='fr'?'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant':'wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant'}</small><div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button><button class="btn ghost">${x.see}</button></div></div></div>
       <div class="row"><span class="mk bad">!</span><div><b>Nova</b> · ${x.pRoutine.toLowerCase()}<small>${L==='fr'?'veille n’a pas pu partir : dossier introuvable : ~/veille':'veille could not run: folder not found: ~/veille'}</small><div class="acts"><button class="btn pri">${x.retry}</button><button class="btn ghost">${x.see}</button></div></div></div></div>`});
   C.push({tag:'new', title:'« À toi », l’île',
-    why:'L’île (toujours sombre) montre les mêmes deux items dans ses cartes habituelles : qui et « routine » en tête, le texte, puis les boutons. Activer, Refuser et Relancer agissent depuis l’île ; « Voir » ouvre Ledge Desktop sur l’onglet Routines (comme « Voir » d’une décision ouvre « À toi »). Le prompt n’est pas déplié dans l’île : trop long pour elle ; « Voir » le montre.',
+    why:'L’île (toujours sombre) montre les mêmes deux items dans ses cartes habituelles : qui et « routine » en tête, le texte, puis les boutons. Activer, Refuser et Relancer agissent depuis l’île ; « Voir » ouvre Ledge Desktop sur la page de la routine (comme « Voir » d’une décision ouvre « À toi »). Le prompt n’est pas déplié dans l’île : trop long pour elle ; « Voir » le montre.',
     keys:'overlay : atoi.routine.ask · .failed · .activate · .refuse · .retry · .see (nouveaux, catalogue de l’île)',
     scene: `<div class="island"><div class="ih"><b>Ledge</b><span>· ${x.atoi} · 2</span></div>
       <div class="it"><div class="who"><span class="mk ask">?</span><b>Iris</b><span>· ${x.pRoutine.toLowerCase()} · 02:10</span></div><span>${L==='fr'?'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant':'Iris wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant'}</span><div class="acts"><button class="btn pri">${x.activate}</button><button class="btn">${x.refuse}</button><button class="btn ghost">${x.see}</button></div></div>
@@ -700,28 +774,33 @@ function tuiCard(){
 }
 
 function fiche(){
-  return `<section class="fiche"><h2>${L==='fr'?'Fiche de transmission':'Handoff sheet'} (dev-front, dev-back)</h2><table>
+  return `<section class="fiche"><h2>${L==='fr'?'Fiche de transmission (v2)':'Handoff sheet'} (dev-front, dev-back)</h2><table>
   <tr><th>Point</th><th>Règle</th></tr>
   <tr><td>Base</td><td>Le Desktop dessiné est l’IDE de <code>origin/main</code> à <code>756fd2a2</code> (barre d’activité, explorateur, onglets dockview, barre d’état, chat de droite avec Conversation / Tâches / Historique). Rien d’autre de l’IDE ne change.</td></tr>
-  <tr><td>Emplacement</td><td>Recommandé : une entrée de la barre d’activité (icône réveil, après « MR et PR ») qui ouvre un onglet <code>Routines</code> comme <code>ATELIER_TAB</code> / <code>SETTINGS_TAB</code>. Pastille rouge = routines en attente + routines dont le dernier tir a échoué. Palette : « Routines : ouvrir », « Routines : nouvelle routine ».</td></tr>
-  <tr><td>Liste</td><td>Une ligne de trois niveaux : (1) nom (id en infobulle), heures en mono, jours, « Demandée par X · hh:mm » si en attente ; (2) session (logo de l’outil, état, dossier) ; (3) dernier tir (✓/! + issue, pastille « en retard » + heure réelle, raison en rouge). À droite : prochain tir (heure / jour), puis les actions. Ordre : pending, failed, par <code>nextRun</code>, paused à la fin. <code>nextRun</code> vient du daemon, jamais calculé par le front.</td></tr>
-  <tr><td>Actions</td><td>Visibles : Lancer maintenant (Relancer après un échec), Pause/Reprendre. Menu ⋯ : Modifier, Ouvrir la session, Supprimer… (confirmation dans la ligne, focus sur Annuler, Échap). Pending : Activer, Refuser, ▸ Voir le prompt. Lancer maintenant : sans confirmation ; pendant l’attente « attend que X soit libre… » / « X redémarre… », boutons désactivés ; toast ensuite.</td></tr>
-  <tr><td>Formulaire</td><td>À la place de la liste, « ‹ Routines » / Échap. Session existante (liste des sessions connues, archivées comprises) ou nouvelle (nom, dossier + Parcourir, outil, modèle). Heures en puces HH:MM, triées ; jours en 7 bascules + Lun–ven / Tous les jours ; rattrapage « Au réveil, une fois » par défaut ; prompt avec {slot} {date} {last} insérés au curseur, surlignés, aperçu du prochain tir. Erreurs sous le champ.</td></tr>
-  <tr><td>À toi</td><td>Page : bloc « Routines » après Décisions, caché quand vide ; deux lignes (demande : Voir le prompt, Activer, Refuser ; échec : Relancer, Voir). Barre latérale et île : les mêmes items en format court. Voir (échec) = onglet Routines, ligne surlignée 1,5 s (<code>--link1</code>).</td></tr>
+  <tr><td>Structure (v2)</td><td>L’icône réveil de la barre d’activité (après « MR et PR ») est une <b>vue de barre latérale</b> (<code>SideView</code> « routines »), comme Projets, Rigs, « À toi », MR et PR. Un clic sur une ligne ouvre <b>un onglet par routine</b> (titre : son nom, icône réveil) ; « + » ouvre un onglet « Nouvelle routine ». Pastille rouge = routines en attente + dernier tir échoué. Palette : « Routines : afficher », « Routines : nouvelle routine ».</td></tr>
+  <tr><td>Barre latérale</td><td>248 px. Ligne : marque (point d’état de la session, ou ? ! ‖), nom, prochain tir à droite (heure seule si aujourd’hui) ; dessous logo · session · heures · jours, coupé ; 3e ligne seulement pour « Attend ton accord », la raison d’un échec, « en retard ». Ordre : pending, failed, par <code>nextRun</code> (du daemon) ; groupe repliable « En pause » en bas. Survol : ▶ et ‖ à la place du prochain tir. Clic droit : Lancer maintenant, Pause, Ouvrir la session, Supprimer…. Ligne de l’onglet devant surlignée. Pied : le fuseau.</td></tr>
+  <tr><td>Page</td><td>En-tête : nom, état (Active / En pause / Attend ton accord), Lancer maintenant (Relancer après un échec), Pause/Reprendre, ⋯ (Ouvrir la session, Supprimer…). « Réveille X (état) dans dossier ». Tirs : 3 prochains, derniers tirs (créneau, jour, issue, « en retard » + heure réelle, raison). Configuration : le formulaire de la v1, modifiable sur place ; barre collée « Modifications non enregistrées · Annuler les modifications · Enregistrer » (Ctrl+S) ; « • » devant le titre de l’onglet ; question à la fermeture.</td></tr>
+  <tr><td>Bandeaux</td><td>En tête de page : ambre pour une demande (Activer / Refuser ; modifiable avant d’activer), ambre avec « avant → demandé » pour une modification par la session, rouge pour un échec (Relancer ; champ fautif entouré), rouge pour la suppression (Annuler focus / Supprimer ; Échap).</td></tr>
+  <tr><td>Lancer maintenant</td><td>Sans confirmation ; « attend que X soit libre… » / « X redémarre… » sur la ligne et en tête de page ; toast ensuite (Voir = page de la routine).</td></tr>
+  <tr><td>États</td><td>Vide (barre latérale : phrase + Nouvelle routine), connexion, daemon hors ligne (bandeau, liste estompée, boutons et Enregistrer désactivés).</td></tr>
+  <tr><td>À toi</td><td>Page : bloc « Routines » après Décisions, caché quand vide ; deux lignes (demande : Voir le prompt, Activer, Refuser ; échec : Relancer, Voir). Barre latérale et île : les mêmes items en format court. Voir = la page de la routine.</td></tr>
   <tr><td>Le point</td><td>Groupes existants : En cours (« Iris briefing de 08:00 », sous-ligne « routine · depuis n min »), Terminé (heure), en retard (« …, lancé à 08:42 au réveil »), échec dans À toi avec Relancer. Textes dans <code>operator/point.ts</code> (L.fr / L.en).</td></tr>
-  <tr><td>Horloge</td><td>Recommandé : icône horloge 12 px grise dans la ligne de session de l’explorateur (et dans la liste des sessions du téléphone), infobulle avec le prochain tir, clic = onglet Routines. Option barre d’état : à trancher.</td></tr>
+  <tr><td>Horloge</td><td>Recommandé : icône horloge 12 px grise dans la ligne de session de l’explorateur (et dans la liste des sessions du téléphone), infobulle avec le prochain tir, clic = barre latérale sur Routines + page de la routine. Option barre d’état : à trancher.</td></tr>
   <tr><td>Téléphone</td><td>Entrée en tête de Sessions → écran Routines (lecture + Lancer maintenant + Pause/Reprendre). Activation dans « À toi », prompt déplié, vérification de l’appareil sur Activer.</td></tr>
   <tr><td>TUI</td><td>Écran 7 « Routines » ; <code>j k</code>, <code>r</code>, <code>p</code>, <code>↵</code>, <code>esc</code> ; toast sous le cadre ; pending en lecture seule.</td></tr>
   <tr><td>Textes</td><td>Desktop : vue Routines au tutoiement comme « À toi » (« Attend ton accord ») — voir question 6. Téléphone : tutoiement. TUI : « votre accord », comme ses états. Toutes les clés nouvelles sont sous chaque carte ; FR et EN dans ce fichier (bouton FR/EN).</td></tr>
   </table>
   <h2 style="margin-top:14px">${L==='fr'?'Questions pour jde (recommandation en premier)':'Questions for jde (recommendation first)'}</h2>
   <ol>
-    <li><b>Emplacement de la vue</b> (carte 1) : A, une entrée de la barre d’activité qui ouvre un onglet (recommandé) ; B, une section de Réglages ; C, une section de l’Atelier ?</li>
-    <li><b>Petite horloge</b> (carte 11) : dans la ligne de session de l’explorateur seulement (recommandé) ; ou aussi le prochain tir dans la barre d’état ; ou rien ?</li>
-    <li><b>Téléphone</b> (carte 16) : l’entrée Routines en tête de l’onglet Sessions (recommandé), ou dans Réglages ?</li>
-    <li><b>Modification demandée par une session</b> (carte 9) : la routine garde ses anciennes heures en attendant ta réponse (recommandé), ou elle s’arrête jusqu’à ta réponse ? (Comportement du daemon, à reporter dans la spec.)</li>
-    <li><b>TUI</b> : les deux nouveaux items de « À toi » (demande d’activation, échec) aussi dans la vue d’ensemble de la TUI (recommandé, ils y seraient avec <span class="mono">y n</span> comme les demandes), ou seulement l’écran Routines comme le demande la spec ?</li>
-    <li><b>Tutoiement ou vouvoiement</b> dans la vue Routines du Desktop : tutoiement comme « À toi », puisque les mêmes lignes y passent (recommandé), ou vouvoiement comme Réglages et « MR et PR » ?</li>
+    <li><b>Petite horloge</b> (carte 12) : dans la ligne de session de l’explorateur seulement, un clic ouvre la routine (recommandé) ; ou aussi le prochain tir dans la barre d’état ; ou rien ?</li>
+    <li><b>Téléphone</b> (carte 17) : l’entrée Routines en tête de l’onglet Sessions (recommandé), ou dans Réglages ? (La v2 du Desktop ne change pas le téléphone.)</li>
+    <li><b>Modification demandée par une session</b> (carte 7) : la routine garde ses anciennes heures en attendant ta réponse (recommandé), ou elle s’arrête ? (Comportement du daemon, à reporter dans la spec.)</li>
+    <li><b>TUI</b> : les deux nouveaux items de « À toi » aussi dans la vue d’ensemble de la TUI (recommandé), ou seulement l’écran Routines comme le demande la spec ?</li>
+    <li><b>Tutoiement</b> dans la barre latérale et les pages Routines, comme « À toi » (recommandé), ou vouvoiement comme Réglages et « MR et PR » ?</li>
+    <li><b>Nouveau — où vivent les actions</b> : Lancer maintenant et Pause sur la page et au survol d’une ligne (recommandé, l’action courante reste à un clic sans ouvrir la page) ; ou sur la page seulement ?</li>
+    <li><b>Nouveau — Activer / Refuser</b> : sur la page (avec le prompt sous les yeux) et dans « À toi » (recommandé) ; ou aussi directement sur la ligne de la barre latérale ?</li>
+    <li><b>Nouveau — corriger une demande avant de l’activer</b> (carte 6) : oui, la configuration reste modifiable et Activer enregistre (recommandé) ; ou la demande se lit seulement, et l’on corrige après ?</li>
+    <li><b>Nouveau — les derniers tirs sur la page</b> (carte 3) : une liste des 5 derniers tirs (recommandé : on voit si le briefing part bien chaque jour ; il faut que le daemon les garde, la spec n’a que <code>lastRun</code>) ; ou le dernier seulement ?</li>
   </ol>
   <p class="mut" style="margin:10px 0 0;font-size:12px">${L==='fr'?'Mascotte : la spec dit « avec sa mascotte ». Dans l’IDE, les lignes de session montrent le logo de l’outil, plus la mascotte : je suis l’IDE sur le Desktop, et le téléphone garde ses mascottes.':'Mascot: the spec says “with its mascot”. In the IDE, session rows show the tool’s logo, no longer the mascot: I follow the IDE on the Desktop, and the phone keeps its mascots.'}</p></section>`;
 }
