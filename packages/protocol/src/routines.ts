@@ -96,6 +96,8 @@ const FieldReadSchema = RoutineFieldSchema.optional().catch(undefined);
  *  for a slot fired on wake (§3.2). A firing asked for (« Lancer maintenant ») has its own time as its slot. */
 export const RoutineRunSchema = z.object({
   at: z.string().datetime(), slot: RoutineTimeSchema, slotAt: z.string().datetime().optional(), outcome: RoutineOutcomeSchema,
+  /** The id of the session the firing reached: typed into (`delivered`), resumed, or launched; none for a failure. */
+  session: z.string().min(1).max(100).optional(),
   reason: z.string().max(ROUTINE_REASON_MAX).optional(), field: FieldReadSchema, late: z.literal(true).optional()
 });
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
