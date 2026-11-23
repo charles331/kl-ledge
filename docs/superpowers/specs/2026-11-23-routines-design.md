@@ -100,7 +100,8 @@ type Schedule =
   makes Thursday 16:00 « veille de la review » land on the right Thursdays. The UI and `list` show the next 3 firings
   so the owner can check the parity at a glance. `weeks` is typed `1 | 2` for now; the schema allows widening later.
 - **Once**: one or several exact local date-times. After its last moment has fired (delivered, resumed or launched),
-  the routine is removed from the active list and kept in the journal; a failed one-shot stays, `failed`, until the
+  the routine is removed from the active list and kept in the journal: it stays in the list as `done` for 30 days
+  (owner's decision, 2026-11-23; « Retirer de l'historique » removes it sooner), then leaves it, still on record; a failed one-shot stays, `failed`, until the
   owner relaunches or removes it. A one-shot whose moment is already past when it is created is refused.
   This is how a session prepares a meeting it found in the calendar (« prépa 121 la veille à 16:00 »): Ledge's daemon
   does not read the calendar, the standing session does, and creates one-shots for what it finds — each one `pending`
