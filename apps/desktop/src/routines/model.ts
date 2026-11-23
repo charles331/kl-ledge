@@ -171,7 +171,7 @@ export const hasErrors = (e: DraftErrors): boolean => Object.keys(e).length > 0;
 
 /** The form's part a daemon's `field` points to (ff7a19c2): outlined in red there (card 8), its error under it. */
 export type FormFault = 'dir' | 'tool' | 'session' | 'model' | 'name' | 'schedule' | 'at' | 'prompt';
-const FAULT: Record<RoutineField, FormFault | null> = { name: 'name', session: 'session', cwd: 'dir', tool: 'tool', model: 'model', schedule: 'schedule', tz: 'schedule', at: 'at', prompt: 'prompt' };
+const FAULT: Record<RoutineField, FormFault | null> = { name: 'name', session: 'session', session_untracked: 'session', cwd: 'dir', tool: 'tool', model: 'model', schedule: 'schedule', tz: 'schedule', at: 'at', prompt: 'prompt' };
 /** The part a refusal or a failed run is about: its `field`, else (an older daemon) the words of its reason. */
 export function faultOf(x: { field?: RoutineField | undefined; reason?: string | undefined; message?: string | undefined } | undefined): FormFault | null {
   if (!x) return null;
@@ -199,7 +199,9 @@ export function refusalOf(f: { code: string; field?: RoutineField | undefined; m
     : f.field === 'cwd' ? e.dir
     : f.field === 'at' ? e.past
     : f.field === 'tz' ? e.tz(tz)
-    // The daemon names `session` for one it cannot reach and for one Ledge does not follow: its words tell them apart.
+    // The daemon names `session_untracked` for a session Ledge does not follow, `session` for one it cannot reach; an older daemon
+    // named both `session`, told apart by its words.
+    : f.field === 'session_untracked' ? e.notLedge
     : f.field === 'session' ? (/suivie|hors de ledge|outside|not followed/i.test(f.message) ? e.notLedge : e.unreachable)
     : f.field === 'tool' ? e.tool(d.target.tool)
     : f.field === 'model' ? e.model(d.target.tool, d.target.model)

@@ -160,6 +160,7 @@ describe('the Routines screens rules', () => {
     expect(said('invalid', 'tz', 'fuseau horaire inconnu : Mars/Olympus')).toEqual({ part: 'schedule', text: 'Unknown time zone: Mars/Olympus.' });
     expect(said('invalid', 'session', 'session injoignable')).toEqual({ part: 'session', text: 'This session isn’t responding.' });
     expect(said('forbidden', 'session', 'session hors de Ledge')).toEqual({ part: 'session', text: 'This session isn’t followed by Ledge.' });
+    expect(said('forbidden', 'session_untracked', 'quelconque')).toEqual({ part: 'session', text: 'This session isn’t followed by Ledge.' });
     expect(said('invalid', 'tool')).toEqual({ part: 'tool', text: 'Tool not found on this PC: cursor.' });
     expect(said('invalid', 'model')).toEqual({ part: 'model', text: 'Unknown model for cursor: gpt-9.' });
     expect(said('invalid', 'prompt')).toEqual({ part: 'prompt', text: 'The prompt is empty.' });
