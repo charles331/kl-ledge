@@ -9,6 +9,8 @@ import { useEditing, useScreenKeys, useScreenSize, useTui } from '../context.js'
 import { cursorLabel } from '../ui/UsageLine.js';
 import { closedLedgeTasks, exchanges, helperCount, machineOf, nearContext, nextWaiting, openDecisions, overview, step } from '../model/overview.js';
 import { wrap } from '../model/thread.js';
+import { routineItems } from '../model/routines.js';
+import { useRoutines } from './Routines.js';
 import { fit, machineLabel, paneName } from '../model/labels.js';
 import { rigTag, seatSecond } from '../model/rigSeat.js';
 import { clock, oneLine } from '../model/time.js';
@@ -47,10 +49,15 @@ export function Overview() {
   const tasks = useTasks(tui.client);
   const view = useMemo(() => overview(d.sessions, projects), [d.sessions, projects]);
   const sel = selected?.id ?? null;
-  const closed = closedLedgeTasks(tasks);
+  // A routine's items are not decisions: D does not answer them, and once settled they leave « À toi ».
+  const closed = closedLedgeTasks(tasks).filter(x => !x.routine);
   // The decisions sessions put to the user: D answers the first one, written, read again whole, then confirmed (y). Only
   // the task.answer action answers one: an answer cannot be taken back.
-  const decisions = useMemo(() => openDecisions(tasks), [tasks]);
+  const decisions = useMemo(() => openDecisions(tasks).filter(x => !x.routine), [tasks]);
+  // A routine's activation request or failure (docs/mockups/ledge-routines.html): read here, answered in « À toi » on a screen
+  // that has Activer, or with r on the Routines screen.
+  const routines = useRoutines(tui.client);
+  const routineRows = useMemo(() => routineItems(openDecisions(tasks), routines, tui.lang, t), [tasks, routines, tui.lang, t]);
   const [deciding, setDeciding] = useState<{ id: string; draft: string; confirm: boolean } | null>(null);
   const decision = deciding ? decisions.find(x => x.id === deciding.id) : undefined;
   // Answered elsewhere meanwhile (the phone, Desktop, the chat): the field goes with it.
@@ -146,7 +153,7 @@ export function Overview() {
     const harness = t.usage.harness[a.harness] ?? a.harness;
     return { id: a.id, full: a.level === 'full', text: a.level === 'full' ? t.usage.alertFull(harness, name, at, date) : t.usage.alertThreshold(harness, name, w.pct, at, date) };
   });
-  const yoursCount = view.yours.length + decisions.length + closed.length + usageLines.length + near.length;
+  const yoursCount = view.yours.length + decisions.length + routineRows.length + closed.length + usageLines.length + near.length;
   const yoursHeight = Math.max(1, Math.min(yoursCount, 6));
   // The status bar, the key bar, the toast, the boxes' borders and titles.
   // The answer's field, or the answer read again whole, across the screen under the boxes.
@@ -179,11 +186,13 @@ export function Overview() {
         );
       }), ...decisions.slice(0, Math.max(0, yoursHeight - view.yours.length)).map(x => (
         <Text key={`decision:${x.id}`} wrap="truncate"><Text color={C.red}>{g.question} </Text><Text color={C.fg}>{t.overview.decision(x.giverName, x.title)}</Text>{x.text ? <Text color={C.dim}> · {oneLine(x.text)}</Text> : null}</Text>
-      )), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)).map(x => (
+      )), ...routineRows.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)).map(x => (
+        <Text key={`routine:${x.id}`} wrap="truncate"><Text color={x.mark === 'fail' ? C.red : C.yellow}>{x.mark === 'fail' ? '!' : g.question} </Text><Text color={C.fg}>{x.text}</Text></Text>
+      )), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - routineRows.length)).map(x => (
         <Text key={x.id} wrap="truncate"><Text color={x.state === 'done' ? C.green : C.yellow}>{x.state === 'done' ? g.ok : g.fail} </Text><Text color={C.fg}>{t.overview.ledgeTask(x.ownerName, x.title, x.state as 'done' | 'refused' | 'dropped')}</Text></Text>
-      )), ...usageLines.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - closed.length)).map(x => (
+      )), ...usageLines.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - routineRows.length - closed.length)).map(x => (
         <Text key={`usage:${x.id}`} wrap="truncate"><Text color={x.full ? C.red : C.yellow}>{g.gauge} </Text><Text color={C.fg}>{x.text}</Text></Text>
-      )), ...near.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - closed.length - usageLines.length)).map(s => (
+      )), ...near.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - routineRows.length - closed.length - usageLines.length)).map(s => (
         <Text key={`near:${s.id}`} wrap="truncate" backgroundColor={s.id === sel ? C.sel : undefined}><Text color={C.yellow}>{s.handover?.state === 'failed' ? g.fail : g.gauge} </Text><Text color={C.fg}>{s.handover?.state === 'failed' ? t.overview.reliefFailed(s.name, s.handover.reason ?? '?') : t.overview.near(s.name, Math.round(((s.context?.used ?? 0) / (s.context?.window ?? 1)) * 100))}</Text></Text>
       ))]}
     </TitledBox>
