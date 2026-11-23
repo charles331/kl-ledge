@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import {
   RoutineSchema, RoutineSpecSchema, ROUTINES_ACTIVE_MAX, ROUTINES_DONE_MAX, ROUTINE_NEXT_MAX, ROUTINE_REASON_MAX, ROUTINE_RUNS_MAX, TASK_TEXT_MAX, TASK_TITLE_MAX, WEEKDAYS, taskClosed,
-  type ClientMessage, type Routine, type RoutineRun, type RoutineSchedule, type RoutineSpec, type ServerMessage, type Session, type Tool, type Weekday
+  type ClientMessage, type Routine, type RoutineField, type RoutineRun, type RoutineSchedule, type RoutineSpec, type ServerMessage, type Session, type Tool, type Weekday
 } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { Mailbox } from './mailbox.js';
@@ -18,6 +18,8 @@ type RoutineCmd = Extract<ClientMessage, { type: 'routine.cmd' }>;
 type RoutineResult = Extract<ServerMessage, { type: 'routine.result' }>;
 type RoutineChanged = Extract<ServerMessage, { type: 'routine.changed' }>;
 type RoutinePreviewed = Extract<ServerMessage, { type: 'routine.previewed' }>;
+/** Why a routine cannot be kept, and the field it is about. */
+interface Problem { reason: string; field?: RoutineField }
 
 /** A firing typed into a live (or resumed) session, waiting for the mailbox to type it: `outcome` is what it becomes once typed. */
 export interface RoutineWaiting { id: string; rid: string; slot: string; slotAt: string; at: string; late: boolean; outcome: 'delivered' | 'resumed'; session: string; manual?: true }
@@ -66,6 +68,8 @@ export interface Routines {
   preview(rid: string, schedule: RoutineSchedule): RoutinePreviewed;
   /** The routines, newest first, the fired one-shots of the last 30 days among them, with their next firings. */
   all(): Routine[];
+  /** The ids of the routines a session counts as its own (made by it, or waking it or the session it relieves). */
+  ownedBy(sessionId: string): string[];
   /** The mailbox typed (or gave up on) Ledge's line of that rid. */
   noticeDone(rid: string, typed: boolean, reason?: string): void;
   /** Checks the clock now (tests; the timer does it otherwise). */
@@ -395,7 +399,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
     const at = now(); const atIso = iso(at);
     const slot = { slot: s.slot, slotAt: iso(s.at) };
     const record_ = (run: RoutineRun) => record(id, run, manual);
-    const fail = (sl: typeof slot, a: string, l: boolean, reason: string) => record_({ at: a, slot: sl.slot, slotAt: sl.slotAt, outcome: 'failed', reason: reasonOf(reason), ...(l ? { late: true as const } : {}) });
+    const fail = (sl: typeof slot, a: string, l: boolean, reason: string, field?: RoutineField) =>
+      record_({ at: a, slot: sl.slot, slotAt: sl.slotAt, outcome: 'failed', reason: reasonOf(reason), ...(field ? { field } : {}), ...(l ? { late: true as const } : {}) });
     if (!r) { firing.delete(id); starting.delete(id); save(); return; }
     try {
       // Two firings never pile up: one still waiting to be typed gives way to this one.
@@ -403,15 +408,15 @@ export function createRoutines(d: RoutinesDeps): Routines {
       if (before) { d.mailbox.withdraw(before.rid); waiting.delete(id); save(); log(`routine ${r.name}: the ${before.slot} firing, never typed, replaced by ${s.slot}`); }
       const text = formatLedgeRoutine({ name: r.name, slot: s.slot, late, text: expand(r, s.slot, at) });
       const why = await folder(r.target.cwd);
-      if (why) return fail(slot, atIso, late, why);
+      if (why) return fail(slot, atIso, late, why, 'cwd');
       const { live, gone } = findTarget(r);
       const deliver = (target: Session, outcome: RoutineWaiting['outcome']) => {
         const rid = `routine:${id}:${at}`;
-        if (!d.mailbox.notify(target.id, text, rid)) return fail(slot, atIso, late, `${target.name} ne peut pas recevoir de texte de Ledge`);
+        if (!d.mailbox.notify(target.id, text, rid)) return fail(slot, atIso, late, `${target.name} ne peut pas recevoir de texte de Ledge`, 'session');
         waiting.set(id, { id, rid, ...slot, at: atIso, late, outcome, session: target.id, ...(manual ? { manual: true as const } : {}) }); save();
       };
       if (live) {
-        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`);
+        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`, 'session');
         return deliver(live, 'delivered');
       }
       if (gone && d.resumable(gone)) {
@@ -496,34 +501,35 @@ export function createRoutines(d: RoutinesDeps): Routines {
     (r.createdBy.kind === 'session' && r.createdBy.id === s.id) || sessionNamed(d.store, r.target.name)?.id === s.id;
 
   /** Why a schedule cannot be kept, or undefined: an unknown zone; for a new one-shot, a moment already past. */
-  const scheduleProblem = (s: RoutineSchedule, fresh: boolean): string | undefined => {
-    if (s.tz !== undefined && !validZone(s.tz)) return `fuseau horaire inconnu : ${s.tz}`;
+  const scheduleProblem = (s: RoutineSchedule, fresh: boolean): Problem | undefined => {
+    if (s.tz !== undefined && !validZone(s.tz)) return { reason: `fuseau horaire inconnu : ${s.tz}`, field: 'tz' };
     if (fresh && s.kind === 'once') {
       const past = s.at.filter(a => momentOf(a, zone(s)) <= now());
-      if (past.length) return `moment déjà passé : ${past.map(a => a.replace('T', ' ')).join(', ')}`;
+      if (past.length) return { reason: `moment déjà passé : ${past.map(a => a.replace('T', ' ')).join(', ')}`, field: 'at' };
     }
     return undefined;
   };
 
   function preview(rid: string, schedule: RoutineSchedule): RoutinePreviewed {
     const problem = scheduleProblem(schedule, false);
-    if (problem) return { type: 'routine.previewed', rid, nextRuns: [], reason: problem };
+    if (problem) return { type: 'routine.previewed', rid, nextRuns: [], ...problem };
     return { type: 'routine.previewed', rid, nextRuns: nextSlots(schedule, now(), zone(schedule), ROUTINE_NEXT_MAX).map(s => iso(s.at)) };
   }
 
   async function run(cmd: RoutineCmd, caller: RoutineCaller): Promise<RoutineResult> {
-    const refuse = (code: RoutineResult['code'], reason: string): RoutineResult => ({ type: 'routine.result', rid: cmd.rid, code, reason });
+    const refuse = (code: RoutineResult['code'], reason: string, field?: RoutineField): RoutineResult => ({ type: 'routine.result', rid: cmd.rid, code, reason, ...(field ? { field } : {}) });
+    const refused = (p: Problem): RoutineResult => refuse('invalid', p.reason, p.field);
     const ok = (routine: Routine): RoutineResult => ({ type: 'routine.result', rid: cmd.rid, routine });
     const removed = (id: string): RoutineResult => ({ type: 'routine.result', rid: cmd.rid, removed: id });
     const session = caller.kind === 'session' ? caller.session : undefined;
 
     /** A spec as the daemon keeps it: the folder absolute and there, the zone known, a new one-shot's moments ahead, a one-shot marked as such. */
-    const checked = async (spec: RoutineSpec, fresh: boolean): Promise<RoutineSpec | string> => {
+    const checked = async (spec: RoutineSpec, fresh: boolean): Promise<RoutineSpec | Problem> => {
       const problem = scheduleProblem(spec.schedule, fresh);
       if (problem) return problem;
       const cwd = absolute(spec.target.cwd);
       const why = await folder(cwd);
-      if (why) return why;
+      if (why) return { reason: why, field: 'cwd' };
       const { expiresAfterRun: _e, ...rest } = spec;
       return { ...rest, target: { ...spec.target, cwd }, ...(spec.schedule.kind === 'once' ? { expiresAfterRun: true as const } : {}) };
     };
@@ -534,8 +540,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
       if (!cmd.spec) return refuse('invalid', 'il faut la routine à ajouter');
       if (active().length >= ROUTINES_ACTIVE_MAX) return refuse('invalid', `${ROUTINES_ACTIVE_MAX} routines actives au plus`);
       const spec = await checked(cmd.spec, true);
-      if (typeof spec === 'string') return refuse('invalid', spec);
-      if (taken(spec)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`);
+      if ('reason' in spec) return refused(spec);
+      if (taken(spec)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
       const r = put(scheduled({ ...spec, id: newId(), catchUp: spec.catchUp ?? 'once', state: session ? 'pending' : 'enabled',
         createdBy: session ? { kind: 'session', id: session.id, name: session.name } : { kind: 'user' }, createdAt: iso() }));
       if (session) askOwner(r);
@@ -563,8 +569,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         if (!merged.success) return refuse('invalid', 'routine invalide');
         const what = material(merged.data, specOf(r));
         const next = await checked(merged.data, what);
-        if (typeof next === 'string') return refuse('invalid', next);
-        if (taken(next, r.id)) return refuse('name_taken', `${next.target.name} a déjà une routine « ${next.name} »`);
+        if ('reason' in next) return refused(next);
+        if (taken(next, r.id)) return refuse('name_taken', `${next.target.name} a déjà une routine « ${next.name} »`, 'name');
         // A session's change to what runs, when or where: the routine keeps firing as it is until the owner answers (spec §3.4).
         if (session && what && r.state !== 'pending') {
           const proposed = put({ ...r, proposal: { spec: next, by: { id: session.id, name: session.name }, at: iso() } });
@@ -620,8 +626,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         }
         // « Activer » saves the request, or the owner's correction of it.
         const spec = await checked(cmd.spec ?? r.proposal?.spec ?? specOf(r), true);
-        if (typeof spec === 'string') return refuse('invalid', spec);
-        if (taken(spec, r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`);
+        if ('reason' in spec) return refused(spec);
+        if (taken(spec, r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
         const { proposal: _p, expiresAfterRun: _e, ...base } = r;
         const approved = put(scheduled({ ...base, ...spec, catchUp: spec.catchUp ?? r.catchUp, state: r.state === 'pending' ? 'enabled' : r.state }));
         settleApprovals(r.id, 'activée'); tellAsker(approved, asker, 'approved', change);
@@ -634,6 +640,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
 
   return {
     run, preview, noticeDone, tick,
+    ownedBy: id => { const s = d.store.get(id); return s ? [...routines.values()].filter(r => ownedBy(r, s)).map(r => r.id) : []; },
     all: () => [...routines.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     close: () => { closed = true; if (timer) clearTimeout(timer); }
   };

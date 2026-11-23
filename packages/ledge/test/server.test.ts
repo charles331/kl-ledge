@@ -930,6 +930,9 @@ describe('server', () => {
       c.send({ type: 'routine.cmd', rid: 'a2', op: 'approve', routine: added.routine!.id });
       expect((await c.next('routine.result', 3000)).routine).toMatchObject({ state: 'enabled', nextRuns: expect.any(Array) });
       expect((await c.next('routine.changed', 3000)).routine).toMatchObject({ id: added.routine!.id });
+      // Adding or activating a routine starts nothing: a session is resumed or launched only when the routine fires.
+      await new Promise(r => setTimeout(r, 200));
+      expect(tmux.created).toEqual([]);
       c.send({ type: 'routine.preview', rid: 'p1', schedule: { kind: 'once', at: ['2099-01-01T08:00'] } });
       expect((await c.next('routine.previewed', 3000)).nextRuns).toHaveLength(1);
       c.close();
