@@ -1696,10 +1696,12 @@ export const en: Messages = {
     state: { enabled: 'Active', paused: 'Paused', pending: 'Awaits your approval', done: 'Past' },
     wakes: 'Wakes', inDir: 'in',
     st: { working: 'Working', idle: 'Available', off: 'Stopped · will be resumed' },
+    stMore: { approval: 'Approval', question: 'Question', error: 'Error', starting: 'Starting' },
+    machine: 'Machine', gone: 'This routine no longer exists: it was deleted elsewhere.', closeTab: 'Close the tab',
     runs: 'Runs', nextRuns: 'Next', pastRuns: 'Recent', config: 'Settings',
     noneUntil: 'none until it’s activated', noneWhilePaused: 'none while paused', never: 'never run',
     out: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },
-    today: 'today', tomorrow: 'tomorrow', tomorrowDay: (day: string) => `tomorrow (${day})`, yesterday: 'yesterday',
+    today: 'today', tomorrow: 'tomorrow', yesterday: 'yesterday',
     dirty: 'Unsaved changes', discard: 'Discard changes', save: 'Save', create: 'Create the routine', cancel: 'Cancel',
     closeSave: 'Save', closeDiscard: 'Don’t save',
     pendBanner: (who: string, at: string) => `${who} asks to schedule this routine (${at}). It won’t run until it’s activated.`,
@@ -1711,6 +1713,7 @@ export const en: Messages = {
     delWhy: (session: string) => `${session} will no longer be woken by this routine. The session itself stays, with its conversation.`, delGo: 'Delete',
     waiting: (s: string) => `waiting for ${s} to be free…`, starting: (s: string) => `${s} is restarting…`,
     toastRun: (r: string, s: string) => `“${r}” delivered to ${s}.`, toastResumed: (r: string, s: string) => `${s} resumed, “${r}” delivered.`,
+    toastLaunched: (r: string, s: string) => `${s} launched, “${r}” delivered.`,
     toastFailed: (r: string, why: string) => `“${r}” could not run: ${why}`, see: 'View',
     pastPill: 'Past', ranOn: (d: string, o: string) => `Ran on ${d} · ${o}`, again: 'Schedule again…', forget: 'Remove from history',
     readonly: 'A past routine can no longer be edited: “Schedule again…” creates a new one from it.',
@@ -1741,7 +1744,11 @@ export const en: Messages = {
     err: {
       name: (session: string, name: string) => `${session} already has a routine “${name}”.`, times: 'At least one time.', days: 'At least one day.',
       dir: 'This folder doesn’t exist on this PC.', dirExisting: 'This session’s folder no longer exists on this PC.', dup: (h: string) => `${h} is already in the list.`,
-      past: 'This moment has already passed.'
+      past: 'This moment has already passed.',
+      nameInvalid: 'Invalid name: letters, digits, ., - and _ only.', session: 'Pick a session.', prompt: 'The prompt is empty.',
+      date: 'At least one date.', anchor: 'Pick the reference week.', tz: (tz: string) => `Unknown time zone: ${tz}.`,
+      unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
+      tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`
     },
     why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}` },
     atoi: {
@@ -1750,6 +1757,7 @@ export const en: Messages = {
       askOnce: (r: string, moments: string, dir: string) => `wants to schedule “${r}”: ${moments}, in ${dir}`,
       failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
       failedShort: (r: string, why: string) => `${r} could not run: ${why}`,
+      more: (n: number) => ` and ${n} more`,
       groupAsk: (n: number) => `wants to schedule ${n} one-shot routines`, groupShort: (n: number, dates: string) => `wants to schedule ${n} one-shot routines: ${dates}`,
       seePrompt: 'See the prompt', hidePrompt: 'Hide the prompt'
     }

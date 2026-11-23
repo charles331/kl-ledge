@@ -181,7 +181,9 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     await view.getByRole('button', { name: fr ? 'Nouvelle routine' : 'New routine' }).first().click();
     const nw = page.getByRole('tabpanel', { name: fr ? /^Nouvelle routine/ : /^New routine/ });
     await nw.getByRole('button', { name: fr ? 'Créer la routine' : 'Create the routine' }).click();
-    await expect(nw.locator('.rt-hint.err')).toHaveText(fr ? ['Au moins une heure.', 'Au moins un jour.'] : ['At least one time.', 'At least one day.']);
+    // Card 28: a text under each field in error.
+    await expect(nw.locator('.rt-hint.err')).toHaveText(fr ? ['Nom invalide : lettres, chiffres, ., - et _ seulement.', 'Choisis une session.', 'Au moins une heure.', 'Au moins un jour.', 'Le prompt est vide.']
+      : ['Invalid name: letters, digits, ., - and _ only.', 'Pick a session.', 'At least one time.', 'At least one day.', 'The prompt is empty.']);
     await nw.getByRole('radio', { name: fr ? 'Unique' : 'Once', exact: true }).click();
     await shot(page, `nouvelle-${theme}-${lang}`);
 

@@ -3,7 +3,7 @@ import type { Routine, Session, Task } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet';
 import { MESSAGES } from '../../src/i18n/messages';
 import {
-  atoiRoutineItems, draftErrors, expandHome, faultOf, faultyField, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
+  atoiRoutineItems, draftErrors, expandHome, faultOf, faultyField, refusalOf, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
   routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
 } from '../../src/routines/model';
 import { anchorWeek, askLine, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
@@ -36,13 +36,22 @@ describe('the schedule as Desktop reads it', () => {
     expect(askLine(two, 'bilan-sprint', '~/assistant', 'en', en)).toBe('wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
     expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'fr', fr)).toBe('veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
     expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en)).toBe('wants to schedule “prépa-121”: Thu 3 Dec 16:00, in ~/assistant');
+    // Beyond three moments, « … et N autres » (card 28).
+    const five = { kind: 'once' as const, at: ['2026-12-31T16:00', '2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00'] };
+    expect(askLine(five, 'point-121', '~/assistant', 'fr', fr)).toBe('veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant');
+    expect(askLine(five, 'point-121', '~/assistant', 'en', en)).toBe('wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant');
   });
   it('says when the next run is: the time alone today, then tomorrow, then the day', () => {
-    expect(nextLabel(new Date(2026, 10, 23, 13, 30).toISOString(), now, 'fr', fr, false)).toBe('13:30');
-    expect(nextLabel(new Date(2026, 10, 24, 9, 0).toISOString(), now, 'fr', fr, false)).toBe('demain 09:00');
-    expect(nextLabel(new Date(2026, 10, 26, 16, 0).toISOString(), now, 'fr', fr, false)).toBe('jeu. 26 16:00');
-    expect(nextLabel(new Date(2026, 11, 3, 16, 0).toISOString(), now, 'fr', fr, true)).toBe('3 déc. 16:00');
-    expect(runDay(new Date(2026, 10, 24, 8, 0).toISOString(), now, 'fr', fr)).toBe('demain (mar.)');
+    expect(nextLabel(new Date(2026, 10, 23, 13, 30).toISOString(), now, 'fr', fr)).toBe('13:30');
+    expect(nextLabel(new Date(2026, 10, 24, 9, 0).toISOString(), now, 'fr', fr)).toBe('demain 09:00');
+    expect(nextLabel(new Date(2026, 10, 26, 16, 0).toISOString(), now, 'fr', fr)).toBe('jeu. 26 16:00');
+    // The TUI's rule (design-ux point 7): within six days the weekday, beyond the date, whatever the kind.
+    expect(nextLabel(new Date(2026, 10, 29, 16, 0).toISOString(), now, 'fr', fr)).toBe('dim. 29 16:00');
+    expect(nextLabel(new Date(2026, 11, 3, 16, 0).toISOString(), now, 'fr', fr)).toBe('3 déc. 16:00');
+    expect(nextLabel(new Date(2026, 11, 4, 9, 0).toISOString(), now, 'en', en)).toBe('4 Dec 09:00');
+    // The page: « demain » alone, then always the month (cards 3, 4 fixed by 274bbbc7).
+    expect(runDay(new Date(2026, 10, 24, 8, 0).toISOString(), now, 'fr', fr)).toBe('demain');
+    expect(runDay(new Date(2026, 10, 20, 8, 0).toISOString(), now, 'fr', fr)).toBe('ven. 20 nov.');
     expect(runDay(new Date(2026, 10, 22, 8, 0).toISOString(), now, 'en', en)).toBe('yesterday');
   });
   it('names the reference week, across a month too', () => {
@@ -136,6 +145,22 @@ describe('the Routines screens rules', () => {
     expect(faultOf({ message: 'dossier introuvable : /x' })).toBe('dir');
     expect(whyText({ field: 'cwd', reason: 'dossier introuvable : /home/jde/veille' }, { cwd: '/home/jde/veille', tool: 'claude' }, () => '~/veille', en)).toBe('folder not found: ~/veille');
     expect(whyText({ reason: 'pas tapée en 30 min' }, { cwd: '/x', tool: 'claude' }, p => p, en)).toBe('pas tapée en 30 min');
+  });
+  it('says each daemon refusal in the front’s words, under its field (card 28)', () => {
+    const d = { ...specDraft(routine('a')), name: 'briefing', target: { name: 'Iris', cwd: '~/x', tool: 'cursor' as const, model: 'gpt-9' } };
+    const said = (code: string, field: Parameters<typeof refusalOf>[0]['field'], message = 'raison du daemon') => refusalOf({ code, field, message }, d, en);
+    expect(said('name_taken', 'name')).toEqual({ part: 'name', text: 'Iris already has a routine “briefing”.' });
+    expect(said('invalid', 'cwd')).toEqual({ part: 'dir', text: 'This folder doesn’t exist on this PC.' });
+    expect(said('invalid', 'at')).toEqual({ part: 'at', text: 'This moment has already passed.' });
+    expect(said('invalid', 'tz', 'fuseau horaire inconnu : Mars/Olympus')).toEqual({ part: 'schedule', text: 'Unknown time zone: Mars/Olympus.' });
+    expect(said('invalid', 'session', 'session injoignable')).toEqual({ part: 'session', text: 'This session isn’t responding.' });
+    expect(said('forbidden', 'session', 'session hors de Ledge')).toEqual({ part: 'session', text: 'This session isn’t followed by Ledge.' });
+    expect(said('invalid', 'tool')).toEqual({ part: 'tool', text: 'Tool not found on this PC: cursor.' });
+    expect(said('invalid', 'model')).toEqual({ part: 'model', text: 'Unknown model for cursor: gpt-9.' });
+    expect(said('invalid', 'prompt')).toEqual({ part: 'prompt', text: 'The prompt is empty.' });
+    expect(said('invalid', 'name')).toEqual({ part: 'name', text: 'Invalid name: letters, digits, ., - and _ only.' });
+    // A cause the card does not word keeps the daemon's words; no field: the head of the configuration.
+    expect(said('not_pending', undefined)).toEqual({ part: null, text: 'raison du daemon' });
     const r = routine('a', { schedule: { kind: 'recurring', times: ['08:00', '13:30', '16:30'], days: ['mon'] } });
     r.proposal = { spec: { ...r, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: ['mon'] } }, by: { id: 's', name: 'Iris' }, at: T0 };
     expect(proposalChanges(r, 'fr', fr)).toEqual([{ label: 'Heures', before: '08:00, 13:30, 16:30', after: '07:30, 13:30, 16:30' }]);

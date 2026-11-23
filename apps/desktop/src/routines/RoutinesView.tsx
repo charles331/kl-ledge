@@ -14,16 +14,17 @@ import { failedLast, lastRunOf, routineRef, sideGroups, waitsForOwner, whyText, 
 import { dayMonth, firstMoment, hhmm, localZone, momentDate, nextLabel, scheduleLine } from './schedule';
 import '../styles/routines.css';
 
-/** How the session a routine wakes is doing (« Réveille Iris ● Au travail », the row's dot): working, available, stopped; a
- *  session that waits for the user keeps the app's own word for it. */
+/** How the session a routine wakes is doing (« Réveille Iris ● Au travail », the row's dot): working, available, stopped; the
+ *  states the mockup does not draw take the phone's words (design-ux, point 4). */
 export function sessionLook(s: Session | undefined, t: Messages): { dot: 'work' | 'idle' | 'off' | 'perm' | 'ask'; label: string } {
   const r = t.routines.st;
   if (!s || s.offline || s.state === 'exited') return { dot: 'off', label: r.off };
+  if (s.state === 'starting') return { dot: 'work', label: t.routines.stMore.starting };
   const d = dotOf(s);
   if (d === 'working') return { dot: 'work', label: r.working };
   if (d === 'done') return { dot: 'idle', label: r.idle };
   if (d === 'offline') return { dot: 'off', label: r.off };
-  return { dot: d === 'question' ? 'ask' : 'perm', label: t.stateLabel[d === 'question' ? 'question' : d === 'approval' ? 'approval' : 'error'] };
+  return { dot: d === 'question' ? 'ask' : 'perm', label: t.routines.stMore[d === 'question' ? 'question' : d === 'approval' ? 'approval' : 'error'] };
 }
 
 export interface RoutinesViewProps {
@@ -37,6 +38,8 @@ export interface RoutinesViewProps {
   current: string | null; lit?: ReadonlySet<string>;
   /** « Lancer maintenant » in flight, by ref (card 9). */
   running: ReadonlyMap<string, string>;
+  /** The machines that keep routines: with more than one, a title per machine above its groups (card 28). */
+  machines?: readonly { id: string; label: string; up: boolean }[];
   /** The local daemon: still connecting, or down (card 11). */
   connecting: boolean; offline: boolean;
   now?(): number;
@@ -54,9 +57,12 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
   const r = t.routines;
   const now = (p.now ?? Date.now)();
   const today = new Date(now);
-  const [open, setOpen] = useState<Record<GroupKey, boolean>>({ recurring: true, once: true, paused: false, past: false });
+  // Folded groups, by machine and group (`machine/key`); En pause and Passées start folded.
+  const [flip, setFlip] = useState<ReadonlySet<string>>(new Set());
+  const isOpen = (m: string, k: GroupKey) => (k === 'recurring' || k === 'once') !== flip.has(`${m}/${k}`);
+  const toggle = (m: string, k: GroupKey) => setFlip(s => { const n = new Set(s); const id = `${m}/${k}`; if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [menu, setMenu] = useState<{ r: FleetRoutine; at: { x: number; y: number } } | null>(null);
-  const groups = sideGroups(p.routines, p.proposals, now);
+  const several = (p.machines?.length ?? 0) > 1;
   const off = p.offline;
 
   const mark = (x: FleetRoutine) => {
@@ -70,9 +76,9 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
     const once = x.schedule.kind === 'once';
     if (x.state === 'done') { const l = lastRunOf(x); return l ? dayMonth(new Date(l.at), lang) : ''; }
     if (x.state === 'paused') return '';
-    if (x.state === 'pending') { const m = once ? firstMoment(x.schedule) : null; return m ? nextLabel(momentDate(m).toISOString(), today, lang, r, true) : ''; }
+    if (x.state === 'pending') { const m = once ? firstMoment(x.schedule) : null; return m ? nextLabel(momentDate(m).toISOString(), today, lang, r) : ''; }
     const next = x.nextRuns?.[0] ?? x.nextRun;
-    return next ? nextLabel(next, today, lang, r, once) : '';
+    return next ? nextLabel(next, today, lang, r) : '';
   };
   const third = (x: FleetRoutine, of?: { i: number; n: number }) => {
     const ref = routineRef(x);
@@ -115,6 +121,17 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
     );
   };
 
+  const groupsOf = (m: string, rs: readonly FleetRoutine[]) => sideGroups(rs, p.proposals, now).map(g => (
+    <div key={g.key} className="rt-grp" role="group" aria-label={r.groups[g.key]}>
+      <button type="button" className="rt-grp-h" aria-expanded={isOpen(m, g.key)} onClick={() => toggle(m, g.key)}>
+        <span className={isOpen(m, g.key) ? 'open' : undefined}><Icon d={ICONS.chevronRight.d} size={11} /></span>{r.groupHead(r.groups[g.key], g.count)}
+      </button>
+      {isOpen(m, g.key) && g.rows.map(x => (x.kind === 'proposed'
+        ? <div key={`p:${x.key}`} className="rt-prop">{r.proposed(x.who, x.n)}</div>
+        : row(x.r, x.of)))}
+    </div>
+  ));
+
   let body: JSX.Element;
   if (p.connecting && !p.routines.length) body = <div className="rt-empty"><span className="rt-line"><span className="rt-spin" aria-hidden="true" />{r.connecting}</span></div>;
   else if (!p.routines.length && !off) body = (
@@ -125,16 +142,13 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
     <>
       {off && <div className="rt-banner" role="status"><span className="rt-dot off" aria-hidden="true" />{r.offlineShort}</div>}
       <div className={off ? 'rt-faded' : undefined}>
-        {groups.map(g => (
-          <div key={g.key} className="rt-grp" role="group" aria-label={r.groups[g.key]}>
-            <button type="button" className="rt-grp-h" aria-expanded={open[g.key]} onClick={() => setOpen(o => ({ ...o, [g.key]: !o[g.key] }))}>
-              <span className={open[g.key] ? 'open' : undefined}><Icon d={ICONS.chevronRight.d} size={11} /></span>{r.groupHead(r.groups[g.key], g.count)}
-            </button>
-            {open[g.key] && g.rows.map(x => (x.kind === 'proposed'
-              ? <div key={`p:${x.key}`} className="rt-prop">{r.proposed(x.who, x.n)}</div>
-              : row(x.r, x.of)))}
-          </div>
-        ))}
+        {several
+          ? p.machines!.filter(m => p.routines.some(x => x.machineId === m.id)).map(m => (
+            <div key={m.id} role="group" aria-label={m.label}>
+              <div className="rt-mach"><span className={`rt-dot ${m.up ? 'idle' : 'off'}`} aria-hidden="true" />{m.label}</div>
+              {groupsOf(m.id, p.routines.filter(x => x.machineId === m.id))}
+            </div>))
+          : groupsOf('all', p.routines)}
       </div>
     </>
   );

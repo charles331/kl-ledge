@@ -182,6 +182,30 @@ export function whyText(x: { field?: RoutineField | undefined; reason?: string |
   return x.reason ?? '';
 }
 
+/** A daemon's refusal of the form, as the page says it (card 28): the part it is about (none: the head of the configuration) and
+ *  the front's text for its field, the daemon's own (French) words for a field or a cause the card does not word. */
+export interface Refusal { part: FormFault | null; text: string }
+export function refusalOf(f: { code: string; field?: RoutineField | undefined; message: string }, d: SpecDraft, t: R): Refusal {
+  const part = f.code === 'name_taken' ? 'name' : faultOf(f);
+  const e = t.err;
+  const tz = d.schedule.tz ?? f.message.split(': ').pop() ?? '';
+  const sched = d.schedule;
+  const text = f.code === 'name_taken' ? e.name(d.target.name, d.name.trim())
+    : f.field === 'cwd' ? e.dir
+    : f.field === 'at' ? e.past
+    : f.field === 'tz' ? e.tz(tz)
+    // The daemon names `session` for one it cannot reach and for one Ledge does not follow: its words tell them apart.
+    : f.field === 'session' ? (/suivie|hors de ledge|outside|not followed/i.test(f.message) ? e.notLedge : e.unreachable)
+    : f.field === 'tool' ? e.tool(d.target.tool)
+    : f.field === 'model' ? e.model(d.target.tool, d.target.model)
+    : f.field === 'schedule' ? (sched.kind === 'recurring' && !sched.times.length ? e.times : sched.kind === 'recurring' && !sched.days.length ? e.days
+      : sched.kind === 'recurring' && sched.weeks === 2 && !sched.anchor ? e.anchor : f.message)
+    : f.field === 'prompt' ? e.prompt
+    : f.field === 'name' ? e.nameInvalid
+    : f.message;
+  return { part, text };
+}
+
 /** A failed run's reason that names a field (card 8), read from its words: the fallback when the daemon names no `field`. */
 export function faultyField(reason: string | undefined): 'dir' | 'tool' | null {
   if (!reason) return null;

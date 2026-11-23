@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 import type { RoutineSpec, Session } from '@ledge/protocol';
-import type { Fleet, FleetRoutine } from '@ledge/fleet';
+import type { DaemonClient, Fleet, FleetRoutine } from '@ledge/fleet';
+import { useModels } from '../launch/useModels';
 import { Icon } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
 import { Menu, MenuItem } from '../shell/Menu';
@@ -9,7 +10,7 @@ import { ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { AlarmIcon, ROUTINE_ICONS } from './icons';
 import {
-  draftErrors, failedLast, faultOf, hasErrors, whyText, type FormFault, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
+  draftErrors, failedLast, faultOf, hasErrors, refusalOf, whyText, type FormFault, type Refusal, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
   type DraftErrors, type Proposal, type SpecDraft
 } from './model';
 import { RoutineForm, type PreviewState } from './RoutineForm';
@@ -28,6 +29,13 @@ export interface RoutinePageProps {
   prefill?: SpecDraft | null;
   /** Where a new routine is created. */
   machine: string;
+  /** The machines that keep routines, when there are several (card 28): the page names its machine, a new routine picks one. */
+  machines?: readonly { id: string; label: string; up: boolean }[];
+  onMachine?(id: string): void;
+  /** The client « Nouvelle session » asks its models with: the new session's Modèle lists them (design-ux point 6). */
+  client?: DaemonClient;
+  /** The routine was deleted elsewhere while its tab was open (card 28): a sentence and « Fermer l’onglet » in place of the page. */
+  gone?: boolean;
   /** The other routines of its machine: a name is unique per session. */
   others: readonly FleetRoutine[];
   /** The session it wakes, and the sessions the form offers (its machine's). */
@@ -53,6 +61,9 @@ export interface RoutinePageProps {
   now?(): number;
 }
 
+/** No client (a test): no models are asked. */
+const NO_CLIENT = { send: () => {}, onMessage: () => () => {} } as unknown as DaemonClient;
+
 const specOfRoutine = (r: FleetRoutine): RoutineSpec => ({ name: r.name, target: r.target, schedule: r.schedule, prompt: r.prompt, catchUp: r.catchUp });
 
 /** The fields an error points to, in the form's order: the first is focused when Enregistrer meets one (card 4). */
@@ -63,6 +74,15 @@ const ORDER: readonly (keyof DraftErrors)[] = ['name', 'session', 'dir', 'times'
  *  delete question, a past one-shot), its runs (the next 3, the last 5), then its configuration, editable in place: a change
  *  brings the « Modifications non enregistrées » bar, Ctrl+S saves. « Nouvelle routine » is the same page, empty, without runs. */
 export function RoutinePage(p: RoutinePageProps): JSX.Element {
+  const { t } = useI18n();
+  if (p.gone) return (
+    <div className="rt-page rt-gone" role="status"><span className="rt-mut"><AlarmIcon size={22} /></span><span>{t.routines.gone}</span>
+      <button type="button" className="fg-btn" onClick={p.onClose}>{t.routines.closeTab}</button></div>
+  );
+  return <RoutineBody {...p} />;
+}
+
+function RoutineBody(p: RoutinePageProps): JSX.Element {
   const { t, lang } = useI18n();
   const r = t.routines;
   const x = p.routine;
@@ -73,9 +93,8 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const [draft, setDraft] = useState<SpecDraft>(() => (saved ? specDraft(saved) : blank));
   const [shown, setShown] = useState<DraftErrors | null>(null);
   const [focus, setFocus] = useState<{ field: string; n: number } | null>(null);
-  const [taken, setTaken] = useState(false);
   // The part a daemon's refusal names (its `field`): outlined, its error under it when the mockup has one.
-  const [refused, setRefused] = useState<FormFault | null>(null);
+  const [refused, setRefused] = useState<Refusal | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,9 +113,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   useEffect(() => { if (p.askDelete) setDeleting(true); }, [p.askDelete]);
   useEffect(() => { setRefused(null); }, [draft]);
 
+  // The models of the new session's tool on its machine, as « Nouvelle session » asks them; none until they answer.
+  const models = useModels(p.client ?? NO_CLIENT, p.client && draft.mode === 'new' && (p.machines?.find(m => m.id === (x?.machineId ?? p.machine))?.up ?? true) ? (x?.machineId ?? p.machine) : null, draft.target.tool);
   const others = p.others.filter(o => !x || o.id !== x.id);
   const errors = draftErrors(draft, others, new Date(now));
-  const shownErrors: DraftErrors = { ...(shown ?? {}), ...(taken ? { name: 'taken' as const } : {}), ...(refused === 'dir' && draft.mode === 'new' ? { dir: true as const } : {}) };
+  const shownErrors: DraftErrors = shown ?? {};
 
   // The next 3 runs: the daemon's for what is saved; asked again for a schedule changed or not saved yet (card 20).
   const schedKey = JSON.stringify(scheduleOf(draft.schedule));
@@ -124,15 +145,15 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       return false;
     }
     setBusy(true);
+    // Every refusal of the form is said under its field, in the front's words (card 28); offline and outdated stay toasts.
     p.actions.refusedBy(fail => {
-      if (fail.code === 'name_taken') { setTaken(true); setFocus(f => ({ field: 'name', n: (f?.n ?? 0) + 1 })); return true; }
-      const part = fail.code === 'invalid' || fail.code === 'forbidden' ? faultOf(fail) : null;
-      if (!part) return false;
-      setRefused(part);
+      if (fail.code === 'offline' || fail.code === 'outdated') return false;
+      const said = refusalOf(fail, draft, r);
+      setRefused(said);
+      const part = said.part;
       const at = part === 'dir' ? (draft.mode === 'new' ? 'dir' : 'session') : part === 'at' || part === 'schedule' ? (draft.schedule.kind === 'once' ? 'at' : 'times') : part;
-      setFocus(f => ({ field: at, n: (f?.n ?? 0) + 1 }));
-      // A folder or a moment past has its text under the field (cards 5, 19); the other parts keep the daemon's words in a toast.
-      return part === 'dir' || part === 'at';
+      if (at) setFocus(f => ({ field: at, n: (f?.n ?? 0) + 1 }));
+      return true;
     });
     try {
       if (!x) {
@@ -143,11 +164,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       const patch = specPatch(specOfRoutine(x), draft);
       if (!Object.keys(patch).length) return true;
       const done = await p.actions.update(x, patch);
-      if (done) { setShown(null); setTaken(false); lastSaved.current = ''; setDraft(specDraft(done)); }
+      if (done) { setShown(null); lastSaved.current = ''; setDraft(specDraft(done)); }
       return !!done;
     } finally { setBusy(false); p.actions.refusedBy(null); }
   };
-  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setTaken(false); setRefused(null); };
+  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setRefused(null); };
   const latest = useRef({ save, discard });
   latest.current = { save, discard };
   useEffect(() => { p.onDirt({ dirty, save: () => latest.current.save(), discard: () => latest.current.discard() }); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -164,7 +185,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const who = x ? (x.createdBy.kind === 'session' ? x.createdBy.name : x.proposal?.by.name ?? '') : '';
   const last = x ? lastRunOf(x) : undefined;
   const failed = !!x && x.state !== 'done' && failedLast(x);
-  const fault: FormFault | null = failed ? faultOf(last) : refused;
+  const fault: FormFault | null = failed ? faultOf(last) : null;
   const done = x?.state === 'done';
   const pending = x?.state === 'pending';
   const run = () => { if (x) p.actions.run(x, x.target.name, !!p.session && look.dot !== 'off'); };
@@ -259,6 +280,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
         <div className="rt-wakes">{r.wakes} <ProviderLogo provider={providerOf(x.target.tool)} size={12} /><b>{x.target.name}</b>
           <span className={`rt-dot ${look.dot}`} aria-hidden="true" /><span className="rt-mut">{look.label}</span><span className="rt-mut">{r.inDir}</span>
           <span className="rt-mono">{p.dirLabel(x.target.cwd)}</span>
+          {p.machines && p.machines.length > 1 && <span className="rt-mut">· {p.machines.find(m => m.id === x.machineId)?.label ?? x.machineId}</span>}
           <button type="button" className="fg-btn ghost" onClick={p.onOpenSession}><Icon d={ROUTINE_ICONS.open} size={12} />{r.openSession}</button></div>
       ) : <span className="rt-lede">{r.sub} <span className="rt-mut">({localZone()})</span></span>}
       {top}
@@ -271,7 +293,9 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
         </section>
       )}
       <section className={`rt-sect${done ? ' ro' : ''}`} aria-label={r.config}><h4>{r.config}</h4>
-        <RoutineForm draft={draft} onChange={setDraft} errors={shownErrors} focus={focus} fault={fault} asked={x?.proposal ? new Set(proposalFields(x)) : undefined}
+        <RoutineForm draft={draft} onChange={setDraft} errors={shownErrors} focus={focus} fault={fault} refusal={refused}
+          machines={!x && p.machines && p.machines.length > 1 && p.onMachine ? { choices: p.machines, value: p.machine, onChange: p.onMachine } : null}
+          models={models.models.map(m => ({ id: m.id, label: m.label }))} asked={x?.proposal ? new Set(proposalFields(x)) : undefined}
           readOnly={done} sessions={p.sessions} dirLabel={p.dirLabel} preview={preview} lastSlot={last?.slot ?? null} {...(p.onBrowse ? { onBrowse: p.onBrowse } : {})} />
       </section>
       {!x ? (

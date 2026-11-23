@@ -30,8 +30,6 @@ export function dayOffset(d: Date, now: Date): number {
 }
 
 const fmt = (lang: Lang, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale(lang), o);
-/** « mar. » / « Tue ». */
-export const weekdayShort = (d: Date, lang: Lang): string => fmt(lang, { weekday: 'short' }).format(d);
 /** « jeu. 26 nov. » / « Thu 26 Nov ». */
 export const dateLong = (d: Date, lang: Lang): string => fmt(lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(d).replace(',', '');
 /** « jeu. 26 » / « Thu 26 ». */
@@ -39,21 +37,22 @@ export const dateShort = (d: Date, lang: Lang): string => fmt(lang, { weekday: '
 /** « 3 déc. » / « 3 Dec ». */
 export const dayMonth = (d: Date, lang: Lang): string => fmt(lang, { day: 'numeric', month: 'short' }).format(d);
 
-/** The day of a run in the page's « Tirs » (card 3): « aujourd’hui », « demain (mar.) », « hier », else « ven. 20 nov. ». */
+/** The day of a run on the page (« Tirs », the preview, the banners; cards 3, 4 as fixed by 274bbbc7): « aujourd’hui »,
+ *  « demain », « hier », else always the weekday, the day and the month (« ven. 20 nov. »). */
 export function runDay(iso: string, now: Date, lang: Lang, r: R): string {
   const d = new Date(iso);
   const off = dayOffset(d, now);
-  return off === 0 ? r.today : off === 1 ? r.tomorrowDay(weekdayShort(d, lang)) : off === -1 ? r.yesterday : dateLong(d, lang);
+  return off === 0 ? r.today : off === 1 ? r.tomorrow : off === -1 ? r.yesterday : dateLong(d, lang);
 }
 
-/** The next run at a sidebar row's right (cards 2, 21): the time alone today, « demain 09:00 », else the day (« jeu. 26 16:00 »,
- *  a one-shot's date « 3 déc. 16:00 »). */
-export function nextLabel(iso: string, now: Date, lang: Lang, r: R, once: boolean): string {
+/** The next run at a sidebar row's right (the TUI's rule, design-ux point 7): the time alone today, « demain 09:00 », within six
+ *  days « jeu. 26 16:00 », beyond « 4 déc. 09:00 ». */
+export function nextLabel(iso: string, now: Date, lang: Lang, r: R): string {
   const d = new Date(iso);
   const off = dayOffset(d, now);
   if (off === 0) return hhmm(d);
   if (off === 1) return `${r.tomorrow} ${hhmm(d)}`;
-  return `${once ? dayMonth(d, lang) : dateShort(d, lang)} ${hhmm(d)}`;
+  return `${off > 1 && off <= 6 ? dateShort(d, lang) : dayMonth(d, lang)} ${hhmm(d)}`;
 }
 
 /** The next run in a tooltip (the explorer's clock, card 12): « aujourd’hui 13:30 », « demain 09:00 », « jeu. 26 16:00 ». */
@@ -93,7 +92,11 @@ export const momentLabel = (at: string, lang: Lang): string => `${dateLong(momen
 /** An activation request's text after its author (« À toi », card 13, and the owner's two texts of 2026-11-23): « veut programmer
  *  « point-hebdo » : 17:00 (ven), dans ~/assistant », every other week « 16:00 (jeu, 1 sem. sur 2) », a one-shot « jeu. 3 déc. 16:00 ». */
 export function askLine(s: RoutineSchedule, name: string, dir: string, lang: Lang, r: R): string {
-  if (s.kind === 'once') return r.atoi.askOnce(name, [...s.at].sort().map(a => `${dateLong(momentDate(a), lang)} ${a.slice(11, 16)}`).join(', '), dir);
+  if (s.kind === 'once') {
+    // Beyond three moments, « … et N autres » (card 28).
+    const all = [...s.at].sort().map(a => `${dateLong(momentDate(a), lang)} ${a.slice(11, 16)}`);
+    return r.atoi.askOnce(name, all.slice(0, 3).join(', ') + (all.length > 3 ? r.atoi.more(all.length - 3) : ''), dir);
+  }
   const days = s.every?.weeks === 2 ? `${daysLabel(s.days, r)}, ${r.every2}` : daysLabel(s.days, r);
   return r.atoi.ask(name, s.times.join(', '), days, dir);
 }

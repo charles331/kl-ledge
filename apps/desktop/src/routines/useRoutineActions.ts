@@ -42,7 +42,7 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     asked.current.delete(ref);
     setRunning(m => { const n = new Map(m); n.delete(ref); return n; });
     if (last.outcome === 'failed') notify(t.toastFailed(a.name, whyText(last, a.r.target, path => dirLabel(a.r, path), t)), { label: t.see, run: () => onSee(ref), undo: false, tone: 'warn' });
-    else notify(last.outcome === 'resumed' ? t.toastResumed(a.name, a.session) : t.toastRun(a.name, a.session));
+    else notify(last.outcome === 'resumed' ? t.toastResumed(a.name, a.session) : last.outcome === 'launched' ? t.toastLaunched(a.name, a.session) : t.toastRun(a.name, a.session));
     return true;
   }, [notify, onSee, t, dirLabel]);
   useEffect(() => {

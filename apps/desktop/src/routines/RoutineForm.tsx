@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/lang';
 import { ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { ROUTINE_ICONS } from './icons';
-import type { DraftErrors, FormFault, SpecDraft } from './model';
+import type { DraftErrors, FormFault, Refusal, SpecDraft } from './model';
 import { sessionLook } from './RoutinesView';
 import { anchorWeek, dateLong, fillPrompt, hhmm, momentLabel } from './schedule';
 
@@ -30,6 +30,12 @@ export interface RoutineFormProps {
   preview: PreviewState | null;
   /** The previous run's slot, for {last} in the prompt's preview. */
   lastSlot: string | null;
+  /** The daemon's refusal of the last save, under the part it names (none: at the head of the configuration; card 28). */
+  refusal?: Refusal | null;
+  /** Several machines (card 28): the Machine field, at the head of a new routine's configuration. */
+  machines?: { choices: readonly { id: string; label: string; up: boolean }[]; value: string; onChange(id: string): void } | null;
+  /** The models the tool offers on that machine, as « Nouvelle session » lists them; none: a free field. */
+  models?: readonly { id: string; label: string }[];
   /** « Parcourir… »: the machine's folders; resolves with the one chosen. */
   onBrowse?(): Promise<string | null>;
 }
@@ -54,6 +60,10 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
   const [dup, setDup] = useState<string | null>(null);
   const prompt = useRef<HTMLTextAreaElement>(null);
   const e = p.errors;
+  // The refusal's text under the part it names, that part outlined (card 28).
+  const ref = p.refusal;
+  const said = (...parts: FormFault[]) => (ref?.part && parts.includes(ref.part) ? <span className="rt-hint err">{ref.text}</span> : null);
+  const bad = (...parts: FormFault[]) => !!ref?.part && parts.includes(ref.part);
   const asked = (k: string) => (p.asked?.has(k) ? ' asked' : '');
   const autoFocus = (field: string) => (p.focus?.field === field ? (el: HTMLElement | null) => { if (el && document.activeElement !== el) el.focus(); } : undefined);
 
@@ -87,10 +97,15 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
 
   return (
     <div className={`rt-form${ro ? ' ro' : ''}`}>
+      {ref && !ref.part && <span className="rt-hint err" role="alert">{ref.text}</span>}
+      {p.machines && <Field label={r.machine} id="rt-machine">
+        <span className="rt-inp rt-sel rt-machine">{(() => { const m = p.machines.choices.find(c => c.id === p.machines!.value); return <><span className={`rt-dot ${m?.up ? 'idle' : 'off'}`} aria-hidden="true" />{m?.label ?? p.machines.value}</>; })()}
+          <select id="rt-machine" value={p.machines.value} onChange={x => p.machines!.onChange(x.target.value)}>{p.machines.choices.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select></span>
+      </Field>}
       {!ro && <Field label={f.name} id="rt-name">
-        <input id="rt-name" ref={autoFocus('name')} className={`rt-inp${e.name || p.fault === 'name' ? ' err' : ''}${asked('name')}`} value={d.name} readOnly={ro} placeholder="briefing"
+        <input id="rt-name" ref={autoFocus('name')} className={`rt-inp${e.name || p.fault === 'name' || bad('name') ? ' err' : ''}${asked('name')}`} value={d.name} readOnly={ro} placeholder="briefing"
           onChange={x => set({ name: x.target.value })} spellCheck={false} />
-        {e.name === 'taken' ? <span className="rt-hint err">{r.err.name(d.target.name, d.name.trim())}</span> : <span className="rt-hint">{f.nameHint}</span>}
+        {said('name') ?? (e.name === 'invalid' ? <span className="rt-hint err">{r.err.nameInvalid}</span> : <span className="rt-hint">{f.nameHint}</span>)}
       </Field>}
 
       {!ro && <Field label={f.session}>
@@ -98,7 +113,7 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
           <label className="rt-radio"><input type="radio" checked={d.mode === 'existing'} onChange={() => set({ mode: 'existing' })} /><span>{f.existing}<small>{f.existingHint}</small></span></label>
           {d.mode === 'existing' && (
             <div className="rt-sub">
-              <div className={`rt-inp rt-sel${e.session || p.fault === 'dir' || p.fault === 'session' ? ' err' : ''}`} ref={autoFocus('session')}>
+              <div className={`rt-inp rt-sel${e.session || p.fault === 'dir' || p.fault === 'session' || bad('session', 'dir') ? ' err' : ''}`} ref={autoFocus('session')}>
                 {chosen || d.target.name ? <>
                   <ProviderLogo provider={providerOf(d.target.tool)} size={12} /><b>{d.target.name}</b>
                   <span className={`rt-dot ${look.dot}`} aria-hidden="true" /><span className="rt-mut rt-small">{look.label}</span>
@@ -109,7 +124,7 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
                   {live.map(s => <option key={s.id} value={s.id}>{`${s.name} · ${p.dirLabel(s.cwd)}`}</option>)}
                 </select>
               </div>
-              {p.fault === 'dir' && <span className="rt-hint err">{r.err.dirExisting}</span>}
+              {said('session', 'dir') ?? (p.fault === 'dir' ? <span className="rt-hint err">{r.err.dirExisting}</span> : e.session ? <span className="rt-hint err">{r.err.session}</span> : null)}
             </div>
           )}
           <label className="rt-radio"><input type="radio" checked={d.mode === 'new'} onChange={() => set({ mode: 'new' })} /><span>{f.new}<small>{f.newHint}</small></span></label>
@@ -119,15 +134,21 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
                 <input id="rt-sname" className="rt-inp" value={d.target.name} placeholder="Iris" onChange={x => set({ target: { ...d.target, name: x.target.value } })} /></div>
               <div className="rt-fld sm"><label htmlFor="rt-dir">{f.dir}</label>
                 <div className="rt-col"><div className="rt-row-in">
-                  <span className={`rt-inp rt-grow${e.dir || p.fault === 'dir' ? ' err' : ''}`}><Icon d={ICONS.folder.d} size={13} />
+                  <span className={`rt-inp rt-grow${e.dir || p.fault === 'dir' || bad('dir') ? ' err' : ''}`}><Icon d={ICONS.folder.d} size={13} />
                     <input id="rt-dir" ref={autoFocus('dir')} className="rt-bare rt-mono" value={d.target.cwd} placeholder="~/assistant" onChange={x => set({ target: { ...d.target, cwd: x.target.value } })} /></span>
                   {p.onBrowse && <button type="button" className="fg-btn" onClick={() => { void p.onBrowse!().then(dir => { if (dir) set({ target: { ...d.target, cwd: dir } }); }); }}>{f.browse}</button>}
-                </div>{(e.dir || p.fault === 'dir') && <span className="rt-hint err">{r.err.dir}</span>}</div></div>
+                </div>{said('dir', 'session') ?? ((e.dir || p.fault === 'dir') && <span className="rt-hint err">{r.err.dir}</span>)}</div></div>
               <div className="rt-fld sm"><label htmlFor="rt-tool">{f.tool}</label>
-                <span className={`rt-inp rt-sel${p.fault === 'tool' ? ' err' : ''}`}><ProviderLogo provider={providerOf(d.target.tool)} size={12} />{TOOL_NAME[d.target.tool]}
-                  <select id="rt-tool" value={d.target.tool} onChange={x => set({ target: { ...d.target, tool: x.target.value as Tool } })}>{TOOLS.map(x => <option key={x} value={x}>{TOOL_NAME[x]}</option>)}</select></span></div>
+                <span className={`rt-inp rt-sel${p.fault === 'tool' || bad('tool') ? ' err' : ''}`}><ProviderLogo provider={providerOf(d.target.tool)} size={12} />{TOOL_NAME[d.target.tool]}
+                  <select id="rt-tool" value={d.target.tool} onChange={x => set({ target: { ...d.target, tool: x.target.value as Tool, model: '' } })}>{TOOLS.map(x => <option key={x} value={x}>{TOOL_NAME[x]}</option>)}</select></span>{said('tool')}</div>
               <div className="rt-fld sm"><label htmlFor="rt-model">{f.model}</label>
-                <input id="rt-model" className={`rt-inp${p.fault === 'model' ? ' err' : ''}`} value={d.target.model} placeholder={f.modelDefault} onChange={x => set({ target: { ...d.target, model: x.target.value } })} /></div>
+                <div className="rt-col">{p.models?.length
+                  // The models « Nouvelle session » lists for this tool on this machine (design-ux point 6); none: a free field.
+                  ? <span className={`rt-inp rt-sel${p.fault === 'model' || bad('model') ? ' err' : ''}`}>{d.target.model ? (p.models.find(m => m.id === d.target.model)?.label ?? d.target.model) : <span className="rt-mut">{f.modelDefault}</span>}
+                    <select id="rt-model" value={d.target.model} onChange={x => set({ target: { ...d.target, model: x.target.value } })}>
+                      <option value="">{f.modelDefault}</option>{p.models.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></span>
+                  : <input id="rt-model" className={`rt-inp${p.fault === 'model' || bad('model') ? ' err' : ''}`} value={d.target.model} placeholder={f.modelDefault} onChange={x => set({ target: { ...d.target, model: x.target.value } })} />}
+                  {said('model')}</div></div>
             </div>
           )}
         </div>
@@ -141,7 +162,7 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
 
       {!once && <>
         <Field label={f.times}>
-          <div className={`rt-chips${asked('schedule')}${p.fault === 'schedule' ? ' err' : ''}`} ref={autoFocus('times') as never} tabIndex={-1}>
+          <div className={`rt-chips${asked('schedule')}${p.fault === 'schedule' || bad('schedule') ? ' err' : ''}`} ref={autoFocus('times') as never} tabIndex={-1}>
             {d.schedule.times.map(h => <span key={h} className="rt-chip">{h}{!ro && <button type="button" className="x" aria-label={`× ${h}`} onClick={() => setSchedule({ times: d.schedule.times.filter(x => x !== h) })}>×</button>}</span>)}
             {adding === 'time'
               ? <input type="time" className="rt-chip rt-chip-in" autoFocus aria-label={f.addTime} onKeyDown={x => { if (x.key === 'Enter') addTime(x.currentTarget.value); if (x.key === 'Escape') { x.stopPropagation(); setAdding(null); } }} onBlur={x => addTime(x.currentTarget.value)} />
@@ -149,6 +170,7 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
           </div>
           {dup && <span className="rt-hint err">{r.err.dup(dup)}</span>}
           {e.times && <span className="rt-hint err">{r.err.times}</span>}
+          {said('schedule')}
         </Field>
         <Field label={f.days}>
           <div className="rt-chips">
@@ -168,20 +190,20 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
               <div className="rt-sub"><div className="rt-fld anchor"><label htmlFor="rt-anchor">{f.anchor}</label>
                 <div className="rt-col"><span className={`rt-inp rt-date${e.anchor ? ' err' : ''}`}><Icon d={ROUTINE_ICONS.calendar} size={13} />
                   <input id="rt-anchor" ref={autoFocus('anchor')} type="date" className="rt-bare rt-mono" readOnly={ro} value={d.schedule.anchor} onChange={x => setSchedule({ anchor: x.target.value })} /></span>
-                  {d.schedule.anchor && <span className="rt-hint">{f.anchorHint(anchorWeek(d.schedule.anchor, lang, r))}</span>}</div></div></div>
+                  {e.anchor ? <span className="rt-hint err">{r.err.anchor}</span> : d.schedule.anchor && <span className="rt-hint">{f.anchorHint(anchorWeek(d.schedule.anchor, lang, r))}</span>}</div></div></div>
             )}
           </div>
         </Field>
       </>}
 
       {once && <Field label={f.dates}>
-        <div className={`rt-chips${asked('schedule')}${p.fault === 'schedule' || p.fault === 'at' ? ' err' : ''}`} ref={autoFocus('at') as never} tabIndex={-1}>
+        <div className={`rt-chips${asked('schedule')}${p.fault === 'schedule' || p.fault === 'at' || bad('at', 'schedule') || e.at ? ' err' : ''}`} ref={autoFocus('at') as never} tabIndex={-1}>
           {d.schedule.at.map(a => <span key={a} className={`rt-chip${e.past?.includes(a) ? ' err' : ''}`}>{momentLabel(a, lang)}{!ro && <button type="button" className="x" aria-label={`× ${a}`} onClick={() => setSchedule({ at: d.schedule.at.filter(x => x !== a) })}>×</button>}</span>)}
           {adding === 'date'
             ? <input type="datetime-local" className="rt-chip rt-chip-in" autoFocus aria-label={f.addDate} onKeyDown={x => { if (x.key === 'Enter') addDate(x.currentTarget.value); if (x.key === 'Escape') { x.stopPropagation(); setAdding(null); } }} onBlur={x => addDate(x.currentTarget.value)} />
             : !ro && <button type="button" className="fg-btn ghost" onClick={() => setAdding('date')}><Icon d={ICONS.plus.d} size={12} />{f.addDate}</button>}
         </div>
-        {e.past?.length || p.fault === 'at' ? <span className="rt-hint err">{r.err.past}</span> : null}
+        {said('at', 'schedule') ?? (e.past?.length || p.fault === 'at' ? <span className="rt-hint err">{r.err.past}</span> : e.at ? <span className="rt-hint err">{r.err.date}</span> : null)}
         {!ro && <span className="rt-hint">{f.onceHint}</span>}
       </Field>}
 
@@ -204,7 +226,8 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
 
       <Field label={f.prompt} id="rt-prompt">
         <textarea id="rt-prompt" ref={el => { prompt.current = el; if (p.focus?.field === 'prompt' && el && document.activeElement !== el) el.focus(); }}
-          className={`rt-ta${e.prompt || p.fault === 'prompt' ? ' err' : ''}${asked('prompt')}`} value={d.prompt} readOnly={ro} placeholder={f.promptPh} rows={3} onChange={x => set({ prompt: x.target.value })} />
+          className={`rt-ta${e.prompt || p.fault === 'prompt' || bad('prompt') ? ' err' : ''}${asked('prompt')}`} value={d.prompt} readOnly={ro} placeholder={f.promptPh} rows={3} onChange={x => set({ prompt: x.target.value })} />
+        {said('prompt') ?? (e.prompt ? <span className="rt-hint err">{r.err.prompt}</span> : null)}
         {!ro && <div className="rt-vars">{f.vars}
           <button type="button" onClick={() => insert('{slot}')}>{'{slot}'}</button>{f.vSlot}
           <button type="button" onClick={() => insert('{date}')}>{'{date}'}</button>{f.vDate}

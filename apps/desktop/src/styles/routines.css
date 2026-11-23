@@ -192,3 +192,8 @@
 .rt-empty .fg-btn.pri, .rt-closeq .fg-btn.pri, .rt-page .fg-btn.pri, .rt-page .fg-btn.ghost, .rt-page .rt-dangerfill { border-color: transparent; }
 .rt-runs.one { grid-template-columns: minmax(0, 1fr); }
 .rt-chips.err { outline: 1.5px solid var(--danger-text); outline-offset: 3px; border-radius: 6px; }
+/* Card 28: a routine deleted elsewhere, and the machine titles of the sidebar. */
+.rt-page.rt-gone { align-items: center; justify-content: center; text-align: center; gap: 10px; }
+.rt-page.rt-gone > * { width: auto; }
+.rt-mach { display: flex; align-items: center; gap: 7px; padding: 10px 6px 2px; font-size: 12px; font-weight: 600; }
+.rt-machine { max-width: 260px; }

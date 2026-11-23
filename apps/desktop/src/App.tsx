@@ -854,16 +854,22 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // « Supprimer… » from the sidebar opens the page on its question; « Programmer à nouveau… » a prefilled « Nouvelle routine ».
   const [routineDelete, setRoutineDelete] = useState<{ ref: string; n: number } | null>(null);
   const [newPrefill, setNewPrefill] = useState<{ draft: SpecDraft | null; n: number }>({ draft: null, n: 0 });
-  const openNewRoutine = (draft: SpecDraft | null = null) => { setNewPrefill(x => ({ draft, n: x.n + 1 })); openRoutineRef(NEW_ROUTINE_REF); };
+  const showNewRoutine = (draft: SpecDraft | null) => { setNewPrefill(x => ({ draft, n: x.n + 1 })); openRoutineRef(NEW_ROUTINE_REF); };
+  // « Programmer à nouveau… » replaces an open « Nouvelle routine », asking first when it has changes (design-ux point 9).
+  const openNewRoutine = (draft: SpecDraft | null = null) => {
+    const key = `routine:${NEW_ROUTINE_REF}`;
+    if (draft && routineDirt.current.get(key)?.dirty && findTab(wsStore.get(), key)) setCloseAsk({ key, then: () => showNewRoutine(draft) });
+    else showNewRoutine(draft);
+  };
   // The clock asks to light a session's routines in the sidebar when it has several (card 12).
   const [routinesLit, setRoutinesLit] = useState<ReadonlySet<string>>(new Set());
   const routineDirt = useRef(new Map<string, PageDirt>());
   const [dirtyRoutines, setDirtyRoutines] = useState<ReadonlySet<string>>(new Set());
-  const [closeAsk, setCloseAsk] = useState<string | null>(null);
+  const [closeAsk, setCloseAsk] = useState<{ key: string; then?: () => void } | null>(null);
   const closePass = useRef<string | null>(null);
   closeGuard.current = key => {
     if (!key.startsWith('routine:') || closePass.current === key || !routineDirt.current.get(key)?.dirty) return false;
-    setCloseAsk(key);
+    setCloseAsk({ key });
     return true;
   };
   const closeNow = (key: string) => { closePass.current = key; wsStore.close(key); closePass.current = null; routineDirt.current.delete(key); setDirtyRoutines(s => { const n = new Set(s); n.delete(key); return n; }); };
@@ -872,6 +878,17 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     setDirtyRoutines(s => (s.has(key) === d.dirty ? s : (() => { const n = new Set(s); if (d.dirty) n.add(key); else n.delete(key); return n; })()));
   };
   const routinesConnecting = !machines.find(m => m.id === 'local')?.daemon && !localDown;
+  // The machines that keep routines (card 28): with more than one, a title per machine and the Machine field.
+  const routineMachines = machines.filter(m => m.daemon?.routines || routines.some(r => r.machineId === m.id))
+    .map(m => ({ id: m.id, label: m.label ?? m.id, up: m.ready && m.status !== 'unreachable' }));
+  const [newMachine, setNewMachine] = useState('local');
+  // A routine's tab whose routine went (card 28): known gone once it was seen this run, or once its machine has answered a while.
+  const seenRoutines = useRef(new Set<string>());
+  for (const r of routines) seenRoutines.current.add(routineRef(r));
+  const [routinesSettled, setRoutinesSettled] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setRoutinesSettled(true), 4000); return () => clearTimeout(timer); }, []);
+  const routineGone = (ref: string) => !findRoutine(routines, ref) && (seenRoutines.current.has(ref)
+    || (routinesSettled && !!routineMachines.find(m => m.id === ref.slice(0, ref.indexOf(':')))?.up));
   const routineClock = (s: Session) => {
     const rs = routinesOfSession(s, routines, homeOf(s.machineId ?? 'local'));
     if (!rs.length) return null;
@@ -1015,14 +1032,19 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       if (tab.kind === 'routine') {
         const key = keyOf(tab);
         const x = tab.ref === NEW_ROUTINE_REF ? null : findRoutine(routines, tab.ref);
-        if (tab.ref !== NEW_ROUTINE_REF && !x) return null;
-        const machine = x?.machineId ?? 'local';
+        if (tab.ref !== NEW_ROUTINE_REF && !x) {
+          return routineGone(tab.ref) ? <IdeRoutine routine={null} gone machine={tab.ref.slice(0, tab.ref.indexOf(':'))} others={[]} sessions={[]} dirLabel={d => d}
+            fleet={fleet} actions={routineActions} onDirt={() => {}} onOpenSession={() => {}} onOpenRoutine={() => {}} onCreated={() => {}} onAgain={() => {}}
+            offline={localDown} onClose={() => closeNow(key)} /> : null;
+        }
+        const machine = x?.machineId ?? (routineMachines.some(m => m.id === newMachine) ? newMachine : 'local');
         const group = x ? routineProposals.find(g => g.ids.includes(x.id)) : undefined;
         return <IdeRoutine key={x ? key : `new:${newPrefill.n}`} routine={x ?? null} prefill={x ? null : newPrefill.draft} machine={machine}
           others={routines.filter(o => o.machineId === machine)} session={x ? routineSession(x) : undefined}
           sessions={known.filter(s => (s.machineId ?? 'local') === machine)} dirLabel={path => homeLabel(path, homeOf(machine))}
           group={group ? { proposal: group, routines: group.ids.map(id => routines.find(o => o.id === id && o.machineId === machine)).filter((o): o is FleetRoutine => !!o && o.state === 'pending') } : null}
           offline={localDown} askDelete={routineDelete?.ref === tab.ref ? routineDelete.n : 0}
+          machines={routineMachines} onMachine={setNewMachine} client={fleetClient}
           fleet={fleet} actions={routineActions} onDirt={onRoutineDirt(key)}
           onOpenSession={() => { if (x) openRoutineSession(x); }} onOpenRoutine={o => openRoutineRef(routineRef(o))}
           onCreated={made => { closeNow(key); openRoutineRef(routineRef(made)); }}
@@ -1074,7 +1096,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
         routinesBadge={routinesBadge(routines)}
         explorer={layout.sideView === 'routines'
-          ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
+          ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} machines={routineMachines} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
               running={routineActions.running} connecting={routinesConnecting} offline={localDown}
               onOpen={r => { setRoutinesLit(new Set()); onTab(routineTab(routineRef(r))); }} onNew={() => openNewRoutine()}
               onRun={runRoutine} onPause={r => routineActions.pause(r)} onResume={r => routineActions.resume(r)}
@@ -1229,14 +1251,15 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       <PairingDialog shown={pairing} mobile={mobile} fleet={fleet} notify={notify} />
       {closeAsk && (() => {
         // The routine page's close question (card 4): Enregistrer, Ne pas enregistrer, Annuler.
-        const d = routineDirt.current.get(closeAsk);
-        const name = findRoutine(routines, closeAsk.slice('routine:'.length))?.name ?? t.routines.newTitle;
+        const { key, then } = closeAsk;
+        const d = routineDirt.current.get(key);
+        const name = findRoutine(routines, key.slice('routine:'.length))?.name ?? t.routines.newTitle;
         const done = () => setCloseAsk(null);
         return (
           <Modal title={`${t.routines.dirty} · ${name}`} onClose={done} role="alertdialog">
             <div className="rt-closeq">
-              <button type="button" className="fg-btn pri" onClick={() => { void d?.save().then(ok => { done(); if (ok) closeNow(closeAsk); }); }}>{t.routines.closeSave}</button>
-              <button type="button" className="fg-btn" onClick={() => { d?.discard(); done(); closeNow(closeAsk); }}>{t.routines.closeDiscard}</button>
+              <button type="button" className="fg-btn pri" onClick={() => { void d?.save().then(ok => { done(); if (ok) { closeNow(key); then?.(); } }); }}>{t.routines.closeSave}</button>
+              <button type="button" className="fg-btn" onClick={() => { d?.discard(); done(); closeNow(key); then?.(); }}>{t.routines.closeDiscard}</button>
               <button type="button" className="fg-btn" autoFocus onClick={done}>{t.routines.cancel}</button>
             </div>
           </Modal>

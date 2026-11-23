@@ -1791,10 +1791,14 @@ export const fr = {
     state: { enabled: 'Active', paused: 'En pause', pending: 'Attend ton accord', done: 'Passée' } as Record<'enabled' | 'paused' | 'pending' | 'done', string>,
     wakes: 'Réveille', inDir: 'dans',
     st: { working: 'Au travail', idle: 'Disponible', off: 'Arrêtée · sera reprise' } as Record<'working' | 'idle' | 'off', string>,
+    // The states the mockup does not draw, in the phone's words (design-ux, point 4).
+    stMore: { approval: 'Ton accord', question: 'Une question', error: 'Erreur', starting: 'Démarrage' } as Record<'approval' | 'question' | 'error' | 'starting', string>,
+    // Card 28: one title per machine, the Machine field, a routine's tab once it was deleted elsewhere.
+    machine: 'Machine', gone: 'Cette routine n’existe plus : elle a été supprimée ailleurs.', closeTab: 'Fermer l’onglet',
     runs: 'Tirs', nextRuns: 'Prochains', pastRuns: 'Derniers', config: 'Configuration',
     noneUntil: 'aucun tant qu’elle n’est pas activée', noneWhilePaused: 'aucun tant qu’elle est en pause', never: 'jamais partie',
     out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' } as Record<'delivered' | 'resumed' | 'launched' | 'failed', string>,
-    today: 'aujourd’hui', tomorrow: 'demain', tomorrowDay: (day: string) => `demain (${day})`, yesterday: 'hier',
+    today: 'aujourd’hui', tomorrow: 'demain', yesterday: 'hier',
     dirty: 'Modifications non enregistrées', discard: 'Annuler les modifications', save: 'Enregistrer', create: 'Créer la routine', cancel: 'Annuler',
     closeSave: 'Enregistrer', closeDiscard: 'Ne pas enregistrer',
     pendBanner: (who: string, at: string) => `${who} demande à programmer cette routine (${at}). Elle ne partira qu’une fois activée.`,
@@ -1806,6 +1810,7 @@ export const fr = {
     delWhy: (session: string) => `${session} ne sera plus réveillée par cette routine. La session elle-même reste, avec sa conversation.`, delGo: 'Supprimer',
     waiting: (s: string) => `attend que ${s} soit libre…`, starting: (s: string) => `${s} redémarre…`,
     toastRun: (r: string, s: string) => `« ${r} » remise à ${s}.`, toastResumed: (r: string, s: string) => `${s} reprise, « ${r} » remise.`,
+    toastLaunched: (r: string, s: string) => `${s} lancée, « ${r} » remise.`,
     toastFailed: (r: string, why: string) => `« ${r} » n’a pas pu partir : ${why}`, see: 'Voir',
     pastPill: 'Passée', ranOn: (d: string, o: string) => `Partie le ${d} · ${o}`, again: 'Programmer à nouveau…', forget: 'Retirer de l’historique',
     readonly: 'Une routine passée ne se modifie plus : « Programmer à nouveau… » en crée une nouvelle à partir de celle-ci.',
@@ -1836,7 +1841,12 @@ export const fr = {
     err: {
       name: (session: string, name: string) => `${session} a déjà une routine « ${name} ».`, times: 'Au moins une heure.', days: 'Au moins un jour.',
       dir: 'Ce dossier n’existe pas sur ce PC.', dirExisting: 'Le dossier de cette session n’existe plus sur ce PC.', dup: (h: string) => `${h} est déjà dans la liste.`,
-      past: 'Ce moment est déjà passé.'
+      past: 'Ce moment est déjà passé.',
+      // Card 28: a text under each field in error, and the front's text for each field the daemon refuses (ff7a19c2).
+      nameInvalid: 'Nom invalide : lettres, chiffres, ., - et _ seulement.', session: 'Choisis une session.', prompt: 'Le prompt est vide.',
+      date: 'Au moins une date.', anchor: 'Choisis la semaine de référence.', tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,
+      unreachable: 'Cette session ne répond pas.', notLedge: 'Cette session n’est pas suivie par Ledge.',
+      tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`
     },
     // A failed run's reason built from its `field` (mockup T.failNoDir, T.failNoTool), so it reads in the screen's language.
     why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}` },
@@ -1847,6 +1857,7 @@ export const fr = {
       askOnce: (r: string, moments: string, dir: string) => `veut programmer « ${r} » : ${moments}, dans ${dir}`,
       failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
       failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
+      more: (n: number) => ` et ${n} autres`,
       groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,
       seePrompt: 'Voir le prompt', hidePrompt: 'Masquer le prompt'
     }
