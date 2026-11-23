@@ -241,7 +241,7 @@ export function toPhoneTask(x: Task): PhoneTask {
     ...(x.brain ? { brain: { kind: x.brain.kind, note: x.brain.note, fact: x.brain.fact, ...(x.brain.create ? { create: true } : {}), ...(x.brain.source ? { source: x.brain.source } : {}),
       ...(x.brain.title ? { title: x.brain.title } : {}), ...(x.brain.when ? { when: x.brain.when } : {}) } } : {}),
     // A routine's item: its fields are the schema's own, already bounded; the phone reads the prompt whole with `routine.show`.
-    ...(x.routine ? { routine: { kind: x.routine.kind, id: x.routine.id, name: x.routine.name, ...(x.routine.reason !== undefined ? { reason: x.routine.reason } : {}) } } : {}) };
+    ...(x.routine ? { routine: { kind: x.routine.kind, id: x.routine.id, name: x.routine.name, ...(x.routine.reason !== undefined ? { reason: x.routine.reason } : {}), ...(x.routine.ids ? { ids: [...x.routine.ids] } : {}) } } : {}) };
 }
 
 /** The digest of what an « Activer » applies: a routine's proposal when a session's change waits, else the routine itself.
