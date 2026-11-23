@@ -27,6 +27,7 @@ export const routinesEn: RoutinesCopy = {
     kind: 'Routine', ask: 'Request', failed: 'Failure',
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
     groupAsks: (n: number) => `wants to schedule ${n} one-shot routines`,
+    inDir: (dir: string) => `in ${dir}`,
     editAsks: (name: string, when: string) => `wants to change “${name}”: ${when}`,
     failedLine: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
     activate: 'Activate', refuse: 'Refuse', retry: 'Run again', see: 'View',

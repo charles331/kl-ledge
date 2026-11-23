@@ -34,6 +34,8 @@ export const routinesFr = {
     kind: 'Routine', ask: 'Demande', failed: 'Échec',
     asks: (name: string, when: string, dir: string) => `veut programmer « ${name} » : ${when}, dans ${dir}`,
     groupAsks: (n: number) => `veut programmer ${n} routines uniques`,
+    /** The folder a grouped request's routines share (card 31). */
+    inDir: (dir: string) => `dans ${dir}`,
     /** A session's change to a routine (card 29): the settings it asks for, no « avant → demandé » on the phone. */
     editAsks: (name: string, when: string) => `veut modifier « ${name} » : ${when}`,
     failedLine: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,

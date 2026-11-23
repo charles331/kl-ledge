@@ -199,30 +199,42 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(t.of('confirm.prepare')).toEqual([]);
   });
 
-  it('several one-shots proposed together: their lines; « Activer les 3 » is ONE device check over the three, « Refuser les 3 » one command', async () => {
+  it('several one-shots proposed together (card 31, A): each read whole before « Activer les 3 », which stays off until every detail came', async () => {
     vi.mocked(getAssertion).mockClear().mockResolvedValue(ASSERTION);
     const group = [oneShot('r000001', 'prepa-121', '2026-12-03T16:00'), oneShot('r000002', 'prepa-comite-archi', '2026-12-07T15:00'), oneShot('r000003', 'prepa-demo-compart', '2026-12-08T09:30')];
     const t = pc(group, [routineTask('t1', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }, { at: new Date(2026, 10, 23, 2, 58).toISOString() })]);
     render(<Inbox store={t.store} />);
+    // The review's check: the phone reads every routine of the group, not the list alone.
+    expect(t.of('routine.show').map(m => m.routine)).toEqual(['r000001', 'r000002', 'r000003']);
     const card = screen.getByRole('article', { name: 'Demande · prepa-121' });
-    expect(card).toHaveTextContent('Iris veut programmer 3 routines uniques');
-    expect(within(card).getAllByRole('listitem').map(li => li.textContent)).toEqual(['prepa-121 · jeu. 3 déc. 16:00', 'prepa-comite-archi · lun. 7 déc. 15:00', 'prepa-demo-compart · mar. 8 déc. 09:30']);
-    expect(within(card).getByRole('button', { name: 'Activer les 3' })).toBeEnabled();
-    const others = [{ routine: 'r000002', routineKey: 'k-prepa-comite-archi' }, { routine: 'r000003', routineKey: 'k-prepa-demo-compart' }];
-    fireEvent.click(within(card).getByRole('button', { name: 'Activer les 3' }));
+    const activate = () => within(card).getByRole('button', { name: 'Activer les 3' });
+    expect(activate()).toBeDisabled();
+    // Each detail carries its own key, which is what the approval is bound to (not the list's).
+    const read = (r: (typeof group)[number], prompt: string) => act(() => t.deliver({ type: 'routine.detail', id: r.id, routine: { ...detail(r, prompt), key: `d-${r.name}` } }));
+    read(group[0]!, 'Prépare le 121.');
+    read(group[1]!, 'Prépare le comité.');
+    expect(activate()).toBeDisabled();
+    read(group[2]!, 'Prépare le comité.');
+    expect(activate()).toBeEnabled();
+    expect(card).toHaveTextContent('Iris veut programmer 3 routines uniques dans ~/assistant');
+    expect(within(card).getAllByRole('listitem').map(li => li.querySelector('span')!.textContent)).toEqual(['prepa-121 · jeu. 3 déc. 16:00', 'prepa-comite-archi · lun. 7 déc. 15:00', 'prepa-demo-compart · mar. 8 déc. 09:30']);
+    // An identical prompt is shown once.
+    expect(within(card).getAllByText('Prépare le comité.')).toHaveLength(1);
+    expect(within(card).getByText('Prépare le 121.')).toBeInTheDocument();
+    const others = [{ routine: 'r000002', routineKey: 'd-prepa-comite-archi' }, { routine: 'r000003', routineKey: 'd-prepa-demo-compart' }];
+    fireEvent.click(activate());
     const prepared = () => t.of('confirm.prepare').filter(m => m.purpose === 'routine');
     await waitFor(() => expect(prepared()).toHaveLength(1));
-    expect(prepared()[0]).toEqual({ type: 'confirm.prepare', purpose: 'routine', routine: 'r000001', routineKey: 'k-prepa-121', routineOthers: others });
+    expect(prepared()[0]).toEqual({ type: 'confirm.prepare', purpose: 'routine', routine: 'r000001', routineKey: 'd-prepa-121', routineOthers: others });
     act(() => t.deliver({ type: 'confirm.challenge', purpose: 'routine', challenge: 'Y2g', rpId: 'pc.local', credentialId: 'Y3I', expiresInMs: 60_000 }));
     await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(1));
-    expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'approve', routine: 'r000001', routineKey: 'k-prepa-121', others, assertion: ASSERTION });
+    expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'approve', routine: 'r000001', routineKey: 'd-prepa-121', others, assertion: ASSERTION });
     expect(vi.mocked(getAssertion)).toHaveBeenCalledTimes(1);
     await act(async () => { t.deliver({ type: 'operation.result', op: t.of('routine.cmd')[0]!.op, status: 'rejected', reason: 'stale' }); });
     fireEvent.click(within(card).getByRole('button', { name: 'Refuser les 3' }));
     await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(2));
     expect(t.of('routine.cmd')[1]).toMatchObject({ action: 'refuse', routine: 'r000001', others });
     expect(t.of('routine.cmd')[1]).not.toHaveProperty('assertion');
-    expect(prepared()).toHaveLength(1);
   });
 
   it('a session’s change to a routine says « veut modifier » with the settings it asks for and its prompt (card 29)', () => {

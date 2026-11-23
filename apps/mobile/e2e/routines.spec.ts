@@ -129,7 +129,11 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
     });
 
     test('several one-shots proposed together', async ({ page }) => {
-      h.daemon.routines = { list: ONE_SHOTS, prompts: {} };
+      // Card 31, A: each routine read whole, its prompt unfolded.
+      h.daemon.routines = { list: ONE_SHOTS, prompts: {
+        r000001: 'Prépare le 121 du 4 déc. : réalisations depuis le dernier 121 (synthèses hebdo), sujets à demander. Écris prepa-121/{date}.md.',
+        r000002: 'Prépare le comité d’architecture du 8 déc. : ADR ouverts, changements du dépôt Archi, sujets à lever.',
+        r000003: 'Prépare la démo Compart du 8 déc. à 11:00 : état du connecteur, questions ouvertes, ce qu’il faut montrer.' } };
       h.daemon.tasks = [ask(local(10, 23, 2, 58), { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })];
       await pair(page, theme, lang);
       await go(page, '#/');
