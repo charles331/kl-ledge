@@ -421,6 +421,18 @@ describe('commands', () => {
     // c still waits: the request stays open.
     expect(decisions()).toHaveLength(1);
     expect(await cmd(user, 'refuse', { routine: c.id, others: [{ routine: a.id, expect: keyOf(a.id) }] })).toMatchObject({ code: 'not_pending' });
+    // A refusal needs no key, and goes through though a member changed since it was shown.
+    const d1 = (await cmd(as('iris'), 'add', { spec: once('d1', '2026-12-06T16:00') })).routine!;
+    const d2 = (await cmd(as('iris'), 'add', { spec: once('d2', '2026-12-07T16:00') })).routine!;
+    const shownD2 = d2.key!;
+    await cmd(as('iris'), 'update', { routine: d2.id, patch: { prompt: 'Changé.' } });
+    expect(await cmd(user, 'refuse', { routine: d1.id, others: [{ routine: d2.id, expect: shownD2 }] })).toMatchObject({ removed: d1.id });
+    expect(routines.all().some(r => r.id === d2.id)).toBe(false);
+    // An approval of a group needs every member's key.
+    const e1 = (await cmd(as('iris'), 'add', { spec: once('e1', '2026-12-08T16:00') })).routine!;
+    const e2 = (await cmd(as('iris'), 'add', { spec: once('e2', '2026-12-09T16:00') })).routine!;
+    expect(await cmd(user, 'approve', { routine: e1.id, expect: e1.key, others: [{ routine: e2.id }] })).toMatchObject({ code: 'invalid' });
+    await cmd(user, 'refuse', { routine: e1.id, others: [{ routine: e2.id }] });
     expect(await cmd(user, 'refuse', { routine: c.id })).toMatchObject({ removed: c.id });
     expect(decisions()).toEqual([]);
   });
