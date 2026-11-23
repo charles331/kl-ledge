@@ -95,7 +95,7 @@ describe('Routines on Desktop, card 28', () => {
     expect(document.querySelector('.rtn-stale')).toHaveTextContent(`« ${r.name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`);
     unmount();
     render(<LangProvider lang="en"><div className="st"><AtoiRoutineCards {...h} /></div></LangProvider>);
-    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`${r.name} changed since you opened it: read it again before activating.`);
+    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`“${r.name}” changed since you opened it: read it again before activating.`);
   });
 });
 
