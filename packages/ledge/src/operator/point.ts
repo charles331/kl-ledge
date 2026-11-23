@@ -1,5 +1,5 @@
 import { openDecision, pendingKey, taskClosed, type ChatPoint, type HumanAsk, type PointGroup, type PointItem, type Routine, type Session, type Task } from '@ledge/protocol';
-import { targetNames } from '../routine-text.js';
+import { askScheduleText, onceDaysText, targetNames } from '../routine-text.js';
 import { POINT_ITEMS_MAX } from './constants.js';
 import type { JournalEvent } from './journal.js';
 
@@ -26,7 +26,9 @@ const L = {
     unreachable: 'injoignable', rigState: 'passée de {from} à {to}', goalUpdate: 'objectif mis à jour',
     leadThings: (n: number) => `${n} ${n === 1 ? 'chose' : 'choses'}`, leadSince: 'depuis', leadWaiting: (n: number) => `${n} ${n === 1 ? "t'attend" : "t'attendent"}`,
     routine: (name: string, slot: string) => `${name} de ${slot}`, routineLate: (name: string, slot: string, at: string) => `${name} de ${slot}, lancé à ${at} au réveil`,
-    routineSub: 'routine', routineSince: (n: number) => `routine · depuis ${n} min`, routineFailed: (name: string) => `: la routine ${name} n’a pas pu partir`, retry: 'Relancer'
+    routineSub: 'routine', routineSince: (n: number) => `routine · depuis ${n} min`, routineFailed: (name: string) => `: la routine ${name} n’a pas pu partir`, retry: 'Relancer',
+    routineAsk: (name: string, when: string, dir: string) => `veut programmer « ${name} » : ${when}, dans ${dir}`,
+    routineGroupAsk: (n: number, days: string) => `veut programmer ${n} routines uniques : ${days}`
   },
   en: {
     deny: 'Deny', accept: 'Allow', add: 'Add', refuse: 'Refuse',
@@ -36,7 +38,9 @@ const L = {
     unreachable: 'unreachable', rigState: 'went from {from} to {to}', goalUpdate: 'goal updated',
     leadThings: (n: number) => `${n} ${n === 1 ? 'thing' : 'things'}`, leadSince: 'since', leadWaiting: (n: number) => `${n} waiting for you`,
     routine: (name: string, slot: string) => `${slot} ${name}`, routineLate: (name: string, slot: string, at: string) => `${slot} ${name}, sent at ${at} on wake`,
-    routineSub: 'routine', routineSince: (n: number) => `routine · for ${n} min`, routineFailed: (name: string) => `: routine ${name} could not run`, retry: 'Run again'
+    routineSub: 'routine', routineSince: (n: number) => `routine · for ${n} min`, routineFailed: (name: string) => `: routine ${name} could not run`, retry: 'Run again',
+    routineAsk: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
+    routineGroupAsk: (n: number, days: string) => `wants to schedule ${n} one-shot routines: ${days}`
   }
 } as const;
 
@@ -104,21 +108,38 @@ function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], it
   if (!Number.isNaN(Date.parse(quiet))) item.at = new Date(quiet).toISOString();
 }
 
+const tilde = (p: string): string => p.replace(/^\/home\/[^/]+(?=\/|$)/, '~').replace(/^\/root(?=\/|$)/, '~');
+
 /**
- * A routine's « À toi » item as the point shows it (mockup card 16): a failure is « Nova : la routine veille n'a pas pu partir »,
- * its reason below, with Relancer; an activation request keeps the decision's row, without words to answer it (only « Activer »
- * on a screen applies it). Neither is answered by text: its buttons send `routine.cmd`, never `task.cmd`.
+ * A routine's « À toi » item as the point shows it (mockup cards 16 and 26): a failure is « Nova : la routine veille n'a pas pu
+ * partir », its reason below, with Relancer; an activation request is « Iris veut programmer « point-hebdo » : 17:00 (ven), dans
+ * ~/assistant » with « Voir » alone (Activer and Refuser live on the routine's page and in « À toi »). Neither is answered by text:
+ * a button sends `routine.cmd`, never `task.cmd`. « Voir » opens the routine's page.
  */
-function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], item: PointItem, gone: boolean): void {
+function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], lang: Lang, item: PointItem, gone: boolean): void {
   const rt = task.routine!;
-  if (rt.kind !== 'failed') return;
   const routine = live.routines?.find(r => r.id === rt.id);
-  const s = routine ? liveTarget(live, routine.target.name, routine.target.cwd) : undefined;
-  item.tone = 'perm'; item.who = clip(routine?.target.name ?? task.giverName, 100); item.text = clip(t.routineFailed(rt.name), 400);
-  if (rt.reason) item.sub = clip(rt.reason, 200); else delete item.sub;
-  item.nav = s ? [{ kind: 'session', id: s.id }] : [];
-  if (!item.nav.length) delete item.nav;
-  if (!gone) item.answers = [{ id: 'retry', label: t.retry, style: 'primary' }];
+  item.nav = [{ kind: 'routine', id: rt.id }];
+  delete item.sub;
+  if (rt.kind === 'failed') {
+    item.tone = 'perm'; item.who = clip(routine?.target.name ?? task.giverName, 100); item.text = clip(t.routineFailed(rt.name), 400);
+    if (rt.reason) item.sub = clip(rt.reason, 200);
+    if (!gone) item.answers = [{ id: 'retry', label: t.retry, style: 'primary' }];
+    return;
+  }
+  item.tone = 'ask';
+  const who = routine?.proposal?.by.name ?? (routine?.createdBy.kind === 'session' ? routine.createdBy.name : undefined);
+  const spec = routine?.proposal?.spec ?? routine;
+  const group = rt.ids?.map(id => live.routines?.find(r => r.id === id));
+  if (who && group && group.every(r => r?.schedule.kind === 'once')) {
+    const ats = group.flatMap(r => (r!.schedule.kind === 'once' ? r!.schedule.at : []));
+    item.who = clip(who, 100); item.text = clip(t.routineGroupAsk(group.length, onceDaysText(ats, lang)), 400);
+  } else if (who && spec && !rt.ids) {
+    item.who = clip(who, 100); item.text = clip(t.routineAsk(spec.name, askScheduleText(spec.schedule, lang), tilde(spec.target.cwd)), 400);
+  } else {
+    // A routine not read yet, or a group the screens have no words for: the daemon's own title.
+    item.who = 'Ledge'; item.text = clip(task.title, 400);
+  }
 }
 
 function build(e: JournalEvent, live: LiveState, t: (typeof L)[Lang]): Built | undefined {
@@ -164,7 +185,7 @@ function build(e: JournalEvent, live: LiveState, t: (typeof L)[Lang]): Built | u
       gone = !task || !openDecision(task);
       item.tone = 'ask'; item.text = clip(e.subjectName, 400); item.sub = clip(`${str(p.giver) || e.subjectName} ${t.decision}`, 200);
       item.ref = { kind: 'task', task: e.subjectId }; item.nav = [{ kind: 'task', id: e.subjectId }];
-      if (task?.routine) routineTask(task, live, t, item, gone);
+      if (task?.routine) routineTask(task, live, t, live.lang, item, gone);
       else if (task && !gone) {
         item.freeText = true;
         const options = decisionOptions(task.text);
@@ -270,9 +291,28 @@ export function buildPoint(events: readonly JournalEvent[], live: LiveState, sin
     if (taskClosed(task) || openDecision(task) || task.brain || items.some(i => i.id === `task:${task.id}`)) continue;
     items.push(ongoingTask(task, 0, t));
   }
+  mergeRoutineEnds(items, [...latest.values()]);
   const rank = (i: PointItem): number => GROUP_ORDER.indexOf(i.group);
   items.sort((a, b) => rank(a) - rank(b) || (a.group === 'atoi' ? Number(urgent.get(b.id)) - Number(urgent.get(a.id)) : 0) || BY_AGE(a, b));
   return { since, lead: clip(lead.text, 300), leadBy: lead.by, items: cap(items) };
+}
+
+/**
+ * A session that went free at the end of a routine's firing says it once (mockup card 26): its « a terminé » row gives way to the
+ * routine's done row, which takes its time. An end with no firing before it in that session keeps its usual row.
+ */
+function mergeRoutineEnds(items: PointItem[], events: readonly JournalEvent[]): void {
+  const byEvent = new Map(events.map(e => [e.id, e]));
+  for (const end of items.filter(i => i.id.startsWith('session:') && byEvent.get(i.event)?.kind === 'session.finished')) {
+    const sid = end.id.slice('session:'.length);
+    const fired = items.filter(i => i.group === 'done' && byEvent.get(i.event)?.kind === 'routine.fired' && i.nav?.[0]?.kind === 'session' && i.nav[0].id === sid)
+      .map(i => ({ i, at: str(byEvent.get(i.event)!.payload.firedAt) || byEvent.get(i.event)!.at }))
+      .filter(x => x.at <= end.at)
+      .sort((a, b) => b.at.localeCompare(a.at))[0];
+    if (!fired) continue;
+    fired.i.at = end.at;
+    items.splice(items.indexOf(end), 1);
+  }
 }
 
 /** At most `POINT_ITEMS_MAX` items: the oldest `done` ones go first, then the other groups. */

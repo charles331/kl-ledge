@@ -86,11 +86,10 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     const nova = session({ id: 'nova1', name: 'Nova', cwd: '/home/u/veille', state: 'idle' });
     const p = buildPoint([asked(t)], live({ tasks: [t], routines: [veille], sessions: [nova] }), at(8, 0), lead);
     expect(p.items[0]).toMatchObject({ group: 'atoi', tone: 'perm', who: 'Nova', text: ': la routine veille n’a pas pu partir', sub: 'dossier introuvable : ~/veille',
-      answers: [{ id: 'retry', label: 'Relancer', style: 'primary' }], nav: [{ kind: 'session', id: 'nova1' }], ref: { kind: 'task', task: 'tf1' } });
+      answers: [{ id: 'retry', label: 'Relancer', style: 'primary' }], nav: [{ kind: 'routine', id: 'r81c0d4' }], ref: { kind: 'task', task: 'tf1' } });
     expect(p.items[0]!.freeText).toBeUndefined();
     const en = buildPoint([asked(t)], live({ lang: 'en', tasks: [t], routines: [veille], sessions: [] }), at(8, 0), lead);
     expect(en.items[0]).toMatchObject({ who: 'Nova', text: ': routine veille could not run', answers: [{ label: 'Run again' }] });
-    expect(en.items[0]!.nav).toBeUndefined();
   });
 
   it('a failure that left (relaunched, or the next firing went) is settled, without its button', () => {
@@ -100,12 +99,32 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     expect(p.items[0]!.answers).toBeUndefined();
   });
 
-  it('an activation request cannot be answered in words: only « Activer » on a screen applies it', () => {
-    const t = failure({ id: 'ta1', title: 'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } });
-    const p = buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead);
-    expect(p.items[0]).toMatchObject({ group: 'atoi', text: t.title });
+  it('an activation request: who asks, the request in the owner’s words, « Voir » alone (the routine’s page), no words to answer it', () => {
+    const t = failure({ id: 'ta1', title: 'daemon words', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } });
+    const hebdo = routine({ id: 'r3f9a12', name: 'point-hebdo', schedule: { kind: 'recurring', times: ['17:00'], days: ['fri'] }, state: 'pending', createdBy: { kind: 'session', id: 'iris1', name: 'Iris' } });
+    const p = buildPoint([asked(t)], live({ tasks: [t], routines: [hebdo] }), at(8, 0), lead);
+    expect(p.items[0]).toMatchObject({ group: 'atoi', tone: 'ask', who: 'Iris', text: 'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', nav: [{ kind: 'routine', id: 'r3f9a12' }] });
     expect(p.items[0]!.freeText).toBeUndefined();
     expect(p.items[0]!.answers).toBeUndefined();
+    expect(p.items[0]!.sub).toBeUndefined();
+    // The owner's words for a two-week routine and for one-shots, in English too.
+    const sprint = { ...hebdo, name: 'bilan-sprint', schedule: { kind: 'recurring' as const, times: ['16:00'], days: ['thu' as const], every: { weeks: 2 as const, anchor: '2026-11-27' } } };
+    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t], routines: [sprint] }), at(8, 0), lead).items[0]!.text).toBe('wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
+    const once = (id: string, day: string) => ({ ...hebdo, id, schedule: { kind: 'once' as const, at: [`2026-12-0${day}`] } });
+    const group = failure({ id: 'ta2', title: 'daemon words', routine: { kind: 'approve', id: 'r000003', name: 'a', ids: ['r000003', 'r000007', 'r000008'] } });
+    const rs = [once('r000003', '3T16:00'), once('r000007', '7T15:00'), once('r000008', '8T09:30')];
+    expect(buildPoint([asked(group)], live({ tasks: [group], routines: rs }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Iris', text: 'veut programmer 3 routines uniques : 3, 7 et 8 déc.' });
+    expect(buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: 'daemon words' });
+  });
+
+  it('a session’s end after a firing is one line: the routine’s, at the end’s time; an end with no firing keeps its row', () => {
+    const end = (when: string): JournalEvent => ({ id: ++n, at: when, machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null });
+    const idle = live({ sessions: [session({ state: 'idle', lastActivityAt: at(13, 52) })] });
+    const p = buildPoint([now, end(at(13, 52))], idle, at(8, 0), lead);
+    expect(p.items).toHaveLength(1);
+    expect(p.items[0]).toMatchObject({ group: 'done', who: 'Iris', text: 'briefing de 13:30', sub: 'routine', at: at(13, 52) });
+    const before = buildPoint([end(at(12, 0)), now], idle, at(8, 0), lead);
+    expect(before.items.map(i => i.id).sort()).toEqual(['routine.run:r1a2b3c@' + at(13, 30), 'session:iris1']);
   });
 });
 

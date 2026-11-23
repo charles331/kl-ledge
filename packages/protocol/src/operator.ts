@@ -29,7 +29,8 @@ export const PointItemSchema = z.object({
   ref: PointRefSchema.optional(),
   answers: z.array(z.object({ id: z.string(), label: z.string().max(60), style: z.enum(['primary', 'danger', 'plain']) })).max(4).optional(),
   freeText: z.boolean().optional(),
-  nav: z.array(z.object({ kind: z.enum(['session', 'pr', 'rig', 'task']), id: z.string() })).max(2).optional(),
+  /** `routine`: a routine's page (its id), which a routine's « À toi » row opens (« Voir »). */
+  nav: z.array(z.object({ kind: z.enum(['session', 'pr', 'rig', 'task', 'routine']), id: z.string() })).max(2).optional(),
   suggestion: z.lazy(() => ChatActionSchema).optional(),
   settled: z.object({ at: z.string().datetime(), where: z.enum(['terminal', 'phone', 'desktop', 'chat', 'elsewhere']), answer: z.string().max(60).optional() }).optional(),
   error: z.string().max(200).optional()
