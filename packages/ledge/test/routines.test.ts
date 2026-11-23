@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { openDecision, TaskSchema, type Routine, type RoutineSpec, type Session, type Weekday } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { createTasks, type Tasks } from '../src/daemon/tasks.js';
+import { routineKey } from '../src/routineKey.js';
 import { createRoutines, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
 
 const TZ = 'Europe/Brussels';
@@ -153,7 +154,7 @@ describe('firing', () => {
     await cmd(user, 'add', { spec: spec() });
     missing.add('/home/jde/assistant');
     await cmd(user, 'run', { routine: 'briefing' }); await flush();
-    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'dossier introuvable : /home/jde/assistant' });
+    expect(only().lastRun).toMatchObject({ outcome: 'failed', reason: 'dossier introuvable : /home/jde/assistant', field: 'cwd' });
     expect(decisions().map(t => [t.title, t.routine])).toEqual([[
       'La routine briefing (Iris) n’a pas pu partir : dossier introuvable : /home/jde/assistant', { kind: 'failed', id: only().id, name: 'briefing', reason: 'dossier introuvable : /home/jde/assistant' }]]);
     // The next firing that leaves closes it.
@@ -223,10 +224,10 @@ describe('commands', () => {
   });
   it('refuses a name taken for that session, an unknown zone, a folder that is not there', async () => {
     await cmd(user, 'add', { spec: spec() });
-    expect(await cmd(user, 'add', { spec: spec() })).toMatchObject({ code: 'name_taken' });
-    expect(await cmd(user, 'add', { spec: spec({ name: 'b', schedule: { ...spec().schedule, tz: 'Mars/Olympus' } }) })).toMatchObject({ code: 'invalid', reason: 'fuseau horaire inconnu : Mars/Olympus' });
+    expect(await cmd(user, 'add', { spec: spec() })).toMatchObject({ code: 'name_taken', field: 'name' });
+    expect(await cmd(user, 'add', { spec: spec({ name: 'b', schedule: { ...spec().schedule, tz: 'Mars/Olympus' } }) })).toMatchObject({ code: 'invalid', reason: 'fuseau horaire inconnu : Mars/Olympus', field: 'tz' });
     missing.add('/nope');
-    expect(await cmd(user, 'add', { spec: spec({ name: 'c', target: { name: 'Iris', cwd: '/nope', tool: 'claude' } }) })).toMatchObject({ code: 'invalid' });
+    expect(await cmd(user, 'add', { spec: spec({ name: 'c', target: { name: 'Iris', cwd: '/nope', tool: 'claude' } }) })).toMatchObject({ code: 'invalid', field: 'cwd' });
     expect(await cmd(user, 'run', { routine: 'zzz' })).toMatchObject({ code: 'not_found' });
   });
   it('from a session: pending until « Activer », with the item the spec words', async () => {
@@ -255,7 +256,7 @@ describe('commands', () => {
     const r = (await cmd(user, 'add', { spec: spec() })).routine!;
     const edited = (await cmd(as('iris'), 'update', { routine: 'briefing', patch: { schedule: { kind: 'recurring', times: ['03:00'], days: ['sun'], tz: TZ } } })).routine!;
     expect(edited).toMatchObject({ state: 'enabled', schedule: { times: ['08:00', '13:30', '16:30'] }, proposal: { spec: { schedule: { times: ['03:00'] } }, by: { id: 'iris', name: 'Iris' } } });
-    expect(decisions().map(t => t.title)).toEqual(['Iris veut programmer « briefing » : 03:00 (dim), dans ~/assistant']);
+    expect(decisions().map(t => t.title)).toEqual(['Iris veut modifier « briefing » : 03:00 (dim), dans ~/assistant']);
     clock = at('2026-11-20T07:00:30.000Z'); routines.tick(); await flush();
     expect(typed).toHaveLength(1);
     const back = (await cmd(user, 'refuse', { routine: r.id })).routine!;
@@ -296,7 +297,7 @@ describe('commands', () => {
     expect(await cmd(as('iris'), 'rm', { routine: r.id })).toMatchObject({ removed: r.id });
   });
   it('a one-shot fires at its moment, then is done and leaves the active routines; a past moment is refused', async () => {
-    expect(await cmd(user, 'add', { spec: spec({ name: 'old', schedule: { kind: 'once', at: ['2026-11-19T16:00'], tz: TZ } }) })).toMatchObject({ code: 'invalid', reason: 'moment déjà passé : 2026-11-19 16:00' });
+    expect(await cmd(user, 'add', { spec: spec({ name: 'old', schedule: { kind: 'once', at: ['2026-11-19T16:00'], tz: TZ } }) })).toMatchObject({ code: 'invalid', reason: 'moment déjà passé : 2026-11-19 16:00', field: 'at' });
     const r = (await cmd(user, 'add', { spec: spec({ name: 'prepa-121', schedule: { kind: 'once', at: ['2026-11-20T16:00', '2026-11-21T09:00'], tz: TZ } }) })).routine!;
     expect(r).toMatchObject({ expiresAfterRun: true, nextRuns: ['2026-11-20T15:00:00.000Z', '2026-11-21T08:00:00.000Z'] });
     clock = at('2026-11-20T15:00:20.000Z'); routines.tick(); await flush(); typedDone();
@@ -396,7 +397,56 @@ describe('commands', () => {
   it('previews the next 3 firings of a schedule not saved', () => {
     expect(routines.preview('p', { kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' }, tz: TZ }))
       .toEqual({ type: 'routine.previewed', rid: 'p', nextRuns: ['2026-11-26T15:00:00.000Z', '2026-12-10T15:00:00.000Z', '2026-12-24T15:00:00.000Z'] });
-    expect(routines.preview('p', { kind: 'recurring', times: ['16:00'], days: ['thu'], tz: 'Mars/Olympus' })).toMatchObject({ nextRuns: [], reason: 'fuseau horaire inconnu : Mars/Olympus' });
+    expect(routines.preview('p', { kind: 'recurring', times: ['16:00'], days: ['thu'], tz: 'Mars/Olympus' })).toMatchObject({ nextRuns: [], reason: 'fuseau horaire inconnu : Mars/Olympus', field: 'tz' });
+  });
+  it('takes a one-shot\'s new zone, its moments kept (the CLI\'s edit --tz)', async () => {
+    const r = (await cmd(user, 'add', { spec: spec({ name: 'prep', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) })).routine!;
+    const moved = (await cmd(user, 'update', { routine: r.id, patch: { schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' } } })).routine!;
+    expect(moved).toMatchObject({ schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' }, nextRun: '2026-12-03T21:00:00.000Z' });
+  });
+  it('« Activer » checks the key it was shown as it applies: one changed meanwhile is stale', async () => {
+    let release: (() => void) | undefined;
+    routines.close();
+    // The first folder check after the request waits; the others answer at once.
+    let blockNext = false;
+    routines = createRoutines(deps({ folder: () => blockNext ? (blockNext = false, new Promise(res => { release = () => res(undefined); })) : Promise.resolve(undefined) }));
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    expect(await cmd(user, 'approve', { routine: r.id, expect: 'autre' })).toMatchObject({ code: 'stale' });
+    blockNext = true;
+    const approving = cmd(user, 'approve', { routine: r.id, expect: routineKey(r) });
+    await flush();
+    await cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Supprime tout.' } });
+    release!();
+    expect(await approving).toMatchObject({ code: 'stale' });
+    expect(only()).toMatchObject({ state: 'pending', prompt: 'Supprime tout.' });
+  });
+  it('a change whose folder check outlasts an approval is stale, and the approval stands', async () => {
+    let release: (() => void) | undefined;
+    routines.close();
+    let blockNext = false;
+    routines = createRoutines(deps({ folder: () => blockNext ? (blockNext = false, new Promise(res => { release = () => res(undefined); })) : Promise.resolve(undefined) }));
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    blockNext = true;
+    const changing = cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Supprime tout.' } });
+    await flush();
+    expect((await cmd(user, 'approve', { routine: r.id, expect: routineKey(r) })).routine).toMatchObject({ state: 'enabled' });
+    release!();
+    expect(await changing).toMatchObject({ code: 'stale' });
+    expect(only()).toMatchObject({ state: 'enabled', prompt: r.prompt });
+  });
+  it('« Activer » with the key it was shown applies; another session\'s change after the showing makes it stale', async () => {
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    const shown = routineKey(r);
+    await cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Autre chose.' } });
+    expect(await cmd(user, 'approve', { routine: r.id, expect: shown })).toMatchObject({ code: 'stale' });
+    expect((await cmd(user, 'approve', { routine: r.id, expect: routineKey(only()) })).routine).toMatchObject({ state: 'enabled', prompt: 'Autre chose.' });
+  });
+  it('names the routines a session counts as its own: made by it, or waking it', async () => {
+    const mine = (await cmd(user, 'add', { spec: spec() })).routine!;
+    const made = (await cmd(as('otto'), 'add', { spec: spec({ name: 'autre', target: { name: 'Nova', cwd: '/home/jde/assistant', tool: 'claude' } }) })).routine!;
+    expect(routines.ownedBy('iris')).toEqual([mine.id]);
+    expect(routines.ownedBy('otto')).toEqual([made.id]);
+    expect(routines.ownedBy('nobody')).toEqual([]);
   });
   it('writes routines.json for the one shared reader', async () => {
     await cmd(user, 'add', { spec: spec() });

@@ -212,6 +212,8 @@ export function createTasks(d: TasksDeps): Tasks {
         return ok(t.state === 'taken' ? t : put({ ...t, state: 'taken' }, me.name, 'prise', { op: 'take' }));
       case 'done': {
         if (!owner) return refuse(`seule la session qui la tient (${t.ownerName}) peut la terminer`);
+        // A routine's item is answered by its own buttons (routine.cmd): closing it here would leave its routine waiting with no item.
+        if (t.routine) return refuse(t.routine.kind === 'approve' ? `réponds avec ledge routine approve|refuse ${t.routine.id}` : `relance avec ledge routine run ${t.routine.id}, ou supprime la routine`);
         const result = cmd.text?.trim();
         // OpenRig's closure reason: a giver must learn what came of its task.
         if (!result) return refuse('il faut un résultat : ledge task done <id> "<ce qui est fait, où, tests>"');

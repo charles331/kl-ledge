@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ClientMessage, Routine, ServerMessage } from '@ledge/protocol';
 import type { Client } from '../src/client.js';
-import { formatList, formatRoutine, langOf, parseDays, patchOf, routineArgs, routineOnClient } from '../src/cli/routine.js';
+import { formatList, formatRoutine, langOf, parseDays, patchOf, pick, routineArgs, routineOnClient } from '../src/cli/routine.js';
 
 const AT = '2026-11-20T06:00:00.000Z';
 const routine: Routine = {
@@ -14,12 +14,12 @@ const routine: Routine = {
 };
 
 /** A client whose daemon answers `routine.list` with `list` and each `routine.cmd` with `answer`. */
-function fake(list: Routine[], answer: (m: Extract<ClientMessage, { type: 'routine.cmd' }>) => Extract<ServerMessage, { type: 'routine.result' }>) {
+function fake(list: Routine[], answer: (m: Extract<ClientMessage, { type: 'routine.cmd' }>) => Extract<ServerMessage, { type: 'routine.result' }>, owned?: (by: string) => string[]) {
   const sent: ClientMessage[] = []; const inbox: ServerMessage[] = [];
   const client: Client = {
     send: m => {
       sent.push(m);
-      if (m.type === 'routine.list') inbox.push({ type: 'routine.listed', rid: m.rid, routines: list });
+      if (m.type === 'routine.list') inbox.push({ type: 'routine.listed', rid: m.rid, routines: list, ...(m.by && owned ? { owned: owned(m.by) } : {}) });
       if (m.type === 'routine.cmd') inbox.push(answer(m));
     },
     next: async <T extends ServerMessage['type']>(type: T) => {
@@ -79,16 +79,20 @@ describe('ledge routine: arguments', () => {
     expect(two?.op === 'edit' && patchOf(two.flags, routine)).toMatchObject({ schedule: { every: { weeks: 2, anchor: '2026-11-27' } } });
     const prompt = routineArgs(['edit', 'briefing', '--name', 'matin', '--', 'Nouveau']);
     expect(prompt?.op === 'edit' && patchOf(prompt.flags, routine)).toEqual({ name: 'matin', prompt: 'Nouveau' });
+    const prep: Routine = { ...routine, schedule: { kind: 'once', at: ['2026-12-03T16:00', '2026-12-10T16:00'] } };
+    const zone = routineArgs(['edit', 'prep', '--tz', 'Europe/Brussels']);
+    expect(zone?.op === 'edit' && patchOf(zone.flags, prep)).toEqual({ schedule: { kind: 'once', at: ['2026-12-03T16:00', '2026-12-10T16:00'], tz: 'Europe/Brussels' } });
     const back = routineArgs(['edit', 'briefing', '--every', '2w']);
     expect(back?.op === 'edit' && patchOf(back.flags, routine)).toBeUndefined();
   });
 });
 
 describe('ledge routine: words', () => {
-  it('speaks French when asked, English otherwise', () => {
-    expect(langOf({ LANG: 'fr_BE.UTF-8' })).toBe('fr');
-    expect(langOf({ LEDGE_LANG: 'en', LANG: 'fr_BE.UTF-8' })).toBe('en');
-    expect(langOf({})).toBe('en');
+  it('speaks the TUI\'s language: its setting, else the locale', () => {
+    expect(langOf({ LANG: 'fr_BE.UTF-8' }, {})).toBe('fr');
+    expect(langOf({ LANG: 'fr_BE.UTF-8' }, { lang: 'en' })).toBe('en');
+    expect(langOf({ LANG: 'en_US.UTF-8' }, { lang: 'fr' })).toBe('fr');
+    expect(langOf({}, {})).toBe('en');
   });
   it('lists a routine with its next 3 firings and its last one, late', () => {
     expect(formatList([routine], 'fr')).toBe([
@@ -125,6 +129,28 @@ describe('ledge routine: against the daemon', () => {
   it('says a refusal with its reason', async () => {
     const { client } = fake([], m => ({ type: 'routine.result', rid: m.rid, code: 'not_found', reason: 'aucune routine zzz' }));
     expect(await routineOnClient(client, ['pause', 'zzz'], { ms: 100, lang: 'fr' })).toEqual({ line: 'refusé : aucune routine zzz', code: 1 });
+  });
+  it('finds a name as the daemon does: a session\'s own first, an id always', async () => {
+    const iris = { ...routine, id: 'r000001', name: 'prep', target: { ...routine.target, name: 'Iris' } };
+    const otto = { ...routine, id: 'r000002', name: 'prep', target: { ...routine.target, name: 'Otto' } };
+    const done = { ...routine, id: 'r000003', name: 'prep', state: 'done' as const };
+    expect(pick([iris, otto, done], 'prep').map(r => r.id)).toEqual(['r000001', 'r000002']);
+    expect(pick([iris, otto, done], 'prep', ['r000001']).map(r => r.id)).toEqual(['r000001']);
+    expect(pick([iris, otto, done], 'r000003').map(r => r.id)).toEqual(['r000003']);
+    expect(pick([done], 'prep').map(r => r.id)).toEqual(['r000003']);
+    const { client, sent } = fake([iris, otto], ok(iris), by => (by === 'iris' ? ['r000001'] : []));
+    expect((await routineOnClient(client, ['edit', 'prep', '--', 'Nouveau'], { by: 'iris', key: 'k', ms: 100, lang: 'fr' })).code).toBe(0);
+    expect(sent.find(m => m.type === 'routine.list')).toMatchObject({ by: 'iris' });
+    expect(sent.find(m => m.type === 'routine.cmd')).toMatchObject({ op: 'update', routine: 'r000001', patch: { prompt: 'Nouveau' } });
+    const user = fake([iris, otto], ok(otto));
+    expect((await routineOnClient(user.client, ['edit', 'prep', '--', 'x'], { ms: 100, lang: 'fr' })).line).toBe('refusé : prep : r000001, r000002');
+    expect((await routineOnClient(user.client, ['edit', 'r000002', '--', 'x'], { ms: 100, lang: 'fr' })).code).toBe(0);
+  });
+  it('approve and refuse answer a session\'s request', async () => {
+    expect(routineArgs(['approve', 'briefing'])).toEqual({ op: 'approve', routine: 'briefing' });
+    const { client, sent } = fake([routine], ok(routine));
+    expect((await routineOnClient(client, ['approve', 'r1a2b3c'], { ms: 100, lang: 'fr' })).line).toBe('routine briefing activée : la session est prévenue');
+    expect(sent.find(m => m.type === 'routine.cmd')).toMatchObject({ op: 'approve', routine: 'r1a2b3c' });
   });
   it('show finds a routine by name or id', async () => {
     const { client } = fake([routine], ok(routine));

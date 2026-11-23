@@ -51,8 +51,16 @@ describe('routine schema', () => {
     expect(RoutineSchema.safeParse({ ...routine, schedule: { kind: 'once', at: [] } }).success).toBe(false);
     expect(RoutineSchema.safeParse({ ...routine, runs: Array(6).fill(routine.lastRun) }).success).toBe(false);
   });
-  it('refuses a field it does not know, so a front cannot slip one in', () => {
-    expect(RoutineSpecSchema.safeParse({ name: 'b', target: routine.target, schedule: routine.schedule, prompt: 'x', extra: 1 }).success).toBe(false);
+  it('reads what a newer daemon adds: an unknown key is dropped, an unknown field is none (mixed versions)', () => {
+    const newer = { ...routine, later: 1, runs: [{ ...routine.runs![0]!, field: 'someday', later: true }], target: { ...routine.target, later: 'x' } };
+    const read = RoutineSchema.parse(newer);
+    expect(read).toEqual({ ...routine, runs: [routine.runs![0]] });
+    expect(RoutineSpecSchema.parse({ name: 'b', target: routine.target, schedule: routine.schedule, prompt: 'x', extra: 1 })).not.toHaveProperty('extra');
+    for (const m of [{ type: 'routine.listed', rid: 'q', routines: [newer] }, { type: 'routine.changed', routine: newer }, { type: 'routine.result', rid: 'q', routine: newer, field: 'someday' }]) {
+      expect(ServerMessageSchema.safeParse(m).success).toBe(true);
+    }
+    const { prompt: _p, runs: _r, ...rest } = newer;
+    expect(PhoneServerMessageSchema.safeParse({ type: 'routines', routines: [{ ...rest, key: 'k', later: 1 }], later: 1 }).success).toBe(true);
   });
 });
 
@@ -78,6 +86,12 @@ describe('routine wire messages', () => {
     expect(wire(ClientMessageSchema, preview)).toEqual(preview);
     const approve = { type: 'routine.cmd', rid: 'q8', op: 'approve', routine: 'r1a2b3c', spec: { name: 'briefing', target: routine.target, schedule: routine.schedule, prompt: 'corrigé' } };
     expect(wire(ClientMessageSchema, approve)).toEqual(approve);
+  });
+  it('reads a refusal code it does not know yet as a refusal', () => {
+    const r = ServerMessageSchema.parse({ type: 'routine.result', rid: 'q', code: 'future_reason', reason: 'x' });
+    expect(r.type === 'routine.result' && r.code).toBe('invalid');
+    const none = ServerMessageSchema.parse({ type: 'routine.result', rid: 'q' });
+    expect(none.type === 'routine.result' && none.code).toBeUndefined();
   });
   it('refuses an unknown op', () => {
     expect(ClientMessageSchema.safeParse({ type: 'routine.cmd', rid: 'q', op: 'fire', routine: 'r1a2b3c' }).success).toBe(false);
@@ -116,7 +130,8 @@ describe('routine phone messages', () => {
     ]) expect(wire(PhoneServerMessageSchema, m)).toEqual(m);
   });
   it('keeps the prompt off the phone\'s list and refuses an action the phone does not have', () => {
-    expect(PhoneRoutineSchema.safeParse({ ...routine, key: 'k3y' }).success).toBe(false);
+    // A reader drops the prompt (the gateway's projection never sends it: mobile-routines.test).
+    expect(PhoneRoutineSchema.parse({ ...routine, key: 'k3y' })).not.toHaveProperty('prompt');
     const { prompt: _p, runs: _r, ...rest } = routine;
     expect(PhoneRoutineSchema.safeParse({ ...rest, key: 'k3y', target: { ...routine.target, cwd: `/${'a'.repeat(600)}` } }).success).toBe(false);
     expect(PhoneClientMessageSchema.safeParse({ type: 'routine.cmd', op: OP, action: 'rm', routine: 'r1a2b3c' }).success).toBe(false);

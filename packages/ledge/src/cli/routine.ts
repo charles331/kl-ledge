@@ -7,12 +7,14 @@ import {
 import { connect, type Client } from '../client.js';
 import { CODEX_HOOK_VAR } from '../spawn.js';
 import { SESSION_KEY_VAR } from '../auth.js';
+import { defaultLang, loadSettings, type Settings } from '../tui/settings.js';
+import type { Lang } from '../tui/i18n/lang.js';
 
-/** The language of `ledge routine`'s words: French when the environment asks for it (`LEDGE_LANG`, else the locale), English otherwise. */
-export type Lang = 'fr' | 'en';
-export function langOf(env: NodeJS.ProcessEnv): Lang {
-  const asked = env.LEDGE_LANG || env.LC_ALL || env.LC_MESSAGES || env.LANG || '';
-  return asked.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+/** The language of `ledge routine`'s words: the TUI's own setting (`~/.ledge/tui.json`), else the locale, as `ledge tui` picks it,
+ *  so the user has one setting for both. */
+export type { Lang };
+export function langOf(env: NodeJS.ProcessEnv, settings: Pick<Settings, 'lang'> = loadSettings()): Lang {
+  return settings.lang ?? defaultLang(env);
 }
 
 const TEXT = {
@@ -26,6 +28,7 @@ ledge routine run <id|nom>               la lancer maintenant
 ledge routine pause|resume <id|nom>      la mettre en pause, la reprendre
 ledge routine edit <id|nom> [options de add ou de once] [-- "<prompt>"]
 ledge routine rm <id|nom>                la supprimer (une unique passée : la retirer de l'historique)
+ledge routine approve|refuse <id|nom>    activer ou refuser une routine (ou sa modification) qu'une session demande
 --days : mon-fri, mon,wed,fri, daily. Le prompt peut contenir {slot} {date} {last}.
 Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'utilisateur dans « À toi ».`,
     noDaemon: "Ledge ne tourne pas (lance une session avec `ledge claude`, ou `ledge daemon`)",
@@ -42,6 +45,8 @@ Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'
     paused: (r: Routine) => `routine ${r.name} en pause`, resumed: (r: Routine) => `routine ${r.name} reprise`,
     ran: (r: Routine) => `routine ${r.name} lancée : son issue sera dans ledge routine show ${r.id}`,
     removed: (id: string) => `routine ${id} supprimée`,
+    approved: (r: Routine) => `routine ${r.name} activée : la session est prévenue`,
+    refusedChange: (r: Routine) => `modification de ${r.name} refusée : la routine reste telle quelle, la session est prévenue`,
     labels: { session: 'session', folder: 'dossier', tool: 'outil', schedule: 'horaire', catchUp: 'rattrapage', by: 'créée par', you: "l'utilisateur", proposal: 'modification demandée par', runs: 'derniers tirs', prompt: 'prompt' }
   },
   en: {
@@ -54,6 +59,7 @@ ledge routine run <id|name>              fire it now
 ledge routine pause|resume <id|name>     pause it, resume it
 ledge routine edit <id|name> [add or once options] [-- "<prompt>"]
 ledge routine rm <id|name>               remove it (a fired one-shot: take it out of the history)
+ledge routine approve|refuse <id|name>   approve or refuse a routine (or a change to one) a session asks for
 --days: mon-fri, mon,wed,fri, daily. The prompt may hold {slot} {date} {last}.
 From a Ledge session, a routine (or a change to one) waits for the user's approval in « À toi ».`,
     noDaemon: 'daemon not running (start a session with `ledge claude`, or run `ledge daemon`)',
@@ -70,6 +76,8 @@ From a Ledge session, a routine (or a change to one) waits for the user's approv
     paused: (r: Routine) => `routine ${r.name} paused`, resumed: (r: Routine) => `routine ${r.name} resumed`,
     ran: (r: Routine) => `routine ${r.name} fired: its outcome will be in ledge routine show ${r.id}`,
     removed: (id: string) => `routine ${id} removed`,
+    approved: (r: Routine) => `routine ${r.name} approved: the session is told`,
+    refusedChange: (r: Routine) => `change to ${r.name} refused: the routine stays as it was, the session is told`,
     labels: { session: 'session', folder: 'folder', tool: 'tool', schedule: 'schedule', catchUp: 'catch-up', by: 'created by', you: 'the user', proposal: 'change asked by', runs: 'last firings', prompt: 'prompt' }
   }
 };
@@ -78,7 +86,7 @@ type Cmd = Extract<ClientMessage, { type: 'routine.cmd' }>;
 /** What `ledge routine` asks, parsed: `edit` keeps its flags apart, for they are merged with the routine as it is. */
 export type RoutineArgs =
   | { op: 'list' }
-  | { op: 'show' | 'run' | 'pause' | 'resume' | 'rm'; routine: string }
+  | { op: 'show' | 'run' | 'pause' | 'resume' | 'rm' | 'approve' | 'refuse'; routine: string }
   | { op: 'add'; spec: RoutineSpec }
   | { op: 'edit'; routine: string; flags: Flags };
 
@@ -132,7 +140,11 @@ function scheduleOf(f: Flags, base?: RoutineSchedule): RoutineSchedule | undefin
   const tz = f.tz ?? base?.tz;
   if (f.on) return f.at || f.days || f.every || f.anchor ? undefined : { kind: 'once', at: f.on, ...(tz ? { tz } : {}) };
   const was = base?.kind === 'recurring' ? base : undefined;
-  if (!f.at && !f.days && !f.every && !f.anchor && !f.tz) return base;
+  if (!f.at && !f.days && !f.every && !f.anchor) {
+    if (!f.tz) return base;
+    // A new zone alone keeps the schedule's moments or times, whichever kind it is.
+    if (base) return { ...base, tz: f.tz };
+  }
   const times = f.at ?? was?.times, days = f.days ?? was?.days;
   if (!times || !days) return undefined;
   const weeks = f.every ?? (f.anchor ? 2 : was?.every?.weeks ?? 1);
@@ -147,7 +159,7 @@ export function routineArgs(args: string[], cwd = process.cwd()): RoutineArgs | 
   const [op, name, ...rest] = args;
   switch (op) {
     case 'list': return name === undefined ? { op } : undefined;
-    case 'show': case 'run': case 'pause': case 'resume': case 'rm': return name && rest.length === 0 ? { op, routine: name } : undefined;
+    case 'show': case 'run': case 'pause': case 'resume': case 'rm': case 'approve': case 'refuse': return name && rest.length === 0 ? { op, routine: name } : undefined;
     case 'add': case 'once': {
       if (!name || !RoutineNameSchema.safeParse(name).success) return undefined;
       const f = parseFlags(rest, cwd);
@@ -237,39 +249,50 @@ export function formatRoutine(r: Routine, lang: Lang): string {
 
 const ROUTINE_MS = 8000;
 
+/** The routines `ref` names, by the daemon's own rule (routines.ts `run`): its id, else its name among the active routines before
+ *  the fired one-shots, a session's own first (`owned`, as the daemon counts them). */
+export function pick(all: readonly Routine[], ref: string, owned?: readonly string[]): Routine[] {
+  const named = all.filter(r => r.id === ref || r.name.toLowerCase() === ref.toLowerCase());
+  const live = named.filter(r => r.id === ref || r.state !== 'done');
+  const candidates = live.length ? live : named;
+  const mine = owned ? candidates.filter(r => owned.includes(r.id)) : [];
+  return mine.length ? mine : candidates;
+}
+
 /** `ledge routine …` over a connected client, as session `by` (with its key) or as the user. */
 export async function routineOnClient(client: Client, args: string[], o: { by?: string; key?: string; ms: number; lang: Lang; cwd?: string }): Promise<{ line: string; code: number }> {
   const t = TEXT[o.lang];
   const parsed = routineArgs(args, o.cwd);
   if (!parsed) return { line: t.usage, code: 1 };
   const who = o.by ? { by: o.by, ...(o.key ? { key: o.key } : {}) } : {};
-  const list = async (): Promise<Routine[]> => {
+  const list = async (): Promise<{ routines: Routine[]; owned?: string[] }> => {
     const rid = randomUUID();
-    client.send({ type: 'routine.list', rid });
-    return (await client.next('routine.listed', o.ms)).routines;
+    client.send({ type: 'routine.list', rid, ...(o.by ? { by: o.by } : {}) });
+    const listed = await client.next('routine.listed', o.ms);
+    return { routines: listed.routines, ...(listed.owned ? { owned: listed.owned } : {}) };
   };
+  const ambiguous = (ref: string, found: Routine[]) => t.refused(found.length ? `${ref} : ${found.map(r => r.id).join(', ')}` : ref);
   const send = async (cmd: Omit<Cmd, 'type' | 'rid' | 'by' | 'key'>) => {
     const rid = randomUUID();
     client.send({ type: 'routine.cmd', rid, ...who, ...cmd });
     return client.next('routine.result', o.ms);
   };
   try {
-    if (parsed.op === 'list') return { line: formatList(await list(), o.lang), code: 0 };
+    if (parsed.op === 'list') return { line: formatList((await list()).routines, o.lang), code: 0 };
     if (parsed.op === 'show') {
-      const all = await list();
-      const found = all.filter(r => r.id === parsed.routine || r.name.toLowerCase() === parsed.routine.toLowerCase());
-      const one = found.length > 1 ? found.filter(r => r.state !== 'done') : found;
-      if (one.length !== 1) return { line: t.refused(one.length ? `${parsed.routine} : ${one.map(r => r.id).join(', ')}` : parsed.routine), code: 1 };
-      return { line: formatRoutine(one[0]!, o.lang), code: 0 };
+      const { routines, owned } = await list();
+      const found = pick(routines, parsed.routine, owned);
+      if (found.length !== 1) return { line: ambiguous(parsed.routine, found), code: 1 };
+      return { line: formatRoutine(found[0]!, o.lang), code: 0 };
     }
     let cmd: Omit<Cmd, 'type' | 'rid' | 'by' | 'key'>;
     if (parsed.op === 'add') cmd = { op: 'add', spec: parsed.spec };
     else if (parsed.op === 'edit') {
-      const all = await list();
-      const found = all.filter(r => r.state !== 'done' && (r.id === parsed.routine || r.name.toLowerCase() === parsed.routine.toLowerCase()));
+      const { routines, owned } = await list();
+      const found = pick(routines, parsed.routine, owned);
       const base = found.length === 1 ? found[0]! : undefined;
       const patch = base && patchOf(parsed.flags, base);
-      if (!patch) return { line: base ? t.usage : t.refused(found.length ? `${parsed.routine} : ${found.map(r => r.id).join(', ')}` : parsed.routine), code: 1 };
+      if (!patch) return { line: base ? t.usage : ambiguous(parsed.routine, found), code: 1 };
       cmd = { op: 'update', routine: base.id, patch };
     } else cmd = { op: parsed.op, routine: parsed.routine };
     const r = await send(cmd);
@@ -282,6 +305,8 @@ export async function routineOnClient(client: Client, args: string[], o: { by?: 
       case 'pause': return { line: t.paused(routine), code: 0 };
       case 'resume': return { line: t.resumed(routine), code: 0 };
       case 'run': return { line: t.ran(routine), code: 0 };
+      case 'approve': return { line: t.approved(routine), code: 0 };
+      case 'refuse': return { line: t.refusedChange(routine), code: 0 };
       default: return { line: formatRoutine(routine, o.lang), code: 0 };
     }
   } catch (e) {
