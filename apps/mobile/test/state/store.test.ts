@@ -205,7 +205,8 @@ describe('the store, writing', () => {
     t.deliver(snapshot([session('a')]));
     expect(t.store.reply('a', '')).toBeNull();
     expect(t.store.reply('a', 'x'.repeat(20_001))).toBeNull();
-    expect(t.sent).toEqual([]);
+    // The snapshot's own read (the routines) aside, nothing left.
+    expect(t.sent.filter(m => m.type !== 'routine.list')).toEqual([]);
   });
 
   it('operation results move the operation on', () => {

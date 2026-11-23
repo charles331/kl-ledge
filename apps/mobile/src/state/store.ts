@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import {
   PhoneClientMessageSchema, type Assertion, type DeviceKind, type DevicePrefs, type PcAction, type PhoneFolder, type PhoneLaunch, type OperationReason, type ProjectColor, type AttachmentRef, type CapabilitiesByTool, type Credential, type ImageUpload, type PhoneClientMessage, type PhonePending, type PhoneServerMessage,
-  type ModelRefusal, type PhoneChecklist, type PhoneModelChoice, type PhoneProject, type PhoneRigRow, type PhoneSlashCommand, type PhoneSession, type PhoneTask, type PushSubscription, type ThreadItem, type BrainChoice, type PhoneHarnessUsage, type HumanAsk, type HumanAnswer, type HumanChannel, type OpenRigAction, type ForgeAction, type PointAnswer
+  type ModelRefusal, type PhoneChecklist, type PhoneModelChoice, type PhoneProject, type PhoneRigRow, type PhoneSlashCommand, type PhoneSession, type PhoneTask, type PushSubscription, type ThreadItem, type BrainChoice, type PhoneHarnessUsage, type HumanAsk, type HumanAnswer, type HumanChannel, type OpenRigAction, type ForgeAction, type PointAnswer, type PhoneRoutine, type PhoneRoutineDetail
 } from '@ledge/protocol';
 import type { PhoneLink } from '../link/link';
 import { getAssertion } from '../link/webauthn';
@@ -75,6 +75,12 @@ export interface MobileState {
   /** Whether OpenRig can reach the person through Ledge, as the last `openrig.asks` said; null until then. `partial`: a read failed, the
    *  list may miss some; `truncated`: the PC left the least pressing out to fit the phone's message. Never cached. */
   asksChannel: { channel: HumanChannel; partial: boolean; truncated: boolean } | null;
+  /** The PC's routines (`routine.list`), newest first, kept up to date by `routine.changed`; null until the PC answers, which an
+   *  older PC never does. Never cached. */
+  routines: PhoneRoutine[] | null;
+  /** Routines shown whole (`routine.show`), by id, as the PC last sent them; `gone`: the PC has no such routine now. A routine that
+   *  changes is dropped from here, so what « Activer » covers is read again. Never cached. */
+  routineDetails: Record<string, PhoneRoutineDetail | 'gone'>;
 }
 
 /** The request a challenge is asked for, as `session.decide` names it. */
@@ -109,7 +115,9 @@ export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: 
   /** An OpenRig action that stops something or drops the prompts (`rigs.act`), or a change of seats that removes one (`rigs.seats`), bound to it. */
   | { purpose: 'rigs'; rigAct: OpenRigAction } | { purpose: 'rigs'; rigSeats: { rig: string; seats: Record<string, number> } }
   /** An action on a pull or merge request (`forge.act`), bound to that request and that exact action, text included (Q54). */
-  | { purpose: 'forge'; forge: { prId: string; action: ForgeAction } };
+  | { purpose: 'forge'; forge: { prId: string; action: ForgeAction } }
+  /** « Activer » on a routine a session asked for (`routine.cmd` `approve`), bound to it and to the key of what the phone showed. */
+  | { purpose: 'routine'; routine: string; routineKey: string };
 
 /** How long `prepareConfirm` waits for the PC's challenge. */
 export const PREPARE_MS = 10_000;
@@ -170,6 +178,14 @@ export interface MobileStore {
   answerAsk(qitemId: string, answer: HumanAnswer, opts?: { assertion?: Assertion }): string | null;
   /** Sends again, as itself, this phone's answer to the ask `qitemId` whose outcome is unknown: the PC applies it once. False when there is none. */
   resendAsk(qitemId: string): boolean;
+  /** Asks the PC for a routine whole (`routine.show`), once until it changes; it lands in `getState().routineDetails`. */
+  showRoutine(id: string): void;
+  /** « Lancer maintenant » / « Relancer » (`run`), « Pause », « Reprendre », and « Refuser » a routine a session asked for: no device
+   *  check. One command per routine at a time. Resolves when the PC answers. */
+  routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse'): Promise<ChatAction>;
+  /** « Activer »: the device's check over that routine and `key`, the key of what the phone showed, then `approve`. Resolves when
+   *  the PC answers; a routine changed since is refused as `stale`. */
+  approveRoutine(id: string, key: string): Promise<ChatAction>;
   /** Registers the passkey with the PC. The op's id, or null when nothing was sent. */
   /** `userId`: the passkey's `user.id`, base64url (« L1 » ‖ the PC key's digest ‖ random), so the PC marks it `recover`. */
   registerCredential(c: Credential, userId?: string): string | null;
@@ -329,6 +345,8 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     usageAlert: null,
     asks: null,
     asksChannel: null,
+    routines: null,
+    routineDetails: {},
     checklists: new Map(),
     pc: null
   };
@@ -408,6 +426,10 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   const setChat = (c: ChatState) => { chatState = c; notify(); };
   const setConversations = (c: Conversations) => { convState = c; notify(); };
   let asksAsked = false;
+  /** The routines were asked on this link: once per link, the PC then sends each change. */
+  let routinesAsked = false;
+  /** The routines whose detail was asked on this link and not answered yet. */
+  const detailAsks = new Set<string>();
   const askHistory = () => { historyAsked = true; send({ type: 'chat.history' }); };
   const set = (patch: Partial<MobileState>) => { state = { ...state, ...patch }; notify(); };
   const persist = () => {
@@ -469,6 +491,8 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     if (lastThread && state.threads.get(lastThread)?.status !== 'gone') askThread(lastThread);
     historyAsked = false;
     asksAsked = false;
+    routinesAsked = false;
+    detailAsks.clear();
     askedSinceReady.clear();
     if (state.device?.chat) askHistory();
   }
@@ -476,6 +500,8 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   function onLost() {
     historyAsked = false;
     asksAsked = false;
+    routinesAsked = false;
+    detailAsks.clear();
     askedSinceReady.clear();
     // A list asked on the lost channel never comes: it is asked again. Those already answered stay.
     for (const tool of [...modelAsks]) if (!state.models[tool]) modelAsks.delete(tool);
@@ -513,6 +539,8 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         persist();
         // OpenRig's asks, once per link: the PC then pushes them whole at each change (the amber badge of « À toi »).
         if (m.daemon.openrig && !asksAsked && ready()) { asksAsked = true; send({ type: 'openrig.asks' }); }
+        // The routines, once per link: a PC that has them answers with the list, then sends each change; an older one never answers.
+        if (!routinesAsked && ready()) { routinesAsked = true; send({ type: 'routine.list' }); }
         adoptRunsOf(m.sessions);
         // The instructions and interrupts left uncertain (those in flight on this link are `sending`) go again if this PC may not have applied them.
         if (ready()) resend(o => o.phase === 'uncertain' && expectKey(o.message) === undefined);
@@ -574,6 +602,20 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       }
       case 'usage.state':
         set({ usage: m.harnesses, usageAlert: m.prefs.alert });
+        return;
+      case 'routines':
+        set({ routines: m.routines, routineDetails: detailsKept(state.routineDetails, m.routines) });
+        return;
+      case 'routine.changed': {
+        const list = state.routines ?? [];
+        const r = m.routine;
+        const routines = m.removed ? list.filter(x => x.id !== m.removed) : r ? (list.some(x => x.id === r.id) ? list.map(x => (x.id === r.id ? r : x)) : [r, ...list]) : list;
+        set({ routines, routineDetails: detailsKept(state.routineDetails, routines) });
+        return;
+      }
+      case 'routine.detail':
+        detailAsks.delete(m.id);
+        set({ routineDetails: { ...state.routineDetails, [m.id]: m.routine ?? 'gone' } });
         return;
       case 'task.updated':
         set({ tasks: new Map(state.tasks).set(m.task.id, m.task) });
@@ -767,6 +809,8 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     threadAsks = [];
     historyAsked = false;
     asksAsked = false;
+    routinesAsked = false;
+    detailAsks.clear();
     readEvent = -1;
     chatState = emptyChat();
     convState = noConversations();
@@ -774,7 +818,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     previewsDirty = false;
     clearLastState(storage);
     clearOps(storage);
-    set({ sessions: new Map(), threads: new Map(), previews: new Map(), capabilities: null, device: null, daemon: null, projects: [], fresh: false, syncedAt: null, ops: {}, tasks: new Map(), checklists: new Map(), pc: null, models: {}, commands: {}, rigRows: {}, modelFailures: {}, folderListing: null, recentFolders: null, projectFolders: {}, usage: null, usageAlert: null, asks: null, asksChannel: null });
+    set({ sessions: new Map(), threads: new Map(), previews: new Map(), capabilities: null, device: null, daemon: null, projects: [], fresh: false, syncedAt: null, ops: {}, tasks: new Map(), checklists: new Map(), pc: null, models: {}, commands: {}, rigRows: {}, modelFailures: {}, folderListing: null, recentFolders: null, projectFolders: {}, usage: null, usageAlert: null, asks: null, asksChannel: null, routines: null, routineDetails: {} });
     modelAsks.clear(); commandAsks.clear(); rigAsks.clear();
     stopPcWatch();
   }
@@ -1212,6 +1256,28 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       });
     },
 
+    showRoutine(id) {
+      if (closed || !ready() || detailAsks.has(id) || state.routineDetails[id] !== undefined) return;
+      detailAsks.add(id);
+      send({ type: 'routine.show', routine: id });
+    },
+
+    routineCmd(id, action) {
+      return chatAction(`routine:${id}`, async () => {
+        const op = write(o => ({ type: 'routine.cmd', op: o, action, routine: id }));
+        return op === null ? { status: 'failed' } : finalOf(op);
+      });
+    },
+
+    approveRoutine(id, key) {
+      return chatAction(`routine:${id}`, async () => {
+        // A phone without a passkey cannot sign: the PC would refuse, and no prompt is worth showing.
+        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
+        return signedOperation({ purpose: 'routine', routine: id, routineKey: key },
+          (o, assertion) => ({ type: 'routine.cmd', op: o, action: 'approve', routine: id, routineKey: key, assertion }));
+      });
+    },
+
     answerNote(task, choice) {
       return chatAction(`note:${task}`, async () => {
         if (!choice.yes) {
@@ -1284,6 +1350,13 @@ export function useChat(store: MobileStore): ChatState {
 
 export function useConversations(store: MobileStore): Conversations {
   return useSyncExternalStore(store.subscribe, store.conversations);
+}
+
+/** The routines shown whole that still are what the PC lists: one whose key changed, or that left, is read again. */
+function detailsKept(details: MobileState['routineDetails'], routines: readonly PhoneRoutine[]): MobileState['routineDetails'] {
+  const keys = new Map(routines.map(r => [r.id, r.key]));
+  const kept = Object.entries(details).filter(([id, d]) => d !== 'gone' && keys.get(id) === d.key);
+  return kept.length === Object.keys(details).length ? details : Object.fromEntries(kept);
 }
 
 /** The store's state in a component, re-rendered on every change. */
