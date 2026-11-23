@@ -10,7 +10,7 @@ import { ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { AlarmIcon, ROUTINE_ICONS } from './icons';
 import {
-  draftErrors, failedLast, faultOf, hasErrors, refusalOf, whyText, type FormFault, type Refusal, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
+  draftErrors, failedLast, faultOf, hasErrors, rebaseDraft, refusalOf, whyText, type FormFault, type Refusal, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
   type DraftErrors, type Proposal, type SpecDraft
 } from './model';
 import { RoutineForm, type PreviewState } from './RoutineForm';
@@ -113,8 +113,10 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     lastSaved.current = savedKey;
     // A change from elsewhere (the daemon, another front) replaces an untouched form.
     if (saved && !dirtyRef.current) { setDraft(specDraft(saved)); setBase({ spec: saved, key: x?.key }); }
-    // The owner's own save coming back (the form is that version), or a stale refusal's new version: the form's new base.
-    else if (rebase.current || !isDirty(saved, draft, blank)) setBase({ spec: saved, key: x?.key });
+    // A stale refusal's new version: the form's new base, the owner's edits laid over it.
+    else if (rebase.current && saved) { if (base.spec) setDraft(rebaseDraft(base.spec, draft, saved)); setBase({ spec: saved, key: x?.key }); }
+    // The owner's own save coming back (the form is that version): the form's new base.
+    else if (!isDirty(saved, draft, blank)) setBase({ spec: saved, key: x?.key });
     rebase.current = false;
   }, [savedKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirtyRef = useRef(dirty);
@@ -206,7 +208,10 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     // (already here, or asked again by the action), which becomes the base the next « Activer » is bound to.
     if (ok === 'stale') {
       setStale(which.name);
-      if (own) { if (x?.key !== base.key) { setBase({ spec: saved, key: x?.key }); if (!dirty && saved) setDraft(specDraft(saved)); } else rebase.current = true; }
+      if (own) {
+        if (x?.key !== base.key && saved) { setDraft(dirty && base.spec ? rebaseDraft(base.spec, draft, saved) : specDraft(saved)); setBase({ spec: saved, key: x?.key }); }
+        else rebase.current = true;
+      }
       return;
     }
     if (ok && own) { lastSaved.current = ''; }

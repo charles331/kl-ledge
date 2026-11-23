@@ -152,7 +152,16 @@ export function specPatch(saved: RoutineSpec, d: SpecDraft): Partial<RoutineSpec
   for (const k of ['name', 'target', 'schedule', 'prompt', 'catchUp'] as const) if (JSON.stringify(next[k]) !== JSON.stringify(was[k])) (out as Record<string, unknown>)[k] = next[k];
   return out;
 }
-export const isDirty = (saved: RoutineSpec | null, d: SpecDraft, blank: SpecDraft): boolean =>
+/** The owner's edits (the fields `d` changes from `was`, the version the form was read from) laid over `now`, a newer version
+ *  read after a stale refusal (card 32): every field the owner did not touch shows the new version, so the next « Activer » never
+ *  sends an old value the owner did not see. A field both changed keeps the owner's value, which is the one on screen. */
+export function rebaseDraft(was: RoutineSpec, d: SpecDraft, now: RoutineSpec): SpecDraft {
+  const edited = specPatch(was, d);
+  const out = specDraft(now, d.mode);
+  for (const k of ['name', 'target', 'schedule', 'prompt', 'catchUp'] as const) if (k in edited) (out as unknown as Record<string, unknown>)[k] = d[k];
+  return out;
+}
+export const isDirty =(saved: RoutineSpec | null, d: SpecDraft, blank: SpecDraft): boolean =>
   saved ? Object.keys(specPatch(saved, d)).length > 0 : JSON.stringify(d) !== JSON.stringify(blank);
 
 /** What keeps a draft from being saved, field by field (cards 5, 19); `name` when another routine of that session has it. */

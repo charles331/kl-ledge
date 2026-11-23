@@ -4,7 +4,7 @@ import type { FleetRoutine } from '@ledge/fleet';
 import { MESSAGES } from '../../src/i18n/messages';
 import {
   atoiRoutineItems, draftErrors, expandHome, faultOf, faultyField, refusalOf, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
-  routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
+  rebaseDraft, routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
 } from '../../src/routines/model';
 import { anchorWeek, askLine, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
 
@@ -128,6 +128,16 @@ describe('the Routines screens rules', () => {
       task('t3', { kind: 'approve', id: 'c', name: 'r-c', ids: ['c', 'd'] }), task('t4', { kind: 'approve', id: 'b', name: 'r-b' })
     ], rs);
     expect(items.map(i => [i.task.id, i.kind, i.routines.map(r => r.id)])).toEqual([['t1', 'approve', ['a']], ['t2', 'failed', ['b']], ['t3', 'approve', ['c', 'd']]]);
+  });
+  it('lays the owner\'s edits over a version read after a stale refusal (review of 1de4cbb8)', () => {
+    const was = routine('a');
+    const now = { ...was, prompt: 'new prompt', catchUp: 'skip' as const, name: 'remote-name' };
+    const d = { ...specDraft(was), name: 'mine' };
+    const out = rebaseDraft(was, d, now);
+    expect(out.name).toBe('mine');
+    expect(out.prompt).toBe('new prompt');
+    expect(out.catchUp).toBe('skip');
+    expect(specPatch(now, out)).toEqual({ name: 'mine' });
   });
   it('patches only what the form changed, and checks it', () => {
     const r = routine('a');

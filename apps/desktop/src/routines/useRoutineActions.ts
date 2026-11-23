@@ -6,6 +6,8 @@ import type { ToastAction } from '../shell/Toast';
 import { lastRunOf, routineRef, whyText } from './model';
 
 type R = Messages['routines'];
+/** The fleet's own word for a daemon too old for a command (its `outdated` failure), shown by the same toast. */
+const OUTDATED = 'version trop ancienne';
 type Source = Pick<Fleet, 'routineCmd'> & Partial<Pick<Fleet, 'rereadRoutines' | 'machines'>>;
 
 /** What the Routines screens ask the daemons (spec §3.4): every button of the sidebar, a page and « À toi » goes through here. */
@@ -68,6 +70,15 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     if (!fleet) return false;
     try { const res = await fleet.routineCmd(machine, ask); return res.routine ?? null; } catch (e) { fail(e); return false; }
   }, [fleet, fail]);
+  // A group's command, all or nothing (dev-back ccfa3df6): every member bound to the key it was shown with. A daemon that does not
+  // announce grouped commands (4e04e476) would apply the first only, and one command each could stop halfway: refused as outdated.
+  const grouped = useCallback((rs: readonly FleetRoutine[]): { expect: string; others?: { routine: string; expect: string }[] } | 'outdated' | 'unkeyed' => {
+    const [head, ...rest] = rs;
+    if (!head || rs.some(r => !r.key)) return 'unkeyed';
+    if (!rest.length) return { expect: head.key! };
+    if (!fleet?.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) return 'outdated';
+    return { expect: head.key!, others: rest.map(o => ({ routine: o.id, expect: o.key! })) };
+  }, [fleet]);
   return useMemo(() => ({
     running,
     refusedBy(fn: Refused | null) { refused.current = fn; },
@@ -93,32 +104,24 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     approveAll: async rs => {
       const [head, ...rest] = rs;
       if (!fleet || !head) return false;
-      // A daemon that does not announce grouped commands (dev-back 4e04e476) would apply the first only: one approval each, the
-      // first stale one stopping the rest.
-      if (!fleet.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) {
-        for (const r of rs) {
-          try { await fleet.routineCmd(r.machineId, { op: 'approve', routine: r.id, ...(r.key ? { expect: r.key } : {}) }); }
-          catch (e) { if ((e as RoutineFailure)?.code === 'stale') { fleet.rereadRoutines?.(r.machineId); return 'stale'; } fail(e); return false; }
-        }
-        return true;
-      }
-      const others = rest.map(o => ({ routine: o.id, expect: o.key ?? '' })).filter(o => o.expect);
-      try { await fleet.routineCmd(head.machineId, { op: 'approve', routine: head.id, ...(head.key ? { expect: head.key } : {}), ...(others.length ? { others } : {}) }); return true; }
+      const g = grouped(rs);
+      if (g === 'outdated') { fail({ code: 'outdated', message: OUTDATED } satisfies RoutineFailure); return false; }
+      // A member read without its key cannot be bound to the version shown: nothing sent, its machine read again (card 32).
+      if (g === 'unkeyed') { fleet.rereadRoutines?.(head.machineId); return 'stale'; }
+      try { await fleet.routineCmd(head.machineId, { op: 'approve', routine: head.id, ...g }); return true; }
       catch (e) { if ((e as RoutineFailure)?.code === 'stale') { fleet.rereadRoutines?.(head.machineId); return 'stale'; } fail(e); return false; }
     },
     refuseAll: async rs => {
-      const [head, ...rest] = rs;
+      const [head] = rs;
       if (!head) return false;
-      if (!fleet?.machines?.().find(m => m.id === head.machineId)?.daemon?.routineGroups) {
-        for (const r of rs) if ((await cmd(r.machineId, { op: 'refuse', routine: r.id })) === false) return false;
-        return true;
-      }
-      const others = rest.map(o => ({ routine: o.id, expect: o.key ?? '' })).filter(o => o.expect);
-      return (await cmd(head.machineId, { op: 'refuse', routine: head.id, ...(head.key ? { expect: head.key } : {}), ...(others.length ? { others } : {}) })) !== false;
+      const g = grouped(rs);
+      if (g === 'outdated') { fail({ code: 'outdated', message: OUTDATED } satisfies RoutineFailure); return false; }
+      if (g === 'unkeyed') { fleet?.rereadRoutines?.(head.machineId); return false; }
+      return (await cmd(head.machineId, { op: 'refuse', routine: head.id, ...g })) !== false;
     },
     refuse: async r => (await cmd(r.machineId, { op: 'refuse', routine: r.id })) !== false,
     remove: async r => (await cmd(r.machineId, { op: 'rm', routine: r.id })) !== false,
     update: async (r, patch) => { const out = await cmd(r.machineId, { op: 'update', routine: r.id, patch }); return out || null; },
     add: async (machine, spec) => { const out = await cmd(machine, { op: 'add', spec }); return out || null; }
-  }), [running, cmd, told, t, fleet, fail]);
+  }), [running, cmd, told, t, fleet, fail, grouped]);
 }

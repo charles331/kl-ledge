@@ -59,11 +59,12 @@ const tasks: Task[] = [
 ];
 const DAEMON = { version: '0.62.0', install: 'npm' as const, systemd: true, routines: true, routineGroups: true, home: '/home/jde' };
 
-async function boot(page: Page, theme: 'dark' | 'light', lang: 'fr' | 'en', list: Routine[] = routines()) {
+async function boot(page: Page, theme: 'dark' | 'light', lang: 'fr' | 'en', list: Routine[] = routines(), old = false) {
   await page.clock.setFixedTime(NOW);
   await page.addInitScript(([t, l]) => { try { localStorage.setItem('desktop.lang', l!); localStorage.setItem('desktop.theme', t!); } catch { /* ignore */ } }, [theme, lang]);
   await seedAtelier(page);
-  const daemon = await fakeDaemon(page, sessions, { daemon: DAEMON as never, routines: { list, preview: [at('2026-11-23T12:30:00Z'), at('2026-11-23T15:30:00Z'), at('2026-11-24T07:00:00Z')] }, tasks });
+  // `old`: a daemon that keeps routines but does not announce grouped commands.
+  const daemon = await fakeDaemon(page, sessions, { daemon: (old ? { ...DAEMON, routineGroups: false } : DAEMON) as never, routines: { list, preview: [at('2026-11-23T12:30:00Z'), at('2026-11-23T15:30:00Z'), at('2026-11-24T07:00:00Z')] }, tasks });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 30_000 });
   return daemon;
@@ -110,6 +111,55 @@ test('an activation cannot approve a prompt changed after the page was shown (re
   await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
   await expect.poll(() => list[0]!.state).toBe('enabled');
   expect(list[0]!.prompt).toBe('Different prompt not shown to the owner');
+});
+
+test('a stale reread shows the new prompt and keeps the owner\'s own edit (review of 1de4cbb8)', async ({ page }) => {
+  const list = routines();
+  await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+  await page.getByRole('region', { name: 'Routines' }).locator('[data-routine="local:r3f9a12"] .rtn-hit').click();
+  const tab = page.getByRole('tabpanel', { name: /^point-hebdo/ });
+  await tab.locator('#rtn-name').fill('point-personnel');
+  list[0] = { ...list[0]!, prompt: 'New agent prompt' };
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect(tab.locator('.rtn-stale')).toBeVisible();
+  // The field the owner did not touch shows the new version; the one they edited keeps their value.
+  await expect(tab.locator('textarea')).toHaveValue('New agent prompt', { timeout: 5000 });
+  await expect(tab.locator('#rtn-name')).toHaveValue('point-personnel');
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect.poll(() => list[0]!.state).toBe('enabled');
+  expect(list[0]!.prompt).toBe('New agent prompt');
+  expect(list[0]!.name).toBe('point-personnel');
+});
+
+test('« Activer les 3 » sends nothing while a member was read without its key (review of 1de4cbb8)', async ({ page }) => {
+  const list = routines();
+  const daemon = await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
+  await page.getByRole('button', { name: 'Page', exact: true }).click();
+  const blk = page.locator('[data-block="routines"]');
+  await expect(blk.getByRole('button', { name: 'Activer les 3' })).toBeVisible();
+  daemon.push({ type: 'routine.changed', routine: list.find(r => r.id === 'r300001') });
+  await page.waitForTimeout(500);
+  await blk.getByRole('button', { name: 'Activer les 3' }).click();
+  await expect(blk.locator('.rtn-stale')).toBeVisible();
+  expect(daemon.received.some(m => m.type === 'routine.cmd' && m.op === 'approve')).toBe(false);
+  expect(list.filter(r => r.id.startsWith('r3000')).every(r => r.state === 'pending')).toBe(true);
+});
+
+test('a daemon without grouped commands activates no member of a group (review of 1de4cbb8)', async ({ page }) => {
+  const list = routines();
+  const daemon = await boot(page, 'dark', 'fr', list, true);
+  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
+  await page.getByRole('button', { name: 'Page', exact: true }).click();
+  const blk = page.locator('[data-block="routines"]');
+  await expect(blk.getByRole('button', { name: 'Activer les 3' })).toBeVisible();
+  const second = list.findIndex(r => r.id === 'r300001');
+  list[second] = { ...list[second]!, prompt: 'Changed before group approval' };
+  await blk.getByRole('button', { name: 'Activer les 3' }).click();
+  await expect(page.locator('.toast-region')).toContainText('version trop ancienne');
+  expect(daemon.received.some(m => m.type === 'routine.cmd' && (m.op === 'approve' || m.op === 'refuse'))).toBe(false);
+  expect(list.filter(r => r.id.startsWith('r3000')).every(r => r.state === 'pending')).toBe(true);
 });
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
