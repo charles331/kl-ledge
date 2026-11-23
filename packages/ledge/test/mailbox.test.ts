@@ -274,3 +274,30 @@ describe('createMailbox', () => {
     expect(box.submit(msg({ rid: 'r3', from: 'zz' }))).toMatchObject({ outcome: 'refused', reason: 'session émettrice inconnue' });
   });
 });
+
+describe('Ledge\'s own lines for routines', () => {
+  it('tells how a line went: typed, or given up on with its reason', async () => {
+    const done: Array<[string, boolean, string | undefined]> = [];
+    box.close();
+    box = createMailbox({ store, typing, sent, now: () => T0, relayQueued: () => false, noticeDone: (rid, ok, why) => { done.push([rid, ok, why]); },
+      replyTo: (id, text) => { typed.push([id, text]); return answer(id, text); } });
+    store.upsert(pim({ state: 'working' }));
+    expect(box.notify('s2', '<ledge-routine name="b" slot="08:00" late="false">x</ledge-routine>', 'routine:r1:1')).toBe(true);
+    expect(box.waiting('routine:r1:1')).toBe(true);
+    setState('s2', 'idle'); await flush();
+    expect(done).toEqual([['routine:r1:1', true, undefined]]);
+    expect(box.waiting('routine:r1:1')).toBe(false);
+    store.upsert(pim({ state: 'working' }));
+    box.notify('s2', 'y', 'routine:r1:2');
+    setState('s2', 'exited'); await flush();
+    expect(done[1]).toEqual(['routine:r1:2', false, "la session s'est terminée avant de le recevoir"]);
+  });
+  it('takes a line back before it is typed', async () => {
+    store.upsert(pim({ state: 'working' }));
+    box.notify('s2', 'old', 'routine:r1:1');
+    expect(box.withdraw('routine:r1:1')).toBe(true);
+    expect(box.withdraw('routine:r1:1')).toBe(false);
+    setState('s2', 'idle'); await flush();
+    expect(typed).toEqual([]);
+  });
+});

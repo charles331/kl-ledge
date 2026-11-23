@@ -336,7 +336,14 @@ describe('routines.md (routines spec §3.5)', () => {
     expect(md).toContain('  - 2026-10-11T06:00:05.000Z, slot 2026-10-11 08:00, typed into the live session\n  - 2026-10-10T14:30:00.000Z, slot 16:30, failed: pas tapée en 30 min');
     expect(md).toContain("- change asked by session Otto at 2026-10-11T10:00:00.000Z, waiting for the user's « Activer » (the routine fires as before until then): at 09:00 (mon, every other week, week of 2026-11-27), wakes Otto in /w/ledge, prompt changed");
     expect(md).toContain('- state: done: a one-off routine that has fired, kept for its history');
-    expect(md).toContain('- at: once: 2026-12-03 16:00 (one-off: done once fired)');
+    expect(md).toContain('- at: once: 2026-12-03 16:00 (one-off: done once its last moment has fired; a failed moment keeps it, failed, until the user relaunches or removes it)');
+    // Several moments: not done after the first one; a failed moment is said, the routine still listed (review of cade0c2f).
+    const two = routinesMd([routine({ name: 'prepa', expiresAfterRun: true, schedule: { kind: 'once', at: ['2026-12-04T16:00', '2026-12-03T16:00'] }, nextRuns: ['2026-12-04T15:00:00.000Z'],
+      runs: [{ at: '2026-12-03T15:00:00.000Z', slot: '16:00', slotAt: '2026-12-03T16:00', outcome: 'failed', reason: 'dossier introuvable' }] })], [], T0);
+    expect(two).toContain('- state: enabled');
+    expect(two).toContain('- at: once: 2026-12-03 16:00, 2026-12-04 16:00 (one-off: done once its last moment has fired;');
+    expect(two).toContain('- next firings: 2026-12-04T15:00:00.000Z');
+    expect(two).toContain('  - 2026-12-03T15:00:00.000Z, slot 2026-12-03 16:00, failed: dossier introuvable');
   });
 
   it('a routine aimed at a session relieved twice is live in the relief at the end of the chain (review of b7093994)', () => {

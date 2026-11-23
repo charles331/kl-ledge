@@ -57,7 +57,7 @@ Un plafond évite que Ledge parle trop. Le daemon tient un journal des événeme
 
 Une routine réveille une session permanente à heures fixes : aux heures et aux jours choisis, l'horloge de Ledge tape sa consigne dans la session. Les heures sont locales (08:00 reste 08:00 au changement d'heure). Le daemon les garde dans `~/.ledge/routines.json`.
 
-Une routine est soit **récurrente** (des heures, des jours, chaque semaine ou une semaine sur deux), soit **unique** (un ou plusieurs moments précis). Une semaine sur deux se cale sur une semaine de référence, l'ancre : `--every 2w --anchor 2026-11-27` (un vendredi de Sprint Review) fait tomber « jeudi 16:00 » sur les bonnes semaines. `ledge routine list` et `show` donnent les 3 prochains passages, pour vérifier la parité d'un coup d'œil. Une routine unique, une fois partie, quitte la liste active et reste dans l'historique ; une routine unique dont le moment est déjà passé est refusée.
+Une routine est soit **récurrente** (des heures, des jours, chaque semaine ou une semaine sur deux), soit **unique** (un ou plusieurs moments précis). Une semaine sur deux se cale sur une semaine de référence, l'ancre : `--every 2w --anchor 2026-11-27` (un vendredi de Sprint Review) fait tomber « jeudi 16:00 » sur les bonnes semaines. `ledge routine list` et `show` donnent les 3 prochains passages, pour vérifier la parité d'un coup d'œil. Une routine unique, une fois son dernier moment parti, quitte la liste active et reste dans l'historique ; un moment qui n'a pas pu partir la garde, en échec, jusqu'à « Relancer » ou sa suppression ; une routine unique dont le moment est déjà passé est refusée.
 
 ```
 ledge routine add <nom> --session <nom> --cwd <dossier> --at 08:00,13:30,16:30 --days mon-fri \

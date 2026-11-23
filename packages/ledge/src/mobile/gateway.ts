@@ -13,7 +13,7 @@ import { forgeSubject, phoneForgeDetail, phoneForgeState } from './forge.js';
 import { latestTodos, TODO_TOOLS, type PhoneChecklist, type PhoneChecklistSummary } from '@ledge/protocol';
 import { BROADCAST_SESSIONS_MAX, type DecidedBy, type DeviceKind, type PointAnswer, type PointItem } from '@ledge/protocol';
 import { PHONE_ROW_SUMMARY_MAX } from '@ledge/protocol';
-import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects } from '@ledge/protocol';
+import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects, type Routine, ROUTINES_MAX } from '@ledge/protocol';
 import { listFolder, resolveFolder } from '../daemon/folders.js';
 import { newProjectId, withoutProject } from '@ledge/fleet/projects';
 import { taskClosed } from '@ledge/protocol';
@@ -37,6 +37,7 @@ import { capabilities, clip, forPhone, phoneTasks, toPhoneFullRequest, toPhoneIt
 import { atelierOf, toPhoneProjects } from './project.js';
 import { canSwitch, toPhoneCommands, toPhoneModels } from './project.js';
 import { checklistSummary, toPhoneChecklist } from './project.js';
+import { routineKey, toPhoneRoutine, toPhoneRoutineDetail } from './project.js';
 import { riskOf } from './risk.js';
 import { CHALLENGE_TTL_MS, type ChallengeStore } from './challenges.js';
 import { challengeOf, verifyAssertion, verifyRegistration, type DeviceCredential, type Rp } from './webauthn.js';
@@ -191,6 +192,8 @@ export function createPhoneGateway(deps: {
   chatThrottleMs?: number;
   /** The tasks (ledge home spec §2.4): the phone's « Le point » and « À traiter ». */
   tasks?: () => Task[];
+  /** The routines (routines spec §3.7): given, the phone reads them, fires, pauses and answers them; each change comes by `forward`. */
+  routines?: () => Routine[];
   /** The user's projects (the daemon's `projects.json`): given, the phone gets the Atelier (`daemon.atelier`); each change comes by `forward`. */
   projects?: () => Projects;
   /**
@@ -433,7 +436,7 @@ export function createPhoneGateway(deps: {
     `${id}:${key}${s?.pending?.source === 'rpc' && s.pending.requestId ? `:${s.pending.requestId}` : ''}`;
 
   /** The device check: the challenge is spent first, whatever the verdict, then the signature is verified and the counter kept. */
-  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge', subject: string | undefined): Outcome | undefined => {
+  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge' | 'routine', subject: string | undefined): Outcome | undefined => {
     const cred = deps.credential(deviceId);
     const rp = deps.rp();
     if (!cred || !rp || !assertion || subject === undefined) return { status: 'rejected', reason: 'confirm_required' };
@@ -1146,6 +1149,29 @@ export function createPhoneGateway(deps: {
    * An action on a pull or merge request, as the Desktop's `forge.act`: each one writes on the forge, so each needs the device's check over
    * that very request and action. The daemon re-reads the request before it acts (a merge of a head that moved is `stale`).
    */
+  /**
+   * A routine's « Lancer maintenant », « Pause » / « Reprendre », « Activer » / « Refuser », as the owner's own `routine.cmd`. An
+   * « Activer » names the routine as the phone showed it (`routineKey`) and is backed by a device check bound to it.
+   */
+  const routineCmd = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'routine.cmd' }>): Promise<Outcome> => {
+    const r = deps.routines?.().find(x => x.id === msg.routine);
+    if (!deps.routines) return { status: 'rejected', reason: 'unavailable' };
+    if (!r) return { status: 'rejected', reason: 'not_found' };
+    if (msg.action === 'approve') {
+      if (r.state !== 'pending') return { status: 'rejected', reason: 'not_pending' };
+      if (msg.routineKey !== routineKey(r)) return { status: 'rejected', reason: 'stale' };
+      const refused = checkAssertion(deviceId, msg.assertion, 'routine', `${r.id}:${msg.routineKey}`);
+      if (refused) return refused;
+    }
+    log(`phone: device ${deviceId} asked routine ${r.id} to ${msg.action}`);
+    const rid = msg.op;
+    return ask({ type: 'routine.cmd', rid, op: msg.action, routine: r.id }, m => {
+      if (m.type !== 'routine.result' || m.rid !== rid) return undefined;
+      if (!m.code) return true;
+      return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' ? m.code : 'invalid' };
+    });
+  };
+
   const forgeAct = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'forge.act' }>): Promise<Outcome> => {
     let detail: Extract<PhoneServerMessage, { type: 'forge.done' }> | undefined;
     const told = (m: Omit<Extract<PhoneServerMessage, { type: 'forge.done' }>, 'type' | 'op'>) => { detail = { type: 'forge.done', op: msg.op, ...m }; push(deviceId, detail); };
@@ -1378,8 +1404,7 @@ export function createPhoneGateway(deps: {
     if (msg.type === 'point.later') return pointLater(deviceId, msg);
     if (msg.type === 'operator.read') return operatorRead(deviceId, msg);
     if (msg.type === 'forge.act') return forgeAct(deviceId, msg);
-    // No routines on this daemon yet: refused as a PC without them would be, before any challenge is spent.
-    if (msg.type === 'routine.cmd') return { status: 'rejected', reason: 'unavailable' };
+    if (msg.type === 'routine.cmd') return routineCmd(deviceId, msg);
     if (msg.type === 'rigs.seats') return rigsSeats(deviceId, msg);
     if (msg.type === 'rigs.goal.send' || msg.type === 'rigs.goal.reply') return rigsGoal(deviceId, msg);
     const refused = precheck(deviceId, msg);
@@ -1585,6 +1610,12 @@ export function createPhoneGateway(deps: {
         });
         return;
       }
+      case 'routine.list':
+        return push(deviceId, { type: 'routines', routines: (deps.routines?.() ?? []).slice(0, ROUTINES_MAX).map(toPhoneRoutine) }, 'routines');
+      case 'routine.show': {
+        const r = deps.routines?.().find(x => x.id === msg.routine);
+        return push(deviceId, r ? { type: 'routine.detail', id: msg.routine, routine: toPhoneRoutineDetail(r) } : { type: 'routine.detail', id: msg.routine, gone: true });
+      }
       case 'snapshot.request':
         follower(deviceId).subscribed = true;
         push(deviceId, snapshot(deviceId), 'snapshot');
@@ -1741,7 +1772,14 @@ export function createPhoneGateway(deps: {
           const challenge = deps.challenges.issue({ deviceId, purpose: 'forge', subject: forgeSubject(msg.forge.prId, msg.forge.action) });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'forge', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
-        if (msg.purpose === 'routine') return invalid();
+        if (msg.purpose === 'routine') {
+          // Bound to that pending routine as the phone showed it (its key): a check covers no other prompt, folder or schedule.
+          const cred = deps.credential(deviceId);
+          const r = deps.routines?.().find(x => x.id === msg.routine);
+          if (!cred || cred.rpId !== rp.rpId || !r || r.state !== 'pending' || msg.routineKey !== routineKey(r)) return invalid();
+          const challenge = deps.challenges.issue({ deviceId, purpose: 'routine', subject: `${r.id}:${msg.routineKey}` });
+          return push(deviceId, { type: 'confirm.challenge', purpose: 'routine', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
+        }
         // A purpose added to the enum without a branch above fails to compile here.
         const unhandled: never = msg.purpose;
         void unhandled;
@@ -1915,6 +1953,12 @@ export function createPhoneGateway(deps: {
             // The threshold rides on the snapshot's device: a change sends each following device a fresh one.
             for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, snapshot(deviceId), 'snapshot');
             return;
+          case 'routine.changed': {
+            if (!deps.routines) return;
+            const out: PhoneServerMessage = m.routine ? { type: 'routine.changed', routine: toPhoneRoutine(m.routine) } : { type: 'routine.changed', ...(m.removed ? { removed: m.removed } : {}) };
+            for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, out);
+            return;
+          }
           case 'task.updated': {
             if (!forPhone(m.task)) return;
             const task = phoneTask(m.task);

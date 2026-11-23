@@ -133,7 +133,7 @@ export function routinesMd(routines: readonly Routine[], sessions: readonly Sess
     const prompt = oneLine(r.prompt);
     lines.push(`## ${oneLine(r.name)} → ${oneLine(r.target.name)}`, `- id: ${r.id}`, `- state: ${ROUTINE_STATE[r.state]}`,
       `- wakes: ${oneLine(r.target.name)} (${r.target.tool}${r.target.model ? `, ${oneLine(r.target.model)}` : ''}) in ${r.target.cwd}, ${awake ? `live now as session ${awake.id} (${STATE[awake.state]})` : 'not running now: the next firing resumes or launches it'}`,
-      `- at: ${scheduleText(r.schedule, 'en')}${r.expiresAfterRun ? ' (one-off: done once fired)' : ''}`, `- missed slots (PC asleep or off): ${r.catchUp === 'once' ? 'the latest one fires once on wake' : 'dropped'}`,
+      `- at: ${scheduleText(r.schedule, 'en')}${r.expiresAfterRun ? ' (one-off: done once its last moment has fired; a failed moment keeps it, failed, until the user relaunches or removes it)' : ''}`, `- missed slots (PC asleep or off): ${r.catchUp === 'once' ? 'the latest one fires once on wake' : 'dropped'}`,
       `- next firings: ${r.state === 'enabled' ? next ?? 'not computed yet' : 'none while it is not enabled'}`,
       ...(runs.length ? ['- last firings, newest first:', ...runs.map(run => `  - ${runLine(run)}`)] : ['- last firing: never']),
       ...(r.proposal ? [`- change asked by session ${oneLine(r.proposal.by.name)} at ${r.proposal.at}, waiting for the user's « Activer » (the routine fires as before until then): at ${scheduleText(r.proposal.spec.schedule, 'en')}, wakes ${oneLine(r.proposal.spec.target.name)} in ${r.proposal.spec.target.cwd}${oneLine(r.proposal.spec.prompt) !== prompt ? ', prompt changed' : ''}`] : []),

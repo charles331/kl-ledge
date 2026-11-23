@@ -162,3 +162,10 @@ function notice(text: string): CrossSessionNotice {
   }
   return { kind: 'other', text };
 }
+
+/** What Ledge's clock types into a routine's session (routines spec §3.2): one line naming the routine and the slot, then
+ *  the prompt, escaped as a body is. `answer`: the owner's « Activer » / « Refuser » of a routine the session asked for. */
+export function formatLedgeRoutine(r: { name: string; slot?: string; late?: boolean; answer?: 'approved' | 'refused'; text: string }): string {
+  const at = r.slot !== undefined ? ` slot="${attr(r.slot)}" late="${r.late ? 'true' : 'false'}"` : '';
+  return `<ledge-routine name="${attr(r.name)}"${at}${r.answer ? ` answer="${r.answer}"` : ''}>${ledgeBody(r.text)}</ledge-routine>`;
+}
