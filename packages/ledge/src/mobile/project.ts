@@ -244,27 +244,29 @@ export function toPhoneTask(x: Task): PhoneTask {
     ...(x.routine ? { routine: { kind: x.routine.kind, id: x.routine.id, name: x.routine.name, ...(x.routine.reason !== undefined ? { reason: x.routine.reason } : {}) } } : {}) };
 }
 
-/** The digest of what a routine does: an approval is bound to it, so « Activer » never covers a prompt or a schedule the phone did not show. */
-export function routineKey(r: Pick<Routine, 'name' | 'target' | 'schedule' | 'prompt' | 'catchUp'>): string {
-  const { name, target, schedule, prompt, catchUp } = r;
-  const what = { name, target: { name: target.name, cwd: target.cwd, tool: target.tool, model: target.model ?? null }, schedule: { times: schedule.times, days: schedule.days, tz: schedule.tz ?? null }, prompt, catchUp };
+/** The digest of what an « Activer » applies: a routine's proposal when a session's change waits, else the routine itself.
+ *  An approval is bound to it, so it never covers a prompt, a folder or a schedule the phone did not show. */
+export function routineKey(r: Pick<Routine, 'name' | 'target' | 'schedule' | 'prompt' | 'catchUp'> & Pick<Partial<Routine>, 'proposal' | 'expiresAfterRun'>): string {
+  const { name, target, schedule, prompt, catchUp, expiresAfterRun } = r.proposal?.spec ?? r;
+  const what = { name, target: { name: target.name, cwd: target.cwd, tool: target.tool, model: target.model ?? null }, schedule, prompt, catchUp: catchUp ?? null,
+    once: expiresAfterRun ?? null, proposal: !!r.proposal };
   return createHash('sha256').update(JSON.stringify(what)).digest('base64url').slice(0, 43);
 }
 
-/** A routine as the phone's list sees it: no prompt, its folder's end kept when it is too long, and its key. */
+/** A routine as the phone's list sees it: no prompt, history or proposal, its folder's end kept when it is too long, and its key. */
 export function toPhoneRoutine(r: Routine): PhoneRoutine {
-  const { prompt: _p, target, ...rest } = r;
+  const { prompt: _p, runs: _r, proposal, target, ...rest } = r;
   const long = target.cwd.length > PHONE_ROUTINE_CWD_MAX;
   // The end of a path names the folder: a long one keeps it, after an ellipsis, never splitting a surrogate pair.
   let tail = target.cwd.slice(target.cwd.length - (PHONE_ROUTINE_CWD_MAX - 1));
   if (/^[\udc00-\udfff]/.test(tail)) tail = tail.slice(1);
-  return { ...rest, target: { ...target, cwd: long ? `…${tail}` : target.cwd }, ...(long ? { cut: true as const } : {}), key: routineKey(r) };
+  return { ...rest, target: { ...target, cwd: long ? `…${tail}` : target.cwd }, ...(long ? { cut: true as const } : {}), ...(proposal ? { proposed: true as const } : {}), key: routineKey(r) };
 }
 
-/** One routine whole, its folder entire, for the phone's detail before « Activer ». */
+/** One routine whole, its folder entire, its proposal and its last firings, for the phone's detail before « Activer ». */
 export function toPhoneRoutineDetail(r: Routine): PhoneRoutineDetail {
-  const { cut: _c, ...listed } = toPhoneRoutine(r);
-  return { ...listed, target: r.target, prompt: r.prompt };
+  const { cut: _c, proposed: _p, ...listed } = toPhoneRoutine(r);
+  return { ...listed, target: r.target, prompt: r.prompt, ...(r.proposal ? { proposal: r.proposal } : {}), ...(r.runs ? { runs: r.runs } : {}) };
 }
 
 /** Ledge's tasks the phone is sent: the ones Ledge gave or that a session put to the user as a decision. */
