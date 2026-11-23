@@ -1083,11 +1083,25 @@ function precPhoneCards(){
     scene: `<div class="col" style="gap:14px">${island}</div>` + atoi + list}];
 }
 
+/* Fallback texts confirmed by jde on 2026-11-23 (qitem-20261123053427-e25f1063c9a37f1b): an « À toi » item that arrives before the
+   screen has read its routine (the daemon only has its French title, never shown in English). */
+function fallbackCards(){
+  const x = t(), fr = L==='fr';
+  const P = fr ? {ask:'« point-hebdo » attend ton accord', askTui:'« point-hebdo » attend votre accord', fail:'La routine veille n’a pas pu partir : dossier introuvable : ~/veille'}
+               : {ask:'“point-hebdo” awaits your approval', askTui:'“point-hebdo” awaits your approval', fail:'The routine veille could not run: folder not found: ~/veille'};
+  const pr = (dot, txt, btns='') => `<div class="pr"><span class="dot ${dot}"></span><div>${txt}</div>${btns?`<div class="acts">${btns}</div>`:''}</div>`;
+  return [{tag:'add', title:'Textes de repli : la routine n’est pas encore lue (validé)', wide:false,
+    why:'Quand un item « À toi » de routine arrive avant que l’écran ait lu la routine, il ne montre jamais le titre français du daemon. Il dit : demande « « point-hebdo » attend ton accord » (TUI : « attend votre accord ») ; échec « La routine veille n’a pas pu partir : &lt;raison&gt; ». Dès que la routine est lue, l’item reprend son texte complet (cartes 13-17, 26-27).',
+    keys:'point / tui / desktop : atoi.routine.fallbackAsk(name) · atoi.routine.fallbackFailed(name, why)',
+    scene: `<div class="col" style="gap:12px"><div style="width:300px;background:var(--side);border:1px solid var(--border);border-radius:6px;padding:10px"><div class="pt"><div class="ph"><span class="m"></span><b>Ledge</b><span>${x.pointBy}</span></div><h5>${x.groups.atoi} <span class="mono">2</span></h5>${pr('ask', P.ask, `<button class="btn ghost">${x.ptSee}</button>`)}${pr('perm', P.fail, `<button class="btn pri">${x.retry}</button><button class="btn ghost">${x.ptSee}</button>`)}</div></div>
+      <div class="tui" style="width:300px;white-space:normal"><span class="warn">?</span> ${P.askTui}<br><span class="bad">!</span> ${P.fail}</div></div>`}];
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards(), ...fallbackCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
