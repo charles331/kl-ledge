@@ -11,6 +11,9 @@ import type { Lang } from '../src/tui/i18n/lang.js';
 import { setTone, type ThemeChoice, type Tone } from '../src/tui/theme.js';
 import { until } from './helpers.js';
 
+/** The mock daemon a TUI test talks to. */
+type MockDaemon = Awaited<ReturnType<typeof createMockDaemon>>;
+
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 
 /** The mockup's eight sessions (two projects, one remote machine), as the daemon would list them. */
@@ -40,9 +43,14 @@ export async function startTui(o: { sessions?: Session[]; /** false: a daemon fr
   /** The local daemon's mobile state, pushed once the TUI is up (none: a daemon that says nothing of mobile access). */
   mobile?: MobileState;
   /** The ASCII glyphs, as `LEDGE_TUI_ASCII=1` gives them. */ ascii?: boolean;
-  /** More of what the daemon says of itself in its snapshot (`openrigRows`…). */ daemonExtras?: Record<string, unknown> } = {}) {
+  /** More of what the daemon says of itself in its snapshot (`openrigRows`…). */ daemonExtras?: Record<string, unknown>;
+  /** Answers the test gives the daemon before the TUI connects: what the client asks as soon as it reads the snapshot (`routine.list`)
+   *  arrives before `startTui` returns, so an answer added afterwards could miss it on a slower machine (release 0.63.0's CI). */
+  answer?: (daemon: MockDaemon) => void;
+  /** A slower machine: the TUI handed over this many ms after it is up, as a loaded CI runner would. */ slowMs?: number } = {}) {
   daemonStore.reset();
   const daemon = await createMockDaemon();
+  o.answer?.(daemon);
   for (const s of o.sessions ?? mockupSessions()) daemon.sessions.set(s.id, s);
   if (o.projects ?? PROJECTS) daemon.projects(o.projects ?? PROJECTS);
   daemon.extras.daemon = { version: '0.16.0', install: 'npm', systemd: false, models: true, modelSwitch: true, archive: true, ...(o.broadcast === false ? {} : { broadcast: true }), ...o.daemonExtras };
@@ -69,6 +77,7 @@ export async function startTui(o: { sessions?: Session[]; /** false: a daemon fr
   await until(() => daemonStore.getState().sessions.length > 0);
   await until(() => (ui.lastFrame() ?? '').includes('Otto') || (o.sessions !== undefined && o.sessions.length === 0));
   if (o.mobile) { daemon.push({ type: 'mobile', state: o.mobile }); await until(() => client.fleet?.mobile() !== undefined); }
+  if (o.slowMs) await new Promise(r => setTimeout(r, o.slowMs));
   const sentMobile: ClientMessage[] = [];
   daemon.onMessage(m => { if (m.type.startsWith('mobile.')) sentMobile.push(m); });
   const press = async (keys: string) => { ui.stdin.write(keys); await new Promise(r => setTimeout(r, 30)); };
