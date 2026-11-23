@@ -974,11 +974,53 @@ function addCards(){
   return C;
 }
 
+/* Précisions validées par jde le 2026-11-23 (qitem-20261123035235-5e47d4ad38c8f6be), after dev-front's questions on the point
+   and the TUI: a) the point's activation row has « Voir » only, b) a routine run replaces « a terminé », c) the TUI's toasts and
+   the old daemon, d) one group per machine; plus the TUI overview's « À toi » items (v2 question 4). */
+function precCards(){
+  const x = t(), fr = L==='fr', C = [];
+  const P = fr ? {
+    ask:'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', since:'routine · depuis 4 min', done:'routine · 13:52',
+    notRunning:'Iris ne tourne pas : r lance la routine, qui la reprendra.', delivered:'« briefing » remise à Iris', resumed:'Iris reprise, « briefing » remise', launched:'Iris lancée, « briefing » remise',
+    failed:'« veille » n’a pas pu partir : dossier introuvable : ~/veille', pauseRefused:'Pause refusée : &lt;raison&gt;', resumeRefused:'Reprise refusée : &lt;raison&gt;',
+    old:'Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.', m1:'PC du bureau', m2:'Portable',
+    yours:'À toi · 3', a1:'Iris veut programmer « point-hebdo » : 17:00 (ven)', a2:'Iris veut programmer 3 routines uniques : 3, 7 et 8 déc.', a3:'La routine veille (Nova) n’a pas pu partir : dossier introuvable',
+    kAct:'activer', kRef:'refuser', kRetry:'relancer', kActAll:'activer les 3', kRefAll:'refuser les 3',
+  } : {
+    ask:'wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant', since:'routine · for 4 min', done:'routine · 13:52',
+    notRunning:'Iris isn’t running: r runs the routine, which resumes it.', delivered:'“briefing” delivered to Iris', resumed:'Iris resumed, “briefing” delivered', launched:'Iris launched, “briefing” delivered',
+    failed:'“veille” could not run: folder not found: ~/veille', pauseRefused:'Pause refused: &lt;reason&gt;', resumeRefused:'Resume refused: &lt;reason&gt;',
+    old:'This daemon doesn’t know routines yet: update Ledge.', m1:'Office PC', m2:'Laptop',
+    yours:'For you · 3', a1:'Iris wants to schedule “point-hebdo”: 17:00 (Fri)', a2:'Iris wants to schedule 3 one-shot routines: 3, 7 and 8 Dec', a3:'The routine veille (Nova) could not run: folder not found',
+    kAct:'activate', kRef:'refuse', kRetry:'run again', kActAll:'activate all 3', kRefAll:'refuse all 3',
+  };
+  const pr = (dot, who, txt, sub, btns='') => `<div class="pr"><span class="dot ${dot}"></span><div><b>${who}</b> ${txt}${sub?`<small>${sub}</small>`:''}</div>${btns?`<div class="acts">${btns}</div>`:''}</div>`;
+  C.push({tag:'add', title:'« Le point » : une demande d’activation, et la fin d’un tir (validé)', wide:false,
+    why:'<b>a)</b> Une demande d’activation apparaît sous « À toi » du point avec son texte et <b>un seul bouton, Voir</b>, qui ouvre la page de la routine : pas d’Activer ni de Refuser dans le point (choix 7 : ils vivent sur la page, prompt sous les yeux, et dans « À toi »), pas de « Répondre ». <b>b)</b> Quand une session redevient libre à la fin d’un tir de routine, <b>la ligne de routine remplace « Iris a terminé »</b> sous « Terminé » : une seule ligne, avec l’heure de fin. Une fin sans tir en cours garde la ligne habituelle. Textes EN : « 13:30 briefing » (ptLine(nom, créneau)).',
+    keys:'operator/point.ts : la ligne de demande reprend le texte de l’item « À toi » · nav « Voir » (pointCopy.nav) · aucune clé nouvelle',
+    scene: `<div style="width:300px;background:var(--side);border:1px solid var(--border);border-radius:6px;padding:10px"><div class="pt"><div class="ph"><span class="m"></span><b>Ledge</b><span>${x.pointBy}</span><span style="flex:1"></span><span class="mono">13:55</span></div>
+      <h5>${x.groups.atoi} <span class="mono">1</span></h5>${pr('ask','Iris', P.ask, '', `<button class="btn ghost">${x.ptSee}</button>`)}
+      <h5>${x.groups.done} <span class="mono">1</span></h5>${pr('idle','Iris', x.ptLine('briefing','13:30'), P.done)}</div></div>`});
+  const k = (key, label) => `<span class="k">${key}</span> ${label}`;
+  const box = (title, body, extra='') => `<div class="box" style="min-height:0"><span class="lg">${title}</span>${body}</div>${extra}`;
+  const pad = (s,n) => s + ' '.repeat(Math.max(1, n - s.length));
+  const tl = (name, right, sub) => `<span style="display:block"><b>${pad(name,22)}</b>${right}</span><span class="dim" style="display:block">  ${sub}</span>`;
+  const toasts = [[`<span class="ok">✓</span>`, P.delivered],[`<span class="ok">✓</span>`, P.resumed],[`<span class="ok">✓</span>`, P.launched],[`<span class="bad">!</span>`, P.failed],[`<span class="bad">!</span>`, P.pauseRefused],[`<span class="bad">!</span>`, P.resumeRefused],[`<span class="warn">·</span>`, P.notRunning]].map(([m,s])=>`  ${m} ${s}`).join('\n');
+  C.push({tag:'add', title:'ledge tui : toasts, daemon ancien, plusieurs machines, « À toi » (validé)', wide:true,
+    why:'<b>c)</b> Les toasts sous le cadre, dans les mots du Desktop : <code>r</code> remise, reprise ou lancée, ou son échec ; <code>p</code> refusé (« Pause refusée : … », « Reprise refusée : … ») ; <code>↵</code> sur une routine dont la session ne tourne pas : « Iris ne tourne pas : r lance la routine, qui la reprendra. ». Connexion et hors ligne : la barre d’état les dit, rien dans le cadre. Un <b>daemon trop ancien</b> n’affiche pas l’état vide (il mentirait) mais une phrase dans le cadre. <b>d)</b> Avec <b>plusieurs machines</b>, un titre de groupe par machine dans le cadre, comme les groupes de la vue d’ensemble ; UNIQUES se range dans chaque machine. Une machine seule : rien ne change. <b>Vue d’ensemble</b> (question 4 de la v2, validée) : les items « À toi » des routines y sont, avec <code>y</code> / <code>n</code> comme les demandes : activer / refuser, activer les N / refuser les N, relancer (pas de <code>n</code> pour un échec).',
+    keys:'tui i18n : routines.toast.{delivered,resumed,launched,failed,notRunning} · routines.refused.{pause,resume}(why) · routines.oldDaemon · overview : routines.ask / groupAsk / failed · keys.{activate,refuse,retry,activateAll(n),refuseAll(n)}',
+    scene: `<div class="tui" style="width:640px">${box(x.tTitle(5), tl('briefing',`<span class="ok">●</span> ${fr?'prochain':'next'} 13:30`, `Iris · 08:00 13:30 16:30 · ${x.monfri}`))}${toasts}</div>
+      <div class="col" style="gap:14px"><div class="tui" style="width:560px">${box(x.tTitle(0), `<span class="warn" style="display:block;white-space:normal">${P.old}</span>`)}</div>
+      <div class="tui" style="width:560px">${box(x.tTitle(4), `<span class="acc" style="display:block">${P.m1} ●</span>${tl('briefing',`<span class="ok">●</span> ${fr?'prochain':'next'} 13:30`, `Iris · ${x.monfri}`)}<span class="acc" style="display:block;margin-top:6px">${P.m2} ●</span>${tl('garde-mr',`<span class="ok">●</span> ${fr?'prochain':'next'} 15:00`, `Garde · ${x.monfri}`)}<span class="dim" style="display:block">  ${fr?'UNIQUES':'ONCE'}</span>${tl('rappel-conges',`<span class="ok">●</span> ${fr?'4 déc.':'4 Dec'} 09:00`, `Garde · ${fr?'unique':'once'}`)}`)}</div></div>
+      <div class="tui" style="width:640px">${box(P.yours, `<span style="display:block"><span class="warn">?</span> ${P.a1}</span><span class="dim" style="display:block">  ${k('y',P.kAct)}  ${k('n',P.kRef)}</span><span style="display:block;margin-top:4px"><span class="warn">?</span> ${P.a2}</span><span class="dim" style="display:block">  ${k('y',P.kActAll)}  ${k('n',P.kRefAll)}</span><span style="display:block;margin-top:4px"><span class="bad">!</span> ${P.a3}</span><span class="dim" style="display:block">  ${k('y',P.kRetry)}</span>`)}</div>`});
+  return C;
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
