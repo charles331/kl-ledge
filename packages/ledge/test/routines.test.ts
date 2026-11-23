@@ -124,8 +124,16 @@ describe('firing', () => {
     expect(typed[0]!.text).toBe('<ledge-routine name="briefing" slot="08:00" late="false">Briefing de 08:00 (précédent : aucun), 2026-11-20.</ledge-routine>');
     expect(only().lastRun).toBeUndefined();
     typedDone();
-    expect(only().lastRun).toEqual({ at: '2026-11-20T07:00:10.000Z', slot: '08:00', slotAt: '2026-11-20T07:00:00.000Z', outcome: 'delivered' });
+    expect(only().lastRun).toEqual({ at: '2026-11-20T07:00:10.000Z', slot: '08:00', slotAt: '2026-11-20T07:00:00.000Z', outcome: 'delivered', session: 'iris' });
     expect(only().nextRun).toBe('2026-11-20T12:30:00.000Z');
+  });
+  it('keeps the session it typed into, though another of that name appears before the line is typed', async () => {
+    store.upsert(mk('iris', 'Iris', { state: 'working' }));
+    await cmd(user, 'add', { spec: spec() });
+    await cmd(user, 'run', { routine: 'briefing' }); await flush();
+    store.upsert(mk('iris', 'Iris', { state: 'exited' })); store.upsert(mk('iris2', 'Iris'));
+    typedDone();
+    expect(only().lastRun).toMatchObject({ outcome: 'delivered', session: 'iris' });
   });
   it('reaches the relief of a relieved session', async () => {
     store.upsert(mk('iris', 'Iris', { state: 'exited', handover: { state: 'done', to: 'nova', at: T0 } as Session['handover'] }));
@@ -140,7 +148,7 @@ describe('firing', () => {
     await cmd(user, 'run', { routine: 'briefing' }); await flush();
     expect(resumed).toEqual(['iris']);
     typedDone();
-    expect(only().lastRun?.outcome).toBe('resumed');
+    expect(only().lastRun).toMatchObject({ outcome: 'resumed', session: 'iris' });
   });
   it('launches a session never started, the prompt as its first instruction', async () => {
     await cmd(user, 'add', { spec: spec() });
@@ -148,7 +156,7 @@ describe('firing', () => {
     expect(launched).toHaveLength(1);
     expect(launched[0]!.name).toBe('Iris');
     expect(launched[0]!.prompt).toMatch(/^<ledge-routine name="briefing" slot="07:00" late="false">Briefing de 07:00/);
-    expect(only().lastRun?.outcome).toBe('launched');
+    expect(only().lastRun).toMatchObject({ outcome: 'launched', session: 'fresh' });
   });
   it('fails a firing whose folder is gone, as an « À toi » item, never in silence', async () => {
     await cmd(user, 'add', { spec: spec() });

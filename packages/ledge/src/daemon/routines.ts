@@ -429,7 +429,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
       }
       const launched = await d.launch({ tool: r.target.tool, cwd: r.target.cwd, name: r.target.name, ...(r.target.model ? { model: r.target.model } : {}), prompt: text });
       log(`routine ${r.name}: launched ${launched.name} as ${launched.id}`);
-      record_({ at: atIso, ...slot, outcome: 'launched', ...(late ? { late: true as const } : {}) });
+      record_({ at: atIso, ...slot, outcome: 'launched', session: launched.id, ...(late ? { late: true as const } : {}) });
     } catch (e) {
       fail(slot, atIso, late, (e as Error).message);
     } finally { firing.delete(id); starting.delete(id); save(); }
@@ -439,7 +439,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
     const w = [...waiting.values()].find(x => x.rid === rid);
     if (!w) return;
     waiting.delete(w.id); save();
-    if (typed) record(w.id, { at: w.at, slot: w.slot, slotAt: w.slotAt, outcome: w.outcome, ...(w.late ? { late: true as const } : {}) }, !!w.manual);
+    if (typed) record(w.id, { at: w.at, slot: w.slot, slotAt: w.slotAt, outcome: w.outcome, session: w.session, ...(w.late ? { late: true as const } : {}) }, !!w.manual);
     else fail(w.id, w, w.at, w.late, reason ?? 'non remise');
   }
 
