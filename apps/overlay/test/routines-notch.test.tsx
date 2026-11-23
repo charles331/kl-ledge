@@ -150,6 +150,21 @@ describe('the island’s routine items (card 15)', () => {
     expect(f.cmds.map(c => c.ask)).toEqual(group.map(r => ({ op: 'approve', routine: r.id, expect: r.key })));
   });
 
+  it('an approval refused as stale (card 32): the amber words, never the daemon’s reason; nothing more sent, Activate again', async () => {
+    const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], group);
+    mount(f);
+    f.set({ local: [decision('t2')] });
+    tick(540);
+    f.failWith('la demande a changé', 'stale');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
+    expect(f.cmds).toHaveLength(1);
+    const note = bubble().querySelector('[data-stale]')!;
+    expect(note).toHaveTextContent('“prepa-121” changed since you opened it: read it again before activating.');
+    expect(note).toHaveStyle({ color: 'var(--warning)' });
+    expect(bubble()).not.toHaveTextContent('la demande a changé');
+    expect(screen.getByRole('button', { name: 'Activate all 3' })).toBeEnabled();
+  });
+
   it('without the routine’s key (not read yet) Activate waits; Refuse stays', () => {
     const f = fleetClient([task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })], [{ ...pointHebdo, key: undefined }]);
     mount(f);

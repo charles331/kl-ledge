@@ -54,7 +54,8 @@ interface BubbleProps {
   onOption?: (id: string) => void;
   /** A `decision` notice that is a routine's item of « À toi » (docs/mockups/ledge-routines.html, card 15): its head, its words. */
   /** `canApprove`: every routine was read with its key; until then « Activer » waits (an approval binds what was shown). */
-  routine?: { kind: 'approve' | 'failed'; who: string; at: string; text: string; count: number; canApprove: boolean };
+  /** `stale`: an approval refused because the routine changed since it was shown (card 32), said in amber above the buttons. */
+  routine?: { kind: 'approve' | 'failed'; who: string; at: string; text: string; count: number; canApprove: boolean; stale?: string };
   /** « Activer » (every routine still waiting), « Refuser », « Relancer », or « Voir » (the routine's page in Desktop). */
   onRoutine?: (action: 'approve' | 'refuse' | 'run' | 'see') => void;
   theme?: 'dark' | 'light';
@@ -140,6 +141,7 @@ export function Bubble({ session, moreCount, visible, paused, remainingMs, ack =
           <span>· {R.kind} · {routine.at}</span>
         </div>
         <span data-ledge-sentence style={{ fontSize: 14, lineHeight: '20px', minWidth: 0, overflowWrap: 'anywhere' }}>{routine.text}</span>
+        {routine.stale && <span role="status" data-stale style={{ fontSize: 12, lineHeight: '16px', color: 'var(--warning)', overflowWrap: 'anywhere' }}>{routine.stale}</span>}
         {failure && <span role="status" style={{ fontSize: 12, lineHeight: '16px', color: 'var(--danger-text)' }}>{failure}</span>}
         <div data-actions style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {failed

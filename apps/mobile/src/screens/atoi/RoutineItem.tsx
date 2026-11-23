@@ -70,9 +70,13 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const routine = detail ?? listed;
   const session = routine ? sessionOf(routine, state.sessions.values()) : undefined;
   const who = (routine && askerOf(routine)) ?? task.giverName ?? '';
+  const [stale, setStale] = useState(false);
   const go = async (which: 'approve' | 'refuse') => {
-    setBusy(which); setError(null);
-    setError(routineError(which === 'approve' ? await store.approveRoutine(id, detail!.key) : await store.routineCmd(id, 'refuse')));
+    setBusy(which); setError(null); setStale(false);
+    const end = which === 'approve' ? await store.approveRoutine(id, detail!.key) : await store.routineCmd(id, 'refuse');
+    // Changed since it was shown (card 32): nothing activated, the new version read at once, the request stays.
+    if (which === 'approve' && end.status === 'rejected' && end.reason === 'stale') { setStale(true); store.rereadRoutine(id); }
+    else setError(routineError(end));
     setBusy(null);
   };
   const off = !state.fresh || busy !== null;
@@ -85,6 +89,7 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
           </Said>
         : <p className="text-body [overflow-wrap:anywhere]">{A.fallbackAsk(task.routine.name)}</p>}
       {detail && <pre data-prompt="" className="m-0 rounded-md border border-line bg-raised px-[9px] py-1.5 font-mono text-small leading-[17px] whitespace-pre-wrap [overflow-wrap:anywhere]">{asked(detail).prompt}</pre>}
+      {stale && <p role="status" className="text-small text-attention [overflow-wrap:anywhere]">{A.stale((spec ?? routine)?.name ?? task.routine.name)}</p>}
       <div className="flex gap-2">
         <button type="button" disabled={off || !detail} onClick={() => { void go('approve'); }} className={routineButton(true)}>{busy === 'approve' && <Spin />}{A.activate}</button>
         <button type="button" disabled={off} onClick={() => { void go('refuse'); }} className={routineButton()}>{busy === 'refuse' && <Spin />}{A.refuse}</button>
@@ -105,6 +110,7 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const session = first ? sessionOf(first, state.sessions.values()) : undefined;
   const [busy, setBusy] = useState<'approve' | 'refuse' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   // Card 31, option A: like a single request, every routine is read whole (its moment, its prompt) before « Activer les N », and the
   // approval is bound to the keys of what was read, never to the list's.
   const details = waiting.map(r => state.routineDetails[r.id]);
@@ -113,11 +119,16 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const read = details.filter((d): d is PhoneRoutineDetail => !!d && d !== 'gone');
   const allRead = waiting.length > 0 && read.length === waiting.length;
   const go = async (which: 'approve' | 'refuse') => {
-    setBusy(which); setError(null);
+    setBusy(which); setError(null); setStale(false);
     // One command for the whole request: « Activer les N » is one device check over every routine and the key of its detail.
     const refs = waiting.map(r => { const d = state.routineDetails[r.id]; return { routine: r.id, routineKey: d && d !== 'gone' ? d.key : r.key }; });
     const [head, ...others] = refs;
-    if (head) setError(routineError(which === 'approve' ? await store.approveRoutine(head.routine, head.routineKey, others) : await store.routineCmd(head.routine, 'refuse', others)));
+    if (head) {
+      const end = which === 'approve' ? await store.approveRoutine(head.routine, head.routineKey, others) : await store.routineCmd(head.routine, 'refuse', others);
+      // One of them changed since it was shown (card 32): nothing activated, every routine read again, the request stays.
+      if (which === 'approve' && end.status === 'rejected' && end.reason === 'stale') { setStale(true); for (const r of refs) store.rereadRoutine(r.routine); }
+      else setError(routineError(end));
+    }
     setBusy(null);
   };
   const off = !state.fresh || busy !== null || waiting.length === 0;
@@ -150,6 +161,8 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
           })}
         </ul>
       )}
+      {/* The gateway does not say which routine of the group changed: the request is named by its first. */}
+      {stale && <p role="status" className="text-small text-attention [overflow-wrap:anywhere]">{A.stale(task.routine.name)}</p>}
       <div className="flex gap-2">
         <button type="button" disabled={off || !allRead} onClick={() => { void go('approve'); }} className={routineButton(true)}>{busy === 'approve' && <Spin />}{A.activateAll(n)}</button>
         <button type="button" disabled={off} onClick={() => { void go('refuse'); }} className={routineButton()}>{busy === 'refuse' && <Spin />}{A.refuseAll(n)}</button>

@@ -183,6 +183,8 @@ export interface MobileStore {
   resendAsk(qitemId: string): boolean;
   /** Asks the PC for a routine whole (`routine.show`), once until it changes; it lands in `getState().routineDetails`. */
   showRoutine(id: string): void;
+  /** Forgets what was shown of a routine and asks it again: an approval refused as `stale` (card 32) reads the new version. */
+  rereadRoutine(id: string): void;
   /** « Lancer maintenant » / « Relancer » (`run`), « Pause », « Reprendre », and « Refuser » a routine a session asked for: no device
    *  check. One command per routine at a time. Resolves when the PC answers. */
   routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse', others?: RoutineRef[]): Promise<ChatAction>;
@@ -1263,6 +1265,12 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       if (closed || !ready() || detailAsks.has(id) || state.routineDetails[id] !== undefined) return;
       detailAsks.add(id);
       send({ type: 'routine.show', routine: id });
+    },
+
+    rereadRoutine(id) {
+      if (id in state.routineDetails) { const { [id]: _old, ...rest } = state.routineDetails; set({ routineDetails: rest }); }
+      detailAsks.delete(id);
+      store.showRoutine(id);
     },
 
     routineCmd(id, action, others) {

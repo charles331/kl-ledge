@@ -36,6 +36,8 @@ export const routinesFr = {
     groupAsks: (n: number) => `veut programmer ${n} routines uniques`,
     /** The folder a grouped request's routines share (card 31). */
     inDir: (dir: string) => `dans ${dir}`,
+    /** An approval refused because the routine changed since it was shown (card 32): the new version is read, nothing activated. */
+    stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
     /** Before the routine is read: never the daemon's French task title (card 30). */
     fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
     /** A session's change to a routine (card 29): the settings it asks for, no « avant → demandé » on the phone. */

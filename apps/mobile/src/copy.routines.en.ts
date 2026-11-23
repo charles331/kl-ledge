@@ -28,6 +28,7 @@ export const routinesEn: RoutinesCopy = {
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
     groupAsks: (n: number) => `wants to schedule ${n} one-shot routines`,
     inDir: (dir: string) => `in ${dir}`,
+    stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
     fallbackAsk: (name: string) => `“${name}” awaits your approval`, fallbackFailed: (name: string, why: string) => `The routine ${name} could not run: ${why}`,
     editAsks: (name: string, when: string) => `wants to change “${name}”: ${when}`,
     failedLine: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,

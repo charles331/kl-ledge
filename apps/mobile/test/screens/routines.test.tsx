@@ -208,6 +208,33 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(within(card).getByRole('button', { name: 'Activer' })).toBeDisabled();
   });
 
+  it('an approval refused as stale (card 32): nothing activated, the routine read again, the amber words, Activer again on the new key', async () => {
+    vi.mocked(getAssertion).mockClear().mockResolvedValue(ASSERTION);
+    const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
+    render(<Inbox store={t.store} />);
+    act(() => t.deliver({ type: 'routine.detail', id: 'r3f9a12', routine: detail(pointHebdo(), 'Point.') }));
+    const card = screen.getByRole('article', { name: 'Demande · point-hebdo' });
+    // As the activation test: the passkey card's own checks settle first (a new prepare supersedes the one before).
+    await within(card).findByText(/Activer demande la vérification de cet appareil/, {}, { timeout: 5000 });
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Activer' })).toBeEnabled());
+    fireEvent.click(within(card).getByRole('button', { name: 'Activer' }));
+    await waitFor(() => expect(t.of('confirm.prepare').filter(m => m.purpose === 'routine')).toHaveLength(1));
+    act(() => t.deliver({ type: 'confirm.challenge', purpose: 'routine', challenge: 'Y2g', rpId: 'pc.local', credentialId: 'Y3I', expiresInMs: 60_000 }));
+    await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(1));
+    const shows = t.of('routine.show').length;
+    await act(async () => { t.deliver({ type: 'operation.result', op: t.of('routine.cmd')[0]!.op, status: 'rejected', reason: 'stale' }); });
+    expect(await within(card).findByText('« point-hebdo » a changé depuis que tu l’as ouverte : relis-la avant d’activer.')).toHaveClass('text-attention');
+    expect(within(card).queryByRole('alert')).toBeNull();
+    expect(t.of('routine.show')).toHaveLength(shows + 1);
+    // The new version (Iris moved it to 16:30) replaces the old one; Activer goes on its new key.
+    const moved = pointHebdo({ schedule: { kind: 'recurring', times: ['16:30'], days: ['fri'] }, key: 'k-point-2' });
+    act(() => t.deliver({ type: 'routine.detail', id: 'r3f9a12', routine: detail(moved, 'Point.') }));
+    expect(card).toHaveTextContent('Iris veut programmer « point-hebdo » : 16:30 (ven), dans ~/assistant');
+    fireEvent.click(within(card).getByRole('button', { name: 'Activer' }));
+    await waitFor(() => expect(t.of('confirm.prepare').filter(m => m.purpose === 'routine')).toHaveLength(2));
+    expect(t.of('confirm.prepare').filter(m => m.purpose === 'routine')[1]).toMatchObject({ routineKey: 'k-point-2' });
+  });
+
   it('« Refuser » needs no check', () => {
     const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
     render(<Inbox store={t.store} />);
@@ -247,7 +274,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(1));
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'approve', routine: 'r000001', routineKey: 'd-prepa-121', others, assertion: ASSERTION });
     expect(vi.mocked(getAssertion)).toHaveBeenCalledTimes(1);
-    await act(async () => { t.deliver({ type: 'operation.result', op: t.of('routine.cmd')[0]!.op, status: 'rejected', reason: 'stale' }); });
+    await act(async () => { t.deliver({ type: 'operation.result', op: t.of('routine.cmd')[0]!.op, status: 'rejected', reason: 'invalid' }); });
     fireEvent.click(within(card).getByRole('button', { name: 'Refuser les 3' }));
     await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(2));
     expect(t.of('routine.cmd')[1]).toMatchObject({ action: 'refuse', routine: 'r000001', others });
