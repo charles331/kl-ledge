@@ -34,7 +34,7 @@ const TASKS: Record<string, Task> = {
 async function open(page: Page, theme: 'dark' | 'light', which: keyof typeof TASKS) {
   await page.addInitScript(t => { localStorage.setItem('ledge.theme', t); localStorage.setItem('ledge.finished', 'none'); }, theme);
   const d = await fakeDaemon(page, [session('iris', { name: 'Iris' }), session('nova', { name: 'Nova', state: 'idle' })],
-    { daemon: { version: '0.62.0', install: 'npm', systemd: true, routines: true } });
+    { daemon: { version: '0.62.0', install: 'npm', systemd: true, routines: true, routineGroups: true } });
   await ready(page, 2);
   const list = await received(d.received, 'task.cmd', m => m.op === 'list');
   d.send({ type: 'task.result', rid: list.rid, tasks: [TASKS[which]] });
@@ -74,6 +74,16 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       await open(page, theme, 'group');
       await expect(layer(page, 'bubble').getByRole('button', { name: lang === 'fr' ? 'Activer les 3' : 'Activate all 3' })).toBeVisible();
       await shot(page, `island-group-${theme}-${lang}`);
+    });
+
+    test('« Activer les 3 » is one command to its daemon, every routine with its key', async ({ page }) => {
+      const d = await open(page, theme, 'group');
+      await layer(page, 'bubble').getByRole('button', { name: lang === 'fr' ? 'Activer les 3' : 'Activate all 3' }).click();
+      const cmd = await received(d.received, 'routine.cmd');
+      expect(cmd.op).toBe('approve');
+      expect(cmd.expect).toBeTruthy();
+      expect(cmd.others).toHaveLength(2);
+      expect(cmd.others!.every(x => !!x.expect)).toBe(true);
     });
   });
 }
