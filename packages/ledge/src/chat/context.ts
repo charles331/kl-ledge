@@ -5,7 +5,7 @@ import { DEFAULT_PROJECTS, type Goal, type HarnessUsage, type HumanAsk, isArchiv
 import { LEDGE_MD, writeLedgeMd, type LedgeInfo } from './guide.js';
 import { writeNotes } from './notes.js';
 import type { JournalEvent } from '../operator/journal.js';
-import { routinesOf, scheduleText } from '../routine-text.js';
+import { routinesOf, scheduleText, targetNames } from '../routine-text.js';
 
 /** `sessions`: every session the daemon holds, archived ones included (listed apart, for `session.restore`). */
 export interface ContextInput { sessions: Session[]; recents?: Recent[]; projects?: Projects; tasks?: Task[];
@@ -92,7 +92,7 @@ export async function writeContext(dir: string, input: ContextInput): Promise<Co
   if (input.journal) { await writeFile(join(dir, 'journal.md'), journalMd(input.journal, replies)); steps.set('journal.md', { kind: 'sessions' }); }
   if (input.rigs?.installed) { await writeFile(join(dir, 'rigs.md'), rigsMd(input.rigs, { sessions: input.sessions, ...(input.goals ? { goals: input.goals } : {}), ...(input.queue ? { queue: input.queue } : {}) })); steps.set('rigs.md', { kind: 'sessions' }); }
   if (input.usage) await writeFile(join(dir, LIMITS_MD), limitsMd(input.usage, input.now));
-  if (input.routines) { await writeFile(join(dir, ROUTINES_MD), routinesMd(input.routines, live, input.now)); steps.set(ROUTINES_MD, { kind: 'sessions' }); }
+  if (input.routines) { await writeFile(join(dir, ROUTINES_MD), routinesMd(input.routines, input.sessions, input.now)); steps.set(ROUTINES_MD, { kind: 'sessions' }); }
   if (input.ledge) { await writeLedgeMd(dir, input.ledge); steps.set(LEDGE_MD, { kind: 'repo', name: 'Ledge', path: LEDGE_MD }); }
   if (input.notesDir) await writeNotes(dir, input.notesDir, steps);
   // The live sessions' repositories and the projects' ones on this machine: a question with no session can still read a project.
@@ -112,13 +112,16 @@ const OUTCOME: Record<NonNullable<Routine['lastRun']>['outcome'], string> = {
   delivered: 'typed into the live session', resumed: 'the session was resumed, then the prompt typed', launched: 'a new session was launched with the prompt', failed: 'failed'
 };
 
-/** `routines.md` (routines spec §3.5): each routine, the session it wakes and whether that session is live now, its times, its
- *  next firing and how its last one went, so « qu'est-ce qui est programmé ? » and « le briefing de ce matin est-il parti ? » have an answer. */
-export function routinesMd(routines: readonly Routine[], live: readonly Session[], now: string): string {
+/** `routines.md` (routines spec §3.5): each routine, the session it wakes and whether that session is live now (itself, or the
+ *  live end of its reliefs), its times, its next firing and how its last one went, so « qu'est-ce qui est programmé ? » and
+ *  « le briefing de ce matin est-il parti ? » have an answer. `sessions`: every session the daemon holds, relieved ones included. */
+export function routinesMd(routines: readonly Routine[], sessions: readonly Session[], now: string): string {
+  const byId = new Map(sessions.map(s => [s.id, s] as const));
+  const live = sessions.filter(s => s.state !== 'exited' && !isArchived(s));
   const lines = [`# Routines at ${now}`, '', "Ledge's clock types each routine's prompt into its session at the times below (local wall-clock time). `ledge routine` manages them.", ''];
   if (!routines.length) lines.push('No routines.', '');
   for (const r of routines) {
-    const awake = live.find(s => s.state !== 'exited' && routinesOf([r], s).length > 0);
+    const awake = live.find(s => routinesOf([r], { cwd: s.cwd, names: targetNames(s, id => byId.get(id)) }).length > 0);
     const run = r.lastRun;
     const prompt = oneLine(r.prompt);
     lines.push(`## ${oneLine(r.name)} → ${oneLine(r.target.name)}`, `- id: ${r.id}`, `- state: ${ROUTINE_STATE[r.state]}`,

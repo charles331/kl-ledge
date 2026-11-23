@@ -21,7 +21,7 @@ import { whoOnClient } from './who.js';
 import { takeImages } from '../attachmentText.js';
 import { paths } from '../paths.js';
 import { toolImages } from './toolImages.js';
-import { routinesOf, scheduleText } from '../routine-text.js';
+import { routinesOf, scheduleText, targetNames } from '../routine-text.js';
 
 type Payload = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
@@ -536,7 +536,7 @@ export async function runHook(eventName: string, stdin: string, opts: { port?: n
   // Ledge's own chat runs Claude Code headless: its hooks (if any ran) must never make a session.
   if (process.env.LEDGE_CHAT === '1') { log(`hook ${label} ignored: Ledge chat`); return undefined; }
   let mapped: MappedHook | null = null;
-  let identify = false; let known: Session | undefined; let deadline = Date.now() + (opts.timeoutMs ?? 100);
+  let identify = false; let known: Session | undefined; let sessions: Session[] = []; let deadline = Date.now() + (opts.timeoutMs ?? 100);
   let relayed: string | undefined;
   let held: Task[] = [];
   let routines: Routine[] = [];
@@ -562,7 +562,8 @@ export async function runHook(eventName: string, stdin: string, opts: { port?: n
     client.send({ type: 'session.event', id: mapped.id, event, agent: mapped.agent, ...(mapped.cwd ? { cwd: mapped.cwd } : {}), ...(seat.success ? { rigSeat: seat.data } : {}) });
     if (identify) {
       const snapshot = await client.next('snapshot', Math.max(0, deadline - Date.now())).catch(() => undefined);
-      known = snapshot?.sessions.find(s => s.id === mapped!.id);
+      sessions = snapshot?.sessions ?? [];
+      known = sessions.find(s => s.id === mapped!.id);
       // Its own open tasks (§2), within the same deadline: none known is no block.
       client.send({ type: 'task.cmd', rid: randomUUID(), by: mapped.id, op: 'list' });
       // The routines that wake it (routines spec §3.3), asked at once and read within the same deadline: none known is no block.
@@ -586,7 +587,8 @@ export async function runHook(eventName: string, stdin: string, opts: { port?: n
   const found = await identity(agent, mapped.cwd, known, deadline);
   // The brain is read here, on this machine (no daemon needed); a failure leaves it out, never the identity.
   const brain = found ? await sessionBrain(found.cwd).catch(() => undefined) : undefined;
-  const mine = found ? routinesOf(routines, { name: found.name, cwd: found.cwd, relieves: known?.relieves }) : [];
+  const byId = new Map(sessions.map(s => [s.id, s] as const));
+  const mine = found ? routinesOf(routines, { cwd: found.cwd, names: targetNames({ name: found.name, relieves: known?.relieves }, id => byId.get(id)) }) : [];
   const who = found ? { ...found, ...(held.length ? { tasks: held } : {}), ...(known?.relieves ? { relieves: known.relieves } : {}), ...(brain ? { brain } : {}), ...(mine.length ? { routines: mine } : {}) } : undefined;
   return who ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: identityContext(who) } }) : undefined;
 }

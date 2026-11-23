@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { WEEKDAYS, type Routine, type RoutineSchedule, type Weekday } from '@ledge/protocol';
+import { WEEKDAYS, type Routine, type RoutineSchedule, type Session, type Weekday } from '@ledge/protocol';
 
 /**
  * How Ledge's agents are told of routines (spec 2026-11-23-routines-design §3.3, §3.5, §3.6): which routines wake a
@@ -7,13 +7,32 @@ import { WEEKDAYS, type Routine, type RoutineSchedule, type Weekday } from '@led
  * relief's first instruction, so the three say the same thing.
  */
 
-/** The names a session answers to as a routine's target: its own, and those of the sessions it relieves. */
-export interface RoutineHolder { name: string; cwd: string; relieves?: { name: string } | undefined }
+/** The most reliefs followed back from a session, as `reliefOf` follows them forward. */
+const CHAIN_MAX = 50;
 
-/** The routines whose target is this session: same name (its own or one it relieves) and same folder, as the scheduler
- *  finds it (§3.2). The daemon stores the target's folder absolute. */
+/** A session as a routine's target: its folder, and every name it answers to (`targetNames`). */
+export interface RoutineHolder { cwd: string; names: readonly string[] }
+
+/**
+ * The names a session answers to as a routine's target: its own, then those of every session it relieves, down the whole
+ * chain of reliefs (Iris → Iris-2 → Iris-3: Iris-3 holds Iris's routines), as the scheduler reaches the live end of that
+ * chain through `reliefOf`. A predecessor no longer known still gives the name its relief recorded.
+ */
+export function targetNames(s: Pick<Session, 'name' | 'relieves'>, get: (id: string) => Pick<Session, 'name' | 'relieves'> | undefined): string[] {
+  const names = [s.name];
+  let cur: Pick<Session, 'name' | 'relieves'> | undefined = s;
+  for (let hops = 0; cur?.relieves && hops < CHAIN_MAX; hops++) {
+    const prev: Pick<Session, 'name' | 'relieves'> | undefined = get(cur.relieves.id);
+    if (!names.includes(cur.relieves.name)) names.push(cur.relieves.name);
+    cur = prev;
+  }
+  return names;
+}
+
+/** The routines whose target is this session: one of its names and the same folder, as the scheduler finds it (§3.2).
+ *  The daemon stores the target's folder absolute. */
 export function routinesOf(routines: readonly Routine[], s: RoutineHolder): Routine[] {
-  const names = new Set([s.name, ...(s.relieves ? [s.relieves.name] : [])]);
+  const names = new Set(s.names);
   const cwd = resolve(s.cwd);
   return routines.filter(r => names.has(r.target.name) && resolve(r.target.cwd) === cwd);
 }

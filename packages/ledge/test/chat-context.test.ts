@@ -327,6 +327,12 @@ describe('routines.md (routines spec §3.5)', () => {
     expect(routinesMd([], [], T0)).toContain('No routines.');
   });
 
+  it('a routine aimed at a session relieved twice is live in the relief at the end of the chain (review of b7093994)', () => {
+    const done = (to: string) => ({ state: 'exited' as const, handover: { state: 'done' as const, to, toName: '', at: T0 } });
+    const sessions = [mk('a', { ...done('b') }), mk('b', { name: 'Otto-2', relieves: { id: 'a', name: 'Otto', at: T0 }, ...done('c') }), mk('c', { name: 'Otto-3', relieves: { id: 'b', name: 'Otto-2', at: T0 } })];
+    expect(routinesMd([routine()], sessions, T0)).toContain('- wakes: Otto (claude, opus) in /w/ledge, live now as session c (working)');
+  });
+
   it('no routines.md when the daemon gives no routines', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ctx-'));
     await writeContext(dir, { sessions: [], now: T0, capture: async () => null, git: async () => null });

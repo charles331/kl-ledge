@@ -556,6 +556,26 @@ describe('session identity (SessionStart additionalContext)', () => {
     expect(identityContext({ name: 'Pim', tool: 'claude', project: 'ledge', cwd: '/w' })).not.toContain('routine');
   });
 
+  it('after two reliefs, the session is told the routines aimed at the first one (review of b7093994)', async () => {
+    const done = (to: string) => ({ handover: { state: 'done' as const, to, toName: '', at } });
+    const sessions = [pim({ id: 'a1', name: 'Iris', cwd: '/w/assistant', state: 'exited', ...done('b2') }), pim({ id: 'b2', name: 'Iris-2', cwd: '/w/assistant', state: 'exited', relieves: { id: 'a1', name: 'Iris', at }, ...done('c3') }),
+      pim({ id: 'c3', name: 'Iris-3', cwd: '/w/assistant', relieves: { id: 'b2', name: 'Iris-2', at } })];
+    const briefing: Routine = { id: 'r0a1b2c', name: 'briefing', target: { name: 'Iris', cwd: '/w/assistant', tool: 'claude' }, schedule: { times: ['08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: at };
+    const elsewhere: Routine = { ...briefing, id: 'r0a1b2d', name: 'ailleurs', target: { ...briefing.target, cwd: '/w/autre' } };
+    const { WebSocketServer } = await import('ws');
+    const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' }); await new Promise(r => wss.once('listening', r));
+    wss.on('connection', ws => {
+      ws.send(JSON.stringify({ type: 'snapshot', sessions }));
+      ws.on('message', d => { const m = JSON.parse(String(d)); if (m.type === 'routine.list') ws.send(JSON.stringify({ type: 'routine.listed', rid: m.rid, routines: [briefing, elsewhere] })); });
+    });
+    process.env.LEDGE_SESSION = 'c3'; process.env.LEDGE_NAME = 'Iris-3';
+    try {
+      const out = context(await runHook('SessionStart', JSON.stringify({ session_id: 'u-1', cwd: '/w/assistant', source: 'startup' }), { port: (wss.address() as { port: number }).port }));
+      expect(out.additionalContext).toContain('Ledge te réveille à heures fixes (tes routines) :\n- « briefing » · 08:00 (lun-ven)\n');
+      expect(out.additionalContext).not.toContain('ailleurs');
+    } finally { wss.close(); delete process.env.LEDGE_NAME; }
+  });
+
   it('a daemon that does not answer routine.list still gives the identity, without a routines block', async () => {
     const store = new Store();
     store.upsert(pim());
