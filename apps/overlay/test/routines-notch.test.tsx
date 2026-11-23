@@ -49,12 +49,18 @@ describe('the island’s words for a routine (cards 15 and 23)', () => {
     expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }))).toMatchObject({
       ids: ['r000001', 'r000002', 'r000003'], text: 'Iris veut programmer 3 routines uniques : prepa-121 (3 déc. 16:00), prepa-comite-archi (7 déc. 15:00), prepa-demo-compart (8 déc. 09:30)'
     });
-    expect(n(task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giverName: 'Ledge' }))).toMatchObject({ kind: 'failed', who: 'Nova', ids: ['r81c0d4'], text: 'La routine veille (Nova) n’a pas pu partir : Ce dossier n’existe pas sur ce PC.' });
+    expect(n(task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giverName: 'Ledge' }))).toMatchObject({ kind: 'failed', who: 'Nova', ids: ['r81c0d4'], text: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille' });
     expect(n(task('t5', { kind: 'approve', id: 'r000009', name: 'point-121' }), [{ ...group[0]!, id: 'r000009', name: 'point-121', schedule: { kind: 'once', at: ['2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00', '2026-12-31T16:00'] } }])?.text)
       .toBe('Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant');
     // A routine answered elsewhere leaves the count; one not listed yet keeps the task's title.
     expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }), [{ ...group[0]!, state: 'enabled' }, group[1]!, group[2]!])?.ids).toEqual(['r000002', 'r000003']);
-    expect(n(task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), [])?.text).toBe('Iris veut programmer « point-hebdo »');
+    // Not listed yet: no routine item (never the task's French title), the plain decision speaks.
+    expect(n(task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), [])).toBeNull();
+    expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002'] }), [])).toBeNull();
+    // A session's change (card 29): « veut modifier », with the settings it asks for.
+    const asked = { name: 'point-hebdo', target: iris, schedule: { kind: 'recurring' as const, times: ['16:00'], days: ['fri' as const] }, prompt: 'p' };
+    expect(n(task('t6', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), [{ ...pointHebdo, state: 'enabled', proposal: { spec: asked, by: { id: 'iris', name: 'Iris' }, at: T } }])?.text)
+      .toBe('Iris veut modifier « point-hebdo » : 16:00 (ven)');
     expect(n(task('t4', { kind: 'approve', id: 'r000001', name: 'prepa-121' }))?.text).toBe('Iris veut programmer « prepa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
     expect(routineNotice(decision('t9'), 'local', task('t9', undefined), [pointHebdo], fr)).toBeNull();
   });
@@ -135,7 +141,7 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     expect(bubble()).toHaveAttribute('data-routine', 'failed');
     expect(bubble()).toHaveTextContent('Nova · routine ·');
-    expect(bubble()).toHaveTextContent('The routine veille (Nova) could not run: This folder doesn’t exist on this PC.');
+    expect(bubble()).toHaveTextContent('The routine veille (Nova) could not run: folder not found: ~/veille');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Run again' })); });
     expect(f.cmds).toEqual([{ machine: 'local', ask: { op: 'run', routine: 'r81c0d4' } }]);
   });

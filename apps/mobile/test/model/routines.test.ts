@@ -92,20 +92,14 @@ describe('the list', () => {
 
 describe('why a run did not leave', () => {
   const ran = (field: RoutineField | undefined, reason: string, extra = {}) => veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason, ...(field ? { field } : {}) }, ...extra });
-  it('card 28’s words for every field it names (the daemon’s reasons are French); the daemon’s reason otherwise', () => {
-    expect(failureWhy(veille())).toBe('Ce dossier n’existe pas sur ce PC.');
-    expect(failureWhy(ran('session', 'Nova tourne hors de Ledge : impossible de lui écrire'))).toBe('Cette session n’est pas suivie par Ledge.');
-    expect(failureWhy(ran('session', 'Nova ne peut pas recevoir de texte de Ledge'))).toBe('Cette session ne répond pas.');
-    expect(failureWhy(ran('tool', 'outil absent'))).toBe('Outil absent sur ce PC : claude.');
-    expect(failureWhy(ran('model', 'modèle inconnu', { target: { name: 'Nova', cwd: '~/veille', tool: 'claude', model: 'opus-9' } }))).toBe('Modèle inconnu pour claude : opus-9.');
-    expect(failureWhy(ran('name', 'nom pris'))).toBe('Nova a déjà une routine « veille ».');
-    expect(failureWhy(ran('prompt', 'vide'))).toBe('Le prompt est vide.');
-    expect(failureWhy(ran('at', 'passé'))).toBe('Ce moment est déjà passé.');
+  it('a missing folder or tool in the words cards 8, 13-16 and 29 draw, with its path or name; any other reason as the daemon gave it', () => {
+    expect(failureWhy(veille())).toBe('dossier introuvable : ~/veille');
+    expect(failureWhy(ran('tool', 'outil absent', { target: { name: 'Nova', cwd: '~/veille', tool: 'cursor' } }))).toBe('outil absent : cursor');
+    expect(failureWhy(ran('session', 'Nova tourne hors de Ledge : impossible de lui écrire'))).toBe('Nova tourne hors de Ledge : impossible de lui écrire');
     expect(failureWhy(ran(undefined, 'pas remise dans les 30 minutes'))).toBe('pas remise dans les 30 minutes');
-    expect(failureWhy(ran('schedule', 'horaire invalide'))).toBe('horaire invalide');
     setLang('en');
-    expect(failureWhy(veille())).toBe('This folder doesn’t exist on this PC.');
-    expect(failureWhy(ran('tool', 'outil absent'))).toBe('Tool not found on this PC: claude.');
+    expect(failureWhy(veille())).toBe('folder not found: ~/veille');
+    expect(failureWhy(ran('tool', 'outil absent'))).toBe('tool missing: claude');
     expect(failureWhy(undefined, 'raison de la tâche')).toBe('raison de la tâche');
   });
 });

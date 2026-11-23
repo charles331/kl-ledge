@@ -63,7 +63,10 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const [error, setError] = useState<string | null>(null);
   // The prompt is read before « Activer » (card 17), and « Activer » covers what was read: the routine whole is asked for.
   useEffect(() => { if (state.fresh) store.showRoutine(id); }, [store, id, state.fresh, shown]);
-  const spec = detail ? asked(detail) : undefined;
+  // Its words come from the routine, never the task's title (the daemon writes it in French only): the request whole once shown,
+  // the listed routine meanwhile when it is a new one (a change's settings are known only from the whole).
+  const spec = detail ? asked(detail) : listed && !listed.proposed ? listed : undefined;
+  const change = detail ? !!detail.proposal : !!listed?.proposed;
   const routine = detail ?? listed;
   const session = routine ? sessionOf(routine, state.sessions.values()) : undefined;
   const who = (routine && askerOf(routine)) ?? task.giverName ?? '';
@@ -78,10 +81,10 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
       <Head failed={false} at={task.at} />
       {routine
         ? <Said routine={routine} session={session} frozen={!state.fresh}>
-            {spec ? <><b className="font-semibold">{who}</b> {detail?.proposal ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</> : task.title}
+            {spec && <><b className="font-semibold">{who}</b> {change ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</>}
           </Said>
-        : <p className="text-body [overflow-wrap:anywhere]">{task.title}</p>}
-      {spec && <pre data-prompt="" className="m-0 rounded-md border border-line bg-raised px-[9px] py-1.5 font-mono text-small leading-[17px] whitespace-pre-wrap [overflow-wrap:anywhere]">{spec.prompt}</pre>}
+        : null}
+      {detail && <pre data-prompt="" className="m-0 rounded-md border border-line bg-raised px-[9px] py-1.5 font-mono text-small leading-[17px] whitespace-pre-wrap [overflow-wrap:anywhere]">{asked(detail).prompt}</pre>}
       <div className="flex gap-2">
         <button type="button" disabled={off || !detail} onClick={() => { void go('approve'); }} className={routineButton(true)}>{busy === 'approve' && <Spin />}{A.activate}</button>
         <button type="button" disabled={off} onClick={() => { void go('refuse'); }} className={routineButton()}>{busy === 'refuse' && <Spin />}{A.refuse}</button>
@@ -119,7 +122,7 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
       <Head failed={false} at={task.at} />
       {first
         ? <Said routine={first} session={session} frozen={!state.fresh}><b className="font-semibold">{who}</b> {A.groupAsks(n)}</Said>
-        : <p className="text-body [overflow-wrap:anywhere]">{task.title}</p>}
+        : null}
       {listed.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13px] text-muted">
           {listed.map(r => {
