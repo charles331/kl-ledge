@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Page, WebSocketRoute } from '@playwright/test';
-import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task } from '@ledge/protocol';
+import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task, Routine, RoutineRun } from '@ledge/protocol';
 
 /** How long a launched session stays `starting` in the fake daemon before it is `working`. */
 export const LAUNCH_SETTLE_MS = 1500;
@@ -46,6 +46,9 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
   usage?: Omit<UsageStateMessage, 'type' | 'machineId'>;
   /** Lot 8b: the requests and forges (`forge.state`, sent after the usage), each request's detail and failed job's log, and
    *  the command a `forge.act` reports (by action). Nothing reaches a real forge. Give `daemon.forge` too, or the fleet refuses. */
+  /** Routines (docs/mockups/ledge-routines.html): the list `routine.list` answers, the next runs a preview answers, and how a
+   *  `routine.cmd` ends (the routine as it is then, `run` setting its last run). Give `daemon.routines` too. */
+  routines?: { list: Routine[]; preview?: string[]; runOutcome?: RoutineRun };
   forge?: { prs: PullRequest[]; /** Issue #3: the account's own requests no session follows. */ mine?: PullRequest[]; forges?: ForgeStatus[]; followed?: FollowedSession[]; details?: Record<string, Omit<PrDetail, 'pr'>>; logs?: Record<string, string>; commands?: Partial<Record<ForgeAction['kind'], string>>; /** An action refused, by kind: its code and message. */ actFails?: Partial<Record<ForgeAction['kind'], { code?: string; message: string }>> } } = {}) {
   const threads = new Map(Object.entries(extras.threads ?? {}).map(([id, items]) => [id, [...items]]));
   const sessions = new Map(initial.map(s => [s.id, s]));
@@ -92,6 +95,30 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
       if (msg.type === 'openrig.permissions') { const p = extras.rigPermissions?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.permissionList', requestId: msg.requestId, rig: msg.rig, seats: p?.seats ?? [], ...(p?.policy ? { policy: p.policy } : {}), ...(p ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.queue') { const rows = extras.rigQueues?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.queueState', requestId: msg.requestId, rig: msg.rig, rows: rows ?? [], truncated: false, ...(rows ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.role.duplicate' && extras.roles) ws.send(JSON.stringify({ type: 'openrig.roleDuplicated', requestId: msg.requestId, ok: true, roleId: `dup-${msg.name}`, path: `/home/me/.openrig/specs/${msg.name}` }));
+      if (msg.type === 'routine.list' && extras.routines) ws.send(JSON.stringify({ type: 'routine.listed', rid: msg.rid, routines: extras.routines.list }));
+      if (msg.type === 'routine.preview' && extras.routines) ws.send(JSON.stringify({ type: 'routine.previewed', rid: msg.rid, nextRuns: extras.routines.preview ?? [] }));
+      if (msg.type === 'routine.cmd' && extras.routines) {
+        const list = extras.routines.list;
+        const at = list.findIndex(r => r.id === msg.routine || r.name === msg.routine);
+        const was = list[at];
+        if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
+          if (at >= 0) list.splice(at, 1);
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));
+          if (was) ws.send(JSON.stringify({ type: 'routine.changed', removed: was.id }));
+        } else {
+          const next: Routine | undefined = msg.op === 'add' && msg.spec ? { ...msg.spec, id: `r${String(list.length).padStart(6, '0')}`, catchUp: msg.spec.catchUp ?? 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: new Date().toISOString() }
+            : !was ? undefined
+            : msg.op === 'pause' ? { ...was, state: 'paused' } : msg.op === 'resume' ? { ...was, state: 'enabled' }
+            : msg.op === 'approve' ? (({ proposal: _, ...r }) => ({ ...r, ...(was.proposal?.spec ?? {}), ...(msg.spec ?? {}), state: 'enabled' as const }))(was)
+            : msg.op === 'refuse' ? (({ proposal: _, ...r }) => r)(was)
+            : msg.op === 'update' ? { ...was, ...msg.patch }
+            : msg.op === 'run' ? { ...was, runs: [extras.routines.runOutcome ?? { at: new Date().toISOString(), slot: '13:02', outcome: 'delivered' }, ...(was.runs ?? [])].slice(0, 5) }
+            : was;
+          if (next) { if (at >= 0) list[at] = next; else list.unshift(next); }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(next ? { routine: next } : { code: 'not_found', reason: 'not found' }) }));
+          if (next) ws.send(JSON.stringify({ type: 'routine.changed', routine: next }));
+        }
+      }
       if (msg.type === 'task.cmd' && msg.op === 'list' && extras.tasks) ws.send(JSON.stringify({ type: 'task.result', rid: msg.rid, tasks: extras.tasks }));
       if (msg.type === 'openrig.asks' && extras.asks) ws.send(JSON.stringify({ type: 'openrig.asksChanged', requestId: msg.requestId, channel: extras.asks.channel, asks: extras.asks.asks }));
       if (msg.type === 'openrig.answer' && extras.asks) ws.send(JSON.stringify({ type: 'openrig.answered', requestId: msg.requestId, qitemId: msg.qitemId, ok: true, outcome: 'answered', ...extras.asks.answered }));

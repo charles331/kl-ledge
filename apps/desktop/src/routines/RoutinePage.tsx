@@ -248,11 +248,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
           <span className={`rt-dot ${look.dot}`} aria-hidden="true" /><span className="rt-mut">{look.label}</span><span className="rt-mut">{r.inDir}</span>
           <span className="rt-mono">{p.dirLabel(x.target.cwd)}</span>
           <button type="button" className="fg-btn ghost" onClick={p.onOpenSession}><Icon d={ROUTINE_ICONS.open} size={12} />{r.openSession}</button></div>
-      ) : <span className="rt-sub">{r.sub} <span className="rt-mut">({localZone()})</span></span>}
+      ) : <span className="rt-lede">{r.sub} <span className="rt-mut">({localZone()})</span></span>}
       {top}
       {x && (
         <section className="rt-sect" aria-label={r.runs}><h4>{r.runs}</h4>
-          <div className="rt-runs">
+          <div className={`rt-runs${done ? ' one' : ''}`}>
             {!done && <div><div className="rt-lbl">{r.nextRuns}</div><ul>{nextList}</ul></div>}
             <div><div className="rt-lbl">{r.pastRuns}</div><ul>{pastList}</ul></div>
           </div>

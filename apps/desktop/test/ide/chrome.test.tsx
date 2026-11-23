@@ -77,7 +77,7 @@ describe('the IDE chrome', () => {
     activity();
     const nav = screen.getByRole('navigation');
     const names = Array.from(nav.children).map(e => e.classList.contains('grow') ? 'grow' : e.getAttribute('aria-label'));
-    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'À toi', 'MR et PR', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
+    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'À toi', 'MR et PR', 'Routines', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
   });
 
   it('no « ! » on Rigs (the user, 2026-11-09)', () => {
@@ -95,6 +95,18 @@ describe('the IDE chrome', () => {
     unmount();
     activity(L, none, { prsFailing: 0 });
     expect(screen.getByRole('button', { name: 'MR et PR' }).querySelector('.ide-badge')).toBeNull();
+  });
+
+  it('Routines (routines mockup, card 1): a sidebar view after MR et PR, badged with those to activate or failed, none at zero', () => {
+    const onLayout = vi.fn();
+    const { unmount } = activity(L, none, { routinesBadge: 2, onLayout });
+    const b = screen.getByRole('button', { name: 'Routines' });
+    expect(b.querySelector('.ide-badge')).toHaveTextContent('2');
+    fireEvent.click(b);
+    expect(onLayout).toHaveBeenCalledWith({ type: 'view', view: 'routines' });
+    unmount();
+    activity(L, none, { routinesBadge: 0 });
+    expect(screen.getByRole('button', { name: 'Routines' }).querySelector('.ide-badge')).toBeNull();
   });
 
   it('status bar waiting', () => {

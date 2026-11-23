@@ -129,3 +129,11 @@ describe('the Routines screens rules', () => {
     expect(proposalChanges(r, 'fr', fr)).toEqual([{ label: 'Heures', before: '08:00, 13:30, 16:30', after: '07:30, 13:30, 16:30' }]);
   });
 });
+
+describe('« À toi »’s decisions', () => {
+  it('leave a routine’s item to the Routines block', async () => {
+    const { openDecisions } = await import('../../src/tasks/useTasksApi');
+    const plain = { ...task('t0', undefined), routine: undefined };
+    expect(openDecisions([plain, task('t1', { kind: 'approve', id: 'r000001', name: 'a' })]).map(t => t.id)).toEqual(['t0']);
+  });
+});
