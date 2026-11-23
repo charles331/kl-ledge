@@ -165,6 +165,14 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
 });
 
 describe('a routine’s firing keeps the session it reached (review of 8b9e5ed0)', () => {
+  it('uses the recorded recipient finish even when that session has been removed (review of ef977eb3)', () => {
+    const r = routine({ lastRun: { ...run('13:30', at(13, 30)), session: 'iris1' } });
+    const draft = fromRoutines([routine()], [r], [session()])[0]!;
+    const sent = fired(draft);
+    const end: JournalEvent = { id: ++n, at: at(13, 52), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null };
+    const p = buildPoint([sent, end], live({ sessions: [], routines: [r] }), at(8, 0), lead);
+    expect(p.items.map(x => ({ id: x.id, at: x.at }))).toEqual([{ id: sent.subjectKind + ':' + sent.subjectId, at: at(13, 52) }]);
+  });
   it('records the recipient as the scheduler finds it: the exact name before an older relief, never an archived session (review of 069e5d5a)', () => {
     const relief = session({ id: 'relief', name: 'Iris-2', relieves: { id: 'old', name: 'Iris', at: at(12, 0) } });
     const actual = session({ id: 'new-iris', name: 'Iris' });

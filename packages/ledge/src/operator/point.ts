@@ -101,8 +101,10 @@ function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], it
   const s = str(p.session) ? live.sessions.find(x => x.id === str(p.session)) : named && named.startedAt <= deliveredAt ? named : undefined;
   const latest = live.routines?.find(r => r.id === str(p.routine))?.lastRun?.at;
   // The turn the firing started ends at the session's first end after it: later work is not the routine's.
-  const end = s ? turns.ends.get(s.id)?.find(at => at >= deliveredAt) : undefined;
-  if (end) turns.of.set(item.id, { session: s!.id, end });
+  // Its end is found by the recorded id even once that session is gone from the store: the journal keeps its `session.finished`.
+  const sid = str(p.session) || s?.id;
+  const end = sid ? turns.ends.get(sid)?.find(at => at >= deliveredAt) : undefined;
+  if (end) turns.of.set(item.id, { session: sid!, end });
   const on = !!s && !end && s.state !== 'exited' && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
   item.who = clip(s?.name ?? (str(p.target) || name), 100);
   item.text = clip(p.late === true ? t.routineLate(name, slot, clock(firedAt)) : t.routine(name, slot), 400);
