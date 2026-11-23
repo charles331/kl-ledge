@@ -146,3 +146,17 @@ describe('the chat draws point turns', () => {
     } finally { vi.unstubAllGlobals(); }
   });
 });
+
+describe('a routine’s request in the point (cards 16, 26, 30; review of 8b9e5ed0)', () => {
+  it('reads as one sentence after its author, not quoted; the fallback line has no author', () => {
+    const ask = item({ id: 'task:a1', group: 'atoi', tone: 'ask', who: 'Iris', text: 'veut modifier « briefing » : 07:30 (lun-ven)', nav: [{ kind: 'routine', id: 'r0a1b2c' }] });
+    const waits = item({ id: 'task:a2', group: 'atoi', tone: 'ask', who: '', text: '« point-hebdo » attend ton accord', nav: [{ kind: 'routine', id: 'r0a1b2d' }] });
+    render(ui({ turn: turn(point({ items: [ask, waits] })) }));
+    const row = (id: string) => document.querySelector(`[data-point-item="${id}"]`) as HTMLElement;
+    expect(row('task:a1').textContent).toContain('Iris veut modifier « briefing » : 07:30 (lun-ven)');
+    expect(row('task:a1').querySelector('br')).toBeNull();
+    expect(row('task:a2').textContent).toContain('« point-hebdo » attend ton accord');
+    expect(row('task:a2').textContent).not.toContain('Ledge');
+    expect(row('task:a2').textContent).not.toMatch(/«\s*« point-hebdo/);
+  });
+});

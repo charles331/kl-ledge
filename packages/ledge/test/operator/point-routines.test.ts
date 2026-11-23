@@ -118,8 +118,8 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     const rs = [once('r000003', '3T16:00'), once('r000007', '7T15:00'), once('r000008', '8T09:30')];
     expect(buildPoint([asked(group)], live({ tasks: [group], routines: rs }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Iris', text: 'veut programmer 3 routines uniques : 3, 7 et 8 déc.' });
     // Not read yet: its name in the point's language, never the daemon's French title.
-    expect(buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: '« point-hebdo » attend ton accord' });
-    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: 'Ledge', text: '“point-hebdo” awaits your approval' });
+    expect(buildPoint([asked(t)], live({ tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: '', text: '« point-hebdo » attend ton accord' });
+    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t] }), at(8, 0), lead).items[0]).toMatchObject({ who: '', text: '“point-hebdo” awaits your approval' });
   });
 
   it('a session’s change to its routine reads « veut modifier » with the asked settings (card 29), in English too', () => {
@@ -161,6 +161,28 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     const working = live({ sessions: [session({ state: 'working', lastActivityAt: at(13, 52) })], routines: [routine({ lastRun: run('13:30', at(13, 30)) })] });
     const p = buildPoint([previousEnd, delivered], working, at(8, 0), lead);
     expect({ group: p.items.find(i => i.id.startsWith('routine.run:'))?.group, previousEndVisible: p.items.some(i => i.id === 'session:iris1') }).toEqual({ group: 'ongoing', previousEndVisible: true });
+  });
+});
+
+describe('a routine’s firing keeps the session it reached (review of 8b9e5ed0)', () => {
+  it('records the live recipient’s id, and a later session of the same name and folder does not take the firing over', () => {
+    const iris1 = session({ id: 'iris1' });
+    const [d] = fromRoutines([routine()], [routine({ lastRun: run('13:30', at(13, 30)) })], [iris1]);
+    expect(d!.payload.session).toBe('iris1');
+    const end: JournalEvent = { id: ++n, at: at(13, 52), machine: 'm', kind: 'session.finished', subjectKind: 'session', subjectId: 'iris1', subjectName: 'Iris', urgency: 'grouped', payload: {}, settledAt: null };
+    const iris2 = session({ id: 'iris2', state: 'working', startedAt: at(14, 50), lastActivityAt: at(15, 0) });
+    const p = buildPoint([fired(d!), end], live({ sessions: [iris2], routines: [routine({ lastRun: run('13:30', at(13, 30)) })], now: Date.parse(at(15, 1)) }), at(8, 0), lead);
+    const row = p.items.find(i => i.id.startsWith('routine.run:'));
+    expect(row?.group).toBe('done');
+    expect(row?.nav?.some(n => n.kind === 'session' && n.id === 'iris2')).not.toBe(true);
+    // The session that ended keeps its own end: the routine row took it, no « a terminé » row for iris2.
+    expect(p.items.some(i => i.group === 'ongoing')).toBe(false);
+  });
+  it('an event recorded before the id was kept is not given to a session started after its delivery', () => {
+    const [d] = fromRoutines([routine()], [routine({ lastRun: run('13:30', at(13, 30)) })]);
+    const iris2 = session({ id: 'iris2', state: 'working', startedAt: at(14, 50), lastActivityAt: at(15, 0) });
+    const p = buildPoint([fired(d!)], live({ sessions: [iris2], routines: [routine({ lastRun: run('13:30', at(13, 30)) })], now: Date.parse(at(15, 1)) }), at(8, 0), lead);
+    expect(p.items.find(i => i.id.startsWith('routine.run:'))?.group).toBe('done');
   });
 });
 

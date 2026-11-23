@@ -357,7 +357,7 @@ export function wireOperator(w: OperatorWiring) {
      *  is not news), then each new firing that reached its session is an event (routines spec §3.5). */
     routinesChanged(list: readonly Routine[]): void {
       const before = routines; routines = list;
-      if (before) record(fromRoutines(before, list));
+      if (before) record(fromRoutines(before, list, w.store.all()));
     },
     forgeChanged(st: ForgeStateMessage): void {
       const before = forge; forge = st;

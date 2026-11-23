@@ -95,12 +95,15 @@ function routineFiring(e: JournalEvent, live: LiveState, t: (typeof L)[Lang], it
   // When the prompt reached the session: the event is recorded as the daemon records the run, once the mailbox typed it (a busy
   // session's firing waits there); `firedAt` is when the firing began.
   const deliveredAt = e.at > firedAt ? e.at : firedAt;
-  const s = liveTarget(live, str(p.target), str(p.cwd));
+  // The session the firing reached, by its id (`fromRoutines`); by name only for an event recorded before the id was kept.
+  const named = str(p.session) ? undefined : liveTarget(live, str(p.target), str(p.cwd));
+  // Such an old event's session by name: one started after the delivery cannot be the one it reached.
+  const s = str(p.session) ? live.sessions.find(x => x.id === str(p.session)) : named && named.startedAt <= deliveredAt ? named : undefined;
   const latest = live.routines?.find(r => r.id === str(p.routine))?.lastRun?.at;
   // The turn the firing started ends at the session's first end after it: later work is not the routine's.
   const end = s ? turns.ends.get(s.id)?.find(at => at >= deliveredAt) : undefined;
   if (end) turns.of.set(item.id, { session: s!.id, end });
-  const on = !!s && !end && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
+  const on = !!s && !end && s.state !== 'exited' && (s.state === 'working' || s.state === 'starting') && (latest === undefined || latest === firedAt);
   item.who = clip(s?.name ?? (str(p.target) || name), 100);
   item.text = clip(p.late === true ? t.routineLate(name, slot, clock(firedAt)) : t.routine(name, slot), 400);
   if (s) item.nav = [{ kind: 'session', id: s.id }];
@@ -158,7 +161,8 @@ function routineTask(task: Task, live: LiveState, t: (typeof L)[Lang], lang: Lan
   } else {
     // A routine not read yet, or a group the screens have no words for: its name, in the point's language (the daemon's title is
     // French only).
-    item.who = 'Ledge'; item.text = clip(t.routineWaits(rt.name), 400);
+    // No author: card 30 draws the line alone.
+    item.who = ''; item.text = clip(t.routineWaits(rt.name), 400);
   }
 }
 

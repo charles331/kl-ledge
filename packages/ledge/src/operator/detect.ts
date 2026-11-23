@@ -1,6 +1,8 @@
 import {
   contextNear, openDecision, pendingKey, taskClosed, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigState, type Pending, type Routine, type Session, type Task
 } from '@ledge/protocol';
+import { resolve } from 'node:path';
+import { targetNames } from '../routine-text.js';
 import type { JournalEvent } from './journal.js';
 import { STALE_TASK_MS } from './constants.js';
 
@@ -164,15 +166,18 @@ export function fromGoals(before: readonly Goal[], after: readonly Goal[]): Draf
  * A routine's firings that reached their session (routines spec §3.5): a `lastRun` that changed and did not fail, one event per
  * firing. A failure is not one: the scheduler raises it as an « À toi » item (a task given to Ledge), which `fromTasks` already sees.
  */
-export function fromRoutines(before: readonly Routine[], after: readonly Routine[]): Draft[] {
+export function fromRoutines(before: readonly Routine[], after: readonly Routine[], sessions: readonly Session[] = []): Draft[] {
   const was = new Map(before.map(r => [r.id, r.lastRun?.at]));
+  const get = (id: string) => sessions.find(s => s.id === id);
   const out: Draft[] = [];
   for (const r of after) {
     const run = r.lastRun;
     if (!run || run.outcome === 'failed' || was.get(r.id) === run.at) continue;
+    // The session it reached, by id: it is live now, as the run is recorded once typed; a later session of the same name is not it.
+    const to = sessions.find(s => s.state !== 'exited' && resolve(s.cwd) === resolve(r.target.cwd) && targetNames(s, get).includes(r.target.name));
     out.push({
       kind: 'routine.fired', subjectKind: 'routine.run', subjectId: `${r.id}@${run.at}`, subjectName: r.name, urgency: 'grouped',
-      payload: { routine: r.id, name: r.name, target: r.target.name, cwd: r.target.cwd, slot: run.slot, firedAt: run.at, outcome: run.outcome, ...(run.late ? { late: true } : {}) }
+      payload: { routine: r.id, name: r.name, target: r.target.name, cwd: r.target.cwd, slot: run.slot, firedAt: run.at, outcome: run.outcome, ...(run.late ? { late: true } : {}), ...(to ? { session: to.id } : {}) }
     });
   }
   return out;
