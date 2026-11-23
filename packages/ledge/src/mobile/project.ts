@@ -261,8 +261,11 @@ export function toPhoneRoutine(r: Routine): PhoneRoutine {
   return { ...rest, target: { ...target, cwd: long ? `…${tail}` : target.cwd }, ...(long ? { cut: true as const } : {}), key: routineKey(r) };
 }
 
-/** One routine whole, for the phone's detail before « Activer ». */
-export const toPhoneRoutineDetail = (r: Routine): PhoneRoutineDetail => ({ ...toPhoneRoutine(r), prompt: r.prompt });
+/** One routine whole, its folder entire, for the phone's detail before « Activer ». */
+export function toPhoneRoutineDetail(r: Routine): PhoneRoutineDetail {
+  const { cut: _c, ...listed } = toPhoneRoutine(r);
+  return { ...listed, target: r.target, prompt: r.prompt };
+}
 
 /** Ledge's tasks the phone is sent: the ones Ledge gave or that a session put to the user as a decision. */
 export const forPhone = (x: Pick<Task, 'giver' | 'owner'>): boolean => x.giver === LEDGE_GIVER || x.owner === LEDGE_GIVER;

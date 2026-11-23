@@ -36,6 +36,16 @@ describe('routines on the phone', () => {
     const long = routine({ prompt: `${'a'.repeat(3000)} et la fin` });
     expect(toPhoneRoutineDetail(long).prompt.endsWith('et la fin')).toBe(true);
   });
+  it('shows the whole folder before « Activer », so two long paths of the same end stay apart', () => {
+    const end = `/${'z'.repeat(600)}/assistant`;
+    const a = routine({ target: { name: 'Iris', cwd: `/home/a${end}`, tool: 'claude' } }), b = routine({ target: { name: 'Iris', cwd: `/home/b${end}`, tool: 'claude' } });
+    expect(toPhoneRoutine(a).target.cwd).toBe(toPhoneRoutine(b).target.cwd);
+    const [da, db] = [a, b].map(r => PhoneServerMessageSchema.parse({ type: 'routine.detail', id: r.id, routine: toPhoneRoutineDetail(r) }));
+    expect(da!.type === 'routine.detail' && da!.routine?.target.cwd).toBe(a.target.cwd);
+    expect(db!.type === 'routine.detail' && db!.routine?.target.cwd).toBe(b.target.cwd);
+    expect(da!.type === 'routine.detail' && 'cut' in da!.routine!).toBe(false);
+    expect(routineKey(a)).not.toBe(routineKey(b));
+  });
   it('keys a routine on what it does, so an approval covers only what the phone showed', () => {
     const r = routine();
     expect(toPhoneRoutine(r).key).toBe(routineKey(r));

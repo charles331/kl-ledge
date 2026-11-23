@@ -271,8 +271,8 @@ export const PhoneRoutineSchema = RoutineSchema.omit({ prompt: true, target: tru
   target: RoutineTargetSchema.extend({ cwd: z.string().min(1).max(PHONE_ROUTINE_CWD_MAX) }), cut: z.literal(true).optional(), key: RoutineKeySchema
 }).strict();
 export type PhoneRoutine = z.infer<typeof PhoneRoutineSchema>;
-/** One routine whole, prompt included (`routine.show`): what the phone shows before « Activer ». */
-export const PhoneRoutineDetailSchema = PhoneRoutineSchema.extend({ prompt: RoutineSchema.shape.prompt }).strict();
+/** One routine whole (`routine.show`), its folder entire and its prompt included: what the phone shows before « Activer ». */
+export const PhoneRoutineDetailSchema = PhoneRoutineSchema.omit({ cut: true }).extend({ target: RoutineTargetSchema, prompt: RoutineSchema.shape.prompt }).strict();
 export type PhoneRoutineDetail = z.infer<typeof PhoneRoutineDetailSchema>;
 
 /** Why a question ended without an answer. */
