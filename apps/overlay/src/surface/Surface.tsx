@@ -736,32 +736,33 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
   const bubbleRoutine = bubbleNotice ? routineNotice(bubbleNotice.notice, bubbleNotice.machine, bubbleTask, routines, t) : null;
   const [routineBusy, setRoutineBusy] = useState<string | null>(null);
   const [routineStale, setRoutineStale] = useState<{ key: string; message: string } | null>(null);
-  /** A routine item's button: each routine still waiting is answered in turn on its machine; a refusal says why, a success sets the
-   *  notice aside until the daemon closes its task. « Voir » opens the routine's page in Desktop. */
+  /** A routine item's button, answered on its machine: a grouped request in one command, all or nothing (`others`), only to a daemon
+   *  that says it can (`routineGroups`); a refusal says why, a success sets the notice aside until the daemon closes its task.
+   *  « Voir » opens the routine's page in Desktop. */
   const routineAct = async (o: { key: string }, r: NonNullable<typeof bubbleRoutine>, action: 'approve' | 'refuse' | 'run' | 'see') => {
     if (action === 'see') { openInLedge({ kind: 'routine', machine: r.machine, id: r.first.id }); dispatch({ type: 'close' }); return; }
     const fleet = client.fleet;
     if (!fleet || routineBusy) return;
     setRoutineBusy(o.key); setOperatorFailure(null); setRoutineStale(null);
     try {
-      // An approval names, for each routine, what the bubble showed (its key): one changed since is refused (`stale`).
-      for (const id of action === 'run' ? [r.first.id] : r.ids) {
-        try { await fleet.routineCmd(r.machine, { op: action, routine: id, ...(action === 'approve' ? { expect: r.keys[id]! } : {}) }); }
-        catch (e) {
-          // Changed since the bubble showed it (card 32): nothing more activated, the fleet's list already holds the new version.
-          if (action === 'approve' && (e as { code?: string }).code === 'stale') {
-            const name = routinesRef.current.find(x => x.machineId === r.machine && x.id === id)?.name ?? r.first.name;
-            setRoutineStale({ key: o.key, message: t.atoi.routine.stale(name) });
-            return;
-          }
-          throw e;
-        }
+      const [head, ...rest] = action === 'run' ? [r.first.id] : r.ids;
+      // A daemon that does not answer groups would drop `others` and answer the first routine alone: the island says it is too old (card 33).
+      if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { setOperatorFailure({ key: o.key, message: t.atoi.routine.groupTooOld }); return; }
+      // An approval names, for each routine, what the bubble showed (its key): one changed since makes the daemon refuse them all (`stale`).
+      // A refusal needs no key (refusing what changed is harmless): a member not read yet is still named, without one.
+      const keyed = (id: string) => ({ routine: id, ...(r.keys[id] !== undefined ? { expect: r.keys[id] } : {}) });
+      try {
+        await fleet.routineCmd(r.machine, { op: action, routine: head!, ...(action === 'approve' ? { expect: r.keys[head!]! } : {}), ...(rest.length ? { others: rest.map(keyed) } : {}) });
+      } catch (e) {
+        // Changed since the bubble showed it (card 32): nothing activated, the routines read again for the bubble to show the new version.
+        if (action === 'approve' && (e as { code?: string }).code === 'stale') { fleet.rereadRoutines(r.machine); setRoutineStale({ key: o.key, message: t.atoi.routine.stale(r.first.name) }); return; }
+        throw e;
       }
       setAside(o.key, true); sounds.user(action === 'refuse' ? 'deny' : 'accept');
     } catch (e) {
       // The island's own words for a machine down or too old; a daemon's refusal is said with its reason (French, the daemon's).
       const f = e as { code?: string; message?: string };
-      setOperatorFailure({ key: o.key, message: f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.machines.problem.ledge : f.message ?? String(e) });
+      setOperatorFailure({ key: o.key, message: f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.atoi.routine.tooOld : f.message ?? String(e) });
     } finally { setRoutineBusy(null); }
   };
   const sendOn = (machine: string, m: Parameters<DaemonClient['send']>[0]): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };

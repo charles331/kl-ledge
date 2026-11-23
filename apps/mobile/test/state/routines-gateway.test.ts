@@ -81,7 +81,7 @@ describe('the phone’s routines against the real gateway', () => {
     expect(phone.of('routine.list')).toHaveLength(2);
   });
 
-  it('« Activer les 3 »: one device check over the three routines and their keys, then each is approved in order', async () => {
+  it('« Activer les 3 »: one device check over the three routines and their keys, then one command to the daemon, all or nothing', async () => {
     const { g, phone, cmds, pump } = await wired();
     g.send('dev1', { type: 'snapshot.request' });
     await pump();
@@ -91,6 +91,6 @@ describe('the phone’s routines against the real gateway', () => {
     expect(await done).toEqual({ status: 'applied' });
     expect(phone.of('confirm.prepare')).toEqual([{ type: 'confirm.prepare', purpose: 'routine', routine: 'r000001', routineKey: routineKey(GROUP[0]!), routineOthers: others }]);
     expect(vi.mocked(getAssertion)).toHaveBeenCalledTimes(1);
-    expect(cmds.map(c => [c.op, c.routine])).toEqual(GROUP.map(r => ['approve', r.id]));
+    expect(cmds.map(c => [c.op, c.routine, c.expect, c.others])).toEqual([['approve', 'r000001', routineKey(GROUP[0]!), GROUP.slice(1).map(r => ({ routine: r.id, expect: routineKey(r) }))]]);
   });
 });

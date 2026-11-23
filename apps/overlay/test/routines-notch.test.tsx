@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import type { OperatorNotice, Task } from '@ledge/protocol';
+import { RoutineCmdSchema, type OperatorNotice, type Task } from '@ledge/protocol';
 import type { FleetRoutine, RoutineAsk } from '@ledge/fleet/routines';
 import type { DaemonClient } from '../src/daemon/client';
 import { daemonStore } from '../src/daemon/store';
@@ -74,17 +74,19 @@ describe('the island’s words for a routine (cards 15 and 23)', () => {
 });
 
 /** A one-machine fleet whose notices, tasks and routines the test sets; every routine command is recorded. */
-function fleetClient(tasks: Task[], routines: FleetRoutine[]) {
+function fleetClient(tasks: Task[], routines: FleetRoutine[], o: { groups?: boolean } = {}) {
   const cmds: Array<{ machine: string; ask: RoutineAsk }> = [];
+  const rereads: string[] = [];
   let notices: ReadonlyMap<string, OperatorNotice[]> = new Map();
   const listeners = new Set<() => void>();
-  const machines = [{ id: 'local', label: 'Local', status: 'open', ready: true }];
+  // A daemon that answers a grouped command all or nothing says it (`routineGroups`); an older one does not.
+  const machines = [{ id: 'local', label: 'Local', status: 'open', ready: true, daemon: { version: '0.63.0', install: 'npm', systemd: true, routines: true, ...(o.groups === false ? {} : { routineGroups: true }) } }];
   let fail: { code: string; message: string } | null = null;
   const fleet = {
     selected: () => 'local', select() {}, terminal: () => null, turnMachine: () => machines[0], configure() {}, probe: async () => ({}), retry() {},
     subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn); },
     machines: () => machines, operator: () => notices, tasks: () => tasks, routines: () => routines, onRoutines: () => () => {},
-    sendTo: () => true,
+    sendTo: () => true, rereadRoutines: (machine: string) => { rereads.push(machine); },
     routineCmd: async (machine: string, ask: RoutineAsk) => {
       cmds.push({ machine, ask });
       if (fail) throw fail;
@@ -93,7 +95,7 @@ function fleetClient(tasks: Task[], routines: FleetRoutine[]) {
   };
   const client = { connect() {}, close() {}, send: () => {}, status: () => 'open', onMessage: () => () => {}, onStatus: () => () => {}, fleet } as unknown as DaemonClient;
   const set = (next: Record<string, OperatorNotice[]>) => act(() => { notices = new Map(Object.entries(next)); listeners.forEach(fn => fn()); });
-  return { client, cmds, set, failWith: (message: string, code = 'not_pending') => { fail = { code, message }; } };
+  return { client, cmds, rereads, set, failWith: (message: string, code = 'not_pending') => { fail = { code, message }; } };
 }
 
 const tick = (n: number) => act(() => { vi.advanceTimersByTime(n); });
@@ -125,7 +127,7 @@ describe('the island’s routine items (card 15)', () => {
     expect(f.cmds).toEqual([{ machine: 'local', ask: { op: 'approve', routine: 'r3f9a12', expect: 'k-point' } }]);
   });
 
-  it('several one-shots: « Activate all 3 » answers each in turn; a refusal says why', async () => {
+  it('several one-shots: « Refuse all 3 » is one command for the group; a refusal says why', async () => {
     const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], group);
     mount(f);
     f.set({ local: [decision('t2')] });
@@ -133,7 +135,7 @@ describe('the island’s routine items (card 15)', () => {
     expect(bubble()).toHaveTextContent('Iris wants to schedule 3 one-shot routines: prepa-121 (3 Dec 16:00), prepa-comite-archi (7 Dec 15:00), prepa-demo-compart (8 Dec 09:30)');
     f.failWith('nothing pending');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
-    expect(f.cmds.map(c => c.ask)).toEqual([{ op: 'refuse', routine: 'r000001' }]);
+    expect(f.cmds.map(c => c.ask)).toEqual([{ op: 'refuse', routine: 'r000001', others: [{ routine: 'r000002', expect: 'k-r000002' }, { routine: 'r000003', expect: 'k-r000003' }] }]);
     expect(bubble()).toHaveTextContent('nothing pending');
     // A machine down is said in the island's own words, never the fleet's French « hors ligne ».
     f.failWith('hors ligne', 'offline');
@@ -141,13 +143,36 @@ describe('the island’s routine items (card 15)', () => {
     expect(bubble()).toHaveTextContent('Offline: reconnecting to the daemon');
   });
 
-  it('« Activate all 3 » binds each routine to its own key; a routine not read yet cannot be activated', async () => {
+  it('« Activate all 3 » is one command, all or nothing, each routine bound to its own key', async () => {
     const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], group);
     mount(f);
     f.set({ local: [decision('t2')] });
     tick(540);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
-    expect(f.cmds.map(c => c.ask)).toEqual(group.map(r => ({ op: 'approve', routine: r.id, expect: r.key })));
+    expect(f.cmds.map(c => c.ask)).toEqual([{ op: 'approve', routine: 'r000001', expect: 'k-r000001', others: [{ routine: 'r000002', expect: 'k-r000002' }, { routine: 'r000003', expect: 'k-r000003' }] }]);
+  });
+
+  it('Refuse on a group with a member not read yet (no key): every member named, a command the daemon takes; Activate waits', async () => {
+    const unread = [group[0]!, { ...group[1]!, key: undefined }, group[2]!];
+    const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], unread);
+    mount(f);
+    f.set({ local: [decision('t2')] });
+    tick(540);
+    expect(screen.getByRole('button', { name: 'Activate all 3' })).toBeDisabled();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
+    const ask = f.cmds[0]!.ask;
+    expect(ask).toEqual({ op: 'refuse', routine: 'r000001', others: [{ routine: 'r000002' }, { routine: 'r000003', expect: 'k-r000003' }] });
+    expect(RoutineCmdSchema.safeParse({ type: 'routine.cmd', rid: 'x', ...ask }).success).toBe(true);
+  });
+
+  it('a machine whose daemon does not answer groups: nothing sent, the island says it is too old (it would activate the first alone)', async () => {
+    const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], group, { groups: false });
+    mount(f);
+    f.set({ local: [decision('t2')] });
+    tick(540);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
+    expect(f.cmds).toEqual([]);
+    expect(bubble()).toHaveTextContent('This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.');
   });
 
   it('an approval refused as stale (card 32): the amber words, never the daemon’s reason; nothing more sent, Activate again', async () => {
@@ -158,6 +183,8 @@ describe('the island’s routine items (card 15)', () => {
     f.failWith('la demande a changé', 'stale');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
     expect(f.cmds).toHaveLength(1);
+    // The routines are read again, for the bubble to show the new version.
+    expect(f.rereads).toEqual(['local']);
     const note = bubble().querySelector('[data-stale]')!;
     expect(note).toHaveTextContent('“prepa-121” changed since you opened it: read it again before activating.');
     expect(note).toHaveStyle({ color: 'var(--warning)' });
@@ -172,6 +199,16 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     expect(screen.getByRole('button', { name: 'Activate' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Refuse' })).toBeEnabled();
+  });
+
+  it('a routine command refused as outdated says card 33’s words', async () => {
+    const f = fleetClient([task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })], [pointHebdo]);
+    mount(f);
+    f.set({ local: [decision('t1')] });
+    tick(540);
+    f.failWith('ancien', 'outdated');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
+    expect(bubble()).toHaveTextContent('This machine’s Ledge is too old for this action: update it. Nothing changed.');
   });
 
   it('a failure: Run again fires it, View opens its page in Desktop', async () => {
