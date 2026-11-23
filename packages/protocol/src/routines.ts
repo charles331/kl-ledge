@@ -130,9 +130,10 @@ export type RoutineOp = z.infer<typeof RoutineOpSchema>;
 export const RoutineRefusalSchema = z.enum(['not_found', 'name_taken', 'invalid', 'forbidden', 'not_pending']);
 export type RoutineRefusal = z.infer<typeof RoutineRefusalSchema>;
 
-/** The routines, newest first. */
-export const RoutineListSchema = z.object({ type: z.literal('routine.list'), rid: z.string().min(1).max(100) });
-export const RoutineListedSchema = z.object({ type: z.literal('routine.listed'), rid: z.string(), routines: z.array(RoutineSchema).max(ROUTINES_MAX) });
+/** The routines, newest first. `by`: a session asking; `owned` then names the routines the daemon counts as its own (made by
+ *  it, or waking it or the session it relieves), so its CLI finds a name as the daemon's commands do. */
+export const RoutineListSchema = z.object({ type: z.literal('routine.list'), rid: z.string().min(1).max(100), by: z.string().min(1).max(100).optional() });
+export const RoutineListedSchema = z.object({ type: z.literal('routine.listed'), rid: z.string(), routines: z.array(RoutineSchema).max(ROUTINES_MAX), owned: z.array(RoutineIdSchema).max(ROUTINES_MAX).optional() });
 
 /**
  * A change to the routines. `add` takes `spec`; `update` takes `routine` (id or name) and `patch`; the others take `routine`;

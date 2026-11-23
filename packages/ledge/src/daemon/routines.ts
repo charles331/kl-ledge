@@ -66,6 +66,8 @@ export interface Routines {
   preview(rid: string, schedule: RoutineSchedule): RoutinePreviewed;
   /** The routines, newest first, the fired one-shots of the last 30 days among them, with their next firings. */
   all(): Routine[];
+  /** The ids of the routines a session counts as its own (made by it, or waking it or the session it relieves). */
+  ownedBy(sessionId: string): string[];
   /** The mailbox typed (or gave up on) Ledge's line of that rid. */
   noticeDone(rid: string, typed: boolean, reason?: string): void;
   /** Checks the clock now (tests; the timer does it otherwise). */
@@ -634,6 +636,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
 
   return {
     run, preview, noticeDone, tick,
+    ownedBy: id => { const s = d.store.get(id); return s ? [...routines.values()].filter(r => ownedBy(r, s)).map(r => r.id) : []; },
     all: () => [...routines.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     close: () => { closed = true; if (timer) clearTimeout(timer); }
   };

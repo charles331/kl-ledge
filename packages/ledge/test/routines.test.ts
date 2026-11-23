@@ -398,6 +398,18 @@ describe('commands', () => {
       .toEqual({ type: 'routine.previewed', rid: 'p', nextRuns: ['2026-11-26T15:00:00.000Z', '2026-12-10T15:00:00.000Z', '2026-12-24T15:00:00.000Z'] });
     expect(routines.preview('p', { kind: 'recurring', times: ['16:00'], days: ['thu'], tz: 'Mars/Olympus' })).toMatchObject({ nextRuns: [], reason: 'fuseau horaire inconnu : Mars/Olympus' });
   });
+  it('takes a one-shot\'s new zone, its moments kept (the CLI\'s edit --tz)', async () => {
+    const r = (await cmd(user, 'add', { spec: spec({ name: 'prep', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) })).routine!;
+    const moved = (await cmd(user, 'update', { routine: r.id, patch: { schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' } } })).routine!;
+    expect(moved).toMatchObject({ schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' }, nextRun: '2026-12-03T21:00:00.000Z' });
+  });
+  it('names the routines a session counts as its own: made by it, or waking it', async () => {
+    const mine = (await cmd(user, 'add', { spec: spec() })).routine!;
+    const made = (await cmd(as('otto'), 'add', { spec: spec({ name: 'autre', target: { name: 'Nova', cwd: '/home/jde/assistant', tool: 'claude' } }) })).routine!;
+    expect(routines.ownedBy('iris')).toEqual([mine.id]);
+    expect(routines.ownedBy('otto')).toEqual([made.id]);
+    expect(routines.ownedBy('nobody')).toEqual([]);
+  });
   it('writes routines.json for the one shared reader', async () => {
     await cmd(user, 'add', { spec: spec() });
     routines.close(); await journal.flush(); await flush();
