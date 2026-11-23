@@ -749,7 +749,8 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
       // A daemon that does not answer groups would drop `others` and answer the first routine alone: the island says it is too old.
       if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { setOperatorFailure({ key: o.key, message: t.machines.problem.ledge }); return; }
       // An approval names, for each routine, what the bubble showed (its key): one changed since makes the daemon refuse them all (`stale`).
-      const keyed = (id: string) => ({ routine: id, expect: r.keys[id]! });
+      // A refusal needs no key (refusing what changed is harmless): a member not read yet is still named, without one.
+      const keyed = (id: string) => ({ routine: id, ...(r.keys[id] !== undefined ? { expect: r.keys[id] } : {}) });
       try {
         await fleet.routineCmd(r.machine, { op: action, routine: head!, ...(action === 'approve' ? { expect: r.keys[head!]! } : {}), ...(rest.length ? { others: rest.map(keyed) } : {}) });
       } catch (e) {

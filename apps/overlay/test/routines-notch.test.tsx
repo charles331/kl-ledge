@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import type { OperatorNotice, Task } from '@ledge/protocol';
+import { RoutineCmdSchema, type OperatorNotice, type Task } from '@ledge/protocol';
 import type { FleetRoutine, RoutineAsk } from '@ledge/fleet/routines';
 import type { DaemonClient } from '../src/daemon/client';
 import { daemonStore } from '../src/daemon/store';
@@ -150,6 +150,19 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activate all 3' })); });
     expect(f.cmds.map(c => c.ask)).toEqual([{ op: 'approve', routine: 'r000001', expect: 'k-r000001', others: [{ routine: 'r000002', expect: 'k-r000002' }, { routine: 'r000003', expect: 'k-r000003' }] }]);
+  });
+
+  it('Refuse on a group with a member not read yet (no key): every member named, a command the daemon takes; Activate waits', async () => {
+    const unread = [group[0]!, { ...group[1]!, key: undefined }, group[2]!];
+    const f = fleetClient([task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })], unread);
+    mount(f);
+    f.set({ local: [decision('t2')] });
+    tick(540);
+    expect(screen.getByRole('button', { name: 'Activate all 3' })).toBeDisabled();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
+    const ask = f.cmds[0]!.ask;
+    expect(ask).toEqual({ op: 'refuse', routine: 'r000001', others: [{ routine: 'r000002' }, { routine: 'r000003', expect: 'k-r000003' }] });
+    expect(RoutineCmdSchema.safeParse({ type: 'routine.cmd', rid: 'x', ...ask }).success).toBe(true);
   });
 
   it('a machine whose daemon does not answer groups: nothing sent, the island says it is too old (it would activate the first alone)', async () => {
