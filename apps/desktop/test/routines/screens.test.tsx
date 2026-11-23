@@ -45,7 +45,7 @@ describe('Routines on Desktop, card 28', () => {
     const d = { ...specDraft(), name: 'brief ing!', schedule: { ...specDraft().schedule, kind: 'once' as const } };
     const { unmount } = fr(<RoutineForm draft={d} onChange={vi.fn()} errors={{ name: 'invalid', session: true, prompt: true, at: true }} sessions={[]} dirLabel={x => x} preview={null} lastSlot={null} />);
     const hints = [...document.querySelectorAll('.rt-hint.err')].map(e => e.textContent);
-    expect(hints).toEqual(['Nom invalide : lettres, chiffres, ., - et _ seulement.', 'Choisis une session.', 'Au moins une date.', 'Le prompt est vide.']);
+    expect(hints).toEqual(['Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', 'Choisis une session.', 'Au moins une date.', 'Le prompt est vide.']);
     unmount();
     const two = { ...specDraft(), schedule: { ...specDraft().schedule, times: ['16:00'], days: ['thu' as const], weeks: 2 as const } };
     const { unmount: u2 } = fr(<RoutineForm draft={two} onChange={vi.fn()} errors={{ anchor: true }} sessions={[]} dirLabel={x => x} preview={null} lastSlot={null} />);

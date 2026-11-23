@@ -1843,7 +1843,7 @@ export const fr = {
       dir: 'Ce dossier n’existe pas sur ce PC.', dirExisting: 'Le dossier de cette session n’existe plus sur ce PC.', dup: (h: string) => `${h} est déjà dans la liste.`,
       past: 'Ce moment est déjà passé.',
       // Card 28: a text under each field in error, and the front's text for each field the daemon refuses (ff7a19c2).
-      nameInvalid: 'Nom invalide : lettres, chiffres, ., - et _ seulement.', session: 'Choisis une session.', prompt: 'Le prompt est vide.',
+      nameInvalid: 'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', session: 'Choisis une session.', prompt: 'Le prompt est vide.',
       date: 'Au moins une date.', anchor: 'Choisis la semaine de référence.', tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,
       unreachable: 'Cette session ne répond pas.', notLedge: 'Cette session n’est pas suivie par Ledge.',
       tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`

@@ -158,7 +158,7 @@ describe('the Routines screens rules', () => {
     expect(said('invalid', 'tool')).toEqual({ part: 'tool', text: 'Tool not found on this PC: cursor.' });
     expect(said('invalid', 'model')).toEqual({ part: 'model', text: 'Unknown model for cursor: gpt-9.' });
     expect(said('invalid', 'prompt')).toEqual({ part: 'prompt', text: 'The prompt is empty.' });
-    expect(said('invalid', 'name')).toEqual({ part: 'name', text: 'Invalid name: letters, digits, ., - and _ only.' });
+    expect(said('invalid', 'name')).toEqual({ part: 'name', text: 'Invalid name: letters, digits, dot, hyphen and underscore only.' });
     // A cause the card does not word keeps the daemon's words; no field: the head of the configuration.
     expect(said('not_pending', undefined)).toEqual({ part: null, text: 'raison du daemon' });
     const r = routine('a', { schedule: { kind: 'recurring', times: ['08:00', '13:30', '16:30'], days: ['mon'] } });

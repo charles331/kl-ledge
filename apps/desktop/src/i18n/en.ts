@@ -1745,7 +1745,7 @@ export const en: Messages = {
       name: (session: string, name: string) => `${session} already has a routine “${name}”.`, times: 'At least one time.', days: 'At least one day.',
       dir: 'This folder doesn’t exist on this PC.', dirExisting: 'This session’s folder no longer exists on this PC.', dup: (h: string) => `${h} is already in the list.`,
       past: 'This moment has already passed.',
-      nameInvalid: 'Invalid name: letters, digits, ., - and _ only.', session: 'Pick a session.', prompt: 'The prompt is empty.',
+      nameInvalid: 'Invalid name: letters, digits, dot, hyphen and underscore only.', session: 'Pick a session.', prompt: 'The prompt is empty.',
       date: 'At least one date.', anchor: 'Pick the reference week.', tz: (tz: string) => `Unknown time zone: ${tz}.`,
       unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
       tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`
