@@ -1,4 +1,4 @@
-import { WEEKDAYS, type PhoneRoutine, type Routine, type RoutineField, type PhoneSession, type PhoneTask, type RoutineSchedule, type TaskRoutine, type Weekday } from '@ledge/protocol';
+import { WEEKDAYS, type PhoneRoutine, type PhoneSession, type PhoneTask, type RoutineSchedule, type TaskRoutine, type Weekday } from '@ledge/protocol';
 import { copy, locale } from '../copy';
 import { taskClosed } from './tasks';
 
@@ -98,33 +98,16 @@ export function nextLine(r: Pick<PhoneRoutine, 'nextRun' | 'schedule'>, now: num
   return dated ? copy.routines.nextDated(when) : copy.routines.next(when);
 }
 
-type ERRS = typeof copy.routines.err;
-
 /**
- * A field's words (card 28) for a run or a refusal about `r`, or null when the card gives none for it. The contract names the field,
- * not which of a session's two cases: the daemon's reason says « hors de Ledge » for a session Ledge does not follow. A stored routine
- * always has times and days, so `schedule` keeps the daemon's reason.
+ * Why a routine's last run did not leave, in the screen's language (the daemon's reasons are French): the words cards 8, 13-16 and
+ * 29 draw for a missing folder or tool, with its path or name; any other reason as the daemon gave it. `fallback`: an item's own.
  */
-function fieldText(field: RoutineField | undefined, r: Pick<Routine, 'name' | 'target' | 'schedule'>, reason: string | undefined, E: ERRS): string | null {
-  switch (field) {
-    case 'cwd': return E.cwd;
-    case 'at': return E.at;
-    case 'prompt': return E.prompt;
-    case 'name': return E.name(r.target.name, r.name);
-    case 'tz': return r.schedule.tz ? E.tz(r.schedule.tz) : null;
-    case 'session': return /hors de Ledge/.test(reason ?? '') ? E.notLedge : E.unreachable;
-    case 'tool': return E.tool(r.target.tool);
-    case 'model': return r.target.model ? E.model(r.target.tool, r.target.model) : null;
-    default: return null;
-  }
-}
-
-/** Why a routine's last run did not leave, in the screen's language (the daemon's reasons are French): card 28's words for the
- *  field it names, else the daemon's reason; `fallback`: an item's own reason. */
-export function failureWhy(r: Pick<PhoneRoutine, 'lastRun' | 'target' | 'name' | 'schedule'> | undefined, fallback?: string): string {
+export function failureWhy(r: Pick<PhoneRoutine, 'lastRun' | 'target'> | undefined, fallback?: string): string {
   const run = r?.lastRun?.outcome === 'failed' ? r.lastRun : undefined;
-  const reason = run?.reason ?? fallback;
-  return (r && run && fieldText(run.field, r, reason, copy.routines.err)) ?? reason ?? '';
+  const W = copy.routines.why;
+  if (r && run?.field === 'cwd') return W.cwd(r.target.cwd);
+  if (r && run?.field === 'tool') return W.tool(r.target.tool);
+  return run?.reason ?? fallback ?? '';
 }
 
 /** A routine that may still fire: a fired one-shot (`done`) is history, read on the PC only. */

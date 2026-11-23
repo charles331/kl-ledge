@@ -25,14 +25,8 @@ export const routinesFr = {
   /** Every other week inside an activation request (« 16:00 (jeu, 1 sem. sur 2) »), approved by the owner. */
   every2: '1 sem. sur 2',
   oneShot: 'unique',
-  /** Why a run did not leave, by the field the daemon names (card 28); a reason without one is the daemon's own (French). */
-  err: {
-    cwd: 'Ce dossier n’existe pas sur ce PC.', at: 'Ce moment est déjà passé.',
-    name: (session: string, name: string) => `${session} a déjà une routine « ${name} ».`, tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,
-    unreachable: 'Cette session ne répond pas.', notLedge: 'Cette session n’est pas suivie par Ledge.',
-    tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`,
-    times: 'Au moins une heure.', days: 'Au moins un jour.', anchor: 'Choisis la semaine de référence.', prompt: 'Le prompt est vide.'
-  },
+  /** Why a run did not leave, as cards 8, 13-16 and 29 draw it, by the field the daemon names; any other reason is the daemon's own. */
+  why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}` },
   /** Past three moments in a request: « jeu. 3 déc. 16:00, …, jeu. 17 déc. 16:00 et 2 autres » (card 28). */
   more: (list: string, n: number) => `${list} et ${n} autres`,
   /** The items of « À toi »: an activation request (one routine, or several proposed together), a failure. */

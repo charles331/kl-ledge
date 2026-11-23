@@ -1,4 +1,4 @@
-import { WEEKDAYS, type OperatorNotice, type Routine, type RoutineField, type RoutineSchedule, type Task, type Weekday } from '@ledge/protocol';
+import { WEEKDAYS, type OperatorNotice, type RoutineSchedule, type Task, type Weekday } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet/routines';
 import type { Messages } from './i18n/lang';
 
@@ -52,27 +52,6 @@ export function routineWhen(s: RoutineSchedule, m: Messages): RoutineWhen {
   return { ask: `${[...s.times].sort().join(', ')} (${daysText(s.days, m)}${every})`, moments: [] };
 }
 
-type ERRS = Messages['atoi']['routine']['err'];
-
-/**
- * A field's words (card 28) for a run or a refusal about `r`, or null when the card gives none for it. The contract names the field,
- * not which of a session's two cases: the daemon's reason says « hors de Ledge » for a session Ledge does not follow. A stored routine
- * always has times and days, so `schedule` keeps the daemon's reason.
- */
-function fieldText(field: RoutineField | undefined, r: Pick<Routine, 'name' | 'target' | 'schedule'>, reason: string | undefined, E: ERRS): string | null {
-  switch (field) {
-    case 'cwd': return E.cwd;
-    case 'at': return E.at;
-    case 'prompt': return E.prompt;
-    case 'name': return E.name(r.target.name, r.name);
-    case 'tz': return r.schedule.tz ? E.tz(r.schedule.tz) : null;
-    case 'session': return /hors de Ledge/.test(reason ?? '') ? E.notLedge : E.unreachable;
-    case 'tool': return E.tool(r.target.tool);
-    case 'model': return r.target.model ? E.model(r.target.tool, r.target.model) : null;
-    default: return null;
-  }
-}
-
 /** A routine's item as the island's bubble shows it. */
 export interface RoutineNotice {
   kind: 'approve' | 'failed';
@@ -98,10 +77,9 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
   const one = find(r.id);
   if (r.kind === 'failed') {
     const who = one?.target.name ?? task.giverName;
-    // The daemon's reasons are French: card 28's words for the field it names, else its reason.
+    // The daemon's reasons are French: a missing folder or tool in the words cards 8, 13-16 and 29 draw, any other as it gave it.
     const run = one?.lastRun?.outcome === 'failed' ? one.lastRun : undefined;
-    const reason = r.reason ?? run?.reason;
-    const why = (one && run && fieldText(run.field, one, reason, R.err)) ?? reason ?? '';
+    const why = one && run?.field === 'cwd' ? R.why.cwd(one.target.cwd) : one && run?.field === 'tool' ? R.why.tool(one.target.tool) : r.reason ?? run?.reason ?? '';
     return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, why), first: { id: r.id, name: one?.name ?? r.name } };
   }
   const covered = r.ids ?? [r.id];
@@ -115,10 +93,13 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
   const who = asker(one) ?? asker(listed[0]) ?? notice.who ?? task.giverName;
   if (covered.length > 1) {
     const list = listed.map(x => `${x.name} (${routineWhen(x.schedule, m).moments[0] ?? routineWhen(x.schedule, m).ask})`).join(', ');
-    return { kind: 'approve', machine, ids, who, text: listed.length ? R.groupAsk(who, ids.length, list) : notice.text, first };
+    // Never the task's title (the daemon writes it in French only): not listed yet, it is no routine item, the plain decision speaks.
+    if (!listed.length) return null;
+    return { kind: 'approve', machine, ids, who, text: R.groupAsk(who, ids.length, list), first };
   }
-  if (!one) return { kind: 'approve', machine, ids, who, text: notice.text, first };
-  // What « Activer » applies: a session's change waiting on the user, else the routine as it is.
-  const spec = one.proposal?.spec ?? one;
-  return { kind: 'approve', machine, ids, who, text: R.ask(who, spec.name, routineWhen(spec.schedule, m).ask, spec.target.cwd), first };
+  if (!one) return null;
+  // What « Activer » applies: a session's change waiting on the user (« veut modifier », card 29), else the routine as it is.
+  const when = routineWhen((one.proposal?.spec ?? one).schedule, m).ask;
+  const text = one.proposal ? R.editAsk(who, one.proposal.spec.name, when) : R.ask(who, one.name, when, one.target.cwd);
+  return { kind: 'approve', machine, ids, who, text, first };
 }
