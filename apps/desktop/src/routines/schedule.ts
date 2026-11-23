@@ -75,12 +75,13 @@ export function daysLabel(days: readonly Weekday[], r: R): string {
 
 export const isOnce = (s: RoutineSchedule): boolean => s.kind === 'once';
 
-/** A schedule's line under a routine's name (cards 2, 21): « 08:00 13:30 16:30 · lun–ven », « jeu 16:00 · 1 sem. sur 2 »,
+/** A schedule's line under a routine's name (cards 2, 21): « 08:00 13:30 16:30 · lun–ven », « jeu. 16:00 · 1 sem. sur 2 »,
  *  « unique ». */
 export function scheduleLine(s: RoutineSchedule, r: R): string {
   if (s.kind === 'once') return r.oneShot;
   const times = s.times.join(' ');
-  return s.every?.weeks === 2 ? `${daysLabel(s.days, r)} ${times} · ${r.every2}` : `${times} · ${daysLabel(s.days, r)}`;
+  const lead = s.days.length === 1 ? r.dayLead[s.days[0]!] : daysLabel(s.days, r);
+  return s.every?.weeks === 2 ? `${lead} ${times} · ${r.every2}` : `${times} · ${daysLabel(s.days, r)}`;
 }
 
 /** A one-shot's moment, « 2026-12-03T16:00 », as a date: the local instant it names. */

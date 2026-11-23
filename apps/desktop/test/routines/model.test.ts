@@ -27,7 +27,7 @@ describe('the schedule as Desktop reads it', () => {
     expect(daysLabel(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'], fr)).toBe('tous les jours');
     expect(daysLabel(['fri', 'mon'], en)).toBe('Mon, Fri');
     expect(scheduleLine({ kind: 'recurring', times: ['08:00', '13:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, fr)).toBe('08:00 13:30 · lun–ven');
-    expect(scheduleLine({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, fr)).toBe('jeu 16:00 · 1 sem. sur 2');
+    expect(scheduleLine({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, fr)).toBe('jeu. 16:00 · 1 sem. sur 2');
     expect(scheduleLine({ kind: 'once', at: ['2026-12-03T16:00'] }, fr)).toBe('unique');
     expect(askLine({ kind: 'recurring', times: ['17:00'], days: ['fri'] }, 'point-hebdo', '~/assistant', 'fr', fr)).toBe('veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant');
     // The owner's two texts of 2026-11-23: every other week, and a single one-shot.

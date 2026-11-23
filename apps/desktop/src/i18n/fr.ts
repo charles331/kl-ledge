@@ -1818,6 +1818,8 @@ export const fr = {
     groupBannerHint: 'Tu peux les activer toutes, ou les régler une par une ici.',
     activateAll: (n: number) => `Activer les ${n}`, refuseAll: (n: number) => `Refuser les ${n}`, activateThis: 'Activer celle-ci', refuseThis: 'Refuser celle-ci', drop: 'Retirer de la proposition',
     days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' } as Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', string>,
+    // A single day opening a line, before its time (card 21: « jeu. 16:00 · 1 sem. sur 2 »).
+    dayLead: { mon: 'lun.', tue: 'mar.', wed: 'mer.', thu: 'jeu.', fri: 'ven.', sat: 'sam.', sun: 'dim.' } as Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', string>,
     letters: ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as readonly string[],
     monfri: 'lun–ven', daily: 'tous les jours',
     week: (n: number, from: string, to: string) => `semaine ${n}, du ${from} au ${to}`,

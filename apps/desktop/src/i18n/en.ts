@@ -1721,6 +1721,7 @@ export const en: Messages = {
     groupBannerHint: 'You can activate them all, or settle them one by one here.',
     activateAll: (n: number) => `Activate all ${n}`, refuseAll: (n: number) => `Refuse all ${n}`, activateThis: 'Activate this one', refuseThis: 'Refuse this one', drop: 'Remove from the proposal',
     days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
+    dayLead: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
     letters: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
     monfri: 'Mon–Fri', daily: 'every day',
     week: (n: number, from: string, to: string) => `week ${n}, ${from}–${to}`,

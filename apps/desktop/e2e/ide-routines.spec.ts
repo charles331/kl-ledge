@@ -88,7 +88,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     await expect(view.locator('.rtn-grp').first().locator('.rtn-row > b')).toHaveText(['point-hebdo', 'veille', 'briefing', 'revue-prs', 'bilan-sprint']);
     await expect(view.locator('[data-routine="local:r1a2b3c"] .rtn-nx')).toHaveText('13:30');
     await expect(view.locator('[data-routine="local:r5e6f70"] .rtn-nx')).toHaveText(fr ? 'demain 09:00' : 'tomorrow 09:00');
-    await expect(view.locator('[data-routine="local:r200001"] small')).toContainText(fr ? 'jeu 16:00 · 1 sem. sur 2' : 'Thu 16:00 · every 2 wks');
+    await expect(view.locator('[data-routine="local:r200001"] small')).toContainText(fr ? 'jeu. 16:00 · 1 sem. sur 2' : 'Thu 16:00 · every 2 wks');
     await expect(view.locator('.rtn-prop')).toHaveText(fr ? 'Proposées ensemble par Iris · 3' : 'Proposed together by Iris · 3');
     await expect(view.locator('.rtn-foot')).toHaveText(fr ? 'Heures de ce PC · Europe/Brussels' : 'This PC’s times · Europe/Brussels');
 
