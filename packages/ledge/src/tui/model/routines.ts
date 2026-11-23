@@ -1,5 +1,5 @@
 import { LOCAL_MACHINE, type FleetRoutine } from '@ledge/fleet';
-import type { Routine, Task } from '@ledge/protocol';
+import type { Routine, RoutineRun, Task } from '@ledge/protocol';
 import { askScheduleText, daysText, momentOnce, onceDaysText } from '../../routine-text.js';
 import type { Glyphs } from '../glyphs.js';
 import type { Lang, Messages } from '../i18n/lang.js';
@@ -18,6 +18,12 @@ const DAY_MS = 24 * 3600_000;
 const locale = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const dayStart = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+/** Why a firing failed, in the screen's language where the daemon gives a cause without a field (its `reason` is French). */
+export function runReason(run: Pick<RoutineRun, 'reason' | 'field' | 'cause'>, t: Messages): string {
+  if (!run.field && run.cause === 'timeout') return t.routines.causes.timeout;
+  return run.reason ?? t.routines.out.failed;
+}
 
 /** A routine's last firing failed: it says so in red, and `r` runs it again. */
 export const failedLast = (r: Pick<Routine, 'lastRun'>): boolean => r.lastRun?.outcome === 'failed';
@@ -97,7 +103,7 @@ function subText(r: Routine, lang: Lang, t: Messages): string {
   const quiet = r.state === 'pending' || r.state === 'paused';
   const dated = r.schedule.kind === 'once' && (quiet || failedLast(r) || !r.nextRun);
   const parts = [r.target.name, whenText(r, 'list', lang, t, { dated })];
-  if (!quiet && r.lastRun) parts.push(failedLast(r) ? r.lastRun.reason ?? t.routines.out.failed : t.routines.out[r.lastRun.outcome]);
+  if (!quiet && r.lastRun) parts.push(failedLast(r) ? runReason(r.lastRun, t) : t.routines.out[r.lastRun.outcome]);
   return parts.join(' · ');
 }
 
@@ -155,7 +161,7 @@ export function routineItems(tasks: readonly Task[], routines: readonly FleetRou
     const r = local.find(x => x.id === rt.id);
     const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: LOCAL_MACHINE.id };
     // Never the daemon's own title: it is written in French only. A routine not read yet is said by its name.
-    const why = rt.reason ?? t.routines.out.failed;
+    const why = r?.lastRun?.outcome === 'failed' ? runReason(r.lastRun, t) : rt.reason ?? t.routines.out.failed;
     if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, why) : t.routines.failedNamed(rt.name, why) }];
     const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : undefined);
     let text = t.routines.waits(rt.name);

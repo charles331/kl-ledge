@@ -374,6 +374,8 @@ export const en: Messages = {
     groupAsk: (s: string, n: number, days: string) => `${s} wants to schedule ${n} one-shot routines: ${days}`,
     itemKeys: { activate: 'activate', refuse: 'refuse', retry: 'run again', activateAll: (n: number) => `activate all ${n}`, refuseAll: (n: number) => `refuse all ${n}` },
     failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
+    stale: (r: string) => `“${r}” changed: read it again before activating.`,
+    causes: { timeout: 'not typed within 30 min (session busy)' },
     failedNamed: (r: string, why: string) => `The routine ${r} could not run: ${why}`,
     change: (s: string, r: string, when: string) => `${s} wants to change “${r}”: ${when}`, waits: (r: string) => `“${r}” awaits your approval`
   },

@@ -95,6 +95,13 @@ describe('« Le point »: a routine’s line (mockup card 16)', () => {
     expect(en.items[0]).toMatchObject({ who: 'Nova', text: ': routine veille could not run', answers: [{ label: 'Run again' }] });
   });
 
+  it('a failure that timed out is worded by its cause in the point’s language', () => {
+    const t = failure({ routine: { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'pas tapée en 30 min' } });
+    const timedOut = { ...veille, lastRun: run('18:00', at(18, 0), { outcome: 'failed', reason: 'pas tapée en 30 min', cause: 'timeout' }) };
+    expect(buildPoint([asked(t)], live({ lang: 'en', tasks: [t], routines: [timedOut] }), at(8, 0), lead).items[0]!.sub).toBe('not typed within 30 min (session busy)');
+    expect(buildPoint([asked(t)], live({ tasks: [t], routines: [timedOut] }), at(8, 0), lead).items[0]!.sub).toBe('pas tapée en 30 min (session occupée)');
+  });
+
   it('a failure that left (relaunched, or the next firing went) is settled, without its button', () => {
     const t = failure({ state: 'done', result: 'la routine est repartie' });
     const p = buildPoint([asked(failure())], live({ tasks: [t], routines: [veille] }), at(8, 0), lead);
