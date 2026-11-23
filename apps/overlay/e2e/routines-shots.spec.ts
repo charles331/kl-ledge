@@ -15,11 +15,11 @@ const T = '2026-11-23T01:10:00.000Z';
 const base = { catchUp: 'once' as const, createdAt: T, createdBy: { kind: 'session' as const, id: 'iris', name: 'Iris' }, prompt: 'Point de la semaine du {date}.' };
 const iris = { name: 'Iris', cwd: '~/assistant', tool: 'claude' as const };
 const ROUTINES: Routine[] = [
-  { ...base, id: 'r3f9a12', name: 'point-hebdo', target: iris, schedule: { kind: 'recurring', times: ['17:00'], days: ['fri'] }, state: 'pending' },
+  { ...base, key: 'k-point-hebdo', id: 'r3f9a12', name: 'point-hebdo', target: iris, schedule: { kind: 'recurring', times: ['17:00'], days: ['fri'] }, state: 'pending' },
   { ...base, id: 'r81c0d4', name: 'veille', target: { name: 'Nova', cwd: '~/veille', tool: 'claude' }, createdBy: { kind: 'user' }, schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, state: 'enabled',
     lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille', field: 'cwd' } },
   ...([['r000001', 'prepa-121', '2026-12-03T16:00'], ['r000002', 'prepa-comite-archi', '2026-12-07T15:00'], ['r000003', 'prepa-demo-compart', '2026-12-08T09:30']] as const)
-    .map(([id, name, at]): Routine => ({ ...base, id, name, target: iris, schedule: { kind: 'once', at: [at] }, state: 'pending' }))
+    .map(([id, name, at]): Routine => ({ ...base, key: `k-${id}`, id, name, target: iris, schedule: { kind: 'once', at: [at] }, state: 'pending' }))
 ];
 const task = (id: string, routine: Task['routine'], at: string, extra: Partial<Task> = {}): Task => ({
   id, title: 'Iris veut programmer une routine', giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at, updatedAt: at, log: [], routine, ...extra
@@ -62,7 +62,7 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       await shot(page, `island-ask-${theme}-${lang}`);
       await layer(page, 'bubble').getByRole('button', { name: lang === 'fr' ? 'Activer' : 'Activate', exact: true }).click();
       const cmd = await received(d.received, 'routine.cmd');
-      expect(cmd).toMatchObject({ op: 'approve', routine: 'r3f9a12' });
+      expect(cmd).toMatchObject({ op: 'approve', routine: 'r3f9a12', expect: 'k-point-hebdo' });
     });
 
     test('a failure', async ({ page }) => {
@@ -77,3 +77,11 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
     });
   });
 }
+
+test('review: island approval binds the routine that was shown', async ({ page }) => {
+  const d = await open(page, 'dark', 'ask');
+  await layer(page, 'bubble').getByRole('button', { name: 'Activate', exact: true }).click();
+  const cmd = await received(d.received, 'routine.cmd');
+  expect(cmd.op).toBe('approve');
+  expect(cmd.expect).toBeTruthy();
+});

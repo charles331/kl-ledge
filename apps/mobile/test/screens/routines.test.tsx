@@ -148,7 +148,8 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     act(() => t.deliver({ type: 'routine.detail', id: 'r3f9a12', routine: detail(pointHebdo(), 'Point de la semaine du {date}.') }));
     expect(card).toHaveTextContent('Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant');
     expect(within(card).getByText('Point de la semaine du {date}.')).toBeInTheDocument();
-    expect(await within(card).findByText(/Activer demande la vérification de cet appareil/)).toBeInTheDocument();
+    // The platform's check is read asynchronously: under a loaded run it can take more than findBy's default second.
+    expect(await within(card).findByText(/Activer demande la vérification de cet appareil/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(within(card).getByText('Routine ·', { exact: false })).toBeInTheDocument();
     fireEvent.click(within(card).getByRole('button', { name: 'Activer' }));
     const prepared = () => t.of('confirm.prepare').filter(m => m.purpose === 'routine');
@@ -183,11 +184,27 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     } finally { setLang('fr'); }
   });
 
-  it('a change waits for its detail before it says anything: the listed routine holds the old settings', () => {
+  it('a routine not read yet says card 30’s words, never the daemon’s French title, and cannot be activated', () => {
+    setLang('en');
+    try {
+      const t = pc([], [
+        routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }, { title: 'Iris veut programmer « point-hebdo »' }),
+        routineTask('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'pas remise' }, { title: 'La routine veille (Nova) n’a pas pu partir' })
+      ]);
+      render(<Inbox store={t.store} />);
+      expect(screen.getByRole('article', { name: 'Request · point-hebdo' })).toHaveTextContent('“point-hebdo” awaits your approval');
+      expect(within(screen.getByRole('article', { name: 'Request · point-hebdo' })).getByRole('button', { name: 'Activate' })).toBeDisabled();
+      expect(screen.getByRole('article', { name: 'Failure · veille' })).toHaveTextContent('The routine veille could not run: pas remise');
+      expect(document.body).not.toHaveTextContent('veut programmer');
+    } finally { setLang('fr'); }
+  });
+
+  it('a change says card 30’s words until its detail comes: the listed routine holds the old settings', () => {
     const t = pc([routine({ proposed: true })], [routineTask('t1', { kind: 'approve', id: 'r1a2b3c', name: 'briefing' }, { title: 'Iris veut modifier « briefing »' })]);
     render(<Inbox store={t.store} />);
     const card = screen.getByRole('article', { name: 'Demande · briefing' });
-    expect(card).not.toHaveTextContent('briefing »');
+    expect(card).toHaveTextContent('« briefing » attend ton accord');
+    expect(card).not.toHaveTextContent('veut');
     expect(within(card).getByRole('button', { name: 'Activer' })).toBeDisabled();
   });
 

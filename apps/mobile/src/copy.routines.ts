@@ -26,7 +26,7 @@ export const routinesFr = {
   every2: '1 sem. sur 2',
   oneShot: 'unique',
   /** Why a run did not leave, as cards 8, 13-16 and 29 draw it, by the field the daemon names; any other reason is the daemon's own. */
-  why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}` },
+  why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
   /** Past three moments in a request: « jeu. 3 déc. 16:00, …, jeu. 17 déc. 16:00 et 2 autres » (card 28). */
   more: (list: string, n: number) => `${list} et ${n} autres`,
   /** The items of « À toi »: an activation request (one routine, or several proposed together), a failure. */
@@ -36,6 +36,8 @@ export const routinesFr = {
     groupAsks: (n: number) => `veut programmer ${n} routines uniques`,
     /** The folder a grouped request's routines share (card 31). */
     inDir: (dir: string) => `dans ${dir}`,
+    /** Before the routine is read: never the daemon's French task title (card 30). */
+    fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
     /** A session's change to a routine (card 29): the settings it asks for, no « avant → demandé » on the phone. */
     editAsks: (name: string, when: string) => `veut modifier « ${name} » : ${when}`,
     failedLine: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,

@@ -100,13 +100,15 @@ export function nextLine(r: Pick<PhoneRoutine, 'nextRun' | 'schedule'>, now: num
 
 /**
  * Why a routine's last run did not leave, in the screen's language (the daemon's reasons are French): the words cards 8, 13-16 and
- * 29 draw for a missing folder or tool, with its path or name; any other reason as the daemon gave it. `fallback`: an item's own.
+ * 29 draw for a missing folder or tool, with its path or name, and card 8's for a run not typed in time (`cause`); any other reason as
+ * the daemon gave it. `fallback`: an item's own.
  */
 export function failureWhy(r: Pick<PhoneRoutine, 'lastRun' | 'target'> | undefined, fallback?: string): string {
   const run = r?.lastRun?.outcome === 'failed' ? r.lastRun : undefined;
   const W = copy.routines.why;
   if (r && run?.field === 'cwd') return W.cwd(r.target.cwd);
   if (r && run?.field === 'tool') return W.tool(r.target.tool);
+  if (run?.cause === 'timeout') return W.timeout;
   return run?.reason ?? fallback ?? '';
 }
 

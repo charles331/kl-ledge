@@ -53,7 +53,8 @@ interface BubbleProps {
   /** One of a rig question's options, by id; without options, the question opens in Ledge (`onOpen`). */
   onOption?: (id: string) => void;
   /** A `decision` notice that is a routine's item of « À toi » (docs/mockups/ledge-routines.html, card 15): its head, its words. */
-  routine?: { kind: 'approve' | 'failed'; who: string; at: string; text: string; count: number };
+  /** `canApprove`: every routine was read with its key; until then « Activer » waits (an approval binds what was shown). */
+  routine?: { kind: 'approve' | 'failed'; who: string; at: string; text: string; count: number; canApprove: boolean };
   /** « Activer » (every routine still waiting), « Refuser », « Relancer », or « Voir » (the routine's page in Desktop). */
   onRoutine?: (action: 'approve' | 'refuse' | 'run' | 'see') => void;
   theme?: 'dark' | 'light';
@@ -144,7 +145,7 @@ export function Bubble({ session, moreCount, visible, paused, remainingMs, ack =
           {failed
             ? <Button variant="primary" size="sm" disabled={off} title={blocked ?? undefined} onClick={() => onRoutine?.('run')}>{R.retry}</Button>
             : <>
-                <Button variant="primary" size="sm" disabled={off || routine.count === 0} title={blocked ?? undefined} onClick={() => onRoutine?.('approve')}>{routine.count > 1 ? R.activateAll(routine.count) : R.activate}</Button>
+                <Button variant="primary" size="sm" disabled={off || routine.count === 0 || !routine.canApprove} title={blocked ?? undefined} onClick={() => onRoutine?.('approve')}>{routine.count > 1 ? R.activateAll(routine.count) : R.activate}</Button>
                 <Button variant="outline" size="sm" disabled={off || routine.count === 0} title={blocked ?? undefined} onClick={() => onRoutine?.('refuse')}>{R.refuse}</Button>
               </>}
           <Button variant="ghost" size="sm" onClick={() => onRoutine?.('see')}>{R.see}</Button>

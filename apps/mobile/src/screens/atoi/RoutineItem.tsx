@@ -81,9 +81,9 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
       <Head failed={false} at={task.at} />
       {routine
         ? <Said routine={routine} session={session} frozen={!state.fresh}>
-            {spec && <><b className="font-semibold">{who}</b> {change ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</>}
+            {spec ? <><b className="font-semibold">{who}</b> {change ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</> : A.fallbackAsk(task.routine.name)}
           </Said>
-        : null}
+        : <p className="text-body [overflow-wrap:anywhere]">{A.fallbackAsk(task.routine.name)}</p>}
       {detail && <pre data-prompt="" className="m-0 rounded-md border border-line bg-raised px-[9px] py-1.5 font-mono text-small leading-[17px] whitespace-pre-wrap [overflow-wrap:anywhere]">{asked(detail).prompt}</pre>}
       <div className="flex gap-2">
         <button type="button" disabled={off || !detail} onClick={() => { void go('approve'); }} className={routineButton(true)}>{busy === 'approve' && <Spin />}{A.activate}</button>
@@ -131,7 +131,7 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
       <Head failed={false} at={task.at} />
       {first
         ? <Said routine={first} session={session} frozen={!state.fresh}><b className="font-semibold">{who}</b> {A.groupAsks(n)}{oneDir && <span className="text-muted"> {A.inDir(oneDir)}</span>}</Said>
-        : null}
+        : <p className="text-body [overflow-wrap:anywhere]">{A.fallbackAsk(task.routine.name)}</p>}
       {waiting.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {waiting.map(r => {
@@ -167,7 +167,8 @@ function FailedItem({ store, task, state }: RoutineItemProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const why = failureWhy(routine, task.routine.reason);
-  const line = A.failedLine(routine?.name ?? task.routine.name, routine?.target.name ?? '', why);
+  // Not read yet: card 30's words, never the daemon's French task title.
+  const line = routine ? A.failedLine(routine.name, routine.target.name, why) : A.fallbackFailed(task.routine.name, why);
   const retry = async () => {
     setBusy(true); setError(null);
     setError(routineError(await store.routineCmd(id, 'run')));

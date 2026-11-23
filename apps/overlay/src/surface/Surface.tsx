@@ -743,7 +743,8 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
     if (!fleet || routineBusy) return;
     setRoutineBusy(o.key); setOperatorFailure(null);
     try {
-      for (const id of action === 'run' ? [r.first.id] : r.ids) await fleet.routineCmd(r.machine, { op: action, routine: id });
+      // An approval names, for each routine, what the bubble showed (its key): one changed since is refused (`stale`).
+      for (const id of action === 'run' ? [r.first.id] : r.ids) await fleet.routineCmd(r.machine, { op: action, routine: id, ...(action === 'approve' ? { expect: r.keys[id]! } : {}) });
       setAside(o.key, true); sounds.user(action === 'refuse' ? 'deny' : 'accept');
     } catch (e) {
       // The island's own words for a machine down or too old; a daemon's refusal is said with its reason (French, the daemon's).
@@ -869,7 +870,7 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
         <Bubble ref={bubbleRef} maxH={openMaxH(screenH / ps) - SURFACE_CHROME_Y} kind={st.bubbleKind} preview={offlineMachine?.label} session={bubbleSession} moreCount={Math.max(0, st.queue.length - 1)} visible={st.mode === 'bubble'} paused={bubblePaused} remainingMs={ctl.bubbleRemaining() ?? undefined}
           notice={bubbleNotice?.notice}
           {...(bubbleRoutine && bubbleNotice ? {
-            routine: { kind: bubbleRoutine.kind, who: bubbleRoutine.who, text: bubbleRoutine.text, count: bubbleRoutine.ids.length, at: new Date(bubbleNotice.notice.at).toLocaleTimeString(t.time.locale, { hour: '2-digit', minute: '2-digit', hour12: false }) },
+            routine: { kind: bubbleRoutine.kind, who: bubbleRoutine.who, text: bubbleRoutine.text, count: bubbleRoutine.ids.length, canApprove: bubbleRoutine.ids.every(id => !!bubbleRoutine.keys[id]), at: new Date(bubbleNotice.notice.at).toLocaleTimeString(t.time.locale, { hour: '2-digit', minute: '2-digit', hour12: false }) },
             onRoutine: (a: 'approve' | 'refuse' | 'run' | 'see') => { void routineAct(bubbleNotice, bubbleRoutine, a); }
           } : {})}
           failure={bubbleNotice ? (operatorFailure?.key === bubbleNotice.key ? operatorFailure.message : undefined) : st.bubbleId ? asks.failures[st.bubbleId] : undefined}
