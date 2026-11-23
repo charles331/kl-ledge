@@ -1,4 +1,4 @@
-import { WEEKDAYS, type OperatorNotice, type RoutineSchedule, type Task, type Weekday } from '@ledge/protocol';
+import { WEEKDAYS, type OperatorNotice, type Routine, type RoutineField, type RoutineSchedule, type Task, type Weekday } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet/routines';
 import type { Messages } from './i18n/lang';
 
@@ -44,10 +44,33 @@ function momentText(at: string, m: Messages, weekday = false): string {
 export function routineWhen(s: RoutineSchedule, m: Messages): RoutineWhen {
   if (s.kind === 'once') {
     const at = [...s.at].sort();
-    return { ask: at.map(x => momentText(x, m, true)).join(', '), moments: at.map(x => momentText(x, m)) };
+    const dated = at.map(x => momentText(x, m, true));
+    // Past three moments, the rest is counted (card 28).
+    return { ask: dated.length > 3 ? m.atoi.routine.more(dated.slice(0, 3).join(', '), dated.length - 3) : dated.join(', '), moments: at.map(x => momentText(x, m)) };
   }
   const every = s.every?.weeks === 2 ? `, ${m.atoi.routine.every2}` : '';
   return { ask: `${[...s.times].sort().join(', ')} (${daysText(s.days, m)}${every})`, moments: [] };
+}
+
+type ERRS = Messages['atoi']['routine']['err'];
+
+/**
+ * A field's words (card 28) for a run or a refusal about `r`, or null when the card gives none for it. The contract names the field,
+ * not which of a session's two cases: the daemon's reason says « hors de Ledge » for a session Ledge does not follow. A stored routine
+ * always has times and days, so `schedule` keeps the daemon's reason.
+ */
+function fieldText(field: RoutineField | undefined, r: Pick<Routine, 'name' | 'target' | 'schedule'>, reason: string | undefined, E: ERRS): string | null {
+  switch (field) {
+    case 'cwd': return E.cwd;
+    case 'at': return E.at;
+    case 'prompt': return E.prompt;
+    case 'name': return E.name(r.target.name, r.name);
+    case 'tz': return r.schedule.tz ? E.tz(r.schedule.tz) : null;
+    case 'session': return /hors de Ledge/.test(reason ?? '') ? E.notLedge : E.unreachable;
+    case 'tool': return E.tool(r.target.tool);
+    case 'model': return r.target.model ? E.model(r.target.tool, r.target.model) : null;
+    default: return null;
+  }
 }
 
 /** A routine's item as the island's bubble shows it. */
@@ -75,9 +98,10 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
   const one = find(r.id);
   if (r.kind === 'failed') {
     const who = one?.target.name ?? task.giverName;
-    // The daemon's reasons are French: a run about the folder is said with the mockup's words, any other as the daemon gave it.
+    // The daemon's reasons are French: card 28's words for the field it names, else its reason.
     const run = one?.lastRun?.outcome === 'failed' ? one.lastRun : undefined;
-    const why = run?.field === 'cwd' && one ? R.why.cwd(one.target.cwd) : r.reason ?? run?.reason ?? '';
+    const reason = r.reason ?? run?.reason;
+    const why = (one && run && fieldText(run.field, one, reason, R.err)) ?? reason ?? '';
     return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, why), first: { id: r.id, name: one?.name ?? r.name } };
   }
   const covered = r.ids ?? [r.id];

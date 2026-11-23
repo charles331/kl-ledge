@@ -21,7 +21,14 @@ export const routinesEn: RoutinesCopy = {
   everyOther: 'every other week',
   every2: 'every 2 wks',
   oneShot: 'once',
-  why: { cwd: (dir: string) => `folder not found: ${dir}` },
+  err: {
+    cwd: 'This folder doesn’t exist on this PC.', at: 'This moment has already passed.',
+    name: (session: string, name: string) => `${session} already has a routine “${name}”.`, tz: (tz: string) => `Unknown time zone: ${tz}.`,
+    unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
+    tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`,
+    times: 'At least one time.', days: 'At least one day.', anchor: 'Pick the reference week.', prompt: 'The prompt is empty.'
+  },
+  more: (list: string, n: number) => `${list} and ${n} more`,
   atoi: {
     kind: 'Routine', ask: 'Request', failed: 'Failure',
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,

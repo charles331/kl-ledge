@@ -49,7 +49,9 @@ describe('the island’s words for a routine (cards 15 and 23)', () => {
     expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }))).toMatchObject({
       ids: ['r000001', 'r000002', 'r000003'], text: 'Iris veut programmer 3 routines uniques : prepa-121 (3 déc. 16:00), prepa-comite-archi (7 déc. 15:00), prepa-demo-compart (8 déc. 09:30)'
     });
-    expect(n(task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giverName: 'Ledge' }))).toMatchObject({ kind: 'failed', who: 'Nova', ids: ['r81c0d4'], text: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille' });
+    expect(n(task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giverName: 'Ledge' }))).toMatchObject({ kind: 'failed', who: 'Nova', ids: ['r81c0d4'], text: 'La routine veille (Nova) n’a pas pu partir : Ce dossier n’existe pas sur ce PC.' });
+    expect(n(task('t5', { kind: 'approve', id: 'r000009', name: 'point-121' }), [{ ...group[0]!, id: 'r000009', name: 'point-121', schedule: { kind: 'once', at: ['2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00', '2026-12-31T16:00'] } }])?.text)
+      .toBe('Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant');
     // A routine answered elsewhere leaves the count; one not listed yet keeps the task's title.
     expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }), [{ ...group[0]!, state: 'enabled' }, group[1]!, group[2]!])?.ids).toEqual(['r000002', 'r000003']);
     expect(n(task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), [])?.text).toBe('Iris veut programmer « point-hebdo »');
@@ -133,7 +135,7 @@ describe('the island’s routine items (card 15)', () => {
     tick(540);
     expect(bubble()).toHaveAttribute('data-routine', 'failed');
     expect(bubble()).toHaveTextContent('Nova · routine ·');
-    expect(bubble()).toHaveTextContent('The routine veille (Nova) could not run: folder not found: ~/veille');
+    expect(bubble()).toHaveTextContent('The routine veille (Nova) could not run: This folder doesn’t exist on this PC.');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Run again' })); });
     expect(f.cmds).toEqual([{ machine: 'local', ask: { op: 'run', routine: 'r81c0d4' } }]);
   });

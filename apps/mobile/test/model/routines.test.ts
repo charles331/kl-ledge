@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLang } from '../../src/copy';
+import type { RoutineField } from '@ledge/protocol';
 import { coveredIds, failureWhy, nextLine, routineGroups, routineItems, routinesEntry, scheduleView, sessionOf, whenText, wokenSessions } from '../../src/model/routines';
 import { openDecisions } from '../../src/model/tasks';
 import { session } from './fixtures';
@@ -29,6 +30,9 @@ describe('how a schedule reads on the phone (docs/mockups/ledge-routines.html, c
     expect(v.card).toBe('unique');
     expect(v.moments).toEqual(['jeu. 3 déc. 16:00', 'mar. 8 déc. 09:30']);
     expect(scheduleView({ kind: 'once', at: ['2026-12-03T16:00'] }).ask).toBe('jeu. 3 déc. 16:00');
+    // Past three moments, the rest counted (card 28).
+    expect(scheduleView({ kind: 'once', at: ['2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00', '2026-12-31T16:00'] }).ask)
+      .toBe('jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres');
     expect(v.dated).toBe(true);
   });
 
@@ -87,11 +91,21 @@ describe('the list', () => {
 });
 
 describe('why a run did not leave', () => {
-  it('a run about the folder in the screen’s words (the daemon’s are French); any other reason as the daemon gave it', () => {
-    expect(failureWhy(veille())).toBe('dossier introuvable : ~/veille');
+  const ran = (field: RoutineField | undefined, reason: string, extra = {}) => veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason, ...(field ? { field } : {}) }, ...extra });
+  it('card 28’s words for every field it names (the daemon’s reasons are French); the daemon’s reason otherwise', () => {
+    expect(failureWhy(veille())).toBe('Ce dossier n’existe pas sur ce PC.');
+    expect(failureWhy(ran('session', 'Nova tourne hors de Ledge : impossible de lui écrire'))).toBe('Cette session n’est pas suivie par Ledge.');
+    expect(failureWhy(ran('session', 'Nova ne peut pas recevoir de texte de Ledge'))).toBe('Cette session ne répond pas.');
+    expect(failureWhy(ran('tool', 'outil absent'))).toBe('Outil absent sur ce PC : claude.');
+    expect(failureWhy(ran('model', 'modèle inconnu', { target: { name: 'Nova', cwd: '~/veille', tool: 'claude', model: 'opus-9' } }))).toBe('Modèle inconnu pour claude : opus-9.');
+    expect(failureWhy(ran('name', 'nom pris'))).toBe('Nova a déjà une routine « veille ».');
+    expect(failureWhy(ran('prompt', 'vide'))).toBe('Le prompt est vide.');
+    expect(failureWhy(ran('at', 'passé'))).toBe('Ce moment est déjà passé.');
+    expect(failureWhy(ran(undefined, 'pas remise dans les 30 minutes'))).toBe('pas remise dans les 30 minutes');
+    expect(failureWhy(ran('schedule', 'horaire invalide'))).toBe('horaire invalide');
     setLang('en');
-    expect(failureWhy(veille())).toBe('folder not found: ~/veille');
-    expect(failureWhy(veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'Nova tourne hors de Ledge', field: 'session' } }))).toBe('Nova tourne hors de Ledge');
+    expect(failureWhy(veille())).toBe('This folder doesn’t exist on this PC.');
+    expect(failureWhy(ran('tool', 'outil absent'))).toBe('Tool not found on this PC: claude.');
     expect(failureWhy(undefined, 'raison de la tâche')).toBe('raison de la tâche');
   });
 });

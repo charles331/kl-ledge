@@ -88,7 +88,7 @@ describe('the Routines screen (cards 17 and 25)', () => {
     expect(within(veilleCard!).getByText('Nova · 18:00 · tous les jours')).toBeInTheDocument();
     expect(within(veilleCard!).getByText('Prochain tir aujourd’hui 18:00')).toBeInTheDocument();
     expect(within(veilleCard!).getByText('18:00 · échouée')).toBeInTheDocument();
-    expect(within(veilleCard!).getByText('dossier introuvable : ~/veille')).toBeInTheDocument();
+    expect(within(veilleCard!).getByText('Ce dossier n’existe pas sur ce PC.')).toBeInTheDocument();
     expect(within(veilleCard!).getByRole('button', { name: 'Relancer' })).toBeInTheDocument();
     expect(within(briefing!).getByText('Iris · 08:00, 13:30, 16:30 · lun–ven')).toBeInTheDocument();
     expect(within(briefing!).getByText('08:00 · reprise, puis remise')).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     const t = pc([veille()], [failed]);
     render(<Inbox store={t.store} />);
     const card = screen.getByRole('article', { name: 'Échec · veille' });
-    expect(card).toHaveTextContent('La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille');
+    expect(card).toHaveTextContent('La routine veille (Nova) n’a pas pu partir : Ce dossier n’existe pas sur ce PC.');
     expect(within(card).getByRole('link', { name: 'Voir' })).toHaveAttribute('href', '#/routines');
     fireEvent.click(within(card).getByRole('button', { name: 'Relancer' }));
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'run', routine: 'r81c0d4' });

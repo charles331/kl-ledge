@@ -170,8 +170,16 @@ const fr = {
       failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
       activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer', see: 'Voir',
       days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' }, daily: 'tous les jours', every2: '1 sem. sur 2',
-      /** Why a run did not leave, from the field the daemon names (the mockup's words); any other reason is the daemon's own. */
-      why: { cwd: (dir: string) => `dossier introuvable : ${dir}` }
+      /** Why a run did not leave, by the field the daemon names (card 28); a reason without one is the daemon's own (French). */
+      err: {
+        cwd: 'Ce dossier n’existe pas sur ce PC.', at: 'Ce moment est déjà passé.',
+        name: (session: string, name: string) => `${session} a déjà une routine « ${name} ».`, tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,
+        unreachable: 'Cette session ne répond pas.', notLedge: 'Cette session n’est pas suivie par Ledge.',
+        tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`,
+        times: 'Au moins une heure.', days: 'Au moins un jour.', anchor: 'Choisis la semaine de référence.', prompt: 'Le prompt est vide.'
+        },
+      /** Past three moments in a request (card 28). */
+      more: (list: string, n: number) => `${list} et ${n} autres`
     }
   },
   handoff: {
@@ -452,7 +460,14 @@ const en: Messages = {
       failed: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
       activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Run again', see: 'View',
       days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }, daily: 'every day', every2: 'every 2 wks',
-      why: { cwd: (dir: string) => `folder not found: ${dir}` }
+      err: {
+        cwd: 'This folder doesn’t exist on this PC.', at: 'This moment has already passed.',
+        name: (session: string, name: string) => `${session} already has a routine “${name}”.`, tz: (tz: string) => `Unknown time zone: ${tz}.`,
+        unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
+        tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`,
+        times: 'At least one time.', days: 'At least one day.', anchor: 'Pick the reference week.', prompt: 'The prompt is empty.'
+        },
+      more: (list: string, n: number) => `${list} and ${n} more`
     }
   },
   handoff: {
