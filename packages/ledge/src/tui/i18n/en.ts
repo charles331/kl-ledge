@@ -359,16 +359,20 @@ export const en: Messages = {
   },
   routines: {
     title: 'ROUTINES', groupOnce: 'ONCE', pending: 'awaits your approval in For you', paused: 'paused', late: 'late',
-    next: (at: string) => `next ${at}`, tomorrow: (at: string) => `tomorrow ${at}`, every2: 'every 2 wks', every2Ask: 'every 2 wks', oneShot: 'once',
+    next: (at: string) => `next ${at}`, tomorrow: (at: string) => `tomorrow ${at}`, every2: 'every 2 wks', oneShot: 'once',
     out: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },
     empty: 'No routine. `ledge routine add` creates one.',
     toast: {
       delivered: (r: string, s: string) => `“${r}” delivered to ${s}`, resumed: (r: string, s: string) => `${s} resumed, “${r}” delivered`,
-      failed: (r: string, why: string) => `“${r}” could not run: ${why}`
+      launched: (r: string, s: string) => `${s} launched, “${r}” delivered`, failed: (r: string, why: string) => `“${r}” could not run: ${why}`,
+      notRunning: (s: string) => `${s} isn’t running: r runs the routine, which resumes it.`,
+      pauseRefused: (why: string) => `Pause refused: ${why}`, resumeRefused: (why: string) => `Resume refused: ${why}`
     },
+    oldDaemon: 'This daemon doesn’t know routines yet: update Ledge.',
     keys: { nav: 'navigate', runNow: 'run now', pauseResume: 'pause/resume', openSession: 'open the session' },
     ask: (s: string, r: string, when: string, dir: string) => `${s} wants to schedule “${r}”: ${when}, in ${dir}`,
-    groupAsk: (s: string, n: number) => `${s} wants to schedule ${n} one-shot routines`,
+    groupAsk: (s: string, n: number, days: string) => `${s} wants to schedule ${n} one-shot routines: ${days}`,
+    itemKeys: { activate: 'activate', refuse: 'refuse', retry: 'run again', activateAll: (n: number) => `activate all ${n}`, refuseAll: (n: number) => `refuse all ${n}` },
     failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui opens in the Ledge tab.', loadingProfile: 'Windows Terminal is loading the Ledge profile…' }

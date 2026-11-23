@@ -376,16 +376,20 @@ export const fr = {
   /** Screen 7, Routines (docs/mockups/ledge-routines.html, cards 18 and 25), and the two « À toi » items of a routine. */
   routines: {
     title: 'ROUTINES', groupOnce: 'UNIQUES', pending: 'attend votre accord dans À toi', paused: 'en pause', late: 'en retard',
-    next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', every2Ask: '1 sem. sur 2', oneShot: 'unique',
+    next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', oneShot: 'unique',
     out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' },
     empty: 'Aucune routine. `ledge routine add` en crée une.',
     toast: {
       delivered: (r: string, s: string) => `« ${r} » remise à ${s}`, resumed: (r: string, s: string) => `${s} reprise, « ${r} » remise`,
-      failed: (r: string, why: string) => `« ${r} » n’a pas pu partir : ${why}`
+      launched: (r: string, s: string) => `${s} lancée, « ${r} » remise`, failed: (r: string, why: string) => `« ${r} » n’a pas pu partir : ${why}`,
+      notRunning: (s: string) => `${s} ne tourne pas : r lance la routine, qui la reprendra.`,
+      pauseRefused: (why: string) => `Pause refusée : ${why}`, resumeRefused: (why: string) => `Reprise refusée : ${why}`
     },
+    oldDaemon: 'Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.',
     keys: { nav: 'naviguer', runNow: 'lancer maintenant', pauseResume: 'pause/reprendre', openSession: 'ouvrir la session' },
     ask: (s: string, r: string, when: string, dir: string) => `${s} veut programmer « ${r} » : ${when}, dans ${dir}`,
-    groupAsk: (s: string, n: number) => `${s} veut programmer ${n} routines uniques`,
+    groupAsk: (s: string, n: number, days: string) => `${s} veut programmer ${n} routines uniques : ${days}`,
+    itemKeys: { activate: 'activer', refuse: 'refuser', retry: 'relancer', activateAll: (n: number) => `activer les ${n}`, refuseAll: (n: number) => `refuser les ${n}` },
     failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui s’ouvre dans l’onglet Ledge.', loadingProfile: 'Windows Terminal charge le profil Ledge…' }

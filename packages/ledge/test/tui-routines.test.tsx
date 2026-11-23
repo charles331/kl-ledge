@@ -5,7 +5,7 @@ import type { ClientMessage, Routine, Task, Weekday } from '@ledge/protocol';
 import { glyphsFor } from '../src/tui/glyphs.js';
 import { en } from '../src/tui/i18n/en.js';
 import { fr } from '../src/tui/i18n/fr.js';
-import { momentText, routineItems, routineLines, routineOrder, whenText } from '../src/tui/model/routines.js';
+import { momentText, routineItemKeys, routineItems, routineLines, routineOrder, whenText } from '../src/tui/model/routines.js';
 import { until } from './helpers.js';
 import { mockupSessions, startTui } from './tui-fixture.js';
 
@@ -50,7 +50,7 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     const { lines, selLine } = routineLines(rows, { sel: 2, width: 80, now: NOW, lang: 'fr' }, fr, g);
     expect(text(lines)).toEqual([
       ' point-hebdo           ? attend votre accord dans À toi',
-      '   Iris · 17:00 · ven',
+      '   Iris · 17:00 · ven.',
       ' veille                ! 18:00 échouée',
       '   Nova · 18:00 · tous les jours · dossier introuvable : ~/veille',
       '▌briefing              ● prochain 13:30  ✓ 08:00 en retard',
@@ -58,7 +58,7 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       ' revue-prs             ● demain 09:00  ✓ 09:00',
       '   Otto · 09:00 · lun-ven · remise',
       ' nettoyage-branches    ‖ en pause',
-      '   Pim · 19:30 · ven'
+      '   Pim · 19:30 · ven.'
     ]);
     expect(selLine).toBe(4);
     // The chosen line runs on the selection's background to the box's edge.
@@ -79,7 +79,7 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       ' briefing              ● prochain 13:30  ✓ 08:00 en retard',
       '   Iris · 08:00 13:30 16:30 · lun-ven · reprise, puis remise',
       ' bilan-sprint          ● jeu. 26 16:00',
-      '   Iris · jeu 16:00 · 1 sem./2',
+      '   Iris · jeu. 16:00 · 1 sem./2',
       '',
       ' UNIQUES',
       ' prépa-121             ? attend votre accord dans À toi',
@@ -87,6 +87,30 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       ' rappel-conges         ● 4 déc. 09:00',
       '   Iris · unique'
     ]);
+  });
+
+  it('with several machines, a title per machine, its one-shots under UNIQUES inside it; a daemon too old says so (card 27)', () => {
+    const laptop = (r: FleetRoutine): FleetRoutine => ({ ...r, machineId: 'laptop', target: { ...r.target, name: 'Garde' } });
+    const rows = routineOrder([CARD18[2]!, laptop(CARD25[2]!), laptop(rt({ id: 'rf55555', name: 'garde-mr', nextRun: local(23, 15, 0) }))], ['local', 'laptop']);
+    const machines = [{ id: 'local', label: 'PC du bureau', up: true }, { id: 'laptop', label: 'Portable', up: true }, { id: 'old', label: 'Vieux', up: true, old: true }];
+    expect(text(routineLines(rows, { sel: 9, width: 80, now: NOW, lang: 'fr', machines }, fr, g).lines)).toEqual([
+      ' Vieux ●',
+      '   Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.',
+      '',
+      ' PC du bureau ●',
+      ' briefing              ● prochain 13:30  ✓ 08:00 en retard',
+      '   Iris · 08:00 13:30 16:30 · lun-ven · reprise, puis remise',
+      '',
+      ' Portable ●',
+      ' garde-mr              ● prochain 15:00',
+      '   Garde · 09:00 · lun-ven',
+      '',
+      ' UNIQUES',
+      ' rappel-conges         ● 4 déc. 09:00',
+      '   Garde · unique'
+    ]);
+    // One machine: no title.
+    expect(text(routineLines(rows.slice(0, 1), { sel: 0, width: 80, now: NOW, lang: 'fr', machines: machines.slice(0, 1) }, fr, g).lines)[0]).toContain('briefing');
   });
 
   it('names a moment as the list does, and a schedule once for each use', () => {
@@ -113,12 +137,15 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       { ...base, id: 't4', title: 'La routine x (Y) n’a pas pu partir : z', routine: { kind: 'failed', id: 'r0000ff', name: 'x' } },
       { ...base, id: 't5', title: 'Fusionner ?' }
     ];
-    expect(routineItems(tasks, [...CARD18, ...CARD25], 'fr', fr)).toEqual([
-      { id: 't1', mark: 'ask', text: 'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant' },
-      { id: 't2', mark: 'fail', text: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille' },
-      { id: 't3', mark: 'ask', text: 'Iris veut programmer 2 routines uniques' },
-      { id: 't4', mark: 'fail', text: 'La routine x (Y) n’a pas pu partir : z' }
+    const items = routineItems(tasks, [...CARD18, ...CARD25], 'fr', fr);
+    expect(items.map(({ id, mark, text, routines }) => ({ id, mark, text, routines }))).toEqual([
+      { id: 't1', mark: 'ask', text: 'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', routines: ['r3f9a12'] },
+      { id: 't2', mark: 'fail', text: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille', routines: ['r81c0d4'] },
+      { id: 't3', mark: 'ask', text: 'Iris veut programmer 2 routines uniques : 3 et 4 déc.', routines: ['rc22222', 'rd33333'] },
+      { id: 't4', mark: 'fail', text: 'La routine x (Y) n’a pas pu partir : z', routines: ['r0000ff'] }
     ]);
+    // The line under each says its keys (card 27).
+    expect(items.map(x => routineItemKeys(x, fr))).toEqual([[['y', 'activer'], ['n', 'refuser']], [['y', 'relancer']], [['y', 'activer les 2'], ['n', 'refuser les 2']], [['y', 'relancer']]]);
     expect(routineItems(tasks.slice(0, 1), CARD18, 'en', en)[0]!.text).toBe('Iris wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant');
     const one = { ...tasks[0]!, routine: { kind: 'approve' as const, id: 'rc22222', name: 'prépa-121' } };
     expect(routineItems([one], CARD25, 'fr', fr)[0]!.text).toBe('Iris veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
@@ -131,13 +158,14 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
 const sent = <T extends ClientMessage['type']>(received: ClientMessage[], type: T) => received.filter((m): m is Extract<ClientMessage, { type: T }> => m.type === type);
 
 /** A TUI on a daemon that serves routines: it lists the mockup's and answers each command with the routine as it is. */
-async function routinesTui(list: Routine[], o: { sessions?: ReturnType<typeof mockupSessions> } = {}) {
+async function routinesTui(list: Routine[], o: { sessions?: ReturnType<typeof mockupSessions>; refuse?: string } = {}) {
   const tui = await startTui({ daemonExtras: { routines: true }, ...(o.sessions ? { sessions: o.sessions } : {}) });
   tui.daemon.onMessage(m => {
     if (m.type === 'routine.list') tui.daemon.push({ type: 'routine.listed', rid: m.rid, routines: list });
     if (m.type === 'routine.cmd') {
       const r = list.find(x => x.id === m.routine);
       if (!r) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'not_found', reason: 'routine inconnue' }); return; }
+      if (o.refuse) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'forbidden', reason: o.refuse }); return; }
       const next = m.op === 'pause' ? { ...r, state: 'paused' as const } : m.op === 'resume' ? { ...r, state: 'enabled' as const } : r;
       tui.daemon.push({ type: 'routine.result', rid: m.rid, routine: next });
     }
@@ -168,11 +196,18 @@ describe('ledge tui: the Routines screen (7)', () => {
       expect(sent(tui.daemon.received, 'routine.cmd')[0]).toMatchObject({ op: 'run', routine: 'r1a2b3c' });
       // The firing reached Iris: the daemon tells the routine's new last run, the toast says so.
       const briefing = list.find(r => r.id === 'r1a2b3c')!;
-      tui.daemon.push({ type: 'routine.changed', routine: { ...briefing, lastRun: { at: new Date().toISOString(), slot: '13:05', outcome: 'delivered' } } });
+      // The mock daemon keeps its list as it changes, so a command's answer carries the routine as it now is.
+      const change = (r: Routine) => { list[list.findIndex(x => x.id === r.id)] = r; tui.daemon.push({ type: 'routine.changed', routine: r }); };
+      change({ ...briefing, lastRun: { at: new Date().toISOString(), slot: '13:05', outcome: 'delivered' } });
       await until(() => tui.frame().includes('✓ « briefing » remise à Iris'));
-      await tui.press('p');
+      // Launched in a new session: said so.
+      await tui.press('r');
       await until(() => sent(tui.daemon.received, 'routine.cmd').length === 2);
-      expect(sent(tui.daemon.received, 'routine.cmd')[1]).toMatchObject({ op: 'pause', routine: 'r1a2b3c' });
+      change({ ...briefing, lastRun: { at: new Date(Date.now() + 1000).toISOString(), slot: '13:06', outcome: 'launched' } });
+      await until(() => tui.frame().includes('✓ Iris lancée, « briefing » remise'));
+      await tui.press('p');
+      await until(() => sent(tui.daemon.received, 'routine.cmd').length === 3);
+      expect(sent(tui.daemon.received, 'routine.cmd')[2]).toMatchObject({ op: 'pause', routine: 'r1a2b3c' });
       await until(() => tui.frame().includes('‖ en pause'));
       await tui.press('\u001b');
       await until(() => !tui.frame().includes('ROUTINES · 5'));
@@ -196,6 +231,29 @@ describe('ledge tui: the Routines screen (7)', () => {
     } finally { await tui.cleanup(); }
   }, 20_000);
 
+  it('↵ with no live session says r will resume it; a refused pause says why', async () => {
+    const tui = await routinesTui([strip(CARD18[1]!)], { refuse: 'interdit' });
+    try {
+      await tui.resize(120, 30);
+      await tui.press('7');
+      await until(() => tui.frame().includes('ROUTINES · 1'));
+      await tui.press('\r');
+      await until(() => tui.frame().includes('· Otto ne tourne pas : r lance la routine, qui la reprendra.'));
+      await tui.press('p');
+      await until(() => tui.frame().includes('! Pause refusée : interdit'));
+    } finally { await tui.cleanup(); }
+  }, 20_000);
+
+  it('a daemon that does not know routines says so, not « no routine »', async () => {
+    const tui = await startTui();
+    try {
+      await tui.resize(120, 30);
+      await tui.press('7');
+      await until(() => tui.frame().includes('Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.'));
+      expect(tui.frame()).not.toContain('Aucune routine');
+    } finally { await tui.cleanup(); }
+  });
+
   it('says how to make one when there is none', async () => {
     const tui = await routinesTui([]);
     try {
@@ -218,8 +276,20 @@ describe('ledge tui: the Routines screen (7)', () => {
       expect(f).toContain('! La routine veille (Nova) n’a pas pu partir : dossier');
       expect(f).toContain('À TOI · 4');
       expect(f).not.toMatch(/D +répondre à la décision/);
+      expect(f).toContain('y activer  n refuser');
+      expect(f).toContain('y relancer');
       await tui.press('D');
       expect(tui.frame()).not.toContain('RÉPONDRE À');
+      // tab passes the two sessions that wait, then reaches the request: y activates it; then the failure: n does nothing, y runs it.
+      await tui.press('\t'); await tui.press('\t');
+      await tui.press('y');
+      await until(() => sent(tui.daemon.received, 'routine.cmd').length === 1);
+      expect(sent(tui.daemon.received, 'routine.cmd')[0]).toMatchObject({ op: 'approve', routine: 'r3f9a12' });
+      await tui.press('\t');
+      await tui.press('n');
+      await tui.press('y');
+      await until(() => sent(tui.daemon.received, 'routine.cmd').length === 2);
+      expect(sent(tui.daemon.received, 'routine.cmd')[1]).toMatchObject({ op: 'run', routine: 'r81c0d4' });
     } finally { await tui.cleanup(); }
   }, 20_000);
 });
