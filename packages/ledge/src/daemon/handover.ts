@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BRIEF_MAX, isArchived, taskClosed, type ClientMessage, type Handover, type Session, type Task, type Tool } from '@ledge/protocol';
+import { BRIEF_MAX, isArchived, taskClosed, type ClientMessage, type Handover, type Routine, type Session, type Task, type Tool } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { Mailbox } from './mailbox.js';
 import { log } from '../log.js';
+import { routinesOf, scheduleText } from '../routine-text.js';
 
 type TaskCmd = Extract<ClientMessage, { type: 'task.cmd' }>;
 
@@ -23,6 +24,8 @@ export interface HandoverDeps {
   close(s: Session): Promise<unknown>;
   /** Where briefs are kept, one `<session id>.md` each. */
   dir: string;
+  /** The routines the daemon holds (routines spec §3.6): the relief is told those that woke the relieved session. */
+  routines?: () => readonly Routine[];
   now?: () => string;
   briefMs?: number;
 }
@@ -93,6 +96,13 @@ export function createHandovers(d: HandoverDeps): Handovers {
     ].join('\n');
   };
 
+  /** Its routines follow it by name (§3.6): the relief is told which, and to reread its memory files on the first one. */
+  function routinesLine(s: Session): string[] {
+    const held = routinesOf(d.routines?.() ?? [], s);
+    if (!held.length) return [];
+    return [`Ses routines te reviennent : Ledge te tapera ${held.map(r => `« ${r.name} » (${scheduleText(r.schedule, 'fr')})`).join(', ')}. À la première, relis d'abord tes fichiers de mémoire.`];
+  }
+
   async function relieve(id: string, brief: string, auto: boolean): Promise<void> {
     const s = d.store.get(id);
     if (!s) return;
@@ -104,7 +114,8 @@ export function createHandovers(d: HandoverDeps): Handovers {
       '',
       quote(brief.trim(), PROMPT_BRIEF_MAX),
       '',
-      'Ses tâches en cours te sont passées par Ledge : elles t\'arrivent une à une. Relis le bilan complet avec `ledge handover show`.'
+      'Ses tâches en cours te sont passées par Ledge : elles t\'arrivent une à une. Relis le bilan complet avec `ledge handover show`.',
+      ...routinesLine(s)
     ].join('\n');
     let relief: Session;
     try {
