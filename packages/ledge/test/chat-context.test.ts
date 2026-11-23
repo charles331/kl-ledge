@@ -3,8 +3,8 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { dirname } from 'node:path';
 import { join } from 'node:path';
-import type { Projects, Session } from '@ledge/protocol';
-import { writeContext, stepFor } from '../src/chat/context.js';
+import type { Projects, Routine, Session } from '@ledge/protocol';
+import { writeContext, stepFor, routinesMd } from '../src/chat/context.js';
 
 const T0 = '2026-10-11T10:00:00.000Z';
 const mk = (id: string, extra: Partial<Session> = {}): Session => ({ id, name: 'Otto', tool: 'claude', cwd: '/w/ledge', project: 'ledge', title: 'Otto · ledge', tmuxSession: `ledge-${id}`, state: 'working', helpers: [], startedAt: T0, lastActivityAt: T0, source: 'launcher', ...extra });
@@ -292,5 +292,50 @@ describe('writeContext: what the actions need', () => {
       expect(md).toContain('- g1 (running): Ship the lot');
       expect(md).not.toContain('g2');
     });
+  });
+});
+
+describe('routines.md (routines spec §3.5)', () => {
+  const routine = (extra: Partial<Routine> = {}): Routine => ({ id: 'r0a1b2c', name: 'briefing', target: { name: 'Otto', cwd: '/w/ledge', tool: 'claude', model: 'opus' }, schedule: { times: ['13:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
+    prompt: 'Briefing de {slot}.\nRelis etat.md.', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: T0, nextRun: '2026-10-11T11:30:00.000Z',
+    lastRun: { at: '2026-10-11T06:42:00.000Z', slot: '08:00', outcome: 'launched', late: true }, ...extra });
+
+  it('answers « what is scheduled » and « did this morning\'s briefing leave »: session, times, next and last firing, whether the session is live', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ctx-'));
+    const ctx = await writeContext(dir, { sessions: [mk('a')], routines: [routine()], now: T0, capture: async () => null, git: async () => null });
+    const md = readFileSync(join(dir, 'routines.md'), 'utf8');
+    expect(md).toContain('## briefing → Otto');
+    expect(md).toContain('- state: enabled');
+    expect(md).toContain('- wakes: Otto (claude, opus) in /w/ledge, live now as session a (working)');
+    expect(md).toContain('- at: 08:00, 13:30 (mon-fri)');
+    expect(md).toContain('- next firing: 2026-10-11T11:30:00.000Z');
+    expect(md).toContain('- last firing: 2026-10-11T06:42:00.000Z, slot 08:00 (late: fired on wake), a new session was launched with the prompt');
+    expect(md).toContain('- prompt: Briefing de {slot}. Relis etat.md.');
+    expect(stepFor(join(dir, 'routines.md'), ctx)).toEqual({ kind: 'sessions' });
+  });
+
+  it('a pending, a failed or a never-fired routine says so; a session elsewhere is not the one it wakes; a long prompt is cut', () => {
+    const md = routinesMd([routine({ state: 'pending', createdBy: { kind: 'session', id: 'a', name: 'Otto' }, lastRun: { at: T0, slot: '08:00', outcome: 'failed', reason: 'dossier introuvable' } }),
+      routine({ id: 'r0a1b2d', name: 'hebdo', lastRun: undefined, state: 'paused', prompt: 'x'.repeat(600) })], [mk('a', { cwd: '/w/autre' })], T0);
+    expect(md).toContain("- state: pending: a session asked for it, it waits for the user's « Activer » or « Refuser » in « À toi »");
+    expect(md).toContain('- next firing: none while it is not enabled');
+    expect(md).toContain('failed: dossier introuvable');
+    expect(md).toContain('- created by: session Otto');
+    expect(md).toContain('- last firing: never');
+    expect(md).toContain('not running now: the next firing resumes or launches it');
+    expect(md).toContain('… (cut: `ledge routine show r0a1b2d` has the rest)');
+    expect(routinesMd([], [], T0)).toContain('No routines.');
+  });
+
+  it('a routine aimed at a session relieved twice is live in the relief at the end of the chain (review of b7093994)', () => {
+    const done = (to: string) => ({ state: 'exited' as const, handover: { state: 'done' as const, to, toName: '', at: T0 } });
+    const sessions = [mk('a', { ...done('b') }), mk('b', { name: 'Otto-2', relieves: { id: 'a', name: 'Otto', at: T0 }, ...done('c') }), mk('c', { name: 'Otto-3', relieves: { id: 'b', name: 'Otto-2', at: T0 } })];
+    expect(routinesMd([routine()], sessions, T0)).toContain('- wakes: Otto (claude, opus) in /w/ledge, live now as session c (working)');
+  });
+
+  it('no routines.md when the daemon gives no routines', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ctx-'));
+    await writeContext(dir, { sessions: [], now: T0, capture: async () => null, git: async () => null });
+    expect(existsSync(join(dir, 'routines.md'))).toBe(false);
   });
 });

@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Session } from '@ledge/protocol';
+import type { Routine, Session } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { History } from '../src/daemon/history.js';
 import { startServer } from '../src/daemon/server.js';
 import { claudeUsage, codexUsage, readContext } from '../src/daemon/context.js';
-import { briefGaps, heldNames, reliefOf } from '../src/daemon/handover.js';
+import { briefGaps, createHandovers, heldNames, reliefOf } from '../src/daemon/handover.js';
 import { handoverArgs } from '../src/cli/handover.js';
 import { parseLedgeCommand } from '../src/cli/send.js';
 import { connect, type Client } from '../src/client.js';
@@ -269,4 +269,36 @@ describe('the relief of a session (context handover spec §3.3)', () => {
     c.send({ type: 'session.handover', rid: 'h', id: 'nope' });
     expect((await c.next('session.handover.result')).reason).toBe('session inconnue');
   }, 20_000);
+});
+
+describe('a relief and the routines of the session it relieves (routines spec §3.6)', () => {
+  const T = '2026-11-23T08:00:00.000Z';
+  const iris: Session = { id: 'a1', name: 'Iris', tool: 'claude', cwd: '/w/assistant', project: 'assistant', title: 'Iris', tmuxSession: 'ledge-a1', state: 'idle', helpers: [], startedAt: T, lastActivityAt: T, source: 'launcher' };
+  const routine = (name: string, target: string, cwd: string): Routine => ({ id: 'r0a1b2c', name, target: { name: target, cwd, tool: 'claude' }, schedule: { times: ['16:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: T });
+  async function relievedPrompt(routines?: Routine[], before: Session[] = [], who: Session = iris): Promise<string> {
+    const st = new Store(); for (const b of before) st.upsert(b); st.upsert(who);
+    let prompt = '';
+    const h = createHandovers({ store: st, mailbox: { notify: () => true }, tasks: { run: () => ({}), all: () => [] }, dir: mkdtempSync(join(tmpdir(), 'ledge-briefs-')),
+      launch: async req => { prompt = req.prompt; return { ...iris, id: 'b2', name: 'Nova', tmuxSession: 'ledge-b2' }; }, close: async () => undefined, ...(routines ? { routines: () => routines } : {}) });
+    expect(h.start(who.id)).toBeNull();
+    expect(h.brief(who.id, BRIEF)).toBeNull();
+    await until(() => prompt !== '');
+    h.close();
+    return prompt;
+  }
+  it('is told the routines aimed at that session in its folder, and to reread its memory files on the first one', async () => {
+    const prompt = await relievedPrompt([routine('briefing', 'Iris', '/w/assistant'), routine('ailleurs', 'Iris', '/w/autre'), routine('nova', 'Nova', '/w/assistant')]);
+    expect(prompt).toContain('Ses routines te reviennent : Ledge te tapera « briefing » (08:00, 16:30 (lun-ven)). À la première, relis d\'abord tes fichiers de mémoire.');
+    expect(prompt).not.toContain('ailleurs');
+  });
+  it('after two reliefs, the third is still told the routines aimed at the first (review of b7093994)', async () => {
+    const done = (to: string) => ({ state: 'exited' as const, handover: { state: 'done' as const, to, toName: '', at: T } });
+    const chain = [{ ...iris, id: 'x1', ...done('x2') }, { ...iris, id: 'x2', name: 'Iris-2', relieves: { id: 'x1', name: 'Iris', at: T }, ...done('a3') }];
+    const third: Session = { ...iris, id: 'a3', name: 'Iris-3', tmuxSession: 'ledge-a3', relieves: { id: 'x2', name: 'Iris-2', at: T } };
+    expect(await relievedPrompt([routine('briefing', 'Iris', '/w/assistant')], chain, third)).toContain('Ses routines te reviennent : Ledge te tapera « briefing »');
+  });
+  it('says nothing of routines when the session holds none', async () => {
+    expect(await relievedPrompt([])).not.toContain('routines');
+    expect(await relievedPrompt()).not.toContain('routines');
+  });
 });

@@ -3,7 +3,7 @@ import { mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { spawn as nodeSpawn } from 'node:child_process';
-import { extractProposal, LEGACY_FENCE_ACTION, MAX_PROPOSALS, proposalRows, parseActionBlock, parseProjectBlock, parseCloseBlock, parseRelayBlock, parseTaskBlock, projectOf, type BlockKind, type ChatAction, type ChatClose, type ChatPoint, type ChatProjectProposal, type ChatProposal, type ChatRelay, type ChatTaskProposal, type CloseHow, type ChatTurn, type AttachmentRef, type ChatConversationSummary, type Goal, type HarnessUsage, type HumanAsk, type OpenRigState, type Projects, type PullRequest, type ServerMessage, type Session, type Task, type Tool } from '@ledge/protocol';
+import { extractProposal, LEGACY_FENCE_ACTION, MAX_PROPOSALS, proposalRows, parseActionBlock, parseProjectBlock, parseCloseBlock, parseRelayBlock, parseTaskBlock, projectOf, type BlockKind, type ChatAction, type ChatClose, type ChatPoint, type ChatProjectProposal, type ChatProposal, type ChatRelay, type ChatTaskProposal, type CloseHow, type ChatTurn, type AttachmentRef, type ChatConversationSummary, type Goal, type HarnessUsage, type HumanAsk, type OpenRigState, type Projects, type PullRequest, type ServerMessage, type Session, type Routine, type Task, type Tool } from '@ledge/protocol';
 import { resolveAction, sessionOf } from '../daemon/actions.js';
 import { resolveFolder } from '../daemon/folders.js';
 import type { Store } from '../daemon/store.js';
@@ -81,6 +81,8 @@ export interface ChatDeps {
   projects?: () => Projects;
   /** The tasks: the context's tasks.md. */
   tasks?: () => Task[];
+  /** The routines (routines spec §3.5): the context's routines.md. */
+  routines?: () => Routine[];
   /** This PC's OpenRig as last read: the context's rigs.md, and what rig.act and rig.seats are checked against. */
   rigs?: () => OpenRigState | undefined;
   /** What OpenRig's rigs ask the user, Max's goals, the queue rows not closed, and the operator's journal events for this thread: the context's attentes.md, rigs.md and journal.md. */
@@ -126,7 +128,7 @@ export async function writeChatContext(deps: ChatDeps, dir: string, extra: { jou
   const env = await chatEnv(deps);
   const ledge = { guide: await readGuide(), version: LEDGE_VERSION, agents: await installedAgents(env.PATH) };
   const capture = async (s: Session) => { if (!s.tmuxSession) return null; const p = await deps.tmux.capture(s.tmuxSession, PANE_LINES); return p === null ? null : p.split('\n'); };
-  const ctx = await writeContext(dir, { sessions: deps.store.all(), recents: deps.store.recents(), projects: deps.projects?.(), tasks: deps.tasks?.(), rigs: deps.rigs?.(), asks: deps.asks?.(), goals: deps.goals?.(), queue: deps.queue?.(), journal: extra.journal ?? deps.journal?.(deps.thread ?? 'desktop'), usage: deps.usage?.(), now: (deps.now ?? (() => new Date().toISOString()))(), capture, git: cwd => gitSummary(cwd), ledge, ...(deps.notesDir ? { notesDir: deps.notesDir } : {}) });
+  const ctx = await writeContext(dir, { sessions: deps.store.all(), recents: deps.store.recents(), projects: deps.projects?.(), tasks: deps.tasks?.(), routines: deps.routines?.(), rigs: deps.rigs?.(), asks: deps.asks?.(), goals: deps.goals?.(), queue: deps.queue?.(), journal: extra.journal ?? deps.journal?.(deps.thread ?? 'desktop'), usage: deps.usage?.(), now: (deps.now ?? (() => new Date().toISOString()))(), capture, git: cwd => gitSummary(cwd), ledge, ...(deps.notesDir ? { notesDir: deps.notesDir } : {}) });
   // Only a question about the forge runs gh/glab: the others never wait on the network, and get what was read before, dated.
   if (deps.forge) await deps.forge.write(ctx, deps.projects?.() ?? { projects: [], rules: [] }, { read: extra.forgeRead ?? false }).catch(e => log(`chat ${extra.qid ?? 'wake'}: forge files not written (${e instanceof Error ? e.message : String(e)})`));
   return ctx;
