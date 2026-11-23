@@ -1816,7 +1816,9 @@ export const fr = {
     readonly: 'Une routine passée ne se modifie plus : « Programmer à nouveau… » en crée une nouvelle à partir de celle-ci.',
     groupBanner: (who: string, n: number, at: string) => `${who} propose ${n} routines uniques ensemble (${at}).`,
     groupBannerHint: 'Tu peux les activer toutes, ou les régler une par une ici.',
-    activateAll: (n: number) => `Activer les ${n}`, refuseAll: (n: number) => `Refuser les ${n}`, activateThis: 'Activer celle-ci', refuseThis: 'Refuser celle-ci', drop: 'Retirer de la proposition',
+    activateAll: (n: number) => `Activer les ${n}`, refuseAll: (n: number) => `Refuser les ${n}`, activateThis: 'Activer celle-ci',
+    // Card 32: an approval refused because a session changed the routine since it was shown.
+    stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`, refuseThis: 'Refuser celle-ci', drop: 'Retirer de la proposition',
     days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' } as Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', string>,
     // A single day opening a line, before its time (card 21: « jeu. 16:00 · 1 sem. sur 2 »).
     dayLead: { mon: 'lun.', tue: 'mar.', wed: 'mer.', thu: 'jeu.', fri: 'ven.', sat: 'sam.', sun: 'dim.' } as Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', string>,

@@ -15,7 +15,8 @@ export interface RoutineActions {
   run(r: FleetRoutine, session: string, alive: boolean): void;
   pause(r: FleetRoutine): void; resume(r: FleetRoutine): void;
   /** « Activer », with the request as the owner corrected it (`spec`). */
-  approve(r: FleetRoutine, spec?: RoutineSpec): Promise<boolean>;
+  /** `stale`: a session changed the routine since it was shown; nothing applied, the screen says so (card 32), no toast. */
+  approve(r: FleetRoutine, spec?: RoutineSpec): Promise<boolean | 'stale'>;
   refuse(r: FleetRoutine): Promise<boolean>;
   remove(r: FleetRoutine): Promise<boolean>;
   update(r: FleetRoutine, patch: Partial<RoutineSpec>): Promise<Routine | null>;
@@ -79,10 +80,14 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     pause(r) { void cmd(r.machineId, { op: 'pause', routine: r.id }); },
     resume(r) { void cmd(r.machineId, { op: 'resume', routine: r.id }); },
     // Bound to the routine as shown (its daemon-computed key): one a session changed since is refused `stale`, never applied unseen.
-    approve: async (r, spec) => (await cmd(r.machineId, { op: 'approve', routine: r.id, ...(r.key ? { expect: r.key } : {}), ...(spec ? { spec } : {}) })) !== false,
+    approve: async (r, spec) => {
+      if (!fleet) return false;
+      try { await fleet.routineCmd(r.machineId, { op: 'approve', routine: r.id, ...(r.key ? { expect: r.key } : {}), ...(spec ? { spec } : {}) }); return true; }
+      catch (e) { if ((e as RoutineFailure)?.code === 'stale') return 'stale'; fail(e); return false; }
+    },
     refuse: async r => (await cmd(r.machineId, { op: 'refuse', routine: r.id })) !== false,
     remove: async r => (await cmd(r.machineId, { op: 'rm', routine: r.id })) !== false,
     update: async (r, patch) => { const out = await cmd(r.machineId, { op: 'update', routine: r.id, patch }); return out || null; },
     add: async (machine, spec) => { const out = await cmd(machine, { op: 'add', spec }); return out || null; }
-  }), [running, cmd, told, t]);
+  }), [running, cmd, told, t, fleet, fail]);
 }

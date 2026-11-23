@@ -86,6 +86,9 @@ test('an activation cannot approve a prompt changed after the page was shown (re
   await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
   await expect.poll(() => daemon.received.some(m => m.type === 'routine.cmd' && m.op === 'approve' && m.expect !== undefined)).toBe(true);
   expect(list[0]!.state).toBe('pending');
+  // Card 32: the page says so in amber above its buttons, never the daemon's French reason.
+  await expect(tab.locator('.rtn-stale')).toHaveText('« point-hebdo » a changé depuis que tu l’as ouverte : relis-la avant d’activer.');
+  await expect(tab).not.toContainText('depuis qu\'elle a été montrée');
 });
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {

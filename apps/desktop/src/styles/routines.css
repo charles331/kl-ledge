@@ -197,3 +197,6 @@
 .rtn-page.rtn-gone > * { width: auto; }
 .rtn-mach { display: flex; align-items: center; gap: 7px; padding: 10px 6px 2px; font-size: 12px; font-weight: 600; }
 .rtn-machine { max-width: 260px; }
+
+/* Card 32: a request changed since it was shown, said in amber above its buttons. */
+.rtn-stale { color: var(--warning); margin: 6px 0 0; }

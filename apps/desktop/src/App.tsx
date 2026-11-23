@@ -902,9 +902,16 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       }
     };
   };
+  // The routines a session changed since « À toi » showed them (card 32): their item says so, nothing was activated.
+  const [staleRoutines, setStaleRoutines] = useState<ReadonlySet<string>>(() => new Set());
   const routineHandlers = {
     dirLabel: (r: FleetRoutine) => homeLabel(r.target.cwd, homeOf(r.machineId)),
-    onActivate: (rs: readonly FleetRoutine[]) => { for (const r of rs) void routineActions.approve(r); },
+    onActivate: (rs: readonly FleetRoutine[]) => {
+      setStaleRoutines(new Set());
+      void Promise.all(rs.map(r => routineActions.approve(r).then(ok => (ok === 'stale' ? routineRef(r) : null))))
+        .then(refs => { const s = refs.filter((x): x is string => !!x); if (s.length) setStaleRoutines(new Set(s)); });
+    },
+    stale: staleRoutines,
     onRefuse: (rs: readonly FleetRoutine[]) => { for (const r of rs) void routineActions.refuse(r); },
     onRetry: runRoutine,
     onSee: (r: FleetRoutine) => { showRoutinesView(); openRoutineRef(routineRef(r)); },

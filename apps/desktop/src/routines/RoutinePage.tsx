@@ -92,6 +92,7 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
   const blank = useMemo(() => p.prefill ?? specDraft(), [p.prefill]);
   const [draft, setDraft] = useState<SpecDraft>(() => (saved ? specDraft(saved) : blank));
   const [shown, setShown] = useState<DraftErrors | null>(null);
+  const [stale, setStale] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ field: string; n: number } | null>(null);
   // The part a daemon's refusal names (its `field`): outlined, its error under it when the mockup has one.
   const [refused, setRefused] = useState<Refusal | null>(null);
@@ -191,7 +192,10 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
   const run = () => { if (x) p.actions.run(x, x.target.name, !!p.session && look.dot !== 'off'); };
   const activate = async (which: FleetRoutine) => {
     const own = which.id === x?.id;
+    setStale(null);
     const ok = await p.actions.approve(which, own && dirty ? specOf(draft) : undefined);
+    // Changed by its session since it was shown (card 32): the page now shows the new version, says so, activates nothing.
+    if (ok === 'stale') { setStale(which.name); return; }
     if (ok && own) { lastSaved.current = ''; }
   };
   const refuse = async (which: FleetRoutine) => {
@@ -204,7 +208,7 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     <button type="button" className={`fg-btn${o.pri ? ' pri' : ''}`} disabled={o.disabled} title={o.title} onClick={onClick}>{label}</button>
   );
   const banner = (kind: 'ask' | 'bad' | 'plain', head: ReactNode, body: ReactNode, go: ReactNode, role: 'status' | 'alert' = 'status') => (
-    <div className={`rtn-bn ${kind}`} role={role}><div className="rtn-bn-t"><b>{head}</b>{body && <p>{body}</p>}</div>{go && <div className="rtn-bn-go">{go}</div>}</div>
+    <div className={`rtn-bn ${kind}`} role={role}><div className="rtn-bn-t"><b>{head}</b>{body && <p>{body}</p>}{kind === 'ask' && stale && <p className="rtn-stale" role="alert">{r.stale(stale)}</p>}</div>{go && <div className="rtn-bn-go">{go}</div>}</div>
   );
 
   let top: ReactNode = null;

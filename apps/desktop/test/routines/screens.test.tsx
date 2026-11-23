@@ -86,6 +86,17 @@ describe('Routines on Desktop, card 28', () => {
     fr(<AtoiRoutinesBlock {...h} />);
     expect(document.querySelector('[data-routine-item]')).toHaveTextContent('Iris veut modifier « r-r000001 » : 07:30, 13:30, 16:30 (lun–ven)');
   });
+
+  it('« À toi »: a request a session changed since it was shown says so in amber above its buttons (card 32)', () => {
+    const r = routine('r000001', 'local');
+    const task: Task = { id: 't1', title: 'x', giver: 's', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: r.createdAt, updatedAt: r.createdAt, log: [], routine: { kind: 'approve', id: r.id, name: r.name } };
+    const h = { items: [{ task, kind: 'approve' as const, routines: [r] }], dirLabel: () => '~/assistant', onActivate: vi.fn(), onRefuse: vi.fn(), onRetry: vi.fn(), onSee: vi.fn(), stale: new Set(['local:r000001']) };
+    const { unmount } = fr(<AtoiRoutinesBlock {...h} />);
+    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`« ${r.name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`);
+    unmount();
+    render(<LangProvider lang="en"><div className="st"><AtoiRoutineCards {...h} /></div></LangProvider>);
+    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`${r.name} changed since you opened it: read it again before activating.`);
+  });
 });
 
 describe('the « Tâches » tab', () => {

@@ -2,7 +2,7 @@ import { useState, type JSX } from 'react';
 import type { FleetRoutine } from '@ledge/fleet';
 import { useI18n } from '../i18n/lang';
 import { AlarmIcon } from './icons';
-import { lastRunOf, whyText, type AtoiRoutineItem } from './model';
+import { lastRunOf, routineRef, whyText, type AtoiRoutineItem } from './model';
 import { askLine, dayMonth, firstMoment, momentDate, momentLabel } from './schedule';
 import '../styles/routines.css';
 
@@ -14,7 +14,12 @@ export interface AtoiRoutineHandlers {
   onRetry(r: FleetRoutine): void; onSee(r: FleetRoutine): void;
   /** The local daemon down: the buttons wait. */
   offline?: boolean;
+  /** The routines (refs) a session changed since they were shown (card 32): their item says so above its buttons. */
+  stale?: ReadonlySet<string>;
 }
+
+/** The name of an item's routine a session changed since it was shown (card 32), if any. */
+const staleOf = (i: AtoiRoutineItem, h: AtoiRoutineHandlers): string | undefined => i.routines.find(x => h.stale?.has(routineRef(x)))?.name;
 
 /** A failure's reason in the screen's language: the last run's, built from its `field` when it names one, else the item's. */
 const reasonOf = (i: AtoiRoutineItem, h: AtoiRoutineHandlers, t: Parameters<typeof whyText>[3]): string => {
@@ -74,6 +79,7 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
                   </div>
                 );
               })}</div>
+              {staleOf(i, h) && <div className="atoi-line rtn-stale" role="alert">{r.stale(staleOf(i, h)!)}</div>}
               <div className="atoi-line rtn-end">{seeBtn(id)}
                 <button type="button" className="fg-btn pri" disabled={off} onClick={() => h.onActivate(i.routines)}>{r.activateAll(i.routines.length)}</button>
                 <button type="button" className="fg-btn" disabled={off} onClick={() => h.onRefuse(i.routines)}>{r.refuseAll(i.routines.length)}</button></div>
@@ -83,6 +89,7 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
         }
         return (
           <div key={id} data-routine-item={id}>
+            {staleOf(i, h) && <div className="atoi-line rtn-stale" role="alert">{r.stale(staleOf(i, h)!)}</div>}
             <div className="atoi-line"><span className="atoi-mk asked" aria-hidden="true">?</span>
               <span className="grow"><b>{i.task.giverName}</b> {requestText(first, h, lang, r)}</span>
               {seeBtn(id)}
@@ -115,6 +122,7 @@ export function AtoiRoutineCards({ items, ...h }: AtoiRoutineHandlers & { items:
         <div className="st-card-body">
           <div className="st-l1"><span className="st-req"><strong>{failed ? first.target.name : i.task.giverName}</strong> · {a.kind}</span></div>
           <span className="rtn-st-text" title={text}>{text}</span>
+          {!failed && staleOf(i, h) && <span className="rtn-stale" role="alert">{r.stale(staleOf(i, h)!)}</span>}
           <div className="rtn-st-acts">
             {failed
               ? <button type="button" className="st-qa pri" disabled={off} onClick={() => h.onRetry(first)}>{r.retry}</button>
