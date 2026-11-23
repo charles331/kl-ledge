@@ -1137,11 +1137,27 @@ function staleCards(){
     scene: desk + phone + tui}];
 }
 
+/* Texts validated by jde on 2026-11-23 (pilot-lead 09:25, tutoiement): a routine command refused because the machine's
+   Ledge is too old (no routineGroups capability for a group, or any routine command refused "outdated"). */
+function outdatedCards(){
+  const a = A(), fr = L==='fr';
+  const P = fr ? {group:'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
+                  any:'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'}
+               : {group:'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
+                  any:'This machine’s Ledge is too old for this action: update it. Nothing changed.'};
+  const desk = `<div class="paneframe" style="width:640px"><div class="rp2">${bannerBox('ask', a.groupBanner('Iris',3,'02:58'), `<span class="glinks"><a>prepa-121</a> · <a><b>prepa-comite-archi</b></a> · <a>prepa-demo-compart</a></span>`, `<button class="btn pri">${a.activateAll(3)}</button><button class="btn">${a.activateThis}</button><button class="btn">${a.refuseThis}</button>`)}</div></div>`;
+  const toasts = `<div class="col" style="gap:8px;align-items:flex-start;align-self:center"><div class="toast"><span class="mk bad">!</span>${P.group}</div><div class="toast"><span class="mk bad">!</span>${P.any}</div></div>`;
+  return [{tag:'add', title:'Commande refusée : le Ledge de la machine est trop ancien (validé)', wide:true,
+    why:'Le daemon de la machine connaît les routines mais pas une commande qu’on lui demande. <b>Groupe</b> : sans la capacité <code>routineGroups</code>, « Activer les N » / « Refuser les N » n’envoie rien (un groupe n’est jamais appliqué à moitié) et le premier toast le dit. <b>Toute autre commande de routine</b> refusée « outdated » (Lancer, Pause, Supprimer…) : le second toast. Le mot brut de la fleet ne s’affiche jamais. Tutoiement, comme les autres textes des routines. La phrase « Ce daemon ne connaît pas encore les routines… » (TUI) reste réservée au daemon qui ne connaît pas du tout les routines. Le téléphone et l’île reprennent ces deux textes s’ils rencontrent le même cas.',
+    keys:'routines.outdated.group · routines.outdated.action',
+    scene: desk + toasts}];
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards(), ...fallbackCards(), ...groupPromptCards(), ...staleCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards(), ...precPhoneCards(), ...fallbackCards(), ...groupPromptCards(), ...staleCards(), ...outdatedCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
