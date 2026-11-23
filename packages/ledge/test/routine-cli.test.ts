@@ -146,6 +146,12 @@ describe('ledge routine: against the daemon', () => {
     expect((await routineOnClient(user.client, ['edit', 'prep', '--', 'x'], { ms: 100, lang: 'fr' })).line).toBe('refusé : prep : r000001, r000002');
     expect((await routineOnClient(user.client, ['edit', 'r000002', '--', 'x'], { ms: 100, lang: 'fr' })).code).toBe(0);
   });
+  it('approve and refuse answer a session\'s request', async () => {
+    expect(routineArgs(['approve', 'briefing'])).toEqual({ op: 'approve', routine: 'briefing' });
+    const { client, sent } = fake([routine], ok(routine));
+    expect((await routineOnClient(client, ['approve', 'r1a2b3c'], { ms: 100, lang: 'fr' })).line).toBe('routine briefing activée : la session est prévenue');
+    expect(sent.find(m => m.type === 'routine.cmd')).toMatchObject({ op: 'approve', routine: 'r1a2b3c' });
+  });
   it('show finds a routine by name or id', async () => {
     const { client } = fake([routine], ok(routine));
     expect((await routineOnClient(client, ['show', 'briefing'], { ms: 100, lang: 'fr' })).line).toContain('briefing (r1a2b3c) · active');

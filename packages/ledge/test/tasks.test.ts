@@ -383,6 +383,11 @@ describe('Ledge\'s own items (routines)', () => {
     expect(seen.map(x => x.state)).toEqual(['open', 'open', 'open', 'done']);
     expect(told).toEqual([]);
   });
+  it('refuses to close a routine\'s item as a task: its buttons answer it', () => {
+    const t = tasks.raise({ title: 'Iris veut programmer « briefing »', routine });
+    expect(cmd('ledge', 'done', { task: t.id, text: 'oui' }).reason).toBe('réponds avec ledge routine approve|refuse r1a2b3c');
+    expect(tasks.all().find(x => x.id === t.id)?.state).toBe('open');
+  });
   it('keeps an open item across a restart: no session of its own to end', () => {
     let saved: Task[] = [];
     const j = { load: () => saved, save: (x: Task[]) => { saved = x; } };

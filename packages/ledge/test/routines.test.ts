@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { openDecision, TaskSchema, type Routine, type RoutineSpec, type Session, type Weekday } from '@ledge/protocol';
 import { Store } from '../src/daemon/store.js';
 import { createTasks, type Tasks } from '../src/daemon/tasks.js';
+import { routineKey } from '../src/routineKey.js';
 import { createRoutines, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
 
 const TZ = 'Europe/Brussels';
@@ -402,6 +403,29 @@ describe('commands', () => {
     const r = (await cmd(user, 'add', { spec: spec({ name: 'prep', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) })).routine!;
     const moved = (await cmd(user, 'update', { routine: r.id, patch: { schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' } } })).routine!;
     expect(moved).toMatchObject({ schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: 'America/New_York' }, nextRun: '2026-12-03T21:00:00.000Z' });
+  });
+  it('« Activer » checks the key it was shown as it applies: one changed meanwhile is stale', async () => {
+    let release: (() => void) | undefined;
+    routines.close();
+    // The first folder check after the request waits; the others answer at once.
+    let blockNext = false;
+    routines = createRoutines(deps({ folder: () => blockNext ? (blockNext = false, new Promise(res => { release = () => res(undefined); })) : Promise.resolve(undefined) }));
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    expect(await cmd(user, 'approve', { routine: r.id, expect: 'autre' })).toMatchObject({ code: 'stale' });
+    blockNext = true;
+    const approving = cmd(user, 'approve', { routine: r.id, expect: routineKey(r) });
+    await flush();
+    await cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Supprime tout.' } });
+    release!();
+    expect(await approving).toMatchObject({ code: 'stale' });
+    expect(only()).toMatchObject({ state: 'pending', prompt: 'Supprime tout.' });
+  });
+  it('« Activer » with the key it was shown applies; another session\'s change after the showing makes it stale', async () => {
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    const shown = routineKey(r);
+    await cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Autre chose.' } });
+    expect(await cmd(user, 'approve', { routine: r.id, expect: shown })).toMatchObject({ code: 'stale' });
+    expect((await cmd(user, 'approve', { routine: r.id, expect: routineKey(only()) })).routine).toMatchObject({ state: 'enabled', prompt: 'Autre chose.' });
   });
   it('names the routines a session counts as its own: made by it, or waking it', async () => {
     const mine = (await cmd(user, 'add', { spec: spec() })).routine!;

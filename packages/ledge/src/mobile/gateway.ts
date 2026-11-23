@@ -1200,12 +1200,15 @@ export function createPhoneGateway(deps: {
     }
     log(`phone: device ${deviceId} asked routine(s) ${ids.join(', ')} to ${msg.action}`);
     // One answer per routine, in order; the first refusal is the outcome (the ones before it stand, as each was its own answer).
+    // An approve names each routine's key, checked by the daemon as it applies: one changed while the others were answered is refused.
+    const keys = new Map([[r.id, msg.routineKey], ...(msg.others ?? []).map(x => [x.routine, x.routineKey] as const)]);
     for (const [i, id] of ids.entries()) {
       const rid = i === 0 ? msg.op : `${msg.op}:${i}`;
-      const outcome = await ask({ type: 'routine.cmd', rid, op: msg.action, routine: id }, m => {
+      const expect = msg.action === 'approve' ? keys.get(id) : undefined;
+      const outcome = await ask({ type: 'routine.cmd', rid, op: msg.action, routine: id, ...(expect ? { expect } : {}) }, m => {
         if (m.type !== 'routine.result' || m.rid !== rid) return undefined;
         if (!m.code) return true;
-        return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' ? m.code : 'invalid' };
+        return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' || m.code === 'stale' ? m.code : 'invalid' };
       });
       if (outcome.status !== 'applied') return outcome;
     }

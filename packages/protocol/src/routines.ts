@@ -15,6 +15,9 @@ export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as con
 export const WeekdaySchema = z.enum(WEEKDAYS);
 export type Weekday = z.infer<typeof WeekdaySchema>;
 
+/** Versions: the routines first ship in the release that carries this file; no reader of an earlier draft of it exists outside
+ *  development branches, so the first released shape is the baseline the mixed-version rule (AGENTS.md) applies from. */
+
 /** A routine's id: « r » and six hex digits. */
 export const RoutineIdSchema = z.string().regex(/^r[0-9a-f]{6}$/, 'not a routine id');
 /** A routine's name, unique per target session name: one word, as the CLI types it (`ledge routine run briefing`). */
@@ -83,7 +86,8 @@ export type RoutineOutcome = z.infer<typeof RoutineOutcomeSchema>;
 
 /** The field a refusal or a failure is about, so a front marks it without reading the reason's words (French, the daemon's):
  *  the routine's name, its session (name, folder, tool, model), its schedule (as a whole, its zone, a one-shot's moments), its prompt. */
-export const RoutineFieldSchema = z.enum(['name', 'session', 'cwd', 'tool', 'model', 'schedule', 'tz', 'at', 'prompt']);
+/** `session`: the session does not answer; `session_untracked`: it runs outside Ledge, which cannot type into it. */
+export const RoutineFieldSchema = z.enum(['name', 'session', 'session_untracked', 'cwd', 'tool', 'model', 'schedule', 'tz', 'at', 'prompt']);
 export type RoutineField = z.infer<typeof RoutineFieldSchema>;
 /** `field` as a reader takes it: a value it does not know yet (a newer daemon's) is none, never a refused message. */
 const FieldReadSchema = RoutineFieldSchema.optional().catch(undefined);
@@ -135,8 +139,9 @@ export const RoutineOpSchema = z.enum(ROUTINE_OPS);
 export type RoutineOp = z.infer<typeof RoutineOpSchema>;
 
 /** Why the daemon refused a `routine.cmd`: no such routine, the name already taken for that session, a bad schedule or zone,
- *  not allowed (a session approving, or touching another's routine), or nothing pending to answer. */
-export const RoutineRefusalSchema = z.enum(['not_found', 'name_taken', 'invalid', 'forbidden', 'not_pending']);
+ *  not allowed (a session approving, or touching another's routine), nothing pending to answer, or `stale`: the routine is no
+ *  longer the one the caller showed (`expect`). */
+export const RoutineRefusalSchema = z.enum(['not_found', 'name_taken', 'invalid', 'forbidden', 'not_pending', 'stale']);
 export type RoutineRefusal = z.infer<typeof RoutineRefusalSchema>;
 
 /** The routines, newest first. `by`: a session asking; `owned` then names the routines the daemon counts as its own (made by
@@ -154,6 +159,9 @@ export const RoutineCmdSchema = z.object({
   type: z.literal('routine.cmd'), rid: z.string().min(1).max(100), op: RoutineOpSchema,
   routine: z.string().min(1).max(ROUTINE_NAME_MAX).optional(),
   spec: RoutineSpecSchema.optional(), patch: RoutineSpecSchema.partial().optional(),
+  /** An approve's: the routine's key as the caller showed it (the phone's `routineKey`); the daemon refuses `stale` once it changed,
+   *  checked as it applies, so nothing changed meanwhile is approved. */
+  expect: RoutineKeySchema.optional(),
   by: z.string().min(1).max(100).optional(), key: z.string().min(1).max(128).optional()
 });
 export type RoutineCmd = z.infer<typeof RoutineCmdSchema>;

@@ -11,6 +11,7 @@ import type { Mailbox } from './mailbox.js';
 import type { Tasks } from './tasks.js';
 import { reachable, sessionNamed } from './mailbox.js';
 import { formatLedgeRoutine } from './crossSession.js';
+import { routineKey } from '../routineKey.js';
 import { jsonJournal, type Journal } from './journal.js';
 import { log } from '../log.js';
 
@@ -416,7 +417,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
         waiting.set(id, { id, rid, ...slot, at: atIso, late, outcome, session: target.id, ...(manual ? { manual: true as const } : {}) }); save();
       };
       if (live) {
-        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`, 'session');
+        if (!reachable(live)) return fail(slot, atIso, late, `${r.target.name} tourne hors de Ledge : impossible de lui écrire`, 'session_untracked');
         return deliver(live, 'delivered');
       }
       if (gone && d.resumable(gone)) {
@@ -611,6 +612,7 @@ export function createRoutines(d: RoutinesDeps): Routines {
       case 'refuse': {
         if (session) return refuse('forbidden', "seul l'utilisateur active ou refuse une routine");
         if (r.state !== 'pending' && !r.proposal) return refuse('not_pending', `la routine ${r.name} n'attend pas de réponse`);
+        if (cmd.expect !== undefined && cmd.expect !== routineKey(r)) return refuse('stale', `la routine ${r.name} a changé depuis qu'elle a été montrée`);
         const change = !!r.proposal;
         const asker = r.proposal?.by ?? (r.createdBy.kind === 'session' ? { id: r.createdBy.id, name: r.createdBy.name } : undefined);
         if (cmd.op === 'refuse') {
@@ -627,6 +629,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         // « Activer » saves the request, or the owner's correction of it.
         const spec = await checked(cmd.spec ?? r.proposal?.spec ?? specOf(r), true);
         if ('reason' in spec) return refused(spec);
+        // Changed while its folder was checked: what was shown is no longer what would be saved.
+        if (routines.get(r.id) !== r) return refuse('stale', `la routine ${r.name} a changé pendant l'activation`);
         if (taken(spec, r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
         const { proposal: _p, expiresAfterRun: _e, ...base } = r;
         const approved = put(scheduled({ ...base, ...spec, catchUp: spec.catchUp ?? r.catchUp, state: r.state === 'pending' ? 'enabled' : r.state }));
