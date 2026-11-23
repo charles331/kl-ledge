@@ -641,18 +641,19 @@ export function createRoutines(d: RoutinesDeps): Routines {
         const others = cmd.others ?? [];
         if (others.length && cmd.spec) return refuse('invalid', 'une correction ne vaut que pour une seule routine');
         // A grouped approval names the key of every routine it covers, the first one's included: none is approved unseen.
-        if (cmd.op === 'approve' && others.length && cmd.expect === undefined) return refuse('invalid', 'une activation groupée donne la clé de chaque routine');
+        if (cmd.op === 'approve' && others.length && (cmd.expect === undefined || others.some(o => o.expect === undefined))) return refuse('invalid', 'une activation groupée donne la clé de chaque routine');
         // A grouped answer is all or nothing: every routine is checked before any is answered.
         const members: { r: Routine; expect?: string }[] = [{ r, ...(cmd.expect !== undefined ? { expect: cmd.expect } : {}) }];
         for (const o of others) {
           const x = routines.get(o.routine);
           if (!x) return refuse('not_found', `aucune routine ${o.routine}`);
           if (members.some(m => m.r.id === x.id)) return refuse('invalid', `la routine ${x.name} est nommée deux fois`);
-          members.push({ r: x, expect: o.expect });
+          members.push({ r: x, ...(o.expect !== undefined ? { expect: o.expect } : {}) });
         }
         for (const m of members) {
           if (m.r.state !== 'pending' && !m.r.proposal) return refuse('not_pending', `la routine ${m.r.name} n'attend pas de réponse`);
-          if (m.expect !== undefined && m.expect !== routineKey(m.r)) return refuse('stale', `la routine ${m.r.name} a changé depuis qu'elle a été montrée`);
+          // Only an approval is bound to what was shown: refusing a routine that changed since is harmless, and goes through.
+          if (cmd.op === 'approve' && m.expect !== undefined && m.expect !== routineKey(m.r)) return refuse('stale', `la routine ${m.r.name} a changé depuis qu'elle a été montrée`);
         }
         const askerOf = (x: Routine) => x.proposal?.by ?? (x.createdBy.kind === 'session' ? { id: x.createdBy.id, name: x.createdBy.name } : undefined);
         if (cmd.op === 'refuse') {
