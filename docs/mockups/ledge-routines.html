@@ -1021,13 +1021,13 @@ function precCards(){
 function precDesktopCards(){
   const x = t(), fr = L==='fr', C = [];
   const P = fr ? {
-    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, - et _ seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
+    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
     gone:'Cette routine n’existe plus : elle a été supprimée ailleurs.', closeTab:'Fermer l’onglet',
     many:'Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant',
     wakesOn:'· PC du bureau',
     refusals:[['cwd','Ce dossier n’existe pas sur ce PC.'],['at','Ce moment est déjà passé.'],['name','Iris a déjà une routine « briefing ».'],['tz','Fuseau horaire inconnu : <tz>.'],['session','Cette session ne répond pas.  /  Cette session n’est pas suivie par Ledge.'],['tool','Outil absent sur ce PC : <outil>.'],['model','Modèle inconnu pour <outil> : <modèle>.'],['schedule','Au moins une heure.  /  Au moins un jour.  /  Choisis la semaine de référence.'],['prompt','Le prompt est vide.'],['?','la raison brute du daemon, sous le champ indiqué (ou en tête de la configuration)']],
   } : {
-    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, - and _ only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
+    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, dot, hyphen and underscore only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
     gone:'This routine no longer exists: it was deleted elsewhere.', closeTab:'Close the tab',
     many:'Iris wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant',
     wakesOn:'· Office PC',
