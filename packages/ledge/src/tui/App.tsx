@@ -20,6 +20,7 @@ import { Mobile } from './screens/Mobile.js';
 import { Help } from './screens/Help.js';
 import { OpenRigScreen } from './screens/OpenRig.js';
 import { RigLaunchScreen } from './screens/RigLaunch.js';
+import { RoutinesScreen } from './screens/Routines.js';
 import { MIN } from './ui/Frame.js';
 import { usePairingDialogOf } from './ui/pairingDialogState.js';
 import { waitingPairings } from './model/mobile.js';
@@ -183,9 +184,9 @@ function Shell({ client, lang, setLang: setLangState, saveLang, theme, setThemeS
     if (input === ',') { go('settings'); return; }
     if (input === '/') { go('ask'); return; }
     if (input === '+') { go('launch'); return; }
-    if (/^[1-6]$/.test(input)) { go(SCREENS[Number(input) - 1]!); return; }
+    if (/^[1-7]$/.test(input)) { go(SCREENS[Number(input) - 1]!); return; }
   });
 
-  const Body = { overview: Overview, session: SessionScreen, ask: Ask, launch: Launch, settings: Settings, mobile: Mobile, openrig: OpenRigScreen, rigLaunch: RigLaunchScreen, help: Help }[screen];
+  const Body = { overview: Overview, session: SessionScreen, ask: Ask, launch: Launch, settings: Settings, mobile: Mobile, openrig: OpenRigScreen, rigLaunch: RigLaunchScreen, routines: RoutinesScreen, help: Help }[screen];
   return <TuiContext.Provider value={tui}><Body /></TuiContext.Provider>;
 }

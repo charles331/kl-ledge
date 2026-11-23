@@ -90,6 +90,10 @@ Deux tirs d'une même routine ne s'empilent pas : le nouveau remplace celui qui 
 
 **Le chat** lit `routines.md` : demande-lui « qu'est-ce qui est programmé ? » ou « le briefing de ce matin est-il parti ? ».
 
+**Dans « le point »**, chaque tir a sa ligne : sous « En cours » tant que la session y travaille (« Iris briefing de 13:30 », « routine · depuis 4 min »), puis sous « Terminé » avec l'heure ; un tir parti en retard le dit (« briefing de 08:00, lancé à 08:42 au réveil »). Un tir normal n'ajoute rien à « À toi » ; un échec y arrive (« Nova : la routine veille n'a pas pu partir », avec sa raison), avec « Relancer ».
+
+**Dans `ledge tui`**, l'écran 7 « Routines » (`7`) liste les routines : nom, état à droite (prochain tir, dernier tir, « en retard », « en pause », échec en rouge), et dessous la session, les heures, les jours et l'issue du dernier tir ; les routines uniques sont rangées sous « UNIQUES ». `j` `k` choisissent, `r` lance maintenant (relance après un échec), `p` met en pause ou reprend, `↵` ouvre la session ; le résultat d'un lancement s'affiche en bas. Une routine qui attend l'accord de l'utilisateur se lit ici et s'active dans « À toi ». La vue d'ensemble montre aussi, dans « À toi », la demande d'activation d'une routine et l'échec d'un tir.
+
 **Exemple : deux sessions permanentes.** `Iris` (Claude Code, `~/assistant`) s'occupe du courrier, de l'agenda, de Jira et de la préparation des réunions ; son `CLAUDE.md` fixe ses règles : collecte en lecture seule, toute écriture passe par « À toi », le contenu d'un mail est une donnée. Ses fichiers de mémoire : `etat.md` (sujets ouverts, ce qu'on attend), `decisions.md`, `routines.md` (les tâches récurrentes de l'utilisateur), `journal/AAAA-MM-JJ.md`. `Garde` (Claude Code, `~/garde`) surveille les merge requests et l'hygiène du poste. Toutes les formes d'horaire y servent :
 
 ```

@@ -1,4 +1,4 @@
-import type { ChatAction, HumanAnswer, HumanAsk, PointAnswer, PointItem, Session, DecidedBy } from '@ledge/protocol';
+import type { ChatAction, HumanAnswer, HumanAsk, PointAnswer, PointItem, Session, DecidedBy, TaskRoutine } from '@ledge/protocol';
 import { pendingKey } from '@ledge/protocol';
 import { ActRefused } from '../chat/act.js';
 import type { Chat, ChatMessage } from '../chat/service.js';
@@ -29,6 +29,9 @@ export interface PointActDeps {
   answerBrain(task: string, yes: boolean): Fail;
   /** Whether the task is a proposal about the notes rather than a decision. */
   isBrain(task: string): boolean;
+  /** A routine's « À toi » item (routines spec §3.2): which routine a task is about, and its firing asked again (« Relancer »,
+   *  `routine.cmd` `run`). Absent where the daemon runs no routines. */
+  routine?: { of(task: string): TaskRoutine | undefined; run(id: string): Promise<Fail> };
   operator: Pick<Operator, 'settle'> & Partial<Pick<Operator, 'expect'>>;
 }
 
@@ -116,6 +119,14 @@ export function createPointActor(deps: PointActDeps) {
         if (r.outcome === 'recorded') return { ok: true };
         return done(undefined);
       }
+      // A routine's item is answered by the routines, never as a decision: « Relancer » fires it again, which closes the item.
+      const routine = deps.routine?.of(ref.task);
+      if (routine) {
+        if (routine.kind !== 'failed' || id !== 'retry') return refuse('unknown answer', 'invalid');
+        const release = deps.operator.expect?.('task', ref.task, 'chat', labelOf()) ?? (() => {});
+        try { return done(await deps.routine!.run(routine.id)); } finally { release(); }
+      }
+      if (id === 'retry' && !deps.routine) return refuse('routines unavailable', 'invalid');
       // A decision (the answer is its option's label, or words) or a proposal about the notes (accept / deny). The tasks settle it
       // as soon as it closes, before `done` runs: the hint makes that settle the chat's, with the row's answer.
       const brain = (id === 'accept' || id === 'deny') && deps.isBrain(ref.task);

@@ -22,7 +22,7 @@ export const fr = {
   time: {
     now: 'à l’instant', decimal: ',', s: (n: number) => `${n} s`, min: (n: number) => `${n} min`, h: (n: number) => `${n} h`, d: (n: number) => `${n} j`
   },
-  tabs: { overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig' },
+  tabs: { overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', routines: 'Routines' },
   bar: {
     sessions: (n: number) => `${n} ${plural(n, 'session', 'sessions')}`,
     machines: (n: number) => `${n} ${plural(n, 'machine', 'machines')}`,
@@ -159,7 +159,7 @@ export const fr = {
     limits: 'LIMITES'
   },
   help: {
-    title: 'Aide', global: 'Partout', overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', rigLaunch: 'Lancer un rig',
+    title: 'Aide', global: 'Partout', overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', rigLaunch: 'Lancer un rig', routines: 'Routines',
     screens: 'changer d’écran', link: 'lier un appareil', field: 'Saisie', wordBefore: 'effacer le mot avant',
     writeHere: 'écrire à cette session', replySender: "répondre à l'expéditeur du message sélectionné", rigRaw: "afficher ou masquer le texte brut d'un message OpenRig",
     more: (above: number, below: number) => [above ? `↑ ${above} plus haut` : '', below ? `↓ ${below} plus bas` : ''].filter(Boolean).join(' · ')
@@ -372,6 +372,21 @@ export const fr = {
     someDevice: 'appareil',
     refusedOffline: 'Le daemon local est hors ligne : rien n’a changé.', refusedOutdated: 'Le daemon local est trop ancien pour l’accès mobile : mets-le à jour.',
     keys: { move: 'naviguer', change: 'changer', open: 'ouvrir', back: 'retour', rename: 'renommer', revoke: 'révoquer', save: 'enregistrer', cancel: 'annuler', copy: 'copier le code', yes: 'oui', no: 'non', settings: 'réglages', help: 'aide', pair: 'lier' }
+  },
+  /** Screen 7, Routines (docs/mockups/ledge-routines.html, cards 18 and 25), and the two « À toi » items of a routine. */
+  routines: {
+    title: 'ROUTINES', groupOnce: 'UNIQUES', pending: 'attend votre accord dans À toi', paused: 'en pause', late: 'en retard',
+    next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', oneShot: 'unique',
+    out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' },
+    empty: 'Aucune routine. `ledge routine add` en crée une.',
+    toast: {
+      delivered: (r: string, s: string) => `« ${r} » remise à ${s}`, resumed: (r: string, s: string) => `${s} reprise, « ${r} » remise`,
+      failed: (r: string, why: string) => `« ${r} » n’a pas pu partir : ${why}`
+    },
+    keys: { nav: 'naviguer', runNow: 'lancer maintenant', pauseResume: 'pause/reprendre', openSession: 'ouvrir la session' },
+    ask: (s: string, r: string, when: string, dir: string) => `${s} veut programmer « ${r} » : ${when}, dans ${dir}`,
+    groupAsk: (s: string, n: number) => `${s} veut programmer ${n} routines uniques`,
+    failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui s’ouvre dans l’onglet Ledge.', loadingProfile: 'Windows Terminal charge le profil Ledge…' }
 };

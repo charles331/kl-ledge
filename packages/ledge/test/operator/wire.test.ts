@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { OperatorNotice, Goal, HumanAsk, OpenRigState, Task } from '@ledge/protocol';
+import type { OperatorNotice, Goal, HumanAsk, OpenRigState, Routine, Task } from '@ledge/protocol';
 import { pendingKey, type Session } from '@ledge/protocol';
 import { Store } from '../../src/daemon/store.js';
 import type { ChatDeps } from '../../src/chat/service.js';
@@ -98,6 +98,17 @@ describe('wireOperator', () => {
     expect(w.journal.since(0)).toEqual([]);
     w.goalsChanged({ goals: [{ ...goal, state: 'proposed', proposal: { askId: 'a', team: null, text: 'Two devs', answer: null, answeredAt: null } }] });
     expect(w.journal.since(0).map(e => `${e.kind}:${e.subjectId}`)).toEqual(['rig.goal_update:g-12345678']);
+  });
+
+  it('the first list of routines is a baseline; then each firing that reached its session is a routine.fired event', () => {
+    const { w } = setup([]);
+    const r = { id: 'r1a2b3c', name: 'briefing', target: { name: 'Iris', cwd: '/a', tool: 'claude' }, schedule: { kind: 'recurring', times: ['08:00'], days: ['mon'] },
+      prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: AT, lastRun: { at: AT, slot: '08:00', outcome: 'delivered' } } as Routine;
+    w.routinesChanged([r]);
+    expect(w.journal.since(0)).toEqual([]);
+    const next = '2026-11-23T12:30:00.000Z';
+    w.routinesChanged([{ ...r, lastRun: { at: next, slot: '13:30', outcome: 'resumed' } }]);
+    expect(w.journal.since(0).map(e => `${e.kind}:${e.subjectId}`)).toEqual([`routine.fired:r1a2b3c@${next}`]);
   });
 
   it('a rig Ledge stopped itself is not reported, another rig that falls is', () => {
