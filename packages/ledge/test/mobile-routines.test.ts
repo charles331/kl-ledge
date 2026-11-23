@@ -74,5 +74,7 @@ describe('routines on the phone', () => {
     const t: Task = { id: 't1', title: 'Iris veut programmer « briefing »', text: 'x', giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: AT, updatedAt: AT, log: [],
       routine: { kind: 'approve', id: 'r1a2b3c', name: 'briefing' } };
     expect(PhoneTaskSchema.parse(toPhoneTask(t)).routine).toEqual({ kind: 'approve', id: 'r1a2b3c', name: 'briefing' });
+    const grouped = { ...t, routine: { kind: 'approve' as const, id: 'r1a2b3c', name: 'prepa-121', ids: ['r1a2b3c', 'r4d5e6f'] } };
+    expect(PhoneTaskSchema.parse(toPhoneTask(grouped)).routine).toEqual({ kind: 'approve', id: 'r1a2b3c', name: 'prepa-121', ids: ['r1a2b3c', 'r4d5e6f'] });
   });
 });

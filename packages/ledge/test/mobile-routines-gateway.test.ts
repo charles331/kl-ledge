@@ -89,6 +89,27 @@ describe('phone routines', () => {
     expect(await cmd(g, { action: 'approve', routine: 'r1a2b3c', routineKey: key, assertion })).toMatchObject({ status: 'applied' });
     expect(cmds.map(c => c.op)).toEqual(['approve']);
   });
+  it('« Activer » a session\'s proposal on an enabled or paused routine, bound to the proposal\'s key', async () => {
+    for (const state of ['enabled', 'paused'] as const) {
+      const proposed: Routine = { ...pending, state, proposal: { spec: { name: 'prepa-121', target: pending.target, schedule: { kind: 'once', at: ['2026-12-04T09:00'] }, prompt: 'Autre.' }, by: { id: 'iris', name: 'Iris' }, at: AT } };
+      const { g, cmds, set } = make();
+      set([proposed]);
+      const auth = await enroll(g);
+      const key = routineKey(proposed);
+      expect(key).not.toBe(routineKey({ ...proposed, proposal: undefined }));
+      expect(await cmd(g, { action: 'approve', routine: 'r1a2b3c', routineKey: routineKey({ ...proposed, proposal: undefined }) })).toMatchObject({ status: 'rejected', reason: 'stale' });
+      g.send('dev1', { type: 'confirm.prepare', purpose: 'routine', routine: 'r1a2b3c', routineKey: key });
+      await flush();
+      const ch = g.got('dev1').filter(m => m.type === 'confirm.challenge').at(-1);
+      if (ch?.type !== 'confirm.challenge' || ch.purpose !== 'routine') throw new Error('no challenge');
+      expect(await cmd(g, { action: 'approve', routine: 'r1a2b3c', routineKey: key, assertion: auth.get(rp, ch.challenge, { counter: 1 }) })).toMatchObject({ status: 'applied' });
+      expect(cmds.map(c => c.op)).toEqual(['approve']);
+    }
+    // Nothing waits on a plain enabled routine.
+    const plain = make(); const enabled: Routine = { ...pending, state: 'enabled' };
+    plain.set([enabled]);
+    expect(await cmd(plain.g, { action: 'approve', routine: 'r1a2b3c', routineKey: routineKey(enabled) })).toMatchObject({ status: 'rejected', reason: 'not_pending' });
+  });
   it('forwards each change, without the prompt', async () => {
     const { g } = make();
     g.send('dev1', { type: 'snapshot.request' });
