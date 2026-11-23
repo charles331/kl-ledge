@@ -100,6 +100,9 @@ export interface Fleet {
    *  `removed`). Rejects with `{ code, message }`: `offline` when the machine is down or falls, `outdated` when its daemon does not
    *  know routines, else the daemon's refusal code. */
   routineCmd(machineId: string, ask: RoutineAsk): Promise<RoutineResultMessage>;
+  /** Asks that machine's routines again (`routine.list`): a front that learned one changed (an approval refused `stale`) reads
+   *  the new version without waiting for its broadcast. Nothing when the machine is down. */
+  rereadRoutines(machineId: string): void;
   /** The next firings (3 at most) of a schedule not saved yet, as that machine's daemon computes them, or why it cannot fire
    *  (`reason`); rejects as `routineCmd`. */
   routinePreview(machineId: string, schedule: RoutineSchedule): Promise<RoutinePreviewedMessage>;

@@ -199,4 +199,4 @@
 .rtn-machine { max-width: 260px; }
 
 /* Card 32: a request changed since it was shown, said in amber above its buttons. */
-.rtn-stale { color: var(--warning); margin: 6px 0 0; }
+.rtn-stale, .rtn-bn-t p.rtn-stale { color: var(--warning); margin: 6px 0 0; }

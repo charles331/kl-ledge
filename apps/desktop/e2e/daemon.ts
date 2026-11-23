@@ -4,7 +4,7 @@ import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, Hum
 
 /** How long a launched session stays `starting` in the fake daemon before it is `working`. */
 /** A routine's key as the fake daemon gives it: a digest of what « Activer » applies, as the real `routineKey` (not its bytes). */
-function fakeKey(r: Routine): string {
+export function fakeKey(r: Routine): string {
   const { name, target, schedule, prompt, catchUp } = r.proposal?.spec ?? r;
   const text = JSON.stringify({ name, target, schedule, prompt, catchUp: catchUp ?? null, proposal: !!r.proposal });
   let h = 5381;
@@ -112,8 +112,17 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
         const at = list.findIndex(r => r.id === msg.routine || r.name === msg.routine);
         const was = list[at];
         // As the real daemon: an approval bound to a routine that changed since it was shown is refused, nothing applied.
-        if (msg.op === 'approve' && was && msg.expect !== undefined && msg.expect !== fakeKey(was)) {
+        // A group (`others`) is all or nothing, as the real daemon (ccfa3df6): one changed routine leaves every one waiting.
+        const group = [...(was ? [{ r: was, expect: msg.expect }] : []), ...(msg.others ?? []).map(o => ({ r: list.find(x => x.id === o.routine), expect: o.expect }))];
+        if (msg.op === 'approve' && was && group.some(g => !g.r || (g.expect !== undefined && g.expect !== fakeKey(g.r)))) {
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, code: 'stale', reason: `la routine ${was.name} a changé depuis qu'elle a été montrée` }));
+        } else if (msg.op === 'approve' && msg.others?.length) {
+          for (const g of group) {
+            const i = list.indexOf(g.r!);
+            const next = (({ proposal: _, ...r }) => ({ ...r, ...(g.r!.proposal?.spec ?? {}), state: 'enabled' as const }))(g.r!);
+            list[i] = next; ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(next) }));
+          }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, routine: keyed(list[list.findIndex(x => x.id === was!.id)]!) }));
         } else if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
           if (at >= 0) list.splice(at, 1);
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));

@@ -101,13 +101,21 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const savedKey = saved ? JSON.stringify(saved) : '';
-  const dirty = isDirty(saved, draft, blank);
-  // A change from elsewhere (the daemon, another front) replaces an untouched form.
+  // The version the form was read from, and the key an « Activer » is bound to (card 32): the form is dirty against it, not
+  // against a newer version the daemon sent meanwhile, so a change from elsewhere is never taken for the owner's own edit.
+  const [base, setBase] = useState<{ spec: RoutineSpec | null; key: string | undefined }>(() => ({ spec: saved, key: x?.key }));
+  const dirty = isDirty(base.spec, draft, blank);
+  // After a stale refusal, the next version read becomes the base even under the owner's own edits, which are kept.
+  const rebase = useRef(false);
   const lastSaved = useRef(savedKey);
   useEffect(() => {
     if (lastSaved.current === savedKey) return;
     lastSaved.current = savedKey;
-    if (saved && !dirtyRef.current) setDraft(specDraft(saved));
+    // A change from elsewhere (the daemon, another front) replaces an untouched form.
+    if (saved && !dirtyRef.current) { setDraft(specDraft(saved)); setBase({ spec: saved, key: x?.key }); }
+    // The owner's own save coming back (the form is that version), or a stale refusal's new version: the form's new base.
+    else if (rebase.current || !isDirty(saved, draft, blank)) setBase({ spec: saved, key: x?.key });
+    rebase.current = false;
   }, [savedKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
@@ -193,9 +201,14 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
   const activate = async (which: FleetRoutine) => {
     const own = which.id === x?.id;
     setStale(null);
-    const ok = await p.actions.approve(which, own && dirty ? specOf(draft) : undefined);
-    // Changed by its session since it was shown (card 32): the page now shows the new version, says so, activates nothing.
-    if (ok === 'stale') { setStale(which.name); return; }
+    const ok = await p.actions.approve(which, own && dirty ? specOf(draft) : undefined, own ? base.key : undefined);
+    // Changed by its session since it was shown (card 32): nothing activated, the page says so and reads the new version
+    // (already here, or asked again by the action), which becomes the base the next « Activer » is bound to.
+    if (ok === 'stale') {
+      setStale(which.name);
+      if (own) { if (x?.key !== base.key) { setBase({ spec: saved, key: x?.key }); if (!dirty && saved) setDraft(specDraft(saved)); } else rebase.current = true; }
+      return;
+    }
     if (ok && own) { lastSaved.current = ''; }
   };
   const refuse = async (which: FleetRoutine) => {
@@ -222,7 +235,7 @@ function RoutineBody(p: RoutinePageProps): JSX.Element {
     top = banner('ask', r.groupBanner(g.proposal.who, g.proposal.ids.length, hhmm(g.proposal.task.at)), <>
       <span className="rtn-links">{g.routines.map((o, i) => <span key={o.id}>{i > 0 && ' · '}<button type="button" className="rtn-link" aria-current={o.id === x.id || undefined} onClick={() => p.onOpenRoutine(o)}>{o.id === x.id ? <b>{o.name}</b> : o.name}</button></span>)}</span><br />{r.groupBannerHint}
     </>, <>
-      {btn(r.activateAll(g.routines.length), () => { for (const o of g.routines) void activate(o); }, { pri: true, disabled: off })}
+      {btn(r.activateAll(g.routines.length), () => { setStale(null); void p.actions.approveAll(g.routines).then(ok => { if (ok === 'stale') setStale(x.name); }); }, { pri: true, disabled: off })}
       {btn(r.activateThis, () => { void activate(x); }, { disabled: off })}
       {btn(r.refuseThis, () => { void refuse(x); }, { disabled: off })}
     </>);

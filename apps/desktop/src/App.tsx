@@ -908,11 +908,12 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     dirLabel: (r: FleetRoutine) => homeLabel(r.target.cwd, homeOf(r.machineId)),
     onActivate: (rs: readonly FleetRoutine[]) => {
       setStaleRoutines(new Set());
-      void Promise.all(rs.map(r => routineActions.approve(r).then(ok => (ok === 'stale' ? routineRef(r) : null))))
-        .then(refs => { const s = refs.filter((x): x is string => !!x); if (s.length) setStaleRoutines(new Set(s)); });
+      // A group in one command, all or nothing: a routine changed since it was shown leaves the whole group waiting (card 32).
+      void (rs.length > 1 ? routineActions.approveAll(rs) : routineActions.approve(rs[0]!))
+        .then(ok => { if (ok === 'stale') setStaleRoutines(new Set(rs.map(routineRef))); });
     },
     stale: staleRoutines,
-    onRefuse: (rs: readonly FleetRoutine[]) => { for (const r of rs) void routineActions.refuse(r); },
+    onRefuse: (rs: readonly FleetRoutine[]) => { void (rs.length > 1 ? routineActions.refuseAll(rs) : routineActions.refuse(rs[0]!)); },
     onRetry: runRoutine,
     onSee: (r: FleetRoutine) => { showRoutinesView(); openRoutineRef(routineRef(r)); },
     offline: localDown

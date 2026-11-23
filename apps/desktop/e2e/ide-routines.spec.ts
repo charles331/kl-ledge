@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { Routine, Session, Task } from '@ledge/protocol';
 import { test, expect, seedAtelier } from './fixtures';
-import { fakeDaemon, session } from './daemon';
+import { fakeDaemon, fakeKey, session } from './daemon';
 
 // Routines (docs/mockups/ledge-routines.html, cards 1-14 and 19-24) on the protocol's contract, with the mockup's examples, seen
 // on Monday 23 November 2026 at 13:02 in Brussels. Nothing reaches a real daemon: the fake one answers.
@@ -57,7 +57,7 @@ const tasks: Task[] = [
   task('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, 'veille'),
   task('t3', { kind: 'approve', id: 'r300000', name: 'prepa-121', ids: ['r300000', 'r300001', 'r300002'] }, 'prepa', 'préparations de réunion trouvées dans l’agenda')
 ];
-const DAEMON = { version: '0.62.0', install: 'npm' as const, systemd: true, routines: true, home: '/home/jde' };
+const DAEMON = { version: '0.62.0', install: 'npm' as const, systemd: true, routines: true, routineGroups: true, home: '/home/jde' };
 
 async function boot(page: Page, theme: 'dark' | 'light', lang: 'fr' | 'en', list: Routine[] = routines()) {
   await page.clock.setFixedTime(NOW);
@@ -74,6 +74,22 @@ const shot = async (page: Page, name: string, clip?: { x: number; y: number; wid
 };
 const box = async (page: Page, sel: string) => (await page.locator(sel).first().boundingBox())!;
 
+test('an untouched page follows a prompt changed elsewhere, and its activation applies that version (review of 612a0ce5)', async ({ page }) => {
+  const list = routines();
+  const daemon = await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+  await page.getByRole('region', { name: 'Routines' }).locator('[data-routine="local:r3f9a12"] .rtn-hit').click();
+  const tab = page.getByRole('tabpanel', { name: /^point-hebdo/ });
+  await expect(tab.locator('textarea')).toHaveValue(list[0]!.prompt);
+  list[0] = { ...list[0]!, prompt: 'New agent prompt' };
+  daemon.push({ type: 'routine.changed', routine: { ...list[0], key: fakeKey(list[0]) } });
+  await expect(tab.locator('textarea')).toHaveValue('New agent prompt');
+  await expect(tab.locator('.rtn-dirtybar')).toHaveCount(0);
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect.poll(() => list[0]!.state).toBe('enabled');
+  expect(list[0]!.prompt).toBe('New agent prompt');
+});
+
 test('an activation cannot approve a prompt changed after the page was shown (review of 17323905)', async ({ page }) => {
   const list = routines();
   const shown = list[0]!.prompt;
@@ -89,6 +105,11 @@ test('an activation cannot approve a prompt changed after the page was shown (re
   // Card 32: the page says so in amber above its buttons, never the daemon's French reason.
   await expect(tab.locator('.rtn-stale')).toHaveText('« point-hebdo » a changé depuis que tu l’as ouverte : relis-la avant d’activer.');
   await expect(tab).not.toContainText('depuis qu\'elle a été montrée');
+  // Read again at once (review of 612a0ce5): the new version is shown, and the next « Activer » applies it.
+  await expect(tab.locator('textarea')).toHaveValue('Different prompt not shown to the owner', { timeout: 5000 });
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect.poll(() => list[0]!.state).toBe('enabled');
+  expect(list[0]!.prompt).toBe('Different prompt not shown to the owner');
 });
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {

@@ -926,6 +926,7 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
       routines: () => fleetRoutines(routineLists),
       onRoutines(cb) { routineListeners.add(cb); return () => { routineListeners.delete(cb); }; },
       routineCmd: (machineId, ask) => routineAsk(machineId, rid => ({ type: 'routine.cmd', rid, ...ask })),
+      rereadRoutines(machineId) { const p = peers.get(machineId); if (p && available(p)) p.client.send({ type: 'routine.list', rid: `routines-${++routineSeq}` }); },
       routinePreview: (machineId, schedule) => routineAsk(machineId, rid => ({ type: 'routine.preview', rid, schedule })),
       prDetail(prId, machineId, opts = {}) {
         return forgeAsk<PrDetail>({ type: 'forge.detail', requestId: `forge-${Date.now()}-${++forgeSeq}`, prId, machineId, ...(opts.log ? { log: opts.log } : {}) });
