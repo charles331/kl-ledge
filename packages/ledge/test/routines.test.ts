@@ -426,6 +426,9 @@ describe('commands', () => {
     expect(await cmd(user, 'approve', { routine: a.id, expect: a.key, others: [{ routine: b.id, expect: b.key! }, { routine: c.id, expect: c.key! }] })).toMatchObject({ code: 'stale' });
     expect(routines.all().map(r => r.state)).toEqual(['pending', 'pending', 'pending']);
     expect(await cmd(user, 'approve', { routine: a.id, spec: once('a', '2026-12-03T17:00'), others: [{ routine: b.id, expect: b.key! }] })).toMatchObject({ code: 'invalid' });
+    // A grouped answer without the first routine's key: refused, nothing approved unseen.
+    expect(await cmd(user, 'approve', { routine: a.id, others: [{ routine: b.id, expect: b.key! }] })).toMatchObject({ code: 'invalid' });
+    expect(routines.all().map(r => r.state)).toEqual(['pending', 'pending', 'pending']);
     expect(await cmd(as('iris'), 'approve', { routine: a.id, others: [{ routine: b.id, expect: b.key! }] })).toMatchObject({ code: 'forbidden' });
     const now = routines.all();
     const keyOf = (id: string) => now.find(r => r.id === id)!.key!;

@@ -640,6 +640,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         if (session) return refuse('forbidden', "seul l'utilisateur active ou refuse une routine");
         const others = cmd.others ?? [];
         if (others.length && cmd.spec) return refuse('invalid', 'une correction ne vaut que pour une seule routine');
+        // A grouped approval names the key of every routine it covers, the first one's included: none is approved unseen.
+        if (cmd.op === 'approve' && others.length && cmd.expect === undefined) return refuse('invalid', 'une activation groupée donne la clé de chaque routine');
         // A grouped answer is all or nothing: every routine is checked before any is answered.
         const members: { r: Routine; expect?: string }[] = [{ r, ...(cmd.expect !== undefined ? { expect: cmd.expect } : {}) }];
         for (const o of others) {
