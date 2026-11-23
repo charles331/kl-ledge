@@ -168,7 +168,8 @@ export type RoutineCmd = z.infer<typeof RoutineCmdSchema>;
 /** The answer to a `routine.cmd`: the routine as it now is, `removed` (its id) after `rm` or `refuse`, or why it was refused. */
 export const RoutineResultSchema = z.object({
   type: z.literal('routine.result'), rid: z.string(), routine: RoutineSchema.optional(), removed: RoutineIdSchema.optional(),
-  reason: z.string().max(ROUTINE_REASON_MAX).optional(), code: RoutineRefusalSchema.optional(), field: FieldReadSchema
+  /** A code a reader does not know yet (a newer daemon's) still reads as a refusal: `invalid`. */
+  reason: z.string().max(ROUTINE_REASON_MAX).optional(), code: RoutineRefusalSchema.catch('invalid').optional(), field: FieldReadSchema
 });
 /** Every change of every routine, to every local front: the routine as it now is, or `removed` (its id). Exactly one of the two. */
 export const RoutineChangedSchema = z.object({ type: z.literal('routine.changed'), routine: RoutineSchema.optional(), removed: RoutineIdSchema.optional() });

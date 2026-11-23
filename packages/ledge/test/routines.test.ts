@@ -420,6 +420,20 @@ describe('commands', () => {
     expect(await approving).toMatchObject({ code: 'stale' });
     expect(only()).toMatchObject({ state: 'pending', prompt: 'Supprime tout.' });
   });
+  it('a change whose folder check outlasts an approval is stale, and the approval stands', async () => {
+    let release: (() => void) | undefined;
+    routines.close();
+    let blockNext = false;
+    routines = createRoutines(deps({ folder: () => blockNext ? (blockNext = false, new Promise(res => { release = () => res(undefined); })) : Promise.resolve(undefined) }));
+    const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
+    blockNext = true;
+    const changing = cmd(as('iris'), 'update', { routine: r.id, patch: { prompt: 'Supprime tout.' } });
+    await flush();
+    expect((await cmd(user, 'approve', { routine: r.id, expect: routineKey(r) })).routine).toMatchObject({ state: 'enabled' });
+    release!();
+    expect(await changing).toMatchObject({ code: 'stale' });
+    expect(only()).toMatchObject({ state: 'enabled', prompt: r.prompt });
+  });
   it('« Activer » with the key it was shown applies; another session\'s change after the showing makes it stale', async () => {
     const r = (await cmd(as('iris'), 'add', { spec: spec() })).routine!;
     const shown = routineKey(r);

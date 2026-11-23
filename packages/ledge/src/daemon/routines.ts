@@ -542,6 +542,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
       if (active().length >= ROUTINES_ACTIVE_MAX) return refuse('invalid', `${ROUTINES_ACTIVE_MAX} routines actives au plus`);
       const spec = await checked(cmd.spec, true);
       if ('reason' in spec) return refused(spec);
+      // Others may have been added while the folder was checked.
+      if (active().length >= ROUTINES_ACTIVE_MAX) return refuse('invalid', `${ROUTINES_ACTIVE_MAX} routines actives au plus`);
       if (taken(spec)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
       const r = put(scheduled({ ...spec, id: newId(), catchUp: spec.catchUp ?? 'once', state: session ? 'pending' : 'enabled',
         createdBy: session ? { kind: 'session', id: session.id, name: session.name } : { kind: 'user' }, createdAt: iso() }));
@@ -571,6 +573,8 @@ export function createRoutines(d: RoutinesDeps): Routines {
         const what = material(merged.data, specOf(r));
         const next = await checked(merged.data, what);
         if ('reason' in next) return refused(next);
+        // Changed while its folder was checked (an approval, another change): this change was made on what is no longer there.
+        if (routines.get(r.id) !== r) return refuse('stale', `la routine ${r.name} a changé pendant la modification`);
         if (taken(next, r.id)) return refuse('name_taken', `${next.target.name} a déjà une routine « ${next.name} »`, 'name');
         // A session's change to what runs, when or where: the routine keeps firing as it is until the owner answers (spec §3.4).
         if (session && what && r.state !== 'pending') {
