@@ -4,7 +4,7 @@ import { BRIEF_MAX, isArchived, taskClosed, type ClientMessage, type Handover, t
 import type { Store } from './store.js';
 import type { Mailbox } from './mailbox.js';
 import { log } from '../log.js';
-import { routinesOf, scheduleText, targetNames } from '../routine-text.js';
+import { routineLive, routinesOf, scheduleText, targetNames } from '../routine-text.js';
 
 type TaskCmd = Extract<ClientMessage, { type: 'task.cmd' }>;
 
@@ -98,7 +98,7 @@ export function createHandovers(d: HandoverDeps): Handovers {
 
   /** Its routines follow it by name (§3.6): the relief is told which, and to reread its memory files on the first one. */
   function routinesLine(s: Session): string[] {
-    const held = routinesOf(d.routines?.() ?? [], { cwd: s.cwd, names: targetNames(s, id => d.store.get(id)) });
+    const held = routinesOf((d.routines?.() ?? []).filter(routineLive), { cwd: s.cwd, names: targetNames(s, id => d.store.get(id)) });
     if (!held.length) return [];
     return [`Ses routines te reviennent : Ledge te tapera ${held.map(r => `« ${r.name} » (${scheduleText(r.schedule, 'fr')})`).join(', ')}. À la première, relis d'abord tes fichiers de mémoire.`];
   }

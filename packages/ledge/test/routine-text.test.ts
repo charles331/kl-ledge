@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { Routine } from '@ledge/protocol';
-import { daysText, routinesOf, scheduleText, targetNames } from '../src/routine-text.js';
+import { daysText, routineLive, routinesOf, scheduleText, targetNames } from '../src/routine-text.js';
 
 const at = '2026-11-23T08:00:00.000Z';
-const routine = (name: string, target: string, cwd: string): Routine => ({ id: 'r0a1b2c', name, target: { name: target, cwd, tool: 'claude' }, schedule: { times: ['08:00'], days: ['mon'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: at });
+const routine = (name: string, target: string, cwd: string): Routine => ({ id: 'r0a1b2c', name, target: { name: target, cwd, tool: 'claude' }, schedule: { kind: 'recurring', times: ['08:00'], days: ['mon'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: at });
 
 describe('routine text (routines spec §3.3, §3.5, §3.6)', () => {
   it('a session holds the routines aimed at its name, or the name it relieves, in its own folder only', () => {
@@ -34,8 +34,17 @@ describe('routine text (routines spec §3.3, §3.5, §3.6)', () => {
     expect(daysText(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], 'fr')).toBe('tous les jours');
   });
 
+  it('every other week names its anchor week; a one-off its moments; a one-off that fired is no longer live (§3.1.1)', () => {
+    expect(scheduleText({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, 'fr')).toBe('16:00 (jeu, une semaine sur deux, semaine du 2026-11-27)');
+    expect(scheduleText({ kind: 'recurring', times: ['10:05'], days: ['fri'], every: { weeks: 1, anchor: '2026-11-27' } }, 'en')).toBe('10:05 (fri)');
+    expect(scheduleText({ kind: 'once', at: ['2026-12-05T09:00', '2026-12-03T16:00'] }, 'fr')).toBe('une fois : 2026-12-03 16:00, 2026-12-05 09:00');
+    expect(scheduleText({ kind: 'once', at: ['2026-12-03T16:00'], tz: 'Europe/Brussels' }, 'en')).toBe('once: 2026-12-03 16:00 (Europe/Brussels)');
+    expect(routineLive({ state: 'done' })).toBe(false);
+    expect(routineLive({ state: 'paused' })).toBe(true);
+  });
+
   it('times are sorted, the zone named when set', () => {
-    expect(scheduleText({ times: ['16:30', '08:00', '13:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, 'fr')).toBe('08:00, 13:30, 16:30 (lun-ven)');
-    expect(scheduleText({ times: ['09:00'], days: ['mon'], tz: 'Europe/Brussels' }, 'en')).toBe('09:00 (mon, Europe/Brussels)');
+    expect(scheduleText({ kind: 'recurring', times: ['16:30', '08:00', '13:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, 'fr')).toBe('08:00, 13:30, 16:30 (lun-ven)');
+    expect(scheduleText({ kind: 'recurring', times: ['09:00'], days: ['mon'], tz: 'Europe/Brussels' }, 'en')).toBe('09:00 (mon, Europe/Brussels)');
   });
 });

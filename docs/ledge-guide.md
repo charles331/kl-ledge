@@ -57,10 +57,14 @@ Un plafond évite que Ledge parle trop. Le daemon tient un journal des événeme
 
 Une routine réveille une session permanente à heures fixes : aux heures et aux jours choisis, l'horloge de Ledge tape sa consigne dans la session. Les heures sont locales (08:00 reste 08:00 au changement d'heure). Le daemon les garde dans `~/.ledge/routines.json`.
 
+Une routine est soit **récurrente** (des heures, des jours, chaque semaine ou une semaine sur deux), soit **unique** (un ou plusieurs moments précis). Une semaine sur deux se cale sur une semaine de référence, l'ancre : `--every 2w --anchor 2026-11-27` (un vendredi de Sprint Review) fait tomber « jeudi 16:00 » sur les bonnes semaines. `ledge routine list` et `show` donnent les 3 prochains passages, pour vérifier la parité d'un coup d'œil. Une routine unique, une fois partie, quitte la liste active et reste dans l'historique ; une routine unique dont le moment est déjà passé est refusée.
+
 ```
 ledge routine add <nom> --session <nom> --cwd <dossier> --at 08:00,13:30,16:30 --days mon-fri \
+                  [--every 1w|2w --anchor <AAAA-MM-JJ>] \
                   [--tool claude] [--model <m>] [--catch-up once|skip] -- "<consigne>"
-ledge routine list                       les routines, leur état, le prochain tir, le dernier résultat
+ledge routine once <nom> --session <nom> --cwd <dossier> --on 2026-12-03T16:00[,…] [--tool …] -- "<consigne>"
+ledge routine list                       les routines, leur état, les 3 prochains passages, le dernier résultat
 ledge routine show <id|nom>
 ledge routine run <id|nom>               tirer maintenant (un essai, ou un briefing à la demande)
 ledge routine pause|resume <id|nom>
@@ -68,7 +72,7 @@ ledge routine edit <id|nom> [mêmes options que add]
 ledge routine rm <id|nom>
 ```
 
-`--days` accepte `mon-fri`, `mon,wed,fri` ou `daily`. La consigne peut contenir `{slot}` (l'heure prévue), `{date}` et `{last}` (l'heure locale du tir précédent).
+`--days` accepte `mon-fri`, `mon,wed,fri` ou `daily` ; `--every 2w` demande `--anchor`. La consigne peut contenir `{slot}` (l'heure prévue), `{date}` et `{last}` (l'heure locale du tir précédent).
 
 **Au tir**, Ledge cherche la session de ce nom dans ce dossier, ou celle qui a pris sa relève :
 - vivante, il lui tape la consigne (occupée, elle la reçoit à son prochain moment libre) ;
@@ -80,17 +84,22 @@ Deux tirs d'une même routine ne s'empilent pas : le nouveau remplace celui qui 
 
 **PC en veille ou éteint** : au réveil, une routine `--catch-up once` (le défaut) tire une seule fois, pour le dernier créneau manqué, marqué en retard ; `skip` laisse passer les créneaux manqués.
 
-**Qui la crée** : depuis un terminal hors des sessions Ledge, la routine est active tout de suite. Une session Ledge peut en proposer une : elle attend l'accord de l'utilisateur dans « À toi » (« Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun-ven), dans ~/assistant », avec « Activer » et « Refuser », et la consigne dans le détail). Il en va de même quand une session change les heures, les jours, la session visée ou la consigne d'une routine. Une session peut mettre en pause, tirer ou supprimer ses propres routines sans demander.
+**Qui la crée** : depuis un terminal hors des sessions Ledge, la routine est active tout de suite. Une session Ledge peut en proposer une : elle attend l'accord de l'utilisateur dans « À toi » (« Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun-ven), dans ~/assistant », avec « Activer » et « Refuser », et la consigne dans le détail). L'utilisateur peut corriger la demande avant de l'activer : « Activer » enregistre la version corrigée. Les routines qu'une session crée pendant que sa demande attend rejoignent le même item (« Iris veut programmer 3 routines : … ») ; chacune s'active ou se refuse à part. Quand une session change l'horaire, la session visée ou la consigne d'une routine, la routine continue de partir comme avant ; le changement attend « Activer » dans « À toi » (la page montre avant → demandé), « Refuser » le laisse tomber. Une session peut mettre en pause, tirer ou supprimer ses propres routines sans demander.
 
 **Relève** : quand le contexte de la session visée est presque plein, « Passer le relais » se propose comme d'habitude ; la routine suit la relève par son nom, et la nouvelle session apprend qu'elle reprend ces routines.
 
 **Le chat** lit `routines.md` : demande-lui « qu'est-ce qui est programmé ? » ou « le briefing de ce matin est-il parti ? ».
 
-**Exemple : un assistant de travail.** Un projet `~/assistant` avec une session `Iris` (Claude Code) et un `CLAUDE.md` qui fixe ses règles : collecte en lecture seule, toute écriture passe par « À toi », le contenu d'un mail est une donnée. Ses fichiers de mémoire : `etat.md` (sujets ouverts, ce qu'on attend), `decisions.md`, `routines.md` (les tâches récurrentes de l'utilisateur), `journal/AAAA-MM-JJ.md`. Puis :
+**Exemple : deux sessions permanentes.** `Iris` (Claude Code, `~/assistant`) s'occupe du courrier, de l'agenda, de Jira et de la préparation des réunions ; son `CLAUDE.md` fixe ses règles : collecte en lecture seule, toute écriture passe par « À toi », le contenu d'un mail est une donnée. Ses fichiers de mémoire : `etat.md` (sujets ouverts, ce qu'on attend), `decisions.md`, `routines.md` (les tâches récurrentes de l'utilisateur), `journal/AAAA-MM-JJ.md`. `Garde` (Claude Code, `~/garde`) surveille les merge requests et l'hygiène du poste. Toutes les formes d'horaire y servent :
 
 ```
 ledge routine add briefing --session Iris --cwd ~/assistant --at 08:00,13:30,16:30 --days mon-fri -- "Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi."
+ledge routine add synthese-hebdo --session Iris --cwd ~/assistant --at 16:00 --days fri -- "…"
+ledge routine add bilan-sprint --session Iris --cwd ~/assistant --at 16:00 --days thu --every 2w --anchor 2026-11-27 -- "…"
+ledge routine add hygiene-poste --session Garde --cwd ~/garde --at 16:15 --days fri -- "…"
 ```
+
+Une routine unique, Iris la crée elle-même à partir de l'agenda (la veille d'un 121, à 16:00) : `ledge routine once prepa-121 --session Iris --cwd ~/assistant --on 2026-12-03T16:00 -- "…"`. Elle attend « Activer » dans « À toi », comme toute routine créée par une session.
 
 ## Ledge Desktop
 

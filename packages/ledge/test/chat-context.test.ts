@@ -296,7 +296,7 @@ describe('writeContext: what the actions need', () => {
 });
 
 describe('routines.md (routines spec §3.5)', () => {
-  const routine = (extra: Partial<Routine> = {}): Routine => ({ id: 'r0a1b2c', name: 'briefing', target: { name: 'Otto', cwd: '/w/ledge', tool: 'claude', model: 'opus' }, schedule: { times: ['13:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
+  const routine = (extra: Partial<Routine> = {}): Routine => ({ id: 'r0a1b2c', name: 'briefing', target: { name: 'Otto', cwd: '/w/ledge', tool: 'claude', model: 'opus' }, schedule: { kind: 'recurring', times: ['13:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
     prompt: 'Briefing de {slot}.\nRelis etat.md.', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: T0, nextRun: '2026-10-11T11:30:00.000Z',
     lastRun: { at: '2026-10-11T06:42:00.000Z', slot: '08:00', outcome: 'launched', late: true }, ...extra });
 
@@ -308,8 +308,8 @@ describe('routines.md (routines spec §3.5)', () => {
     expect(md).toContain('- state: enabled');
     expect(md).toContain('- wakes: Otto (claude, opus) in /w/ledge, live now as session a (working)');
     expect(md).toContain('- at: 08:00, 13:30 (mon-fri)');
-    expect(md).toContain('- next firing: 2026-10-11T11:30:00.000Z');
-    expect(md).toContain('- last firing: 2026-10-11T06:42:00.000Z, slot 08:00 (late: fired on wake), a new session was launched with the prompt');
+    expect(md).toContain('- next firings: 2026-10-11T11:30:00.000Z');
+    expect(md).toContain('- last firings, newest first:\n  - 2026-10-11T06:42:00.000Z, slot 08:00 (late: fired on wake), a new session was launched with the prompt');
     expect(md).toContain('- prompt: Briefing de {slot}. Relis etat.md.');
     expect(stepFor(join(dir, 'routines.md'), ctx)).toEqual({ kind: 'sessions' });
   });
@@ -318,13 +318,25 @@ describe('routines.md (routines spec §3.5)', () => {
     const md = routinesMd([routine({ state: 'pending', createdBy: { kind: 'session', id: 'a', name: 'Otto' }, lastRun: { at: T0, slot: '08:00', outcome: 'failed', reason: 'dossier introuvable' } }),
       routine({ id: 'r0a1b2d', name: 'hebdo', lastRun: undefined, state: 'paused', prompt: 'x'.repeat(600) })], [mk('a', { cwd: '/w/autre' })], T0);
     expect(md).toContain("- state: pending: a session asked for it, it waits for the user's « Activer » or « Refuser » in « À toi »");
-    expect(md).toContain('- next firing: none while it is not enabled');
+    expect(md).toContain('- next firings: none while it is not enabled');
     expect(md).toContain('failed: dossier introuvable');
     expect(md).toContain('- created by: session Otto');
     expect(md).toContain('- last firing: never');
     expect(md).toContain('not running now: the next firing resumes or launches it');
     expect(md).toContain('… (cut: `ledge routine show r0a1b2d` has the rest)');
     expect(routinesMd([], [], T0)).toContain('No routines.');
+  });
+
+  it('the last five firings with their day, the next three, a change a session asked for, a one-off that fired (contract v2)', () => {
+    const md = routinesMd([routine({ nextRuns: ['2026-10-12T06:00:00.000Z', '2026-10-12T11:30:00.000Z', '2026-10-13T06:00:00.000Z'],
+      runs: [{ at: '2026-10-11T06:00:05.000Z', slot: '08:00', slotAt: '2026-10-11T08:00', outcome: 'delivered' }, { at: '2026-10-10T14:30:00.000Z', slot: '16:30', outcome: 'failed', reason: 'pas tapée en 30 min' }],
+      proposal: { spec: { name: 'briefing', target: { name: 'Otto', cwd: '/w/ledge', tool: 'claude' }, schedule: { kind: 'recurring', times: ['09:00'], days: ['mon'], every: { weeks: 2, anchor: '2026-11-27' } }, prompt: 'Autre chose' }, by: { id: 'a', name: 'Otto' }, at: T0 } }),
+      routine({ id: 'r0a1b2d', name: 'prepa-121', state: 'done', expiresAfterRun: true, schedule: { kind: 'once', at: ['2026-12-03T16:00'] } })], [], T0);
+    expect(md).toContain('- next firings: 2026-10-12T06:00:00.000Z, 2026-10-12T11:30:00.000Z, 2026-10-13T06:00:00.000Z');
+    expect(md).toContain('  - 2026-10-11T06:00:05.000Z, slot 2026-10-11 08:00, typed into the live session\n  - 2026-10-10T14:30:00.000Z, slot 16:30, failed: pas tapée en 30 min');
+    expect(md).toContain("- change asked by session Otto at 2026-10-11T10:00:00.000Z, waiting for the user's « Activer » (the routine fires as before until then): at 09:00 (mon, every other week, week of 2026-11-27), wakes Otto in /w/ledge, prompt changed");
+    expect(md).toContain('- state: done: a one-off routine that has fired, kept for its history');
+    expect(md).toContain('- at: once: 2026-12-03 16:00 (one-off: done once fired)');
   });
 
   it('a routine aimed at a session relieved twice is live in the relief at the end of the chain (review of b7093994)', () => {

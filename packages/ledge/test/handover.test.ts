@@ -274,7 +274,7 @@ describe('the relief of a session (context handover spec §3.3)', () => {
 describe('a relief and the routines of the session it relieves (routines spec §3.6)', () => {
   const T = '2026-11-23T08:00:00.000Z';
   const iris: Session = { id: 'a1', name: 'Iris', tool: 'claude', cwd: '/w/assistant', project: 'assistant', title: 'Iris', tmuxSession: 'ledge-a1', state: 'idle', helpers: [], startedAt: T, lastActivityAt: T, source: 'launcher' };
-  const routine = (name: string, target: string, cwd: string): Routine => ({ id: 'r0a1b2c', name, target: { name: target, cwd, tool: 'claude' }, schedule: { times: ['16:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: T });
+  const routine = (name: string, target: string, cwd: string): Routine => ({ id: 'r0a1b2c', name, target: { name: target, cwd, tool: 'claude' }, schedule: { kind: 'recurring', times: ['16:30', '08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, prompt: 'p', catchUp: 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: T });
   async function relievedPrompt(routines?: Routine[], before: Session[] = [], who: Session = iris): Promise<string> {
     const st = new Store(); for (const b of before) st.upsert(b); st.upsert(who);
     let prompt = '';

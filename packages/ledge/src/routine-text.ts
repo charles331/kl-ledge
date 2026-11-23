@@ -59,7 +59,17 @@ export function daysText(days: readonly Weekday[], lang: 'fr' | 'en'): string {
   return parts.join(',');
 }
 
-/** « 08:00, 13:30, 16:30 (lun-ven) », the times sorted, the zone named when the routine has one. */
+const EVERY_OTHER = { fr: (anchor: string) => `une semaine sur deux, semaine du ${anchor}`, en: (anchor: string) => `every other week, week of ${anchor}` } as const;
+const ONCE = { fr: 'une fois', en: 'once' } as const;
+
+/** A schedule in one line, the only place that reads its fields (§3.1.1): « 08:00, 13:30, 16:30 (lun-ven) », « 16:00 (jeu, une
+ *  semaine sur deux, semaine du 2026-11-27) », « une fois : 2026-12-03 16:00 », the zone named when the routine has one. */
 export function scheduleText(s: RoutineSchedule, lang: 'fr' | 'en'): string {
-  return `${[...s.times].sort().join(', ')} (${daysText(s.days, lang)}${s.tz ? `, ${s.tz}` : ''})`;
+  const tz = s.tz ? `, ${s.tz}` : '';
+  if (s.kind === 'once') return `${ONCE[lang]}${lang === 'fr' ? ' : ' : ': '}${[...s.at].sort().map(a => a.replace('T', ' ')).join(', ')}${s.tz ? ` (${s.tz})` : ''}`;
+  const every = s.every?.weeks === 2 ? `, ${EVERY_OTHER[lang](s.every.anchor)}` : '';
+  return `${[...s.times].sort().join(', ')} (${daysText(s.days, lang)}${every}${tz})`;
 }
+
+/** Whether a routine can still fire: a one-off that has fired (`done`) is kept for its history only. */
+export const routineLive = (r: Pick<Routine, 'state'>): boolean => r.state !== 'done';
