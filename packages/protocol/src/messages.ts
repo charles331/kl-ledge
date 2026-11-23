@@ -128,6 +128,7 @@ export const DaemonInfoSchema = z.object({ version: z.string(), install: z.enum(
   /** `term.watch` also streams an OpenRig seat (`@` in its tmux name), through a control client on the seat's own tmux server.
    *  Without it, a front keeps a seat on the pseudo-terminal: an older daemon answers its watch `failed`. */ terminalStreamSeats: z.boolean().optional(),
   /** Sends `forge.state` and answers `forge.detail` and `forge.act`: the pull and merge requests of its sessions' branches (lot 8a). */ forge: z.boolean().optional(),
+  /** Answers `routine.list`, `routine.cmd` and `routine.preview`, and sends `routine.changed` (spec 2026-11-23 routines). */ routines: z.boolean().optional(),
   /** Its launcher answers `shell --nonce <N> <dir>` (#299): a free shell started through it gets the shell integration (OSC 633). */ freeShell: z.boolean().optional() });
 export type DaemonInfo = z.infer<typeof DaemonInfoSchema>;
 export const UpdateFailureSchema = z.enum(['git-install', 'no-systemd', 'sessions-at-risk', 'npm-failed', 'busy']);
