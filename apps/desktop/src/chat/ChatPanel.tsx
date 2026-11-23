@@ -17,7 +17,7 @@ import { useChatCards, usePointActs } from './useChatCards';
 import { CardModelPick } from './CardModelPick';
 import { useProjectReview } from './projectReview';
 import { useTaskCards } from './useTaskCards';
-import { HistoryPane, RightTabStrip, TasksPane, type ListState, type RightTabs } from './RightTabs';
+import { HistoryPane, RightTabStrip, shownTasks, TasksPane, type ListState, type RightTabs } from './RightTabs';
 import { taskClosed } from '@ledge/protocol';
 
 export interface ChatPanelProps {
@@ -152,7 +152,7 @@ export function ChatPanel({ client, view, paused, focus, askedOnly, onClose, onO
             onGiveTask={taskCards.giveTask} taskBusy={taskCards.taskBusy}
             onPointAnswer={points.answer} onPointSuggest={points.suggest} pointBusy={points.busy} pointConfirm={points.confirm} onPointConfirm={points.settle}
             onPointNav={(turn, n) => { const m = turnMachine(turn.qid); if (m) onPointNav?.(m, n); }} pointMachine={pointMachine} onPointSeen={onPointSeen}
-            belowHeader={tabs && <RightTabStrip tab={tabs.tab} open={tabs.tasks.tasks.filter(x => !taskClosed(x)).length} onTab={tab => tabs.onTab(tab)} />} body={tabBody}
+            belowHeader={tabs && <RightTabStrip tab={tabs.tab} open={shownTasks(tabs.tasks.tasks).filter(x => !taskClosed(x)).length} onTab={tab => tabs.onTab(tab)} />} body={tabBody}
             onAgentHover={setHovered} inputRef={inputRef} attach={{ items: images.items, onFiles: images.add, onRemove: images.remove, ready: images.ready, error: images.error }}
             theme={theme} frozen={offline !== null} reducedMotion={paused || reduced} />
         </ChatCopyProvider>

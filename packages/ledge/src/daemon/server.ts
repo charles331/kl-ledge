@@ -57,6 +57,7 @@ import { broadcastFromSession, broadcastFromUser } from './broadcast.js';
 import { addFromUser, applyProposal, checkProposal, clearFlag, markChecked, noteInfos } from '../brain/write.js';
 import { notesDir } from '../brain/notes.js';
 import { createTasks, type TasksJournal } from './tasks.js';
+import { createRoutines, type Routines, type RoutinesJournal } from './routines.js';
 import { createHandovers, heldNames } from './handover.js';
 import { readTurn } from './context.js';
 import type { createDaemonUpdater } from '../update/run-update.js';
@@ -217,7 +218,7 @@ function logDroppedRequest(id: string, ev: SessionEvent, before: Session | undef
 /** The reports an agent may have waiting on the user at once (issue #9). */
 const REPORTS_OPEN_MAX = 5;
 
-export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
+export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
   /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
   report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
@@ -237,7 +238,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   /** OpenRig's asks and Max's goals as last read: what the chat's attentes.md and rigs.md say. */
   let rigAsks: readonly HumanAsk[] | undefined, rigGoals: readonly Goal[] | undefined;
   // The chat's queue rows per rig are left out: OpenRig's queue is read per rig through `rig`, too costly at every question.
-  const chatDeps: ChatDeps = { attachments, store, tmux, home: paths().dir, notesDir: join(paths().dir, 'context'), userHome: opts.home, env: agentEnv, bin: opts.claudeBin, now, projects: () => projects, forge: createForge({ env: agentEnv }), tasks: () => tasks.all(), rigs: () => openrig.peek?.(), usage: () => opts.usage?.state().harnesses,
+  /** The routines' scheduler, made once the tasks exist: the mailbox tells it how each firing's line went, the chat and the relief read it. */
+  let routines: Routines | undefined;
+  const chatDeps: ChatDeps = { routines: () => routines?.all() ?? [], attachments, store, tmux, home: paths().dir, notesDir: join(paths().dir, 'context'), userHome: opts.home, env: agentEnv, bin: opts.claudeBin, now, projects: () => projects, forge: createForge({ env: agentEnv }), tasks: () => tasks.all(), rigs: () => openrig.peek?.(), usage: () => opts.usage?.state().harnesses,
     asks: () => rigAsks, goals: () => rigGoals, prs: () => opts.forge?.state().prs, ...(opts.operator ? { journal: (t: DeviceId) => operator?.journalFor(t) ?? [] } : {}) };
   const threads = createChatThreads(chatDeps);
   const chat: Chat = opts.chat ?? threads.desktop;
@@ -584,6 +587,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const userBroadcasts = new Map<string, Extract<ServerMessage, { type: 'session.broadcast.result' }>>();
   const mailbox = createMailbox({
     store, replyTo: replyText, typing, closing, now, ...(opts.mail ? { journal: opts.mail } : {}),
+    noticeDone: (rid, typed, reason) => routines?.noticeDone(rid, typed, reason),
     relayQueued: id => cardThreads.queuedRelays().some(q => q.relay.id === id),
     sent: mailSent
   });
@@ -601,8 +605,18 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (tr?.op === 'give' && tr.to === LEDGE_GIVER) notifyDecision?.(task);
   } });
   // The relief of a session whose context is nearly full (context handover spec §3.3). `launch` and `closeSession` are hoisted.
-  const handovers = createHandovers({ store, mailbox, tasks, launch: req => launch(req), close: s => closeSession(s),
+  const handovers = createHandovers({ store, mailbox, tasks, routines: () => routines?.all() ?? [], launch: req => launch(req), close: s => closeSession(s),
     dir: join(paths().dir, 'handovers'), now, ...(opts.handoverBriefMs !== undefined ? { briefMs: opts.handoverBriefMs } : {}) });
+  // Routines (spec 2026-11-23): Ledge's clock wakes a standing session; `respawn` and `launch` are hoisted.
+  routines = createRoutines({ store, mailbox, tasks, ...(opts.routines ? { journal: opts.routines } : {}), ...(opts.home ? { home: opts.home } : {}),
+    resumable: s => s.source !== 'rig' && resumeKey(s) !== undefined,
+    resume: s => respawn(s, resumeKey(s)!, s.model, s.effort),
+    launch: req => launch(req),
+    // A routine's change also feeds « le point » (a new firing is a routine.fired event); `routines` is still unset when a firing
+    // interrupted at restart is recorded failed during construction.
+    onChange: m => { broadcast(m); if (routines) operator?.routinesChanged(routines.all()); } });
+  const routineList = routines;
+  operator?.routinesChanged(routineList.all());
   /** Each session's state last seen: a turn's end (→ idle) is when its context is read again. */
   const lastState = new Map<string, Session['state']>();
   /** Reads a session's context after a turn (§3.1). */
@@ -657,7 +671,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
@@ -1198,6 +1212,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     answerBrain: (task, yes) => { const r = answerProposal(task, { yes }, randomUUID()); return r.reason !== undefined ? { message: r.reason } : undefined; },
     applySuggestion: (qid, itemId, row, confirmed, by, onMark) => applySuggestionRow(qid, itemId, row, confirmed, (card, cardQid, ok) => actOnCard(card, cardQid, randomUUID(), [0], ok, undefined, by), onMark),
     isBrain: task => tasks.all().find(t => t.id === task)?.brain !== undefined,
+    // A routine's « À toi » row: « Relancer » fires it again as the owner would (routines spec §3.2).
+    routine: {
+      of: taskId => tasks.all().find(t => t.id === taskId)?.routine,
+      run: async id => { const r = await routineList.run({ type: 'routine.cmd', rid: randomUUID(), op: 'run', routine: id }, { kind: 'user' }); return r.code ? { message: r.reason ?? r.code } : undefined; }
+    },
     operator: {
       settle: (...a) => { try { operator?.operator.settle(...a); } catch (e) { log(`operator: point not settled: ${(e as Error).message}`); } },
       expect: (...a) => operator?.operator.expect(...a) ?? (() => {})
@@ -1878,6 +1897,16 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         return reply(tasks.run(msg));
       }
       // The brain's screens (lot 4): a proposal's buttons, Réglages › Notes and its two writes.
+      // Routines: anyone local reads them; a session acts in its own name only, its key checked as for a task.
+      case 'routine.list': return reply({ type: 'routine.listed', rid: msg.rid, routines: routineList.all(), ...(msg.by ? { owned: routineList.ownedBy(msg.by) } : {}) });
+      case 'routine.preview': return reply(routineList.preview(msg.rid, msg.schedule));
+      case 'routine.cmd': {
+        if (msg.by === undefined) return reply(await routineList.run(msg, { kind: 'user' }));
+        const wrong = notItsKey(msg.by, msg.key);
+        const session = store.get(msg.by);
+        if (wrong || !session) return reply({ type: 'routine.result', rid: msg.rid, code: 'forbidden', reason: wrong ?? `session inconnue : ${msg.by}` });
+        return reply(await routineList.run(msg, { kind: 'session', session }));
+      }
       case 'brain.answer': {
         // From a local front: the PC's. A phone's goes through the gateway, which said `phone` first (the first hint wins).
         const release = operator?.operator.expect('task', msg.task, 'desktop') ?? (() => {});
@@ -2045,7 +2074,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     challenges: createChallengeStore(),
     credential: id => mobile.credential(id),
     setCredential: (id, c) => mobile.setCredential(id, c),
-    tasks: () => tasks.all(), contextNear: () => contextPrefs.near, ...(usage ? { usage: () => { const st = usage.state(); return { harnesses: st.harnesses, prefs: st.prefs }; } } : {}),
+    tasks: () => tasks.all(), routines: () => routineList.all(), contextNear: () => contextPrefs.near, ...(usage ? { usage: () => { const st = usage.state(); return { harnesses: st.harnesses, prefs: st.prefs }; } } : {}),
     // The Atelier on the phone: the user's projects, the sessions placed in them as on the desktop; a `projects.set` follows by `forward`.
     projects: () => projects,
     // A project's folders from the phone: this machine's, browsed from its home, its recent folders first; the others by their label.
@@ -2131,6 +2160,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         onNotices: n => notices.tell(n),
         onPointPush: (lead, qidByDevice) => notifyPoint?.(lead, qidByDevice), onUrgentAsks: asks => notifyAsks?.(asks) });
       operator.start();
+      // The routines as they are at start: their baseline, so a firing from before it is not news.
+      operator.routinesChanged(routineList.all());
       // OpenRig's asks are followed for the journal too, where OpenRig is installed; the first list read is the baseline.
       // Max's goals too: the first list read is their baseline.
       void openrig.state().then(st => {
@@ -2188,6 +2219,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     sweepAttachments,
     closeSession: id => { const s = store.get(id); return s ? closeSession(s) : Promise.reject(unknownSession()); },
     labelExited,
-    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); operator?.stop(); gateway?.stop(); relay.close(); mailbox.close(); tasks.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
+    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); operator?.stop(); gateway?.stop(); relay.close(); mailbox.close(); tasks.close(); routineList.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
   };
 }

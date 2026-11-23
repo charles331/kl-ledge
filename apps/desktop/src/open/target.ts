@@ -9,7 +9,9 @@ export type LedgeTarget =
   /** A rig's question in « À toi », by its OpenRig queue item; the shell focuses it there. */
   | { kind: 'ask'; id: string }
   /** « À toi » itself (a decision put to the user, from the notch). */
-  | { kind: 'atoi' };
+  | { kind: 'atoi' }
+  /** A routine's page (routines mockup, card 15: the island's « Voir »), by its machine and its id. */
+  | { kind: 'routine'; machine: string; id: string };
 
 const str = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 4096;
 
@@ -25,13 +27,14 @@ export function parseTarget(raw: string): LedgeTarget | null {
     case 'point': return str(o.qid) ? { kind: 'point', qid: o.qid } : null;
     case 'ask': return str(o.id) ? { kind: 'ask', id: o.id } : null;
     case 'atoi': return { kind: 'atoi' };
+    case 'routine': return str(o.machine) && !o.machine.includes(':') && typeof o.id === 'string' && /^r[0-9a-f]{6}$/.test(o.id) ? { kind: 'routine', machine: o.machine, id: o.id } : null;
     default: return null;
   }
 }
 
 /** Where a target takes Desktop: a session (its terminal and documents live on its page), a Settings section, the New
  *  session dialog. The island's gear opens « Settings in Ledge Desktop », its own section first. */
-export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'atoi' }>): NavAction {
+export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'atoi' | 'routine' }>): NavAction {
   switch (t.kind) {
     case 'session': case 'terminal': return { type: 'open', id: t.id };
     case 'document': return { type: 'home' };

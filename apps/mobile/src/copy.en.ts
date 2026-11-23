@@ -2,6 +2,7 @@ import { MESSAGE_MAX, type ActionErrorCode } from '@ledge/protocol';
 import { actionWords, type ActionVars } from '@ledge/ui/chat/actionWords';
 import { prsEn } from './copy.prs.en';
 import { rigsEn } from './copy.rigs.en';
+import { routinesEn } from './copy.routines.en';
 
 import type { Copy, Model } from './copy';
 
@@ -1209,5 +1210,6 @@ export const en: Copy = {
     lostBody: 'The session may have started: check Sessions before launching again.',
     retry: 'Retry', settings: 'Settings',
     started: (name: string, table: string) => `${name} is starting at the ${table} table.`
-  }
+  },
+  routines: routinesEn
 };

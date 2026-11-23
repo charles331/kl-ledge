@@ -96,7 +96,14 @@ import { openSessionTerminal } from './session/terminal';
 import { IdeWelcome, recentSessions, type EmptyPick } from './ide/IdeWelcome';
 import { routeNav, tabNav } from './workspace/route';
 import { tabTitle, type TabBody } from './ide/tabs';
-import { IdeAtelierBar, IdeAtoi, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView } from './ide/lazy';
+import { IdeAtelierBar, IdeAtoi, IdeAtoiRoutineCards, IdeAtoiRoutines, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView, IdeRoutine, IdeRoutines } from './ide/lazy';
+import { useRoutines } from './routines/useRoutines';
+import { useRoutineActions } from './routines/useRoutineActions';
+import { RoutineTabLabel } from './routines/icons';
+import type { PageDirt } from './routines/RoutinePage';
+import { atoiRoutineItems, findRoutine, TASKS_MACHINE, homeLabel, NEW_ROUTINE_REF, proposalsOf, routineRef, routinesBadge, routinesOfSession, sessionOfRoutine, type SpecDraft } from './routines/model';
+import { whenLabel } from './routines/schedule';
+import type { FleetRoutine } from '@ledge/fleet';
 import { useForge } from './forge/useForge';
 import { AtoiTabLabel } from './ide/atoi/AtoiTabLabel';
 import { forgeLines, NO_PRS_FILTER, noForgeReadable, reachOf, type PrsFilter } from './forge/states';
@@ -240,7 +247,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const [boot] = useState(() => bootWorkspace(loadBoot(), loadIdeWorkspace(), loadDispositions(), ATELIER_TAB));
   // A bottom-panel shell's tab closed by the user (its ×, middle click, Ctrl+W, the menu) kills the shell (R9); a tab the model
   // drops by itself (reconcile, a move, a disposition applied) does not.
-  const [wsStore] = useState(() => createWorkspaceStore(boot.ws, { closed: key => { if (key.startsWith('terminal:shell:')) termStore.closeFree(key.slice('terminal:'.length)); } }));
+  // A routine's page with unsaved changes asks before its tab closes (routines mockup, card 4): App sets this once it knows.
+  const closeGuard = useRef<(key: string) => boolean>(() => false);
+  const [wsStore] = useState(() => createWorkspaceStore(boot.ws, { closed: key => { if (key.startsWith('terminal:shell:')) termStore.closeFree(key.slice('terminal:'.length)); }, guard: key => closeGuard.current(key) }));
   const ws = useWorkspace(wsStore);
   const [layout, setLayout] = useStored(() => ({ ...loadLayout(), ...boot.panels }), saveLayout);
   // « Dispositions »: the status bar's menu, the palette, Settings › Workspace (applied and saved below, once the panel is known).
@@ -350,6 +359,11 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       const tab: Tab = { kind: 'atoi', ref: 'main' };
       wsStore.update(w => openTab(w, tab));
     }
+    else if (target?.kind === 'routine') {
+      // The island's « Voir » on a routine's item: the sidebar on Routines, the routine's page in front.
+      setLayout(l => (l.sideOpen && l.sideView === 'routines' ? l : layoutFor(l, { type: 'view', view: 'routines' }, window.innerWidth)));
+      wsStore.update(w => openTab(w, { kind: 'routine', ref: `${target.machine}:${target.id}` }));
+    }
     else if (target) dispatch(targetAction(target));
   }), [showTerminal, wsStore]);
   // The Atelier in its own window (#21): what it opens shows here, this window brought forward; its closing gives it back.
@@ -458,7 +472,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const waits = useWaits(sessions);
   const order = useMemo(() => mainOrder(sessions, projects), [sessions, projects]);
   // Putting an agent away: drag and drop or « Ranger dans… » write a folder rule; the toast says how it went.
-  const { notice, action: noticeAction, notify, act: toastAct, undo } = useToast();
+  const { notice, action: noticeAction, mark: noticeMark, notify, act: toastAct, undo } = useToast();
   // A device back with its passkey, or an attempt refused (docs/mockups/ledge-mobile-passkey, 5): « Voir » opens its row in Settings.
   useRecoveryToast(fleet, notify, id => { dispatch({ type: 'settings', section: 'mobile' }); requestDeviceView(id); });
   // Applying a disposition (docs/mockups/ledge-ide-layouts-palette.html, « Appliquer »): its tabs whose session, rig or machine is
@@ -824,6 +838,86 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const forge = useForge(fleet);
   // Issue #3: a request's tab reads in the whole list (followed and the account's own); the filter of « MR et PR » lives with the window.
   const prOf = (id: string) => forge.listed.find(p => p.id === id);
+  // Routines (docs/mockups/ledge-routines.html): every machine's, their « À toi » items (tasks given to Ledge that carry
+  // `routine`), the session each wakes, and what its page tells the app (unsaved changes, the close question).
+  const routines = useRoutines(fleet);
+  const routineProposals = useMemo(() => proposalsOf(tasksApi.tasks), [tasksApi.tasks]);
+  const routineItems = useMemo(() => atoiRoutineItems(tasksApi.tasks, routines), [tasksApi.tasks, routines]);
+  const homeOf = (m: string) => machines.find(x => x.id === m)?.daemon?.home;
+  const routineSession = (r: FleetRoutine) => sessionOfRoutine(r, known, homeOf(r.machineId));
+  const routineTab = (ref: string): Tab => ({ kind: 'routine', ref });
+  const openRoutineRef = (ref: string, where?: 'right') => wsStore.update(w => openTab(w, routineTab(ref), where));
+  const showRoutinesView = () => { if (!(layout.sideOpen && layout.sideView === 'routines')) onLayout({ type: 'view', view: 'routines' }); };
+  const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); }, routines, (r, path) => homeLabel(path, homeOf(r.machineId)));
+  const runRoutine = (r: FleetRoutine) => { const s = routineSession(r); routineActions.run(r, r.target.name, !!s && !s.offline && s.state !== 'exited'); };
+  const openRoutineSession = (r: FleetRoutine) => { const s = routineSession(r); if (s) dispatch({ type: 'open', id: s.id }); };
+  // « Supprimer… » from the sidebar opens the page on its question; « Programmer à nouveau… » a prefilled « Nouvelle routine ».
+  const [routineDelete, setRoutineDelete] = useState<{ ref: string; n: number } | null>(null);
+  const [newPrefill, setNewPrefill] = useState<{ draft: SpecDraft | null; n: number }>({ draft: null, n: 0 });
+  const showNewRoutine = (draft: SpecDraft | null) => { setNewPrefill(x => ({ draft, n: x.n + 1 })); openRoutineRef(NEW_ROUTINE_REF); };
+  // « Programmer à nouveau… » replaces an open « Nouvelle routine », asking first when it has changes (design-ux point 9).
+  const openNewRoutine = (draft: SpecDraft | null = null) => {
+    const key = `routine:${NEW_ROUTINE_REF}`;
+    if (draft && routineDirt.current.get(key)?.dirty && findTab(wsStore.get(), key)) setCloseAsk({ key, then: () => showNewRoutine(draft) });
+    else showNewRoutine(draft);
+  };
+  // The clock asks to light a session's routines in the sidebar when it has several (card 12).
+  const [routinesLit, setRoutinesLit] = useState<ReadonlySet<string>>(new Set());
+  const routineDirt = useRef(new Map<string, PageDirt>());
+  const [dirtyRoutines, setDirtyRoutines] = useState<ReadonlySet<string>>(new Set());
+  const [closeAsk, setCloseAsk] = useState<{ key: string; then?: () => void } | null>(null);
+  const closePass = useRef<string | null>(null);
+  closeGuard.current = key => {
+    if (!key.startsWith('routine:') || closePass.current === key || !routineDirt.current.get(key)?.dirty) return false;
+    setCloseAsk({ key });
+    return true;
+  };
+  const closeNow = (key: string) => { closePass.current = key; wsStore.close(key); closePass.current = null; routineDirt.current.delete(key); setDirtyRoutines(s => { const n = new Set(s); n.delete(key); return n; }); };
+  const onRoutineDirt = (key: string) => (d: PageDirt) => {
+    routineDirt.current.set(key, d);
+    setDirtyRoutines(s => (s.has(key) === d.dirty ? s : (() => { const n = new Set(s); if (d.dirty) n.add(key); else n.delete(key); return n; })()));
+  };
+  const routinesConnecting = !machines.find(m => m.id === 'local')?.daemon && !localDown;
+  // The machines that keep routines (card 28): with more than one, a title per machine and the Machine field.
+  const routineMachines = machines.filter(m => m.daemon?.routines || routines.some(r => r.machineId === m.id))
+    .map(m => ({ id: m.id, label: m.label ?? m.id, up: m.ready && m.status !== 'unreachable' }));
+  const [newMachine, setNewMachine] = useState('local');
+  // A routine's tab whose routine went (card 28): known gone once it was seen this run, or once its machine has answered a while.
+  const seenRoutines = useRef(new Set<string>());
+  for (const r of routines) seenRoutines.current.add(routineRef(r));
+  const [routinesSettled, setRoutinesSettled] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setRoutinesSettled(true), 4000); return () => clearTimeout(timer); }, []);
+  const routineGone = (ref: string) => !findRoutine(routines, ref) && (seenRoutines.current.has(ref)
+    || (routinesSettled && !!routineMachines.find(m => m.id === ref.slice(0, ref.indexOf(':')))?.up));
+  const routineClock = (s: Session) => {
+    const rs = routinesOfSession(s, routines, homeOf(s.machineId ?? 'local'));
+    if (!rs.length) return null;
+    const next = rs.map(r => r.nextRuns?.[0] ?? r.nextRun).find((x): x is string => !!x);
+    const when = next ? whenLabel(next, new Date(), lang, t.routines) : '—';
+    return {
+      tip: rs.length > 1 ? t.routines.clockTipN(rs.length, when) : t.routines.clockTip(rs[0]!.name, when),
+      onClick: () => {
+        showRoutinesView();
+        if (rs.length === 1) { setRoutinesLit(new Set()); openRoutineRef(routineRef(rs[0]!)); } else setRoutinesLit(new Set(rs.map(routineRef)));
+      }
+    };
+  };
+  // The routines a session changed since « À toi » showed them (card 32): their item says so, nothing was activated.
+  const [staleRoutines, setStaleRoutines] = useState<ReadonlySet<string>>(() => new Set());
+  const routineHandlers = {
+    dirLabel: (r: FleetRoutine) => homeLabel(r.target.cwd, homeOf(r.machineId)),
+    onActivate: (rs: readonly FleetRoutine[]) => {
+      setStaleRoutines(new Set());
+      // A group in one command, all or nothing: a routine changed since it was shown leaves the whole group waiting (card 32).
+      void (rs.length > 1 ? routineActions.approveAll(rs) : routineActions.approve(rs[0]!))
+        .then(ok => { if (ok === 'stale') setStaleRoutines(new Set(rs.map(routineRef))); });
+    },
+    stale: staleRoutines,
+    onRefuse: (rs: readonly FleetRoutine[]) => { void (rs.length > 1 ? routineActions.refuseAll(rs) : routineActions.refuse(rs[0]!)); },
+    onRetry: runRoutine,
+    onSee: (r: FleetRoutine) => { showRoutinesView(); openRoutineRef(routineRef(r)); },
+    offline: localDown
+  };
   const [prsFilter, setPrsFilter] = useState<PrsFilter>(NO_PRS_FILTER);
   const machineLabel = (id: string) => machines.find(m => m.id === id)?.label ?? id;
   /** A request's agent: the session or seat on its branch (the most recently active). */
@@ -836,7 +930,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     const m = f.kind === 'wsl' || f.kind === 'ledge' ? machines.find(x => x.id === 'local') : f.kind.startsWith('ssh:') ? machines.find(x => x.id === f.kind.slice(4)) : undefined;
     return `${f.title} · ${dirLabel(f.cwd, f.startCwd ?? null, m?.daemon?.home)}`;
   };
-  const title = (tab: Tab) => tabTitle(tab, { session: id => known.find(s => s.id === id), t, machine: id => machines.find(m => m.id === id)?.label, shell: shellName, pr: id => prOf(id)?.ref });
+  const title = (tab: Tab) => tabTitle(tab, { session: id => known.find(s => s.id === id), t, machine: id => machines.find(m => m.id === id)?.label, shell: shellName, pr: id => prOf(id)?.ref, routine: ref => findRoutine(routines, ref)?.name });
   /** The whole title and the whole path, a free shell's tab's tooltip (#299). */
   const shellTip = (tab: Tab) => { const f = tab.kind === 'terminal' && tab.ref.startsWith('shell:') ? termStore.free(tab.ref) : undefined; return f?.cwd ? `${f.title} — ${f.cwd}` : undefined; };
   // The main window's active group, kept while the focus is in a detached window: where « Ramener » gives the atelier back.
@@ -856,12 +950,15 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // The IDE shell: the pieces, in tabs and panels.
   const ideShell = (() => {
     const waiting = waitingSessions(sessions, waits);
-    const badge = { perm: waiting.filter(s => dotOf(s) === 'approval').length, ask: waiting.filter(s => dotOf(s) === 'question').length };
+    // A routine's request counts amber like the other decisions, a failure red (routines mockup, card 14).
+    const badge = { perm: waiting.filter(s => dotOf(s) === 'approval').length + routineItems.filter(i => i.kind === 'failed').length,
+      ask: waiting.filter(s => dotOf(s) === 'question').length + routineItems.filter(i => i.kind === 'approve').length };
     const label = (tab: Tab): ReactNode => (tab.kind === 'session' || tab.kind === 'seat'
       ? <SessionTabLabel session={known.find(s => s.id === tab.ref)} tab={tab} title={title(tab)} client={fleetClient}
         helper={nav.place.kind === 'session' && nav.place.id === tab.ref && nav.place.helper ? { id: nav.place.helper } : null} />
       : tab.kind === 'changes' || (tab.kind === 'terminal' && sessionOf(tab) !== null) ? <ChangesTabLabel session={known.find(s => s.id === sessionOf(tab))} title={title(tab)} />
       : tab.kind === 'pr' ? <IdePrTabLabel pr={prOf(tab.ref)} title={title(tab)} />
+      : tab.kind === 'routine' ? <RoutineTabLabel title={title(tab)} dirty={dirtyRoutines.has(keyOf(tab))} />
       // « À toi 2 » (mockup v27): the requests waiting, the tab's name staying its title.
       : tab.kind === 'atoi' ? <AtoiTabLabel title={title(tab)} waiting={waitingSessions(sessions, waits).length} />
       : shellTip(tab) ? <span title={shellTip(tab)}>{title(tab)}</span> : title(tab));
@@ -927,6 +1024,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           summarizeOff={!localMachine?.ready} asks={asks} askFocus={askFocus} onAskFocused={() => setAskFocus(null)} asksMachine={localMachine?.label ?? 'local'}
           askSourceOf={ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; }}
           onOpenSeat={id => dispatch({ type: 'open', id })}
+          routines={<IdeAtoiRoutines items={routineItems} {...routineHandlers} />}
           report={{ client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } }} />;
       }
       if (tab.kind === 'pr') {
@@ -938,6 +1036,28 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           agent={a ? { name: a.name, provider: providerOf(a.tool) } : null}
           onAskAgent={text => (a ? decisions.reply(a, text) : false)}
           onOpenAgent={() => { if (a) dispatch({ type: 'open', id: a.id, where: 'right' }); }} />;
+      }
+      if (tab.kind === 'routine') {
+        const key = keyOf(tab);
+        const x = tab.ref === NEW_ROUTINE_REF ? null : findRoutine(routines, tab.ref);
+        if (tab.ref !== NEW_ROUTINE_REF && !x) {
+          return routineGone(tab.ref) ? <IdeRoutine routine={null} gone machine={tab.ref.slice(0, tab.ref.indexOf(':'))} others={[]} sessions={[]} dirLabel={d => d}
+            fleet={fleet} actions={routineActions} onDirt={() => {}} onOpenSession={() => {}} onOpenRoutine={() => {}} onCreated={() => {}} onAgain={() => {}}
+            offline={localDown} onClose={() => closeNow(key)} /> : null;
+        }
+        const machine = x?.machineId ?? (routineMachines.some(m => m.id === newMachine) ? newMachine : 'local');
+        // The tasks (and so the proposals) are the local daemon's: only a local routine belongs to one.
+        const group = x && x.machineId === TASKS_MACHINE ? routineProposals.find(g => g.ids.includes(x.id)) : undefined;
+        return <IdeRoutine key={x ? key : `new:${newPrefill.n}`} routine={x ?? null} prefill={x ? null : newPrefill.draft} machine={machine}
+          others={routines.filter(o => o.machineId === machine)} session={x ? routineSession(x) : undefined}
+          sessions={known.filter(s => (s.machineId ?? 'local') === machine)} dirLabel={path => homeLabel(path, homeOf(machine))}
+          group={group ? { proposal: group, routines: group.ids.map(id => routines.find(o => o.id === id && o.machineId === machine)).filter((o): o is FleetRoutine => !!o && o.state === 'pending') } : null}
+          offline={localDown} askDelete={routineDelete?.ref === tab.ref ? routineDelete.n : 0}
+          machines={routineMachines} onMachine={setNewMachine} client={fleetClient}
+          fleet={fleet} actions={routineActions} onDirt={onRoutineDirt(key)}
+          onOpenSession={() => { if (x) openRoutineSession(x); }} onOpenRoutine={o => openRoutineRef(routineRef(o))}
+          onCreated={made => { closeNow(key); openRoutineRef(routineRef(made)); }}
+          onClose={() => closeNow(key)} onAgain={draft => openNewRoutine(draft)} />;
       }
       if (tab.kind === 'openrig') {
         const o = place.kind === 'openrig' && (place.machine ?? 'local') === tab.ref ? place : null;
@@ -983,7 +1103,14 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           onManage: () => dispatch({ type: 'settings', section: 'workspace' }), saveAsk }}
         notice={tokenMissing && <DaemonOutdated />}
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
-        explorer={layout.sideView === 'prs'
+        routinesBadge={routinesBadge(routines)}
+        explorer={layout.sideView === 'routines'
+          ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} machines={routineMachines} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
+              running={routineActions.running} connecting={routinesConnecting} offline={localDown}
+              onOpen={r => { setRoutinesLit(new Set()); onTab(routineTab(routineRef(r))); }} onNew={() => openNewRoutine()}
+              onRun={runRoutine} onPause={r => routineActions.pause(r)} onResume={r => routineActions.resume(r)}
+              onOpenSession={openRoutineSession} onDelete={r => { setRoutineDelete(d => ({ ref: routineRef(r), n: (d?.n ?? 0) + 1 })); onTab(routineTab(routineRef(r))); }} />
+          : layout.sideView === 'prs'
           ? <IdePrs prs={forge.listed} filter={prsFilter} onFilter={setPrsFilter} agentOf={p => prAgentOf(p)?.name ?? null} current={front?.kind === 'pr' ? front.ref : null}
               lines={forgeLines(forge.forges, machines, forge.readAt)} noneReadable={noForgeReadable(forge.forges)} machineLabel={machineLabel}
               onCopy={cmd => { void navigator.clipboard.writeText(cmd).then(() => notify(t.forge.copied), () => {}); }}
@@ -997,7 +1124,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
             onTerminal={sessionMenu.terminal} revealArchives={revealArchives} revealCurrent={revealCurrent}
             tasksApi={tasksApi}
             // A rig's request is read and answered on the page « À toi » (lot 12, card 12): its card unfolded there, ringed a moment.
-            asks={asks.asks} onSeeAsk={id => { setAskFocus({ id, n: ++askSeq.current }); onTab({ kind: 'atoi', ref: 'main' }); }} />
+            asks={asks.asks} onSeeAsk={id => { setAskFocus({ id, n: ++askSeq.current }); onTab({ kind: 'atoi', ref: 'main' }); }}
+            clock={routineClock} {...(routineItems.length ? { routines: { count: routineItems.length, node: <IdeAtoiRoutineCards items={routineItems} {...routineHandlers} /> } } : {})} />
         }
         bottom={
           <IdeBottom panel={panel} onTab={tab => panelStore.update(p => (p.tab === tab ? p : { ...p, tab }))}
@@ -1023,6 +1151,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
               if (n.kind === 'session') dispatch({ type: 'open', id: qualify(m, n.id) });
               else if (n.kind === 'pr') onTab({ kind: 'pr', ref: n.id });
               else if (n.kind === 'rig') onTab({ kind: 'rig', ref: rigTabRef(m, n.id) });
+              // A routine's « Voir » (routines mockup, card 26): its page, the sidebar on Routines. The kind comes with
+              // feat/routines-ui-point-tui (09aff498), hence the widened comparison until that branch is merged.
+              else if ((n.kind as string) === 'routine') { showRoutinesView(); openRoutineRef(routineRef({ machineId: m, id: n.id })); }
               else dispatch({ type: 'ledge', tab: 'tasks', task: n.id });
             }}
             tabs={{ tasks: tasksApi, ...rightTab, onAsked: () => setRightTab(({ ask: _, ...x }) => x), onTab: (tab, task) => setRightTab(x => ({ ...x, tab, ...(task !== undefined ? { task } : {}) })) }} />
@@ -1071,6 +1202,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           cmd('terminal', p.terminal, () => { const k = pickDefault(); openShell(k, menuDir(k, shellDir()), id => wsStore.update(w => openTab(w, { kind: 'terminal', ref: id }, 'active'))); }),
           cmd('split', p.split, () => wsStore.update(w => splitGroup(w, w.focus))),
           cmd('bottom', p.bottom, () => onLayout({ type: 'toggle', panel: 'bottom' })),
+          cmd('routines', p.routines, showRoutinesView),
+          cmd('new-routine', p.newRoutine, () => openNewRoutine()),
           ...dispositions.map(d => cmd(`disposition:${d.name}`, p.disposition(d.name), () => applyAndTell(d.name), d.name === currentDisposition?.name ? t.ide.palette.current : undefined)),
           cmd('save-disposition', p.saveDisposition, () => setSaveAsk(n => n + 1))
         ];
@@ -1125,7 +1258,23 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       <WhatsNew />
       {actions.pending && <ConfirmDialog c={actions.pending} onConfirm={actions.confirm} onCancel={actions.cancel} />}
       <PairingDialog shown={pairing} mobile={mobile} fleet={fleet} notify={notify} />
-      <Toast notice={notice} action={noticeAction} onAction={toastAct} />
+      {closeAsk && (() => {
+        // The routine page's close question (card 4): Enregistrer, Ne pas enregistrer, Annuler.
+        const { key, then } = closeAsk;
+        const d = routineDirt.current.get(key);
+        const name = findRoutine(routines, key.slice('routine:'.length))?.name ?? t.routines.newTitle;
+        const done = () => setCloseAsk(null);
+        return (
+          <Modal title={`${t.routines.dirty} · ${name}`} onClose={done} role="alertdialog">
+            <div className="rtn-closeq">
+              <button type="button" className="fg-btn pri" onClick={() => { void d?.save().then(ok => { done(); if (ok) { closeNow(key); then?.(); } }); }}>{t.routines.closeSave}</button>
+              <button type="button" className="fg-btn" onClick={() => { d?.discard(); done(); closeNow(key); then?.(); }}>{t.routines.closeDiscard}</button>
+              <button type="button" className="fg-btn" autoFocus onClick={done}>{t.routines.cancel}</button>
+            </div>
+          </Modal>
+        );
+      })()}
+      <Toast notice={notice} action={noticeAction} mark={noticeMark} onAction={toastAct} />
     </TabExtrasContext.Provider></TermStoreContext.Provider></ScreenKeysContext.Provider>
   );
 }

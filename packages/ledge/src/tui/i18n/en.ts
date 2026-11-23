@@ -17,7 +17,7 @@ export const en: Messages = {
   lang: { fr: 'Français', en: 'English' },
   state: { approval: 'Needs you', question: 'A question', starting: 'Starting', idle: 'Available', working: 'Working', done: 'Finished', error: 'Error', readonly: 'Read-only', stopped: 'Stopped' },
   time: { now: 'just now', decimal: '.', s: n => `${n}s`, min: n => `${n} min`, h: n => `${n} h`, d: n => `${n} d` },
-  tabs: { overview: 'Overview', session: 'Session', ask: 'Ask Ledge', launch: 'New session', settings: 'Settings', openrig: 'OpenRig' },
+  tabs: { overview: 'Overview', session: 'Session', ask: 'Ask Ledge', launch: 'New session', settings: 'Settings', openrig: 'OpenRig', routines: 'Routines' },
   bar: {
     sessions: n => `${n} ${plural(n, 'session', 'sessions')}`,
     machines: n => `${n} ${plural(n, 'machine', 'machines')}`,
@@ -152,7 +152,7 @@ export const en: Messages = {
     efforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'extra high', max: 'max', ultra: 'ultra' } as Record<string, string>,
     limits: 'LIMITS'
   },
-  help: { title: 'Help', global: 'Everywhere', overview: 'Overview', session: 'Session', ask: 'Ask Ledge', launch: 'New session', settings: 'Settings', openrig: 'OpenRig', rigLaunch: 'Launch a rig', screens: 'switch screen', link: 'link a device', field: 'Typing', wordBefore: 'delete the word before',
+  help: { title: 'Help', global: 'Everywhere', overview: 'Overview', session: 'Session', ask: 'Ask Ledge', launch: 'New session', settings: 'Settings', openrig: 'OpenRig', rigLaunch: 'Launch a rig', routines: 'Routines', screens: 'switch screen', link: 'link a device', field: 'Typing', wordBefore: 'delete the word before',
     writeHere: 'write to this session', replySender: 'reply to the sender of the selected message', rigRaw: "show or hide an OpenRig message's raw text",
     more: (above, below) => [above ? `↑ ${above} above` : '', below ? `↓ ${below} below` : ''].filter(Boolean).join(' · ') },
   images: {
@@ -356,6 +356,28 @@ export const en: Messages = {
     someDevice: 'device',
     refusedOffline: 'The local daemon is offline: nothing changed.', refusedOutdated: 'The local daemon is too old for mobile access: update it.',
     keys: { move: 'move', change: 'change', open: 'open', back: 'back', rename: 'rename', revoke: 'revoke', save: 'save', cancel: 'cancel', copy: 'copy the code', yes: 'yes', no: 'no', settings: 'settings', help: 'help', pair: 'link' }
+  },
+  routines: {
+    title: 'ROUTINES', groupOnce: 'ONCE', pending: 'awaits your approval in For you', paused: 'paused', late: 'late',
+    next: (at: string) => `next ${at}`, tomorrow: (at: string) => `tomorrow ${at}`, every2: 'every 2 wks', oneShot: 'once',
+    out: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },
+    empty: 'No routine. `ledge routine add` creates one.',
+    toast: {
+      delivered: (r: string, s: string) => `“${r}” delivered to ${s}`, resumed: (r: string, s: string) => `${s} resumed, “${r}” delivered`,
+      launched: (r: string, s: string) => `${s} launched, “${r}” delivered`, failed: (r: string, why: string) => `“${r}” could not run: ${why}`,
+      notRunning: (s: string) => `${s} isn’t running: r runs the routine, which resumes it.`,
+      pauseRefused: (why: string) => `Pause refused: ${why}`, resumeRefused: (why: string) => `Resume refused: ${why}`
+    },
+    oldDaemon: 'This daemon doesn’t know routines yet: update Ledge.',
+    keys: { nav: 'navigate', runNow: 'run now', pauseResume: 'pause/resume', openSession: 'open the session' },
+    ask: (s: string, r: string, when: string, dir: string) => `${s} wants to schedule “${r}”: ${when}, in ${dir}`,
+    groupAsk: (s: string, n: number, days: string) => `${s} wants to schedule ${n} one-shot routines: ${days}`,
+    itemKeys: { activate: 'activate', refuse: 'refuse', retry: 'run again', activateAll: (n: number) => `activate all ${n}`, refuseAll: (n: number) => `refuse all ${n}` },
+    failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
+    stale: (r: string) => `“${r}” changed: read it again before activating.`,
+    causes: { timeout: 'not typed within 30 min (session busy)' },
+    failedNamed: (r: string, why: string) => `The routine ${r} could not run: ${why}`,
+    change: (s: string, r: string, when: string) => `${s} wants to change “${r}”: ${when}`, waits: (r: string) => `“${r}” awaits your approval`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui opens in the Ledge tab.', loadingProfile: 'Windows Terminal is loading the Ledge profile…' }
 };

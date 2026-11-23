@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CONTEXT_NEAR, type PhoneSession } from '@ledge/protocol';
+import { CONTEXT_NEAR, type PhoneRoutine, type PhoneSession } from '@ledge/protocol';
 import { copy } from '../copy';
 import { MOBILE_STORAGE_PREFIX } from '../link/keys';
+import { routinesEntry, wokenSessions } from '../model/routines';
 import { closingHere } from '../model/sessionEnd';
 import { activeHelpers, contextPct, dotOf, filterCounts, GROUPINGS, rowLine, rowMeta, SESSION_FILTERS, sessionGroups, type Grouping, type SessionFilter, type SessionGroup } from '../model/sessions';
 import { href, useRoute } from '../router';
@@ -11,7 +12,7 @@ import { useMobile, type MobileStore } from '../state/store';
 import { Icon } from '../ui/icons';
 import { Box, EmptyState, Line } from '../ui/kit/Box';
 import { kitButtonClass } from '../ui/kit/Controls';
-import { Dot, RuntimeTag } from '../ui/kit/marks';
+import { Dot, Pill, RuntimeTag } from '../ui/kit/marks';
 import { useWide } from '../ui/layout';
 import { useNow } from '../useNow';
 import { clock } from './Inbox';
@@ -83,8 +84,9 @@ function FilterBar({ value, counts, onChange }: { value: SessionFilter; counts: 
   );
 }
 
-/** One session (§1): its dot, runtime, name and sub-agents at work, what it does or waits for, its branch or seat role. */
-function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void }) {
+/** One session (§1): its dot, runtime, name and sub-agents at work, what it does or waits for, its branch or seat role; the small
+ *  clock when a routine wakes it (docs/mockups/ledge-routines.html, card 17). */
+function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress, woken }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void; woken: boolean }) {
   const route = useRoute();
   const press = useLongPress(() => onPress(s));
   const open = (route.name === 'thread' || route.name === 'terminal') && route.sessionId === s.id;
@@ -99,6 +101,7 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
       lead={<><Dot state={dot} pulse={dot === 'work' && !offline} /><RuntimeTag tool={s.tool} /></>}
       title={<>
         <b className="font-semibold">{s.name}</b>
+        {woken && <span data-woken="" className="ml-1 inline-flex align-[-2px] text-muted"><Icon name="clock" className="size-[13px]" /></span>}
         {kids > 0 && <span aria-label={copy.sessions.kidsLabel(kids)} className="ml-1.5 font-mono text-small text-muted">{copy.sessions.kids(kids)}</span>}
       </>}
       // A close this phone sent says so over the state, as the list always did, until the session ends.
@@ -119,6 +122,22 @@ function Group({ group, children }: { group: SessionGroup; children: React.React
       </div>
       <Box {...(rig ? { tone: 'rigs' as const } : {})}>{children}</Box>
     </section>
+  );
+}
+
+/** The entry at the top of Sessions (docs/mockups/ledge-routines.html, card 17): « Routines », how many and the next run, the
+ *  red count of those waiting on the user or that failed; it opens the Routines screen. */
+function RoutinesEntry({ routines, now, offline }: { routines: readonly PhoneRoutine[]; now: number; offline: boolean }) {
+  const R = copy.routines;
+  const e = routinesEntry(routines, now);
+  if (e.count === 0) return null;
+  return (
+    <Box label={R.entry}>
+      <Line href={href({ name: 'routines' })} stale={offline} lead={<Icon name="alarm" className="size-5" />} title={<b className="font-semibold">{R.entry}</b>} {...(e.next ? { sub: R.entrySub(e.count, e.next) } : {})}>
+        {e.flagged > 0 && <Pill tone="perm">{String(e.flagged)}</Pill>}
+        <Icon name="chevron" className="size-4 text-muted" />
+      </Line>
+    </Box>
   );
 }
 
@@ -143,6 +162,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
   const counts = filterCounts(sessions);
   const groups = sessionGroups(sessions, filter);
   const offline = !state.fresh;
+  const woken = wokenSessions(state.routines, sessions);
   const threshold = state.device?.contextNear ?? CONTEXT_NEAR;
   const subtitle = offline ? (state.syncedAt ? copy.link.lastKnownAt(clock(state.syncedAt)) : copy.agents.offline) : undefined;
 
@@ -167,6 +187,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
       actions={wide ? undefined : <><ModeToggle value={mode} onChange={setMode} />{newButton}</>} wideActions={wide ? newButton : undefined}
     >
       {pressedSession && <SessionActions store={store} session={pressedSession} onDone={() => setPressed(null)} />}
+      {state.routines && <RoutinesEntry routines={state.routines} now={now} offline={offline} />}
       {sessions.length === 0 ? (
         <Box label={copy.agents.empty}>
           <EmptyState list glyph={<Icon name="sessions" />} title={copy.agents.empty} body={copy.agents.emptyHint}
@@ -182,7 +203,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
           <FilterBar value={filter} counts={counts} onChange={setFilter} />
           {groups.map(g => (
             <Group key={g.id} group={g}>
-              {g.sessions.map(s => <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} />)}
+              {g.sessions.map(s => <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} woken={woken.has(s.id)} />)}
             </Group>
           ))}
           {emptyFilter}

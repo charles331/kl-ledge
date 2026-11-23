@@ -85,8 +85,9 @@ export function nearLimit(sessions: readonly Session[], later: ReadonlyMap<strin
 /** A closed task Ledge gave and the user has not put away: an item of « À toi » (roles spec §3.7). */
 export const closedLedgeTasks = (tasks: readonly Task[]): Task[] => tasks.filter(t => t.giver === LEDGE_GIVER && taskClosed(t) && !t.seen);
 
-/** The decisions sessions put to the user (`ledge task give ledge …`), not answered yet: items of « À toi », oldest first. */
-export const openDecisions = (tasks: readonly Task[]): Task[] => tasks.filter(openDecision);
+/** The decisions sessions put to the user (`ledge task give ledge …`), not answered yet: items of « À toi », oldest first. A
+ *  routine's item is not one: « À toi » shows it in its own Routines block (routines mockup, cards 13, 14). */
+export const openDecisions = (tasks: readonly Task[]): Task[] => tasks.filter(t => openDecision(t) && !t.routine);
 
 /** The options a decision proposes, one per line of its text (a list's `-`, `*` or `1.` left out): aids, never the answer. */
 export function decisionOptions(text: string | undefined): string[] {

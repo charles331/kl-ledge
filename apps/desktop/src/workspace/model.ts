@@ -8,9 +8,9 @@
  * Every function returns a new state, or the same object when nothing changed.
  */
 
-export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atoi' | 'atelier' | 'settings';
+export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atoi' | 'atelier' | 'settings' | 'routine';
 /** Every tab kind, as the Ledge guide (docs/ledge-guide.md) describes the screens: a Record, so a new kind fails to compile until it is listed. */
-const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atoi: true, atelier: true, settings: true };
+const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atoi: true, atelier: true, settings: true, routine: true };
 export const TAB_KINDS = Object.keys(TAB_KIND) as TabKind[];
 export type View = 'thread' | 'terminal' | 'role';
 export interface Tab { kind: TabKind; ref: string; /** session and seat tabs: the view in front. */ view?: View }
@@ -387,7 +387,7 @@ export function deserialize(json: string): Workspace | null {
   const o = v as Partial<Workspace>;
   if (o.version !== 1 || !Array.isArray(o.windows) || !Array.isArray(o.groups) || typeof o.focus !== 'string' || typeof o.next !== 'number') return null;
   if (!o.windows.includes(MAIN)) return null;
-  const kinds: readonly string[] = ['session', 'seat', 'changes', 'terminal', 'pr', 'rig', 'openrig', 'atoi', 'atelier', 'settings'];
+  const kinds: readonly string[] = TAB_KINDS;
   for (const g of o.groups) {
     if (!g || typeof g.id !== 'string' || !o.windows.includes(g.window) || !Array.isArray(g.tabs) || typeof g.active !== 'number') return null;
     if (g.link !== null && !LINKS.includes(g.link)) return null;

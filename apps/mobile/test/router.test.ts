@@ -6,6 +6,8 @@ const routes: Route[] = [
   { name: 'sessions' },
   { name: 'sessions', filter: 'working' },
   { name: 'sessions', filter: 'waiting' },
+  { name: 'routines' },
+  { name: 'routines', routine: 'r81c0d4' },
   { name: 'prs' },
   { name: 'rigs' },
   { name: 'chat' },

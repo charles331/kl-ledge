@@ -25,6 +25,8 @@ export interface MailboxDeps {
   /** Where the queue and the bodies outlive the daemon; none keeps them in memory only. */
   journal?: MailJournal;
   now?: () => string;
+  /** Ledge's own line (`notify`) typed (`typed`), or given up on with its reason: a routine's firing learns how it went. */
+  noticeDone?: (rid: string, typed: boolean, reason?: string) => void;
 }
 export interface Mailbox {
   /** `card`: the message is one recipient's part of a broadcast whose single card, of that rid, the caller records; no card of
@@ -34,6 +36,10 @@ export interface Mailbox {
   read(m: Extract<ClientMessage, { type: 'message.read' }>): Extract<ServerMessage, { type: 'message.body' }>;
   /** Ledge's own line for a session (a task's pointer), typed at its next free moment (`first`: before anything waiting); false when it cannot be typed into. Never told back on failure. */
   notify(target: string, text: string, rid: string, o?: { first?: boolean }): boolean;
+  /** Ledge's line of that rid still waits to be typed. */
+  waiting(rid: string): boolean;
+  /** Takes Ledge's line of that rid back before it is typed (a routine's newer firing replaces it); false when none waits. */
+  withdraw(rid: string): boolean;
   kick(id: string): void;
   close(): void;
 }
@@ -92,7 +98,7 @@ export function createMailbox(d: MailboxDeps): Mailbox {
   /** The card fails; a message's sender, still there to read it, is told why at its own next free moment. */
   function fail(m: Queued, reason: string): void {
     log(`${m.kind} ${m.rid} to ${m.target} failed: ${reason}`);
-    if (m.kind === 'notice') return; // never a notice about a notice
+    if (m.kind === 'notice') { d.noticeDone?.(m.rid, false, reason); return; } // never a notice about a notice
     // A broadcast's card fails only once no part of it is still waiting (a delivered one keeps it delivered: history).
     if (!m.card || !queue.some(q => q.card === m.card && q.from === m.from)) d.sent.mark(m.from, m.card ?? m.rid, 'failed');
     const sender = d.store.get(m.from);
@@ -124,6 +130,7 @@ export function createMailbox(d: MailboxDeps): Mailbox {
       else for (const m of batch) {
         if (refused) fail(m, refused);
         else if (m.kind === 'message') d.sent.mark(m.from, m.card ?? m.rid, 'delivered');
+        else d.noticeDone?.(m.rid, true);
       }
       save();
       // A refusal leaves the session's state unchanged, so a queued relay card waits for the next store change; only the mailbox retries at once.
@@ -223,6 +230,14 @@ export function createMailbox(d: MailboxDeps): Mailbox {
       const s = d.store.get(target);
       if (!reachable(s)) return false;
       notice(s, text, rid, o.first); save();
+      return true;
+    },
+    waiting: rid => queue.some(m => m.kind === 'notice' && m.rid === rid),
+    withdraw(rid) {
+      const before = queue.length;
+      for (let i = queue.length - 1; i >= 0; i--) if (queue[i]!.kind === 'notice' && queue[i]!.rid === rid) queue.splice(i, 1);
+      if (queue.length === before) return false;
+      save();
       return true;
     },
     kick,

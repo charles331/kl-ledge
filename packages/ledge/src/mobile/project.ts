@@ -5,7 +5,9 @@ import { CHECKLIST_TASKS_MAX, CHECKLIST_TEXT_MAX, doneCount } from '@ledge/proto
 import type { PhoneChecklist, PhoneChecklistSummary, Todo } from '@ledge/protocol';
 import type { RigInfo, CapabilitiesByTool, FileChange, Pending, PhonePending, PhoneSession, PhoneTask, Session, Task, ThreadItem, Tool } from '@ledge/protocol';
 import { PHONE_PROJECTS_MAX, PHONE_RIG_NAME_MAX, projectOf, type PhoneProject, type Projects } from '@ledge/protocol';
+import { PHONE_ROUTINE_CWD_MAX, type PhoneRoutine, type PhoneRoutineDetail, type Routine } from '@ledge/protocol';
 import { adapterFor } from '../adapters/index.js';
+import { routineKey } from '../routineKey.js';
 import { riskOf } from './risk.js';
 
 // Every object below is built field by field: a field added to a daemon type never reaches the phone unless it is named here.
@@ -237,7 +239,28 @@ export function toPhoneTask(x: Task): PhoneTask {
     ...(result ? { result: result.text, ...(result.cut ? { cut: true as const } : {}) } : {}), at: x.at, updatedAt: x.updatedAt, ...(x.seen ? { seen: true as const } : {}),
     // A proposal about the notes: the phone answers it with its buttons. Its fields are the schema's own, already bounded.
     ...(x.brain ? { brain: { kind: x.brain.kind, note: x.brain.note, fact: x.brain.fact, ...(x.brain.create ? { create: true } : {}), ...(x.brain.source ? { source: x.brain.source } : {}),
-      ...(x.brain.title ? { title: x.brain.title } : {}), ...(x.brain.when ? { when: x.brain.when } : {}) } } : {}) };
+      ...(x.brain.title ? { title: x.brain.title } : {}), ...(x.brain.when ? { when: x.brain.when } : {}) } } : {}),
+    // A routine's item: its fields are the schema's own, already bounded; the phone reads the prompt whole with `routine.show`.
+    ...(x.routine ? { routine: { kind: x.routine.kind, id: x.routine.id, name: x.routine.name, ...(x.routine.reason !== undefined ? { reason: x.routine.reason } : {}), ...(x.routine.ids ? { ids: [...x.routine.ids] } : {}) } } : {}) };
+}
+
+/** The digest an approval is bound to (routineKey.ts), for the phone's gateway. */
+export { routineKey };
+
+/** A routine as the phone's list sees it: no prompt, history or proposal, its folder's end kept when it is too long, and its key. */
+export function toPhoneRoutine(r: Routine): PhoneRoutine {
+  const { prompt: _p, runs: _r, proposal, target, ...rest } = r;
+  const long = target.cwd.length > PHONE_ROUTINE_CWD_MAX;
+  // The end of a path names the folder: a long one keeps it, after an ellipsis, never splitting a surrogate pair.
+  let tail = target.cwd.slice(target.cwd.length - (PHONE_ROUTINE_CWD_MAX - 1));
+  if (/^[\udc00-\udfff]/.test(tail)) tail = tail.slice(1);
+  return { ...rest, target: { ...target, cwd: long ? `…${tail}` : target.cwd }, ...(long ? { cut: true as const } : {}), ...(proposal ? { proposed: true as const } : {}), key: routineKey(r) };
+}
+
+/** One routine whole, its folder entire, its proposal and its last firings, for the phone's detail before « Activer ». */
+export function toPhoneRoutineDetail(r: Routine): PhoneRoutineDetail {
+  const { cut: _c, proposed: _p, ...listed } = toPhoneRoutine(r);
+  return { ...listed, target: r.target, prompt: r.prompt, ...(r.proposal ? { proposal: r.proposal } : {}), ...(r.runs ? { runs: r.runs } : {}) };
 }
 
 /** Ledge's tasks the phone is sent: the ones Ledge gave or that a session put to the user as a decision. */

@@ -2,6 +2,7 @@ import { MESSAGE_MAX, type ActionErrorCode } from '@ledge/protocol';
 import { actionWords, type ActionVars } from '@ledge/ui/chat/actionWords';
 import { prsFr } from './copy.prs';
 import { rigsFr } from './copy.rigs';
+import { routinesFr } from './copy.routines';
 
 import { useSyncExternalStore } from 'react';
 import { createI18n } from '@ledge/ui/i18n/lang';
@@ -1245,7 +1246,9 @@ const fr = {
     lostBody: 'La session a peut-être démarré : vérifie dans Sessions avant de relancer.',
     retry: 'Réessayer', settings: 'Réglages',
     started: (name: string, table: string) => `${name} démarre à la table ${table}.`
-  }
+  },
+  /** Routines (docs/mockups/ledge-routines.html, cards 17 and 25): the entry in Sessions, its screen, the items of « À toi ». */
+  routines: routinesFr
 } as const;
 
 /** A table's shape with its words widened: what every language's table has, string for string. */

@@ -24,6 +24,7 @@ import { ThreadItemSchema } from './thread.js';
 import { DecidedBySchema, DecisionSchema, NOTE_MAX } from './decisions.js';
 import { DeviceNameSchema, MobileRecoveryEventSchema, MobileStateSchema, RelayUrlSchema } from './mobile.js';
 import { TaskCmdSchema, TaskResultSchema, TaskUpdatedSchema } from './tasks.js';
+import { RoutineChangedSchema, RoutineCmdSchema, RoutineListedSchema, RoutineListSchema, RoutinePreviewedSchema, RoutinePreviewSchema, RoutineResultSchema } from './routines.js';
 import { ReportAgentResultSchema, ReportAgentSchema, ReportCreatedSchema, ReportCreateSchema, ReportIgnoredSchema, ReportIgnoreSchema, ReportPreviewReplySchema, ReportPreviewSchema } from './report.js';
 import { BrainAddSchema, BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainResultSchema } from './brain.js';
 import { UsageAckSchema, UsageSetSchema, UsageStateMessageSchema } from './usage.js';
@@ -127,6 +128,8 @@ export const DaemonInfoSchema = z.object({ version: z.string(), install: z.enum(
   /** `term.watch` also streams an OpenRig seat (`@` in its tmux name), through a control client on the seat's own tmux server.
    *  Without it, a front keeps a seat on the pseudo-terminal: an older daemon answers its watch `failed`. */ terminalStreamSeats: z.boolean().optional(),
   /** Sends `forge.state` and answers `forge.detail` and `forge.act`: the pull and merge requests of its sessions' branches (lot 8a). */ forge: z.boolean().optional(),
+  /** Answers `routine.list`, `routine.cmd` and `routine.preview`, and sends `routine.changed` (spec 2026-11-23 routines). */ routines: z.boolean().optional(),
+  /** Answers a grouped `routine.cmd` (`others`) all or nothing: a client sends one only to a daemon that says it. */ routineGroups: z.boolean().optional(),
   /** Its launcher answers `shell --nonce <N> <dir>` (#299): a free shell started through it gets the shell integration (OSC 633). */ freeShell: z.boolean().optional() });
 export type DaemonInfo = z.infer<typeof DaemonInfoSchema>;
 export const UpdateFailureSchema = z.enum(['git-install', 'no-systemd', 'sessions-at-risk', 'npm-failed', 'busy']);
@@ -242,6 +245,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   HandoverResultSchema,
   TaskUpdatedSchema,
   BrainResultSchema,
+  /** Routines (spec 2026-11-23): the list, a command's answer, and every change to every front. */
+  RoutineListedSchema, RoutineResultSchema, RoutineChangedSchema, RoutinePreviewedSchema,
   /** The operator's notices, broadcast on change and in the snapshot. */
   z.object({ type: z.literal('operator.state'), notices: z.array(OperatorNoticeSchema).max(50) }),
   z.object({ type: z.literal('error'), message: z.string(), id: z.string().optional(), /** Le type du message client refusé. */ request: z.string().optional(),
@@ -429,7 +434,9 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   ForgeActSchema,
   HandoverBriefSchema,
   HandoverShowSchema,
-  BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainAddSchema
+  BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainAddSchema,
+  /** Routines (spec 2026-11-23): `ledge routine …` and the Routines screens. */
+  RoutineListSchema, RoutineCmdSchema, RoutinePreviewSchema
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 /** The commands of the mobile access service. */

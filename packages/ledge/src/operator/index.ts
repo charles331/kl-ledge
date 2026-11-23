@@ -1,8 +1,8 @@
-import { openDecision, taskClosed, type ChatAction, type ChatPoint, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type OperatorNotice, type PointItem, type Task, type Tool } from '@ledge/protocol';
+import { openDecision, taskClosed, type ChatAction, type ChatPoint, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type OperatorNotice, type PointItem, type Routine, type Task, type Tool } from '@ledge/protocol';
 import type { Chat, ChatDeps, ChatMessage } from '../chat/service.js';
 import type { Store } from '../daemon/store.js';
 import { log } from '../log.js';
-import { fromAsks, fromForge, fromGoals, fromRigs, fromSession, fromTasks, settledSession, type Draft } from './detect.js';
+import { fromAsks, fromForge, fromGoals, fromRigs, fromRoutines, fromSession, fromTasks, settledSession, type Draft } from './detect.js';
 import { openJournal, type DeviceId, type Journal, type JournalEvent } from './journal.js';
 
 export { requireSqlite } from './journal.js';
@@ -249,6 +249,7 @@ export function wireOperator(w: OperatorWiring) {
   let rigs: OpenRigState | undefined;
   let forge: ForgeStateMessage | undefined;
   let goals: readonly Goal[] | undefined;
+  let routines: readonly Routine[] | undefined;
   /** Set at OpenRig's first whole, ready list of asks: until then no wake or build may take an ask missing from `asks` as gone. */
   let asksKnown = false;
   let tasksBefore: readonly Task[] = [];
@@ -263,7 +264,7 @@ export function wireOperator(w: OperatorWiring) {
 
   const operator = createOperator({
     journal, machine: w.machine, threads: w.threads, tool: w.tool, chatDeps: w.chatDeps, ...(w.devices ? { devices: w.devices } : {}),
-    live: () => ({ sessions: w.store.all(), asks: asks ?? [], tasks: w.tasks(), lang: w.lang ?? 'fr', asksKnown }),
+    live: () => ({ sessions: w.store.all(), asks: asks ?? [], tasks: w.tasks(), lang: w.lang ?? 'fr', asksKnown, ...(routines ? { routines } : {}), now: Date.now() }),
     onNotices: w.onNotices ?? (() => {}), onPointPush: w.onPointPush ?? (() => {})
   });
   let stopped = false;
@@ -351,6 +352,12 @@ export function wireOperator(w: OperatorWiring) {
     rigsRead(st: OpenRigState): void {
       const before = rigs; rigs = st;
       record(fromRigs(before, st).filter(d => !ownAct(d.kind === 'rig.state' ? d.subjectId : String(d.payload.rig))));
+    },
+    /** The routines as the scheduler holds them, after any change: the first list is the baseline (a firing from before the start
+     *  is not news), then each new firing that reached its session is an event (routines spec §3.5). */
+    routinesChanged(list: readonly Routine[]): void {
+      const before = routines; routines = list;
+      if (before) record(fromRoutines(before, list, w.store.all()));
     },
     forgeChanged(st: ForgeStateMessage): void {
       const before = forge; forge = st;

@@ -13,7 +13,7 @@ import { forgeSubject, phoneForgeDetail, phoneForgeState } from './forge.js';
 import { latestTodos, TODO_TOOLS, type PhoneChecklist, type PhoneChecklistSummary } from '@ledge/protocol';
 import { BROADCAST_SESSIONS_MAX, type DecidedBy, type DeviceKind, type PointAnswer, type PointItem } from '@ledge/protocol';
 import { PHONE_ROW_SUMMARY_MAX } from '@ledge/protocol';
-import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects } from '@ledge/protocol';
+import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects, type Routine, ROUTINES_MAX } from '@ledge/protocol';
 import { listFolder, resolveFolder } from '../daemon/folders.js';
 import { newProjectId, withoutProject } from '@ledge/fleet/projects';
 import { taskClosed } from '@ledge/protocol';
@@ -37,6 +37,7 @@ import { capabilities, clip, forPhone, phoneTasks, toPhoneFullRequest, toPhoneIt
 import { atelierOf, toPhoneProjects } from './project.js';
 import { canSwitch, toPhoneCommands, toPhoneModels } from './project.js';
 import { checklistSummary, toPhoneChecklist } from './project.js';
+import { routineKey, toPhoneRoutine, toPhoneRoutineDetail } from './project.js';
 import { riskOf } from './risk.js';
 import { CHALLENGE_TTL_MS, type ChallengeStore } from './challenges.js';
 import { challengeOf, verifyAssertion, verifyRegistration, type DeviceCredential, type Rp } from './webauthn.js';
@@ -70,6 +71,9 @@ interface Follower {
   pushStatus?: PushStatus;
   /** Asked for « À toi » (`openrig.asks`): gets each change of what OpenRig asks the person. */
   openrig?: boolean;
+  /** Asked for the routines (`routine.list`): a phone that knows them, so its tasks carry their routine items (an older phone's
+   *  strict task schema would refuse the whole list). */
+  routines?: boolean;
   /** Asked for OpenRig's state (`rigs.state`): gets each change of it. */
   rigs?: boolean;
   /** Asked for the goals given to the operator (`rigs.goals`): gets each change of them. */
@@ -191,6 +195,8 @@ export function createPhoneGateway(deps: {
   chatThrottleMs?: number;
   /** The tasks (ledge home spec §2.4): the phone's « Le point » and « À traiter ». */
   tasks?: () => Task[];
+  /** The routines (routines spec §3.7): given, the phone reads them, fires, pauses and answers them; each change comes by `forward`. */
+  routines?: () => Routine[];
   /** The user's projects (the daemon's `projects.json`): given, the phone gets the Atelier (`daemon.atelier`); each change comes by `forward`. */
   projects?: () => Projects;
   /**
@@ -361,11 +367,18 @@ export function createPhoneGateway(deps: {
     return deps.models ? { ...message, daemon: { ...message.daemon, models: true } } : message;
   };
 
-  const phoneTask = (x: Task): PhoneTask => toPhoneTask(x);
+  /** A task for that phone: its routine item only for a phone that knows routines. */
+  const phoneTask = (x: Task, routines: boolean | undefined): PhoneTask => {
+    const t = toPhoneTask(x);
+    if (routines || !t.routine) return t;
+    const { routine: _r, ...older } = t;
+    return older;
+  };
   /** After a snapshot: Ledge's tasks, for a daemon that has them. */
   const sendTasks = (deviceId: string) => {
     if (!deps.tasks) return;
-    push(deviceId, { type: 'tasks', tasks: phoneTasks(deps.tasks(), Date.now()).map(phoneTask) }, 'tasks');
+    const knows = follower(deviceId).routines;
+    push(deviceId, { type: 'tasks', tasks: phoneTasks(deps.tasks(), Date.now()).map(x => phoneTask(x, knows)) }, 'tasks');
   };
 
   const outbox = createOutbox({
@@ -420,7 +433,7 @@ export function createPhoneGateway(deps: {
   };
 
   /** The operations that act on a tracked session: the registry's own, the credential's, the device's and the chat's are handled before it. */
-  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' }>;
+  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' | 'routine.cmd' }>;
   /** Whether the operation needs the device's own check: an accept of a request that is not low, or a reply to an OMP (rpc) dialog, which is never low. */
   const needsAssertion = (msg: SessionOperation, s: Session): boolean => {
     if (msg.type === 'session.decide') return msg.decision !== 'deny' && riskOf(s)?.risk !== 'low';
@@ -433,7 +446,7 @@ export function createPhoneGateway(deps: {
     `${id}:${key}${s?.pending?.source === 'rpc' && s.pending.requestId ? `:${s.pending.requestId}` : ''}`;
 
   /** The device check: the challenge is spent first, whatever the verdict, then the signature is verified and the counter kept. */
-  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge', subject: string | undefined): Outcome | undefined => {
+  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge' | 'routine', subject: string | undefined): Outcome | undefined => {
     const cred = deps.credential(deviceId);
     const rp = deps.rp();
     if (!cred || !rp || !assertion || subject === undefined) return { status: 'rejected', reason: 'confirm_required' };
@@ -1146,6 +1159,57 @@ export function createPhoneGateway(deps: {
    * An action on a pull or merge request, as the Desktop's `forge.act`: each one writes on the forge, so each needs the device's check over
    * that very request and action. The daemon re-reads the request before it acts (a merge of a head that moved is `stale`).
    */
+  /**
+   * A routine's « Lancer maintenant », « Pause » / « Reprendre », « Activer » / « Refuser », as the owner's own `routine.cmd`. An
+   * « Activer » names the routine as the phone showed it (`routineKey`) and is backed by a device check bound to it.
+   */
+  /** Why routines named with the keys a phone showed cannot be answered now: one gone, one no longer waiting, one changed. */
+  const routineRefsProblem = (refs: readonly { routine: string; routineKey: string }[]): 'not_found' | 'not_pending' | 'stale' | undefined => {
+    const all = deps.routines?.() ?? [];
+    if (new Set(refs.map(x => x.routine)).size !== refs.length) return 'stale';
+    for (const ref of refs) {
+      const r = all.find(x => x.id === ref.routine);
+      if (!r) return 'not_found';
+      if (r.state !== 'pending' && !r.proposal) return 'not_pending';
+      if (ref.routineKey !== routineKey(r)) return 'stale';
+    }
+    return undefined;
+  };
+  const routineSubject = (refs: readonly { routine: string; routineKey: string }[]) => refs.map(x => `${x.routine}:${x.routineKey}`).join('|');
+  /**
+   * A routine's « Lancer maintenant », « Pause » / « Reprendre », « Activer » / « Refuser » (and « … les N » of a grouped request,
+   * `others`), as the owner's own `routine.cmd`. An « Activer » names each routine as the phone showed it (its key) and is backed by
+   * one device check bound to them all.
+   */
+  const routineCmd = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'routine.cmd' }>): Promise<Outcome> => {
+    if (!deps.routines) return { status: 'rejected', reason: 'unavailable' };
+    const r = deps.routines().find(x => x.id === msg.routine);
+    if (!r) return { status: 'rejected', reason: 'not_found' };
+    if (msg.others?.length && msg.action !== 'approve' && msg.action !== 'refuse') return { status: 'rejected', reason: 'invalid' };
+    const ids = [r.id, ...(msg.others ?? []).map(x => x.routine)];
+    if (msg.action === 'approve') {
+      if (msg.routineKey === undefined) return { status: 'rejected', reason: 'stale' };
+      const refs = [{ routine: r.id, routineKey: msg.routineKey }, ...(msg.others ?? [])];
+      const problem = routineRefsProblem(refs);
+      if (problem) return { status: 'rejected', reason: problem };
+      const refused = checkAssertion(deviceId, msg.assertion, 'routine', routineSubject(refs));
+      if (refused) return refused;
+    } else if (msg.others?.length) {
+      const problem = routineRefsProblem([{ routine: r.id, routineKey: msg.routineKey ?? '' }, ...msg.others]);
+      if (problem && problem !== 'stale') return { status: 'rejected', reason: problem };
+    }
+    log(`phone: device ${deviceId} asked routine(s) ${ids.join(', ')} to ${msg.action}`);
+    // One command for the whole group, all or nothing in the daemon; an approve names each routine's key, checked as it applies.
+    const rid = msg.op;
+    const others = (msg.others ?? []).map(x => ({ routine: x.routine, expect: x.routineKey }));
+    const expect = msg.action === 'approve' ? msg.routineKey : undefined;
+    return ask({ type: 'routine.cmd', rid, op: msg.action, routine: r.id, ...(expect ? { expect } : {}), ...(others.length ? { others } : {}) }, m => {
+      if (m.type !== 'routine.result' || m.rid !== rid) return undefined;
+      if (!m.code) return true;
+      return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' || m.code === 'stale' ? m.code : 'invalid' };
+    });
+  };
+
   const forgeAct = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'forge.act' }>): Promise<Outcome> => {
     let detail: Extract<PhoneServerMessage, { type: 'forge.done' }> | undefined;
     const told = (m: Omit<Extract<PhoneServerMessage, { type: 'forge.done' }>, 'type' | 'op'>) => { detail = { type: 'forge.done', op: msg.op, ...m }; push(deviceId, detail); };
@@ -1378,6 +1442,7 @@ export function createPhoneGateway(deps: {
     if (msg.type === 'point.later') return pointLater(deviceId, msg);
     if (msg.type === 'operator.read') return operatorRead(deviceId, msg);
     if (msg.type === 'forge.act') return forgeAct(deviceId, msg);
+    if (msg.type === 'routine.cmd') return routineCmd(deviceId, msg);
     if (msg.type === 'rigs.seats') return rigsSeats(deviceId, msg);
     if (msg.type === 'rigs.goal.send' || msg.type === 'rigs.goal.reply') return rigsGoal(deviceId, msg);
     const refused = precheck(deviceId, msg);
@@ -1583,6 +1648,18 @@ export function createPhoneGateway(deps: {
         });
         return;
       }
+      case 'routine.list': {
+        push(deviceId, { type: 'routines', routines: (deps.routines?.() ?? []).slice(0, ROUTINES_MAX).map(toPhoneRoutine) }, 'routines');
+        // The first time, its tasks again, with their routine items now that it reads them.
+        const f = follower(deviceId);
+        if (f.routines) return;
+        f.routines = true;
+        return sendTasks(deviceId);
+      }
+      case 'routine.show': {
+        const r = deps.routines?.().find(x => x.id === msg.routine);
+        return push(deviceId, r ? { type: 'routine.detail', id: msg.routine, routine: toPhoneRoutineDetail(r) } : { type: 'routine.detail', id: msg.routine, gone: true });
+      }
       case 'snapshot.request':
         follower(deviceId).subscribed = true;
         push(deviceId, snapshot(deviceId), 'snapshot');
@@ -1738,6 +1815,15 @@ export function createPhoneGateway(deps: {
           if (!deps.forge || !cred || cred.rpId !== rp.rpId || !msg.forge || !deps.forge.state().prs.some(p => p.id === msg.forge!.prId)) return invalid();
           const challenge = deps.challenges.issue({ deviceId, purpose: 'forge', subject: forgeSubject(msg.forge.prId, msg.forge.action) });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'forge', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
+        }
+        if (msg.purpose === 'routine') {
+          // Bound to that request (a pending routine, or a routine's proposal, and the others of a grouped one) as the phone showed
+          // it (their keys): a check covers no other prompt, folder or schedule.
+          const cred = deps.credential(deviceId);
+          const refs = msg.routine && msg.routineKey ? [{ routine: msg.routine, routineKey: msg.routineKey }, ...(msg.routineOthers ?? [])] : [];
+          if (!cred || cred.rpId !== rp.rpId || !refs.length || routineRefsProblem(refs)) return invalid();
+          const challenge = deps.challenges.issue({ deviceId, purpose: 'routine', subject: routineSubject(refs) });
+          return push(deviceId, { type: 'confirm.challenge', purpose: 'routine', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
         // A purpose added to the enum without a branch above fails to compile here.
         const unhandled: never = msg.purpose;
@@ -1912,10 +1998,15 @@ export function createPhoneGateway(deps: {
             // The threshold rides on the snapshot's device: a change sends each following device a fresh one.
             for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, snapshot(deviceId), 'snapshot');
             return;
+          case 'routine.changed': {
+            if (!deps.routines) return;
+            const out: PhoneServerMessage = m.routine ? { type: 'routine.changed', routine: toPhoneRoutine(m.routine) } : { type: 'routine.changed', ...(m.removed ? { removed: m.removed } : {}) };
+            for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, out);
+            return;
+          }
           case 'task.updated': {
             if (!forPhone(m.task)) return;
-            const task = phoneTask(m.task);
-            for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, { type: 'task.updated', task });
+            for (const [deviceId, f] of followers) if (f.subscribed) push(deviceId, { type: 'task.updated', task: phoneTask(m.task, f.routines) });
             return;
           }
           // The daemon updating or restarting itself, whoever asked. Never npm's output nor a command: both hold the PC's paths.

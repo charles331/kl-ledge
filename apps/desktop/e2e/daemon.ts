@@ -1,8 +1,18 @@
 import { createHash } from 'node:crypto';
 import type { Page, WebSocketRoute } from '@playwright/test';
-import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task } from '@ledge/protocol';
+import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task, Routine, RoutineRun } from '@ledge/protocol';
 
 /** How long a launched session stays `starting` in the fake daemon before it is `working`. */
+/** A routine's key as the fake daemon gives it: a digest of what « Activer » applies, as the real `routineKey` (not its bytes). */
+export function fakeKey(r: Routine): string {
+  const { name, target, schedule, prompt, catchUp } = r.proposal?.spec ?? r;
+  const text = JSON.stringify({ name, target, schedule, prompt, catchUp: catchUp ?? null, proposal: !!r.proposal });
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return `k${h.toString(36)}`;
+}
+const keyed = (r: Routine): Routine => ({ ...r, key: fakeKey(r) });
+
 export const LAUNCH_SETTLE_MS = 1500;
 export const T0 = new Date(Date.now() - 5 * 60_000).toISOString();
 /** A local daemon that can route the chat between machines (spec 2026-10-14 §5.3): the fleet coordinates through it. */
@@ -46,6 +56,9 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
   usage?: Omit<UsageStateMessage, 'type' | 'machineId'>;
   /** Lot 8b: the requests and forges (`forge.state`, sent after the usage), each request's detail and failed job's log, and
    *  the command a `forge.act` reports (by action). Nothing reaches a real forge. Give `daemon.forge` too, or the fleet refuses. */
+  /** Routines (docs/mockups/ledge-routines.html): the list `routine.list` answers, the next runs a preview answers, and how a
+   *  `routine.cmd` ends (the routine as it is then, `run` setting its last run). Give `daemon.routines` too. */
+  routines?: { list: Routine[]; preview?: string[]; runOutcome?: RoutineRun };
   forge?: { prs: PullRequest[]; /** Issue #3: the account's own requests no session follows. */ mine?: PullRequest[]; forges?: ForgeStatus[]; followed?: FollowedSession[]; details?: Record<string, Omit<PrDetail, 'pr'>>; logs?: Record<string, string>; commands?: Partial<Record<ForgeAction['kind'], string>>; /** An action refused, by kind: its code and message. */ actFails?: Partial<Record<ForgeAction['kind'], { code?: string; message: string }>> } } = {}) {
   const threads = new Map(Object.entries(extras.threads ?? {}).map(([id, items]) => [id, [...items]]));
   const sessions = new Map(initial.map(s => [s.id, s]));
@@ -92,6 +105,54 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
       if (msg.type === 'openrig.permissions') { const p = extras.rigPermissions?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.permissionList', requestId: msg.requestId, rig: msg.rig, seats: p?.seats ?? [], ...(p?.policy ? { policy: p.policy } : {}), ...(p ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.queue') { const rows = extras.rigQueues?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.queueState', requestId: msg.requestId, rig: msg.rig, rows: rows ?? [], truncated: false, ...(rows ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.role.duplicate' && extras.roles) ws.send(JSON.stringify({ type: 'openrig.roleDuplicated', requestId: msg.requestId, ok: true, roleId: `dup-${msg.name}`, path: `/home/me/.openrig/specs/${msg.name}` }));
+      if (msg.type === 'routine.list' && extras.routines) ws.send(JSON.stringify({ type: 'routine.listed', rid: msg.rid, routines: extras.routines.list.map(keyed) }));
+      if (msg.type === 'routine.preview' && extras.routines) ws.send(JSON.stringify({ type: 'routine.previewed', rid: msg.rid, nextRuns: extras.routines.preview ?? [] }));
+      if (msg.type === 'routine.cmd' && extras.routines) {
+        const list = extras.routines.list;
+        const at = list.findIndex(r => r.id === msg.routine || r.name === msg.routine);
+        const was = list[at];
+        // As the real daemon: an approval bound to a routine that changed since it was shown is refused, nothing applied.
+        // A group (`others`) is all or nothing, as the real daemon (ccfa3df6): one changed routine leaves every one waiting.
+        const group = [...(was ? [{ r: was, expect: msg.expect }] : []), ...(msg.others ?? []).map(o => ({ r: list.find(x => x.id === o.routine), expect: o.expect }))];
+        if (msg.op === 'approve' && was && group.some(g => !g.r || (g.expect !== undefined && g.expect !== fakeKey(g.r)))) {
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, code: 'stale', reason: `la routine ${was.name} a changé depuis qu'elle a été montrée` }));
+        } else if (msg.op === 'approve' && msg.others?.length) {
+          for (const g of group) {
+            const i = list.indexOf(g.r!);
+            const next = (({ proposal: _, ...r }) => ({ ...r, ...(g.r!.proposal?.spec ?? {}), state: 'enabled' as const }))(g.r!);
+            list[i] = next; ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(next) }));
+          }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, routine: keyed(list[list.findIndex(x => x.id === was!.id)]!) }));
+        } else if (msg.op === 'refuse' && msg.others?.length) {
+          // A grouped refusal needs no key and goes through a changed member (dev-back 26169bb9): every one waiting is removed.
+          for (const g of group) {
+            const i = g.r ? list.indexOf(g.r) : -1;
+            if (i >= 0 && g.r!.state === 'pending') { list.splice(i, 1); ws.send(JSON.stringify({ type: 'routine.changed', removed: g.r!.id })); }
+          }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));
+        } else if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
+          if (at >= 0) list.splice(at, 1);
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));
+          if (was) ws.send(JSON.stringify({ type: 'routine.changed', removed: was.id }));
+        } else {
+          const next: Routine | undefined = msg.op === 'add' && msg.spec ? { ...msg.spec, id: `r${String(list.length).padStart(6, '0')}`, catchUp: msg.spec.catchUp ?? 'once', state: 'enabled', createdBy: { kind: 'user' }, createdAt: new Date().toISOString() }
+            : !was ? undefined
+            : msg.op === 'pause' ? { ...was, state: 'paused' } : msg.op === 'resume' ? { ...was, state: 'enabled' }
+            : msg.op === 'approve' ? (({ proposal: _, ...r }) => ({ ...r, ...(was.proposal?.spec ?? {}), ...(msg.spec ?? {}), state: 'enabled' as const }))(was)
+            : msg.op === 'refuse' ? (({ proposal: _, ...r }) => r)(was)
+            : msg.op === 'update' ? { ...was, ...msg.patch }
+            : was;
+          if (next) { if (at >= 0) list[at] = next; else list.unshift(next); }
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(next ? { routine: keyed(next) } : { code: 'not_found', reason: 'not found' }) }));
+          if (next) ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(next) }));
+          // As the real daemon: `run` is answered at once, its firing's outcome comes later in a `routine.changed`.
+          if (msg.op === 'run' && was && next) setTimeout(() => {
+            const ran: Routine = { ...next, runs: [extras.routines!.runOutcome ?? { at: new Date(Date.now() + 60_000).toISOString(), slot: '13:02', outcome: 'delivered' }, ...(next.runs ?? [])].slice(0, 5) };
+            list[list.indexOf(next)] = ran;
+            ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(ran) }));
+          }, 1500);
+        }
+      }
       if (msg.type === 'task.cmd' && msg.op === 'list' && extras.tasks) ws.send(JSON.stringify({ type: 'task.result', rid: msg.rid, tasks: extras.tasks }));
       if (msg.type === 'openrig.asks' && extras.asks) ws.send(JSON.stringify({ type: 'openrig.asksChanged', requestId: msg.requestId, channel: extras.asks.channel, asks: extras.asks.asks }));
       if (msg.type === 'openrig.answer' && extras.asks) ws.send(JSON.stringify({ type: 'openrig.answered', requestId: msg.requestId, qitemId: msg.qitemId, ok: true, outcome: 'answered', ...extras.asks.answered }));

@@ -7,7 +7,7 @@ const fr: PointCopy = {
   by: 'de lui-même',
   groups: { atoi: 'À toi', done: 'Terminé', ongoing: 'En cours', rigs: 'Rigs' },
   reply: 'Répondre…',
-  nav: { session: 'Voir', pr: 'Voir la PR', rig: 'Ouvrir le rig', task: 'Voir la tâche' },
+  nav: { session: 'Voir', pr: 'Voir la PR', rig: 'Ouvrir le rig', task: 'Voir la tâche', routine: 'Voir' },
   wantsToRun: 'veut lancer', decision: 'décision',
   quote: s => `« ${s} »`,
   suggest: {
@@ -26,7 +26,7 @@ const en: PointCopy = {
   by: 'on its own',
   groups: { atoi: 'For you', done: 'Done', ongoing: 'In progress', rigs: 'Rigs' },
   reply: 'Reply…',
-  nav: { session: 'View', pr: 'View PR', rig: 'Open rig', task: 'View task' },
+  nav: { session: 'View', pr: 'View PR', rig: 'Open rig', task: 'View task', routine: 'View' },
   wantsToRun: 'wants to run', decision: 'decision',
   quote: s => `“${s}”`,
   suggest: {

@@ -366,3 +366,36 @@ describe('ledge task from a session never gives as Ledge', () => {
     expect(sent).toEqual([]);
   });
 });
+
+describe('Ledge\'s own items (routines)', () => {
+  const routine = { kind: 'approve' as const, id: 'r1a2b3c', name: 'briefing' };
+  it('raises, rewords and settles an item of « À toi », Ledge\'s to Ledge', () => {
+    const seen: Task[] = [];
+    tasks.close();
+    tasks = createTasks({ store, mailbox: { notify }, now: () => T0, onTask: t => { seen.push(t); } });
+    const t = tasks.raise({ title: 'Iris veut programmer « briefing »', text: 'prompt', routine });
+    expect(t).toMatchObject({ giver: LEDGE_GIVER, owner: LEDGE_GIVER, state: 'open', routine, text: 'prompt' });
+    expect(tasks.amend(t.id, { title: 'Iris veut programmer 2 routines', routine: { ...routine, ids: ['r1a2b3c', 'r4d5e6f'] } })).toMatchObject({ title: 'Iris veut programmer 2 routines', routine: { ids: ['r1a2b3c', 'r4d5e6f'] } });
+    expect(tasks.amend(t.id, { title: 'x', routine })!.text).toBeUndefined();
+    expect(tasks.settle(t.id, 'activée')).toMatchObject({ state: 'done', result: 'activée' });
+    expect(tasks.settle(t.id, 'encore')).toBeUndefined();
+    expect(tasks.amend(t.id, { title: 'x', routine })).toBeUndefined();
+    expect(seen.map(x => x.state)).toEqual(['open', 'open', 'open', 'done']);
+    expect(told).toEqual([]);
+  });
+  it('refuses to close a routine\'s item as a task: its buttons answer it', () => {
+    const t = tasks.raise({ title: 'Iris veut programmer « briefing »', routine });
+    expect(cmd('ledge', 'done', { task: t.id, text: 'oui' }).reason).toBe('réponds avec ledge routine approve|refuse r1a2b3c');
+    expect(tasks.all().find(x => x.id === t.id)?.state).toBe('open');
+  });
+  it('keeps an open item across a restart: no session of its own to end', () => {
+    let saved: Task[] = [];
+    const j = { load: () => saved, save: (x: Task[]) => { saved = x; } };
+    tasks.close();
+    tasks = createTasks({ store, mailbox: { notify }, now: () => T0, journal: j });
+    const t = tasks.raise({ title: 'La routine briefing (Iris) n\'a pas pu partir : x', routine: { kind: 'failed', id: 'r1a2b3c', name: 'briefing', reason: 'x' } });
+    tasks.close();
+    tasks = createTasks({ store, mailbox: { notify }, now: () => T0, journal: j });
+    expect(tasks.all().find(x => x.id === t.id)?.state).toBe('open');
+  });
+});

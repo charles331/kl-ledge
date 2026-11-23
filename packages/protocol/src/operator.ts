@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { ChatActionSchema } from './chat.js';
 
-/** Every kind of event the operator journal records; a point is built from the unread ones. */
+/** Every kind of event the operator journal records; a point is built from the unread ones. `routine.fired`: a routine's firing
+ *  reached its session (routines spec §3.5), one event per firing. */
 export const OPERATOR_EVENT_KINDS = ['session.request', 'session.question', 'session.finished', 'session.error', 'session.exited',
   'session.context_full', 'request.settled', 'task.opened', 'task.closed', 'task.stale', 'decision.asked', 'brain.proposed',
-  'rig.ask', 'rig.seat_unreachable', 'rig.state', 'rig.goal_update', 'forge.pipeline_failed', 'forge.merged'] as const;
+  'rig.ask', 'rig.seat_unreachable', 'rig.state', 'rig.goal_update', 'forge.pipeline_failed', 'forge.merged', 'routine.fired'] as const;
 export type OperatorEventKind = typeof OPERATOR_EVENT_KINDS[number];
 
 export const PointGroupSchema = z.enum(['atoi', 'done', 'ongoing', 'rigs']);
@@ -28,7 +29,8 @@ export const PointItemSchema = z.object({
   ref: PointRefSchema.optional(),
   answers: z.array(z.object({ id: z.string(), label: z.string().max(60), style: z.enum(['primary', 'danger', 'plain']) })).max(4).optional(),
   freeText: z.boolean().optional(),
-  nav: z.array(z.object({ kind: z.enum(['session', 'pr', 'rig', 'task']), id: z.string() })).max(2).optional(),
+  /** `routine`: a routine's page (its id), which a routine's « À toi » row opens (« Voir »). */
+  nav: z.array(z.object({ kind: z.enum(['session', 'pr', 'rig', 'task', 'routine']), id: z.string() })).max(2).optional(),
   suggestion: z.lazy(() => ChatActionSchema).optional(),
   settled: z.object({ at: z.string().datetime(), where: z.enum(['terminal', 'phone', 'desktop', 'chat', 'elsewhere']), answer: z.string().max(60).optional() }).optional(),
   error: z.string().max(200).optional()

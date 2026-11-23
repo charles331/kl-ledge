@@ -2,7 +2,7 @@
 // answered from a front reaches the point actor, and a Node without `node:sqlite` runs the daemon without the operator.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createECDH, randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,47 @@ describe('startServer({ operator: true })', () => {
     const last = () => a.got.filter((m): m is Extract<ServerMessage, { type: 'operator.state' }> => m.type === 'operator.state').at(-1)!;
     await until(() => last().notices.length === 0, 10_000);
   }, 30_000);
+
+  it('a routine\'s firing reaches « le point », and « Relancer » on a failed one runs the routine again (routines spec §3.5)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ledge-assistant-'));
+    const srv = await startServer({ store: new Store(), tmux: fakeTmux(), port: 0, operator: true, claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))] });
+    close.push(() => srv.close());
+    const a = await open(srv.port); close.push(async () => { a.ws.close(); });
+    await until(() => a.got.some(m => m.type === 'snapshot'));
+    const cmd = (rid: string, body: Record<string, unknown>) => { a.ws.send(JSON.stringify({ type: 'routine.cmd', rid, ...body })); };
+    const result = (rid: string) => a.got.find((m): m is Extract<ServerMessage, { type: 'routine.result' }> => m.type === 'routine.result' && m.rid === rid);
+    const schedule = { kind: 'recurring', times: ['03:00'], days: ['sun'] };
+    // One routine whose session is launched in its folder, one whose folder is gone.
+    cmd('a1', { op: 'add', spec: { name: 'briefing', target: { name: 'Iris', cwd: dir, tool: 'claude' }, schedule, prompt: 'Briefing de {slot}' } });
+    const gone = mkdtempSync(join(tmpdir(), 'ledge-veille-'));
+    cmd('a2', { op: 'add', spec: { name: 'veille', target: { name: 'Nova', cwd: gone, tool: 'claude' }, schedule, prompt: 'Veille' } });
+    await until(() => !!result('a1') && !!result('a2'));
+    const briefing = result('a1')!.routine!, veille = result('a2')!.routine!;
+    expect(veille).toBeDefined();
+    rmSync(gone, { recursive: true });
+    const lastRun = (id: string) => a.got.filter((m): m is Extract<ServerMessage, { type: 'routine.changed' }> => m.type === 'routine.changed' && m.routine?.id === id).at(-1)?.routine?.lastRun;
+    cmd('r1', { op: 'run', routine: briefing.id });
+    await until(() => lastRun(briefing.id)?.outcome === 'launched', 10_000);
+    // The failure is an « À toi » item, said at once: the wake's point holds it and the firing.
+    cmd('r2', { op: 'run', routine: veille.id });
+    await until(() => lastRun(veille.id)?.outcome === 'failed', 10_000);
+    const pointOf = () => a.got.map(m => JSON.stringify(m)).find(j => j.includes('routine.run:') && j.includes('n\u2019a pas pu partir'));
+    await until(() => pointOf() !== undefined, 20_000);
+    const turn = JSON.parse(pointOf()!) as Record<string, unknown>;
+    const point = (JSON.stringify(turn).match(/"qid":"([^"]+)"/) ?? [])[1]!;
+    const items = (JSON.stringify(turn).match(/"id":"(task:[^"]+|routine\.run:[^"]+)"/g) ?? []).map(x => x.slice(6, -1));
+    expect(items.some(i => i.startsWith(`routine.run:${briefing.id}@`))).toBe(true);
+    expect(JSON.stringify(turn)).toContain('briefing de ');
+    const failed = items.find(i => i.startsWith('task:'))!;
+    expect(failed).toBeDefined();
+    // « Relancer »: the routine fires again (and fails again, its folder still gone), no error comes back.
+    const before = a.got.filter(m => m.type === 'routine.changed' && m.routine?.id === veille.id).length;
+    a.ws.send(JSON.stringify({ type: 'point.act', qid: point, item: failed, answer: { id: 'retry' } }));
+    await until(() => a.got.filter(m => m.type === 'routine.changed' && m.routine?.id === veille.id).length > before, 10_000);
+    const runs = a.got.filter((m): m is Extract<ServerMessage, { type: 'routine.changed' }> => m.type === 'routine.changed' && m.routine?.id === veille.id).at(-1)!.routine!.runs;
+    expect(runs?.length).toBeGreaterThanOrEqual(2);
+    expect(a.got.some(m => m.type === 'error' && m.request === 'point.act')).toBe(false);
+  }, 60_000);
 
   it('a new urgent rig ask is told to the notch and pushed to the phone at once, before any point', async () => {
     const { mobile, pushes } = fakeMobile();

@@ -110,7 +110,8 @@ function Row(p: PointTurnProps & { item: PointItem; first: boolean; clock: (iso:
   // One answer at a time across the thread: any row on its way holds every button.
   const off = !!p.disabled || (p.busy !== null && p.busy !== undefined);
   const permission = item.ref?.kind === 'session.request' && item.tone === 'perm';
-  const quoted = item.group === 'atoi' && item.tone === 'ask';
+  // An agent's question is quoted on its own line; a routine's request reads as one sentence after its author (cards 16, 26, 30).
+  const quoted = item.group === 'atoi' && item.tone === 'ask' && !item.nav?.some(n => n.kind === 'routine');
   // A finished row says when; the others say how long, in their sub, as the daemon wrote it.
   const sub = [item.sub, item.group === 'done' ? p.clock(item.at) : undefined].filter(Boolean).join(' · ');
   const s = item.suggestion;
@@ -161,13 +162,13 @@ function Row(p: PointTurnProps & { item: PointItem; first: boolean; clock: (iso:
       style={{ display: 'grid', gridTemplateColumns: '12px minmax(0,1fr)', gap: '2px 7px', padding: '5px 0', borderTop: p.first ? undefined : '1px dashed var(--sidebar-border)' }}>
       <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 5, background: TONE[item.tone], opacity: item.settled ? 0.5 : 1 }} />
       <div style={{ minWidth: 0, overflowWrap: 'anywhere', ...(item.settled ? muted : {}) }}>
-        <b style={{ fontWeight: 600 }}>{item.who}</b>
+        {item.who && <b style={{ fontWeight: 600 }}>{item.who}</b>}
         {item.rig && <span style={muted}> · {item.rig}</span>}
         {/* A rig's ask that offers options is a decision to take (board 1's pill). */}
         {item.ref?.kind === 'rig.ask' && !!item.answers?.length && !item.settled && <> <span data-point-pill style={{ fontSize: 10.5, lineHeight: '15px', border: '1px solid color-mix(in srgb, var(--sidebar-primary) 50%, transparent)', color: 'var(--sidebar-primary)', borderRadius: 8, padding: '0 6px', whiteSpace: 'nowrap', display: 'inline-block' }}>{c.decision}</span></>}
         {permission ? <>{' '}{c.wantsToRun} <code style={{ fontFamily: mono, fontSize: 11 }}>{item.text}</code></>
           : quoted ? <><br />{c.quote(item.text)}</>
-            : <> {item.text}</>}
+            : <>{item.who ? ' ' : ''}{item.text}</>}
         {sub && <small style={{ display: 'block', fontSize: 11, ...muted }}>{sub}</small>}
         {item.settled && (
           <span data-point-receipt style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 11, color: 'var(--success)' }}>
