@@ -300,9 +300,27 @@ export function createRoutines(d: RoutinesDeps): Routines {
   };
   const settleFailures = (id: string, result: string) => { for (const t of failures(id)) d.tasks.settle(t.id, result); };
   /** Asks the owner about a routine (new, or its proposal). A new routine of a session whose new routines already wait joins that item. */
-  const askOwner = (r: Routine) => {
+  /** One routine's request, as the spec and the mockup word it. */
+  const single = (asker: string, r: Routine) => {
     const spec = r.proposal?.spec ?? specOf(r);
+    // A session's change reads « veut modifier » (owner's decision, 2026-11-23); a new routine « veut programmer ».
+    return { title: title(`${asker} veut ${r.proposal ? 'modifier' : 'programmer'} « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
+      routine: { kind: 'approve' as const, id: r.id, name: spec.name } };
+  };
+  /** A grouped request as it now reads: the routines still waiting, in order (one left reads as a single request). */
+  const grouped = (asker: string, ids: string[]) => {
+    const all = ids.map(id => routines.get(id)!);
+    if (all.length === 1) return single(asker, all[0]!);
+    // The title as the mockup words it; the routines follow one per line, name and moment, then their prompts.
+    const text = [...all.map(o => `${o.name} (${scheduleLabel(o.schedule)})`), '', ...all.map(o => `« ${o.name} » : ${o.prompt}`)].join('\n');
+    return { title: title(`${asker} veut programmer ${ids.length} routines uniques`), text: text.length > TASK_TEXT_MAX ? `${text.slice(0, TASK_TEXT_MAX - 1)}…` : text,
+      routine: { kind: 'approve' as const, id: ids[0]!, name: all[0]!.name, ids } };
+  };
+  const askOwner = (r: Routine) => {
     const asker = r.proposal?.by.name ?? (r.createdBy.kind === 'session' ? r.createdBy.name : 'Ledge');
+    // Already in a grouped request (a session changed one of its one-shots before the owner answered): that request reads anew.
+    const inGroup = !r.proposal ? approvals(r.id).find(t => t.routine!.ids) : undefined;
+    if (inGroup) { d.tasks.amend(inGroup.id, grouped(asker, inGroup.routine!.ids!.filter(id => waitsForOwner(id)))); return; }
     for (const t of approvals(r.id)) if (!t.routine!.ids) d.tasks.settle(t.id, 'remplacée par une nouvelle demande');
     const by = r.createdBy.kind === 'session' ? r.createdBy.id : undefined;
     // An open item of this session's one-shots: its members already answered (activated, or refused and gone) do not keep the
@@ -320,17 +338,10 @@ export function createRoutines(d: RoutinesDeps): Routines {
     if (group) {
       // The item names the routines still waiting, the new one last: those answered leave it, so it never holds more than the
       // active routines can (ROUTINES_ACTIVE_MAX, the protocol's bound on `ids`).
-      const ids = [...(group.routine!.ids ?? [group.routine!.id]).filter(id => waitsForOwner(id)), r.id];
-      const all = ids.map(id => routines.get(id)!);
-      // The title as the mockup words it; the routines follow one per line, name and moment, then their prompts.
-      const text = [...all.map(o => `${o.name} (${scheduleLabel(o.schedule)})`), '', ...all.map(o => `« ${o.name} » : ${o.prompt}`)].join('\n');
-      d.tasks.amend(group.id, { title: title(`${asker} veut programmer ${ids.length} routines uniques`),
-        text: text.length > TASK_TEXT_MAX ? `${text.slice(0, TASK_TEXT_MAX - 1)}…` : text, routine: { kind: 'approve', id: ids[0]!, name: all[0]!.name, ids } });
+      d.tasks.amend(group.id, grouped(asker, [...(group.routine!.ids ?? [group.routine!.id]).filter(id => waitsForOwner(id)), r.id]));
       return;
     }
-    // A session's change reads « veut modifier » (owner's decision, 2026-11-23); a new routine « veut programmer ».
-    d.tasks.raise({ title: title(`${asker} veut ${r.proposal ? 'modifier' : 'programmer'} « ${spec.name} » : ${scheduleLabel(spec.schedule)}, dans ${shown(spec.target.cwd)}`), text: spec.prompt,
-      routine: { kind: 'approve', id: r.id, name: spec.name } });
+    d.tasks.raise(single(asker, r));
   };
   /** The session that asked (or its relief) is told the owner's answer. */
   const tellAsker = (r: Routine, who: { id: string; name: string } | undefined, answer: 'approved' | 'refused', change: boolean) => {
@@ -627,32 +638,58 @@ export function createRoutines(d: RoutinesDeps): Routines {
       case 'approve':
       case 'refuse': {
         if (session) return refuse('forbidden', "seul l'utilisateur active ou refuse une routine");
-        if (r.state !== 'pending' && !r.proposal) return refuse('not_pending', `la routine ${r.name} n'attend pas de réponse`);
-        if (cmd.expect !== undefined && cmd.expect !== routineKey(r)) return refuse('stale', `la routine ${r.name} a changé depuis qu'elle a été montrée`);
-        const change = !!r.proposal;
-        const asker = r.proposal?.by ?? (r.createdBy.kind === 'session' ? { id: r.createdBy.id, name: r.createdBy.name } : undefined);
-        if (cmd.op === 'refuse') {
-          if (change) {
-            const { proposal: _p, ...kept } = r;
-            const same = put(kept);
-            settleApprovals(r.id, 'refusée'); tellAsker(same, asker, 'refused', true);
-            return ok(same);
-          }
-          drop(r.id);
-          settleApprovals(r.id, 'refusée'); tellAsker(r, asker, 'refused', false);
-          return removed(r.id);
+        const others = cmd.others ?? [];
+        if (others.length && cmd.spec) return refuse('invalid', 'une correction ne vaut que pour une seule routine');
+        // A grouped answer is all or nothing: every routine is checked before any is answered.
+        const members: { r: Routine; expect?: string }[] = [{ r, ...(cmd.expect !== undefined ? { expect: cmd.expect } : {}) }];
+        for (const o of others) {
+          const x = routines.get(o.routine);
+          if (!x) return refuse('not_found', `aucune routine ${o.routine}`);
+          if (members.some(m => m.r.id === x.id)) return refuse('invalid', `la routine ${x.name} est nommée deux fois`);
+          members.push({ r: x, expect: o.expect });
         }
-        // « Activer » saves the request, or the owner's correction of it.
-        const spec = await checked(cmd.spec ?? r.proposal?.spec ?? specOf(r), true);
-        if ('reason' in spec) return refused(spec);
-        // Changed while its folder was checked: what was shown is no longer what would be saved.
-        if (routines.get(r.id) !== r) return refuse('stale', `la routine ${r.name} a changé pendant l'activation`);
-        if (taken(spec, r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
-        const { proposal: _p, expiresAfterRun: _e, ...base } = r;
-        const approved = put(scheduled({ ...base, ...spec, catchUp: spec.catchUp ?? r.catchUp, state: r.state === 'pending' ? 'enabled' : r.state }));
-        settleApprovals(r.id, 'activée'); tellAsker(approved, asker, 'approved', change);
+        for (const m of members) {
+          if (m.r.state !== 'pending' && !m.r.proposal) return refuse('not_pending', `la routine ${m.r.name} n'attend pas de réponse`);
+          if (m.expect !== undefined && m.expect !== routineKey(m.r)) return refuse('stale', `la routine ${m.r.name} a changé depuis qu'elle a été montrée`);
+        }
+        const askerOf = (x: Routine) => x.proposal?.by ?? (x.createdBy.kind === 'session' ? { id: x.createdBy.id, name: x.createdBy.name } : undefined);
+        if (cmd.op === 'refuse') {
+          const results = members.map(({ r: x }) => {
+            const asker = askerOf(x);
+            if (x.proposal) {
+              const { proposal: _p, ...kept } = x;
+              const same = put(kept);
+              settleApprovals(x.id, 'refusée'); tellAsker(same, asker, 'refused', true);
+              return ok(same);
+            }
+            drop(x.id);
+            settleApprovals(x.id, 'refusée'); tellAsker(x, asker, 'refused', false);
+            return removed(x.id);
+          });
+          return results[0]!;
+        }
+        // « Activer » saves each request, or the owner's correction of the one routine.
+        const specs: RoutineSpec[] = [];
+        for (const [i, m] of members.entries()) {
+          const spec = await checked((i === 0 ? cmd.spec : undefined) ?? m.r.proposal?.spec ?? specOf(m.r), true);
+          if ('reason' in spec) return refused(spec);
+          specs.push(spec);
+        }
+        // Changed while the folders were checked: what was shown is no longer what would be saved.
+        for (const m of members) if (routines.get(m.r.id) !== m.r) return refuse('stale', `la routine ${m.r.name} a changé pendant l'activation`);
+        for (const [i, spec] of specs.entries()) {
+          const clash = specs.some((o, j) => j !== i && o.target.name.toLowerCase() === spec.target.name.toLowerCase() && o.name.toLowerCase() === spec.name.toLowerCase());
+          if (clash || taken(spec, members[i]!.r.id)) return refuse('name_taken', `${spec.target.name} a déjà une routine « ${spec.name} »`, 'name');
+        }
+        const approved = members.map(({ r: x }, i) => {
+          const spec = specs[i]!;
+          const { proposal: _p, expiresAfterRun: _e, ...base } = x;
+          const done = put(scheduled({ ...base, ...spec, catchUp: spec.catchUp ?? x.catchUp, state: x.state === 'pending' ? 'enabled' : x.state }));
+          settleApprovals(x.id, 'activée'); tellAsker(done, askerOf(x), 'approved', !!x.proposal);
+          return done;
+        });
         arm();
-        return ok(approved);
+        return ok(approved[0]!);
       }
     }
     return refuse('invalid', 'opération inconnue');

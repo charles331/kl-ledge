@@ -174,6 +174,9 @@ export const RoutineCmdSchema = z.object({
   /** An approve's: the routine's key as the caller showed it (the phone's `routineKey`); the daemon refuses `stale` once it changed,
    *  checked as it applies, so nothing changed meanwhile is approved. */
   expect: RoutineKeySchema.optional(),
+  /** « Activer les N » / « Refuser les N » of a grouped request: the other routines, each with the key the caller showed. All or
+   *  nothing: every one is checked (waiting, its key, its folder) before any is answered, and none is if one fails. */
+  others: z.array(z.object({ routine: RoutineIdSchema, expect: RoutineKeySchema })).max(ROUTINES_ACTIVE_MAX - 1).optional(),
   by: z.string().min(1).max(100).optional(), key: z.string().min(1).max(128).optional()
 });
 export type RoutineCmd = z.infer<typeof RoutineCmdSchema>;

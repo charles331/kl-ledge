@@ -1199,20 +1199,15 @@ export function createPhoneGateway(deps: {
       if (problem && problem !== 'stale') return { status: 'rejected', reason: problem };
     }
     log(`phone: device ${deviceId} asked routine(s) ${ids.join(', ')} to ${msg.action}`);
-    // One answer per routine, in order; the first refusal is the outcome (the ones before it stand, as each was its own answer).
-    // An approve names each routine's key, checked by the daemon as it applies: one changed while the others were answered is refused.
-    const keys = new Map([[r.id, msg.routineKey], ...(msg.others ?? []).map(x => [x.routine, x.routineKey] as const)]);
-    for (const [i, id] of ids.entries()) {
-      const rid = i === 0 ? msg.op : `${msg.op}:${i}`;
-      const expect = msg.action === 'approve' ? keys.get(id) : undefined;
-      const outcome = await ask({ type: 'routine.cmd', rid, op: msg.action, routine: id, ...(expect ? { expect } : {}) }, m => {
-        if (m.type !== 'routine.result' || m.rid !== rid) return undefined;
-        if (!m.code) return true;
-        return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' || m.code === 'stale' ? m.code : 'invalid' };
-      });
-      if (outcome.status !== 'applied') return outcome;
-    }
-    return { status: 'applied' };
+    // One command for the whole group, all or nothing in the daemon; an approve names each routine's key, checked as it applies.
+    const rid = msg.op;
+    const others = (msg.others ?? []).map(x => ({ routine: x.routine, expect: x.routineKey }));
+    const expect = msg.action === 'approve' ? msg.routineKey : undefined;
+    return ask({ type: 'routine.cmd', rid, op: msg.action, routine: r.id, ...(expect ? { expect } : {}), ...(others.length ? { others } : {}) }, m => {
+      if (m.type !== 'routine.result' || m.rid !== rid) return undefined;
+      if (!m.code) return true;
+      return { status: 'rejected', reason: m.code === 'not_pending' || m.code === 'not_found' || m.code === 'stale' ? m.code : 'invalid' };
+    });
   };
 
   const forgeAct = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'forge.act' }>): Promise<Outcome> => {

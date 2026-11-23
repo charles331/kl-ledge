@@ -400,6 +400,27 @@ describe('commands', () => {
     expect(items[0]!.routine!.ids).toHaveLength(31);
     expect(TaskSchema.safeParse(items[0]).success).toBe(true);
   });
+  it('« Activer les N » / « Refuser les N »: all or nothing, each routine with the key it was shown', async () => {
+    const once = (name: string, at: string) => spec({ name, schedule: { kind: 'once', at: [at], tz: TZ } });
+    const a = (await cmd(as('iris'), 'add', { spec: once('a', '2026-12-03T16:00') })).routine!;
+    const b = (await cmd(as('iris'), 'add', { spec: once('b', '2026-12-04T16:00') })).routine!;
+    const c = (await cmd(as('iris'), 'add', { spec: once('c', '2026-12-05T16:00') })).routine!;
+    // One shown key out of date: none is activated.
+    await cmd(as('iris'), 'update', { routine: c.id, patch: { prompt: 'Autre chose.' } });
+    expect(await cmd(user, 'approve', { routine: a.id, expect: a.key, others: [{ routine: b.id, expect: b.key! }, { routine: c.id, expect: c.key! }] })).toMatchObject({ code: 'stale' });
+    expect(routines.all().map(r => r.state)).toEqual(['pending', 'pending', 'pending']);
+    expect(await cmd(user, 'approve', { routine: a.id, spec: once('a', '2026-12-03T17:00'), others: [{ routine: b.id, expect: b.key! }] })).toMatchObject({ code: 'invalid' });
+    expect(await cmd(as('iris'), 'approve', { routine: a.id, others: [{ routine: b.id, expect: b.key! }] })).toMatchObject({ code: 'forbidden' });
+    const now = routines.all();
+    const keyOf = (id: string) => now.find(r => r.id === id)!.key!;
+    expect((await cmd(user, 'approve', { routine: a.id, expect: keyOf(a.id), others: [{ routine: b.id, expect: keyOf(b.id) }] })).routine).toMatchObject({ id: a.id, state: 'enabled' });
+    expect(routines.all().find(r => r.id === b.id)!.state).toBe('enabled');
+    // c still waits: the request stays open.
+    expect(decisions()).toHaveLength(1);
+    expect(await cmd(user, 'refuse', { routine: c.id, others: [{ routine: a.id, expect: keyOf(a.id) }] })).toMatchObject({ code: 'not_pending' });
+    expect(await cmd(user, 'refuse', { routine: c.id })).toMatchObject({ removed: c.id });
+    expect(decisions()).toEqual([]);
+  });
   it('a recurring routine a session asks for is never grouped with its one-shots', async () => {
     await cmd(as('iris'), 'add', { spec: spec({ name: 'p1', schedule: { kind: 'once', at: ['2026-12-03T16:00'], tz: TZ } }) });
     await cmd(as('iris'), 'add', { spec: spec({ name: 'cloture' }) });
