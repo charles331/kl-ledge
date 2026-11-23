@@ -1,4 +1,4 @@
-import { useState, type JSX, type MouseEvent } from 'react';
+import { useState, type JSX, type MouseEvent, type ReactNode } from 'react';
 import type { HumanAsk, Project, Session, Task, UsageAlert } from '@ledge/protocol';
 import { alertWindowName } from '../../usage/alertName';
 import { resetIsDate, resetLong, resetShort } from '../../usage/model';
@@ -65,6 +65,8 @@ export function Attention(p: {
   onAckUsage?(id: string): void;
   /** Shown in place of the section when nothing waits (the IDE's « À toi » view: one line in the middle); without it, nothing. */
   empty?: string;
+  /** The routines' items (routines mockup, card 14), drawn after the decisions; `count` joins the section's. */
+  routines?: { count: number; node: ReactNode };
 }): JSX.Element | null {
   const { t, lang } = useI18n();
   const [all, setAll] = useState(false);
@@ -74,7 +76,7 @@ export function Attention(p: {
   const asked = p.decisions ?? [];
   const rigAsks = p.rigAsks ?? [];
   const limits = p.usageAlerts ?? [];
-  const count = limits.length + p.items.length + asked.length + tasks.length + near.length + rigAsks.length;
+  const count = limits.length + p.items.length + asked.length + tasks.length + near.length + rigAsks.length + (p.routines?.count ?? 0);
   if (count === 0) return p.empty ? <p className="st-attn-none">{p.empty}</p> : null;
   const shown = all ? p.items : p.items.slice(0, CAP);
   const units = t.list.when.units;
@@ -174,6 +176,7 @@ export function Attention(p: {
           </div>
         </div>
       ))}
+      {p.routines?.node}
       {tasks.map(x => (
         <div key={x.id} className="st-card st-task" data-task={x.id}>
           <span className="st-bot st-task-mark" aria-hidden="true">{x.state === 'done' ? '✓' : '!'}</span>

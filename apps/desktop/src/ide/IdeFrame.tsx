@@ -26,6 +26,9 @@ export { PrPage } from '../forge/PrPage';
 export { PrsStatus } from '../forge/PrsStatus';
 export { PrTabLabel } from '../forge/PrTabLabel';
 export { AtoiPage } from './atoi/AtoiPage';
+export { RoutinesView } from '../routines/RoutinesView';
+export { RoutinePage } from '../routines/RoutinePage';
+export { AtoiRoutinesBlock, AtoiRoutineCards } from '../routines/AtoiRoutines';
 
 export interface IdeFrameProps {
   layout: IdeLayout; onLayout(a: LayoutAction): void;
@@ -48,6 +51,8 @@ export interface IdeFrameProps {
   waiting: readonly Session[]; onNextWaiting(): void;
   /** Lot 8b: the activity bar's badge (open requests whose pipeline failed) and the status bar's count. */
   prsFailing?: number; prsStatus?: ReactNode;
+  /** The activity bar's « Routines » badge: to activate, or last run failed (routines mockup, card 1). */
+  routinesBadge?: number;
   /** « Dispositions », at the status bar's far right (DispositionsMenu). */
   dispositions: DispositionsProps;
 }
@@ -71,7 +76,7 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
     <div className={`ide${p.dragging ? ' is-dragging' : ''}`} data-readonly={p.readOnly ? 'true' : undefined}>
       <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} onReport={p.onReport} blocked={p.blocked} rightShown={right} />
       <div className="ide-body" style={columns} inert={p.blocked}>
-        <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} />
+        <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} routinesBadge={p.routinesBadge} />
         {layout.sideOpen && <IdeExplorer width={layout.sideWidth} onLayout={onLayout}>{p.explorer}</IdeExplorer>}
         <section className="ide-editor" aria-label={t.ide.editorLabel}>
           {p.notice}

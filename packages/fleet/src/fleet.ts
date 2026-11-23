@@ -476,7 +476,7 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
       const a = routineAsks.get(m.rid);
       if (a?.machine !== machine) return;
       routineAsks.delete(m.rid);
-      if (m.code) a.settle(false, { code: m.code, message: m.reason ?? '' } satisfies RoutineFailure);
+      if (m.code) a.settle(false, { code: m.code, message: m.reason ?? '', ...(m.field ? { field: m.field } : {}) } satisfies RoutineFailure);
       else {
         if (m.routine) setRoutines(machine, applyRoutineChange(routineLists.get(machine) ?? [], { routine: m.routine }));
         else if (m.removed) setRoutines(machine, applyRoutineChange(routineLists.get(machine) ?? [], { removed: m.removed }));

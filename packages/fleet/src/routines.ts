@@ -1,4 +1,4 @@
-import type { Routine, RoutineCmd, RoutineRefusal } from '@ledge/protocol';
+import type { Routine, RoutineCmd, RoutineField, RoutineRefusal } from '@ledge/protocol';
 
 /**
  * Routines (spec 2026-11-23-routines-design, mockup docs/mockups/ledge-routines.html): each machine's daemon keeps its own
@@ -13,7 +13,7 @@ export type RoutineAsk = Omit<RoutineCmd, 'type' | 'rid'>;
 
 /** Why a `routineCmd` failed: the machine is down or falls (`offline`), its daemon does not know routines (`outdated`), or the
  *  daemon refused it (its own code). */
-export interface RoutineFailure { code: RoutineRefusal | 'offline' | 'outdated'; message: string }
+export interface RoutineFailure { code: RoutineRefusal | 'offline' | 'outdated'; message: string; /** The field the daemon names (ff7a19c2). */ field?: RoutineField }
 
 /** The routines of every machine as one list, from the per-machine lists the fleet keeps. */
 export function fleetRoutines(byMachine: ReadonlyMap<string, readonly Routine[]>): FleetRoutine[] {
