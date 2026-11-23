@@ -65,11 +65,11 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     expect(lines[4]!.every(s => s.bg !== undefined)).toBe(true);
     expect(text(routineLines(rows, { sel: 0, width: 80, now: NOW, lang: 'en' }, en, g).lines).slice(0, 6)).toEqual([
       '▌point-hebdo           ? awaits your approval in For you',
-      '   Iris · 17:00 · fri',
+      '   Iris · 17:00 · Fri',
       ' veille                ! 18:00 failed',
       '   Nova · 18:00 · every day · dossier introuvable : ~/veille',
       ' briefing              ● next 13:30  ✓ 08:00 late',
-      '   Iris · 08:00 13:30 16:30 · mon-fri · resumed, then delivered'
+      '   Iris · 08:00 13:30 16:30 · Mon-Fri · resumed, then delivered'
     ]);
   });
 
@@ -97,7 +97,11 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
     expect(whenText(CARD18[4]!, 'ask', 'fr', fr)).toBe('17:00 (ven)');
     expect(whenText(CARD25[1]!, 'list', 'fr', fr)).toBe('unique');
     expect(whenText(CARD25[1]!, 'list', 'fr', fr, { dated: true })).toBe('jeu. 3 déc. 16:00');
-    expect(whenText(CARD25[0]!, 'list', 'en', en)).toBe('thu 16:00 · every 2 wks');
+    expect(whenText(CARD25[0]!, 'list', 'en', en)).toBe('Thu 16:00 · every 2 wks');
+    // The two request texts the owner approved on 2026-11-23.
+    expect(whenText(CARD25[0]!, 'ask', 'fr', fr)).toBe('16:00 (jeu, 1 sem. sur 2)');
+    expect(whenText(CARD25[0]!, 'ask', 'en', en)).toBe('16:00 (Thu, every 2 wks)');
+    expect(whenText(CARD25[1]!, 'ask', 'en', en)).toBe('Thu 3 Dec 16:00');
   });
 
   it('writes the two « À toi » items from the routine, the daemon’s title when it is not listed', () => {
@@ -115,7 +119,12 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
       { id: 't3', mark: 'ask', text: 'Iris veut programmer 2 routines uniques' },
       { id: 't4', mark: 'fail', text: 'La routine x (Y) n’a pas pu partir : z' }
     ]);
-    expect(routineItems(tasks.slice(0, 1), CARD18, 'en', en)[0]!.text).toBe('Iris wants to schedule “point-hebdo”: 17:00 (fri), in ~/assistant');
+    expect(routineItems(tasks.slice(0, 1), CARD18, 'en', en)[0]!.text).toBe('Iris wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant');
+    const one = { ...tasks[0]!, routine: { kind: 'approve' as const, id: 'rc22222', name: 'prépa-121' } };
+    expect(routineItems([one], CARD25, 'fr', fr)[0]!.text).toBe('Iris veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
+    const two = { ...tasks[0]!, routine: { kind: 'approve' as const, id: 'rb11111', name: 'bilan-sprint' } };
+    const pending = CARD25.map(r => (r.id === 'rb11111' ? { ...r, state: 'pending' as const, createdBy: { kind: 'session' as const, id: 'iris1', name: 'Iris' } } : r));
+    expect(routineItems([two], pending, 'en', en)[0]!.text).toBe('Iris wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
   });
 });
 

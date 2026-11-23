@@ -376,7 +376,7 @@ export const fr = {
   /** Screen 7, Routines (docs/mockups/ledge-routines.html, cards 18 and 25), and the two « À toi » items of a routine. */
   routines: {
     title: 'ROUTINES', groupOnce: 'UNIQUES', pending: 'attend votre accord dans À toi', paused: 'en pause', late: 'en retard',
-    next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', oneShot: 'unique',
+    next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', every2Ask: '1 sem. sur 2', oneShot: 'unique',
     out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' },
     empty: 'Aucune routine. `ledge routine add` en crée une.',
     toast: {

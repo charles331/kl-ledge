@@ -55,7 +55,8 @@ const onceText = (at: string, lang: Lang): string => {
 /**
  * A routine's schedule as the TUI says it, the only code of the TUI that reads `schedule.times/days/every/at`: in the list
  * (`list`) « 08:00 13:30 16:30 · lun-ven », « jeu 16:00 · 1 sem./2 », a one-shot « unique » or its moments (`dated`, when the
- * line's right side does not already give its date); in a request of « À toi » (`ask`) « 17:00 (ven) », as Desktop says it.
+ * line's right side does not already give its date); in a request of « À toi » (`ask`) « 17:00 (ven) », « 16:00 (jeu, 1 sem. sur
+ * 2) », a one-shot « jeu. 3 déc. 16:00 » (the owner's words of 2026-11-23).
  */
 export function whenText(r: Pick<Routine, 'schedule'>, mode: 'list' | 'ask', lang: Lang, t: Messages, o: { dated?: boolean } = {}): string {
   const s = r.schedule;
@@ -63,8 +64,10 @@ export function whenText(r: Pick<Routine, 'schedule'>, mode: 'list' | 'ask', lan
     const moments = [...s.at].sort().map(a => onceText(a, lang)).join(', ');
     return mode === 'ask' || o.dated ? moments : t.routines.oneShot;
   }
-  const times = [...s.times].sort(), days = daysText(s.days, lang);
-  if (mode === 'ask') return `${times.join(', ')} (${days})`;
+  // English names its days with a capital, as the mockup's « Mon–Fri » and « Thu ».
+  const days = lang === 'en' ? daysText(s.days, lang).replace(/\b(mon|tue|wed|thu|fri|sat|sun)\b/g, d => d[0]!.toUpperCase() + d.slice(1)) : daysText(s.days, lang);
+  const times = [...s.times].sort();
+  if (mode === 'ask') return `${times.join(', ')} (${days}${s.every?.weeks === 2 ? `, ${t.routines.every2Ask}` : ''})`;
   if (s.every?.weeks === 2) return `${days} ${times.join(' ')} · ${t.routines.every2}`;
   return `${times.join(' ')} · ${days}`;
 }

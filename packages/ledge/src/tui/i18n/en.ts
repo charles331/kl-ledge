@@ -359,7 +359,7 @@ export const en: Messages = {
   },
   routines: {
     title: 'ROUTINES', groupOnce: 'ONCE', pending: 'awaits your approval in For you', paused: 'paused', late: 'late',
-    next: (at: string) => `next ${at}`, tomorrow: (at: string) => `tomorrow ${at}`, every2: 'every 2 wks', oneShot: 'once',
+    next: (at: string) => `next ${at}`, tomorrow: (at: string) => `tomorrow ${at}`, every2: 'every 2 wks', every2Ask: 'every 2 wks', oneShot: 'once',
     out: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },
     empty: 'No routine. `ledge routine add` creates one.',
     toast: {
