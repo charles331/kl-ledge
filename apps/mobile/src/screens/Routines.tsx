@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PhoneRoutine, PhoneSession } from '@ledge/protocol';
 import { copy } from '../copy';
 import { failureWhy, nextLine, routineFailed, routineGroups, scheduleView, sessionOf } from '../model/routines';
@@ -14,8 +14,9 @@ import { MobileBot } from '../ui/MobileBot';
 import { useNow } from '../useNow';
 import { Spin } from './atoi/SessionCard';
 
-/** A routine card's 40 px buttons, side by side and sharing the width (card 17), in the kit's outline and primary colours. */
-export const routineButton = (primary = false) => ['inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[10px] border px-3 text-body font-medium whitespace-nowrap transition-colors duration-100 disabled:opacity-45',
+/** A routine card's 40 px buttons, side by side (card 17), each as wide as its words plus an equal share of the rest, so « Lancer
+ *  maintenant » never truncates on a 390 px phone; in the kit's outline and primary colours. */
+export const routineButton = (primary = false) => ['inline-flex h-10 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-[10px] border px-2.5 text-[14px] font-medium whitespace-nowrap transition-colors duration-100 disabled:opacity-45',
   primary ? 'border-transparent bg-primary text-primary-fg active:bg-primary-hover' : 'border-input bg-surface dark:bg-transparent text-fg active:bg-raised'].join(' ');
 
 /** What a routine command's end says when it did not go, with the words the phone already has for it; null when it went. */
@@ -43,9 +44,19 @@ function Late() {
 
 /** One routine (card 17): who it wakes, when, its next and last run, then « Lancer maintenant » and « Pause » / « Reprendre »; a
  *  routine waiting on the user only leads to « À toi ». */
-function RoutineCard({ store, routine: r, session, offline, now }: { store: MobileStore; routine: PhoneRoutine; session: PhoneSession | undefined; offline: boolean; now: number }) {
+function RoutineCard({ store, routine: r, session, offline, now, focused }: { store: MobileStore; routine: PhoneRoutine; session: PhoneSession | undefined; offline: boolean; now: number; focused: boolean }) {
   const R = copy.routines;
   const [busy, setBusy] = useState<'run' | 'toggle' | null>(null);
+  // Opened from a failure's « Voir » (card 29): scrolled to, ringed and tinted in the violet of links for 1.5 s.
+  const ref = useRef<HTMLDivElement>(null);
+  const [ringed, setRinged] = useState(focused);
+  useEffect(() => {
+    if (!focused) return;
+    ref.current?.scrollIntoView?.({ block: 'center' });
+    setRinged(true);
+    const t = setTimeout(() => setRinged(false), RING_MS);
+    return () => clearTimeout(t);
+  }, [focused]);
   const [error, setError] = useState<string | null>(null);
   const pending = r.state === 'pending';
   const failed = routineFailed(r);
@@ -67,6 +78,7 @@ function RoutineCard({ store, routine: r, session, offline, now }: { store: Mobi
   </>;
   else lastLine = <span>{R.never}</span>;
   return (
+    <div ref={ref} data-focused={ringed || undefined} className={`rounded-lg transition-shadow duration-200 ${ringed ? 'shadow-[0_0_0_2px_var(--color-task)] [&>article]:bg-[color-mix(in_srgb,var(--color-task)_10%,var(--color-surface))]' : ''}`}>
     <Card tone={pending ? 'ask' : failed ? 'perm' : 'plain'} label={r.name}>
       <div data-routine={r.id} className="flex min-w-0 items-center gap-[9px]">
         <RoutineBot routine={r} session={session} frozen={offline} />
@@ -94,8 +106,12 @@ function RoutineCard({ store, routine: r, session, offline, now }: { store: Mobi
       </div>
       {error && <p role="alert" className="text-small text-destructive">{error}</p>}
     </Card>
+    </div>
   );
 }
+
+/** How long a routine opened from « Voir » stays ringed (card 29). */
+export const RING_MS = 1_500;
 
 /** A group's title over its cards (card 25): « RÉCURRENTES », « UNIQUES ». */
 function GroupTitle({ children }: { children: string }) {
@@ -107,7 +123,7 @@ function GroupTitle({ children }: { children: string }) {
  * read-only, recurring ones then one-shots, each with « Lancer maintenant » and « Pause » / « Reprendre »; a sentence at the foot
  * says where to create or change one.
  */
-export function Routines({ store }: { store: MobileStore }) {
+export function Routines({ store, focus }: { store: MobileStore; focus?: string | undefined }) {
   const state = useMobile(store);
   const now = useNow();
   const wide = useWide();
@@ -115,7 +131,7 @@ export function Routines({ store }: { store: MobileStore }) {
   const groups = routineGroups(state.routines ?? []);
   const offline = !state.fresh;
   const sessions = [...state.sessions.values()];
-  const cards = (list: PhoneRoutine[]) => list.map(r => <RoutineCard key={r.id} store={store} routine={r} session={sessionOf(r, sessions)} offline={offline} now={now} />);
+  const cards = (list: PhoneRoutine[]) => list.map(r => <RoutineCard key={r.id} store={store} routine={r} session={sessionOf(r, sessions)} offline={offline} now={now} focused={r.id === focus} />);
   return (
     <TabPage title={R.title} heading={false} bodyClassName="flex flex-col gap-2.5">
       {/* Beside the sessions on a wide screen, the pane's head already names it. */}

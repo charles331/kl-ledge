@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   DevicePollResponseSchema, DeviceStartResponseSchema, PHONE_PROTOCOL,
-  type PhoneChatTurn, type PhoneClientMessage, type PhoneRoutine, type PhoneTask, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage
+  type PhoneChatTurn, type PhoneClientMessage, type PhoneRoutine, type PhoneRoutineDetail, type PhoneTask, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage
 } from '@ledge/protocol';
 import { startAccountsRelay } from '../../relay/src/app';
 import type { AccountsConfig } from '../../relay/src/config';
@@ -116,7 +116,7 @@ export interface FakeDaemon {
   forgeActs: Extract<PhoneClientMessage, { type: 'forge.act' }>[];
   /** Set: the PC answers `routine.list` and `routine.show` from these (docs/mockups/ledge-routines.html); null: an older PC, which
    *  never answers them. `prompts`: each routine's prompt, by id, as its detail carries it. */
-  routines: { list: PhoneRoutine[]; prompts: Record<string, string> } | null;
+  routines: { list: PhoneRoutine[]; prompts: Record<string, string>; proposals?: Record<string, NonNullable<PhoneRoutineDetail['proposal']>> } | null;
   /** The tasks the PC sends after each snapshot: Ledge's, the decisions, the routines' items of « À toi ». */
   tasks: PhoneTask[];
   /** The routine commands the phone sent (`routine.cmd`), in order; each is applied. */
@@ -285,7 +285,8 @@ function runDaemon(pc: FakePc): FakeDaemon {
       const r = d.routines.list.find(x => x.id === m.routine);
       if (!r) return pc.send({ type: 'routine.detail', id: m.routine, gone: true });
       const { cut: _c, proposed: _p, ...rest } = r;
-      return pc.send({ type: 'routine.detail', id: m.routine, routine: { ...rest, prompt: d.routines.prompts[r.id] ?? '…' } });
+      const proposal = d.routines.proposals?.[r.id];
+      return pc.send({ type: 'routine.detail', id: m.routine, routine: { ...rest, prompt: d.routines.prompts[r.id] ?? '…', ...(proposal ? { proposal } : {}) } });
     }
     if (d.routines && m.type === 'routine.cmd') { d.routineCmds.push(m); return pc.send({ type: 'operation.result', op: m.op, status: 'applied' }); }
     if (d.terminal && m.type.startsWith('term.')) return terminalMessage(m);

@@ -78,7 +78,7 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
       <Head failed={false} at={task.at} />
       {routine
         ? <Said routine={routine} session={session} frozen={!state.fresh}>
-            {spec ? <><b className="font-semibold">{who}</b> {A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</> : task.title}
+            {spec ? <><b className="font-semibold">{who}</b> {detail?.proposal ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</> : task.title}
           </Said>
         : <p className="text-body [overflow-wrap:anywhere]">{task.title}</p>}
       {spec && <pre data-prompt="" className="m-0 rounded-md border border-line bg-raised px-[9px] py-1.5 font-mono text-small leading-[17px] whitespace-pre-wrap [overflow-wrap:anywhere]">{spec.prompt}</pre>}
@@ -104,11 +104,11 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const [error, setError] = useState<string | null>(null);
   const go = async (which: 'approve' | 'refuse') => {
     setBusy(which); setError(null);
-    // One routine after the other: each « Activer » carries its own check, bound to that routine and its key.
-    for (const r of waiting) {
-      const end = which === 'approve' ? await store.approveRoutine(r.id, r.key) : await store.routineCmd(r.id, 'refuse');
-      const why = routineError(end);
-      if (why) { setError(why); break; }
+    // One command for the whole request: « Activer les N » is one device check over every routine and the key the phone showed.
+    const [head, ...rest] = waiting;
+    if (head) {
+      const others = rest.map(r => ({ routine: r.id, routineKey: r.key }));
+      setError(routineError(which === 'approve' ? await store.approveRoutine(head.id, head.key, others) : await store.routineCmd(head.id, 'refuse', others)));
     }
     setBusy(null);
   };
@@ -157,7 +157,7 @@ function FailedItem({ store, task, state }: RoutineItemProps) {
       {routine ? <Said routine={routine} session={session} frozen={!state.fresh}>{line}</Said> : <p className="text-body [overflow-wrap:anywhere]">{line}</p>}
       <div className="flex gap-2">
         <button type="button" disabled={!state.fresh || busy} onClick={() => { void retry(); }} className={routineButton(true)}>{busy && <Spin />}{A.retry}</button>
-        <a href={href({ name: 'routines' })} className={routineButton()}>{A.see}</a>
+        <a href={href({ name: 'routines', routine: id })} className={routineButton()}>{A.see}</a>
       </div>
       {error && <p role="alert" className="text-small text-destructive">{error}</p>}
     </Card>

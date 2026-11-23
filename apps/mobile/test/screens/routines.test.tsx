@@ -114,6 +114,18 @@ describe('the Routines screen (cards 17 and 25)', () => {
     expect(t.of('confirm.prepare')).toEqual([]);
   });
 
+  it('opened from a failure’s « Voir », it scrolls to that routine and rings it for 1.5 s (card 29)', async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const t = pc([routine(), veille()]);
+    render(<Routines store={t.store} focus="r81c0d4" />);
+    const ring = () => screen.getByRole('article', { name: 'veille' }).parentElement!;
+    expect(ring()).toHaveAttribute('data-focused');
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('article', { name: 'briefing' }).parentElement).not.toHaveAttribute('data-focused');
+    await waitFor(() => expect(ring()).not.toHaveAttribute('data-focused'), { timeout: 2500 });
+  });
+
   it('a refused command says so on its card', async () => {
     const t = pc([routine()]);
     render(<Routines store={t.store} />);
@@ -162,7 +174,8 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(t.of('confirm.prepare')).toEqual([]);
   });
 
-  it('several one-shots proposed together: their lines, then « Refuser les 3 » answers each one in turn', async () => {
+  it('several one-shots proposed together: their lines; « Activer les 3 » is ONE device check over the three, « Refuser les 3 » one command', async () => {
+    vi.mocked(getAssertion).mockClear().mockResolvedValue(ASSERTION);
     const group = [oneShot('r000001', 'prepa-121', '2026-12-03T16:00'), oneShot('r000002', 'prepa-comite-archi', '2026-12-07T15:00'), oneShot('r000003', 'prepa-demo-compart', '2026-12-08T09:30')];
     const t = pc(group, [routineTask('t1', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }, { at: new Date(2026, 10, 23, 2, 58).toISOString() })]);
     render(<Inbox store={t.store} />);
@@ -170,13 +183,33 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(card).toHaveTextContent('Iris veut programmer 3 routines uniques');
     expect(within(card).getAllByRole('listitem').map(li => li.textContent)).toEqual(['prepa-121 · jeu. 3 déc. 16:00', 'prepa-comite-archi · lun. 7 déc. 15:00', 'prepa-demo-compart · mar. 8 déc. 09:30']);
     expect(within(card).getByRole('button', { name: 'Activer les 3' })).toBeEnabled();
+    const others = [{ routine: 'r000002', routineKey: 'k-prepa-comite-archi' }, { routine: 'r000003', routineKey: 'k-prepa-demo-compart' }];
+    fireEvent.click(within(card).getByRole('button', { name: 'Activer les 3' }));
+    const prepared = () => t.of('confirm.prepare').filter(m => m.purpose === 'routine');
+    await waitFor(() => expect(prepared()).toHaveLength(1));
+    expect(prepared()[0]).toEqual({ type: 'confirm.prepare', purpose: 'routine', routine: 'r000001', routineKey: 'k-prepa-121', routineOthers: others });
+    act(() => t.deliver({ type: 'confirm.challenge', purpose: 'routine', challenge: 'Y2g', rpId: 'pc.local', credentialId: 'Y3I', expiresInMs: 60_000 }));
+    await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(1));
+    expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'approve', routine: 'r000001', routineKey: 'k-prepa-121', others, assertion: ASSERTION });
+    expect(vi.mocked(getAssertion)).toHaveBeenCalledTimes(1);
+    await act(async () => { t.deliver({ type: 'operation.result', op: t.of('routine.cmd')[0]!.op, status: 'rejected', reason: 'stale' }); });
     fireEvent.click(within(card).getByRole('button', { name: 'Refuser les 3' }));
-    for (const [i, id] of ['r000001', 'r000002', 'r000003'].entries()) {
-      await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(i + 1));
-      const cmd = t.of('routine.cmd')[i]!;
-      expect(cmd).toMatchObject({ action: 'refuse', routine: id });
-      await act(async () => { t.deliver({ type: 'operation.result', op: cmd.op, status: 'applied' }); });
-    }
+    await waitFor(() => expect(t.of('routine.cmd')).toHaveLength(2));
+    expect(t.of('routine.cmd')[1]).toMatchObject({ action: 'refuse', routine: 'r000001', others });
+    expect(t.of('routine.cmd')[1]).not.toHaveProperty('assertion');
+    expect(prepared()).toHaveLength(1);
+  });
+
+  it('a session’s change to a routine says « veut modifier » with the settings it asks for and its prompt (card 29)', () => {
+    const briefing = routine({ proposed: true });
+    const t = pc([briefing], [routineTask('t1', { kind: 'approve', id: 'r1a2b3c', name: 'briefing' })]);
+    render(<Inbox store={t.store} />);
+    const asked = { name: 'briefing', target: briefing.target, schedule: { kind: 'recurring' as const, times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] as ('mon' | 'tue' | 'wed' | 'thu' | 'fri')[] }, prompt: 'Briefing de {slot}.', catchUp: 'once' as const };
+    act(() => t.deliver({ type: 'routine.detail', id: 'r1a2b3c', routine: { ...detail(briefing, 'Briefing de {slot}.'), proposal: { spec: asked, by: { id: 'iris', name: 'Iris' }, at: '2026-11-23T02:40:00.000Z' } } }));
+    const card = screen.getByRole('article', { name: 'Demande · briefing' });
+    expect(card).toHaveTextContent('Iris veut modifier « briefing » : 07:30, 13:30, 16:30 (lun–ven)');
+    expect(card).not.toHaveTextContent('veut programmer');
+    expect(within(card).getByText('Briefing de {slot}.')).toBeInTheDocument();
   });
 
   it('a run that could not leave: « Relancer » fires it again, « Voir » opens the Routines screen; both counted in the badge', () => {
@@ -185,7 +218,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     render(<Inbox store={t.store} />);
     const card = screen.getByRole('article', { name: 'Échec · veille' });
     expect(card).toHaveTextContent('La routine veille (Nova) n’a pas pu partir : Ce dossier n’existe pas sur ce PC.');
-    expect(within(card).getByRole('link', { name: 'Voir' })).toHaveAttribute('href', '#/routines');
+    expect(within(card).getByRole('link', { name: 'Voir' })).toHaveAttribute('href', '#/routines/r81c0d4');
     fireEvent.click(within(card).getByRole('button', { name: 'Relancer' }));
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'run', routine: 'r81c0d4' });
     expect(atoiBadge([], [], [failed])).toEqual({ text: '1', tone: 'red' });

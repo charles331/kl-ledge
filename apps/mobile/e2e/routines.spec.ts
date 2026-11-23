@@ -110,6 +110,24 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       await shot(page, `atoi-${tag}`);
     });
 
+    test('a session’s change, and a failure’s « Voir » scrolling to its routine (card 29)', async ({ page }) => {
+      const briefing = ROUTINES.find(r => r.name === 'briefing')!;
+      h.daemon.routines = { list: ROUTINES.map(r => (r.id === briefing.id ? { ...r, proposed: true as const } : r)), prompts: { [briefing.id]: 'Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi.' },
+        proposals: { [briefing.id]: { spec: { name: 'briefing', target: iris, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: [...weekdays] }, prompt: 'Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi.', catchUp: 'once' }, by: { id: 'iris', name: 'Iris' }, at: local(10, 23, 3, 40) } } };
+      h.daemon.tasks = [ask(local(10, 23, 3, 40), { kind: 'approve', id: briefing.id, name: 'briefing' }), TASKS[1]!];
+      await pair(page, theme, lang);
+      await go(page, '#/');
+      const change = page.getByRole('article', { name: `${R.atoi.ask} · briefing` });
+      await expect(change).toContainText(R.atoi.editAsks('briefing', lang === 'fr' ? '07:30, 13:30, 16:30 (lun–ven)' : '07:30, 13:30, 16:30 (Mon–Fri)'));
+      await change.evaluate(el => el.scrollIntoView({ block: 'start' }));
+      await shot(page, `atoi-change-${theme}-${lang}`);
+      await page.getByRole('article', { name: `${R.atoi.failed} · veille` }).getByRole('link', { name: R.atoi.see }).click();
+      await expect(page).toHaveURL(/#\/routines\/r81c0d4$/);
+      const ringed = page.getByRole('article', { name: 'veille' }).locator('..');
+      await expect(ringed).toHaveAttribute('data-focused', 'true');
+      await shot(page, `see-${theme}-${lang}`);
+    });
+
     test('several one-shots proposed together', async ({ page }) => {
       h.daemon.routines = { list: ONE_SHOTS, prompts: {} };
       h.daemon.tasks = [ask(local(10, 23, 2, 58), { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })];

@@ -192,7 +192,7 @@ const fr = {
     machines: 'Ouverture des machines dans Ledge Desktop',
     point: 'Ouverture du point dans Ledge Desktop',
     ask: 'Ouverture de « À toi » dans Ledge Desktop',
-    routine: (name: string) => `Ouverture de la routine ${name} dans Ledge Desktop`,
+    routine: (name: string) => `Ouverture de la routine « ${name} » dans Ledge Desktop`,
     failed: 'Ledge Desktop n’a pas pu s’ouvrir.'
   },
   menu: {
@@ -480,7 +480,7 @@ const en: Messages = {
     machines: 'Opening machines in Ledge Desktop',
     point: 'Opening the point in Ledge Desktop',
     ask: 'Opening “For you” in Ledge Desktop',
-    routine: (name: string) => `Opening the routine ${name} in Ledge Desktop`,
+    routine: (name: string) => `Opening the routine “${name}” in Ledge Desktop`,
     failed: 'Ledge Desktop could not open.'
   },
   menu: {

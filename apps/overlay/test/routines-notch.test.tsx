@@ -148,5 +148,7 @@ describe('the island’s routine items (card 15)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     expect(opened).toEqual([{ kind: 'routine', machine: 'local', id: 'r3f9a12' }]);
     expect(f.cmds).toEqual([]);
+    // The island says what opens (card 29), as its other openings do.
+    expect(document.body).toHaveTextContent('Opening the routine “point-hebdo” in Ledge Desktop…');
   });
 });

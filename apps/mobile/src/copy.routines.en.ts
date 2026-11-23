@@ -33,6 +33,7 @@ export const routinesEn: RoutinesCopy = {
     kind: 'Routine', ask: 'Request', failed: 'Failure',
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
     groupAsks: (n: number) => `wants to schedule ${n} one-shot routines`,
+    editAsks: (name: string, when: string) => `wants to change “${name}”: ${when}`,
     failedLine: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
     activate: 'Activate', refuse: 'Refuse', retry: 'Run again', see: 'View',
     activateAll: (n: number) => `Activate all ${n}`, refuseAll: (n: number) => `Refuse all ${n}`,

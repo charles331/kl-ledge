@@ -353,7 +353,7 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
           case 'ask': return <Split list={inbox} detail={<AskDetail key={route.id} store={store} id={route.id} onDone={moveOn({ name: 'ask', id: route.id })} />} />;
           case 'request': return <Split list={inbox} detail={<RequestDetail key={route.sessionId} store={store} sessionId={route.sessionId} requestKey={route.key} onReconnect={retry} onSettled={moveOn({ name: 'request', sessionId: route.sessionId, key: route.key })} keys />} />;
           case 'sessions': return <Split tab="sessions" list={sessions} detail={<SplitEmpty {...copy.split.agent} />} />;
-          case 'routines': return <Split tab="sessions" list={sessions} detail={<Routines store={store} />} />;
+          case 'routines': return <Split tab="sessions" list={sessions} detail={<Routines store={store} focus={route.routine} />} />;
           case 'thread': return <Split tab="sessions" list={sessions} detail={<Thread key={route.sessionId} store={store} sessionId={route.sessionId} storage={storage} onReconnect={retry} forge={forge} />} />;
           // « Nouvelle session » opens beside the list, like a session (Q82, validated by the user 2026-11-11).
           case 'launch': return <Split tab="sessions" list={sessions} detail={<NewSession store={store} storage={storage} />} />;
@@ -394,7 +394,7 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
     switch (route.name) {
       case 'atoi': return framed(inbox);
       case 'sessions': case 'atelier': return framed(sessions);
-      case 'routines': return framed(<Routines store={store} />);
+      case 'routines': return framed(<Routines key={route.routine ?? ''} store={store} focus={route.routine} />);
       // The MR/PR tab's header (m5-mr-pr.html): « MR et PR », the host, Réglages; before the PC sends its requests, M0's.
       case 'prs': return framed(prsList, prsOn ? copy.prs.title : true);
       case 'pr': return prView ? framed(prView, false) : framed(prsList, prsOn ? copy.prs.title : true);

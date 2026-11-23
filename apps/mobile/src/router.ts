@@ -7,8 +7,9 @@ export type Route =
   /** « Sessions » (`#/sessions`; `#/agents`, its old address, still leads there); `#/sessions/working` opens it on « Au travail »
    *  (« Voir les N autres » in « À toi »), `#/sessions/waiting` on « En attente ». */
   | { name: 'sessions'; filter?: 'waiting' | 'working' }
-  /** « Routines » (`#/routines`), opened from the top of Sessions: the PC's routines, read-only (docs/mockups/ledge-routines.html, card 17). */
-  | { name: 'routines' }
+  /** « Routines » (`#/routines`), opened from the top of Sessions: the PC's routines, read-only (docs/mockups/ledge-routines.html, card 17);
+   *  `#/routines/<id>` scrolls to that routine's card and rings it (« Voir » of a failure, card 29). */
+  | { name: 'routines'; routine?: string }
   /** « MR/PR » and « Rigs »: what the PC does not send to the phone yet (docs/mockups/ledge-mobile-refonte/m0-socle.html, §3). */
   | { name: 'prs' }
   | { name: 'rigs' }
@@ -52,6 +53,7 @@ export function parseRoute(hash: string): Route {
     if (parts[0] === 'connection' && parts.length === 2 && parts[1] === 'link') return { name: 'connection', section: 'link' };
     if (parts[0] === 'rigs' && parts.length === 2) return { name: 'rig', rig: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'prs' && parts.length === 2) return { name: 'pr', id: decodeURIComponent(parts[1]!) };
+    if (parts[0] === 'routines' && parts.length === 2) return { name: 'routines', routine: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'max' && parts.length === 2) return { name: 'max', goalId: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'sessions' && parts.length === 2 && (parts[1] === 'working' || parts[1] === 'waiting')) return { name: 'sessions', filter: parts[1] };
   } catch { /* malformed escape: fall through to À toi */ }
@@ -71,6 +73,7 @@ export function href(r: Route): string {
   if (r.name === 'connection' && r.section) return `#/connection/${r.section}`;
   if (r.name === 'rig') return `#/rigs/${encodeURIComponent(r.rig)}`;
   if (r.name === 'pr') return `#/prs/${encodeURIComponent(r.id)}`;
+  if (r.name === 'routines' && r.routine) return `#/routines/${encodeURIComponent(r.routine)}`;
   if (r.name === 'max' && r.goalId) return `#/max/${encodeURIComponent(r.goalId)}`;
   if (r.name === 'sessions' && r.filter) return `#/sessions/${r.filter}`;
   if (r.name === 'launch') return `#/${NEW}`;

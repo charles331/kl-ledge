@@ -117,7 +117,10 @@ export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: 
   /** An action on a pull or merge request (`forge.act`), bound to that request and that exact action, text included (Q54). */
   | { purpose: 'forge'; forge: { prId: string; action: ForgeAction } }
   /** « Activer » on a routine a session asked for (`routine.cmd` `approve`), bound to it and to the key of what the phone showed. */
-  | { purpose: 'routine'; routine: string; routineKey: string };
+  | { purpose: 'routine'; routine: string; routineKey: string; routineOthers?: RoutineRef[] };
+
+/** A routine named with the key of what the phone showed. */
+export interface RoutineRef { routine: string; routineKey: string }
 
 /** How long `prepareConfirm` waits for the PC's challenge. */
 export const PREPARE_MS = 10_000;
@@ -182,10 +185,10 @@ export interface MobileStore {
   showRoutine(id: string): void;
   /** « Lancer maintenant » / « Relancer » (`run`), « Pause », « Reprendre », and « Refuser » a routine a session asked for: no device
    *  check. One command per routine at a time. Resolves when the PC answers. */
-  routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse'): Promise<ChatAction>;
-  /** « Activer »: the device's check over that routine and `key`, the key of what the phone showed, then `approve`. Resolves when
-   *  the PC answers; a routine changed since is refused as `stale`. */
-  approveRoutine(id: string, key: string): Promise<ChatAction>;
+  routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse', others?: RoutineRef[]): Promise<ChatAction>;
+  /** « Activer » / « Activer les N »: ONE device check over every routine of the request and the key of what the phone showed of each,
+   *  then `approve` (`others`: the rest of a grouped request). Resolves when the PC answers; a routine changed since is `stale`. */
+  approveRoutine(id: string, key: string, others?: RoutineRef[]): Promise<ChatAction>;
   /** Registers the passkey with the PC. The op's id, or null when nothing was sent. */
   /** `userId`: the passkey's `user.id`, base64url (« L1 » ‖ the PC key's digest ‖ random), so the PC marks it `recover`. */
   registerCredential(c: Credential, userId?: string): string | null;
@@ -1262,19 +1265,20 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       send({ type: 'routine.show', routine: id });
     },
 
-    routineCmd(id, action) {
+    routineCmd(id, action, others) {
       return chatAction(`routine:${id}`, async () => {
-        const op = write(o => ({ type: 'routine.cmd', op: o, action, routine: id }));
+        const op = write(o => ({ type: 'routine.cmd', op: o, action, routine: id, ...(others?.length ? { others } : {}) }));
         return op === null ? { status: 'failed' } : finalOf(op);
       });
     },
 
-    approveRoutine(id, key) {
+    approveRoutine(id, key, others) {
       return chatAction(`routine:${id}`, async () => {
         // A phone without a passkey cannot sign: the PC would refuse, and no prompt is worth showing.
         if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
-        return signedOperation({ purpose: 'routine', routine: id, routineKey: key },
-          (o, assertion) => ({ type: 'routine.cmd', op: o, action: 'approve', routine: id, routineKey: key, assertion }));
+        const rest = others?.length ? others : undefined;
+        return signedOperation({ purpose: 'routine', routine: id, routineKey: key, ...(rest ? { routineOthers: rest } : {}) },
+          (o, assertion) => ({ type: 'routine.cmd', op: o, action: 'approve', routine: id, routineKey: key, ...(rest ? { others: rest } : {}), assertion }));
       });
     },
 
