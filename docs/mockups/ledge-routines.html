@@ -358,7 +358,7 @@ section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
 const T = {
   fr: {
     h1:'Ledge — Routines', hsub:'v2 validée + ajout (récurrente / unique, deux semaines) · Desktop (IDE de main 756fd2a2), « À toi », « Le point », téléphone, ledge tui',
-    tomorrowDay:'demain (mar.)', wednesday:'mer. 25', saturday:'sam. 21', pickSession:'Choisir une session…', yesterday:'hier', friday:'ven. 20', stEnabled:'Active', stPaused:'En pause', wakes:'Réveille ', inDir:'dans', runs:'Tirs', nextRuns:'Prochains', pastRuns:'Derniers', config:'Configuration',
+    tomorrowDay:'demain', wednesday:'mer. 25 nov.', saturday:'sam. 21 nov.', pickSession:'Choisir une session…', yesterday:'hier', friday:'ven. 20 nov.', stEnabled:'Active', stPaused:'En pause', wakes:'Réveille ', inDir:'dans', runs:'Tirs', nextRuns:'Prochains', pastRuns:'Derniers', config:'Configuration',
     noneUntil:'aucun tant qu’elle n’est pas activée', noneWhilePaused:'aucun tant qu’elle est en pause', dirty:'Modifications non enregistrées', discard:'Annuler les modifications', promptPh:'Ce que Ledge tapera dans la session à chaque tir…',
     pendBanner:(s,h)=>`${s} demande à programmer cette routine (${h}). Elle ne partira qu’une fois activée.`, pendEditHint:'Tu peux la corriger avant de l’activer : Activer enregistre tes modifications.',
     failBanner:(h,why)=>`Le tir de ${h} n’a pas pu partir : ${why}`, failHint:'Corrige le champ entouré ci-dessous, puis relance.', errDirExisting:'Le dossier de cette session n’existe plus sur ce PC.',
@@ -422,7 +422,7 @@ const T = {
   },
   en: {
     h1:'Ledge — Routines', hsub:'v2 approved + addition (recurring / once, two weeks) · Desktop (IDE of main 756fd2a2), “For you”, the point, phone, ledge tui',
-    tomorrowDay:'tomorrow (Tue)', wednesday:'Wed 25', saturday:'Sat 21', pickSession:'Pick a session…', yesterday:'yesterday', friday:'Fri 20', stEnabled:'Active', stPaused:'Paused', wakes:'Wakes ', inDir:'in', runs:'Runs', nextRuns:'Next', pastRuns:'Recent', config:'Settings',
+    tomorrowDay:'tomorrow', wednesday:'Wed 25 Nov', saturday:'Sat 21 Nov', pickSession:'Pick a session…', yesterday:'yesterday', friday:'Fri 20 Nov', stEnabled:'Active', stPaused:'Paused', wakes:'Wakes ', inDir:'in', runs:'Runs', nextRuns:'Next', pastRuns:'Recent', config:'Settings',
     noneUntil:'none until it’s activated', noneWhilePaused:'none while paused', dirty:'Unsaved changes', discard:'Discard changes', promptPh:'What Ledge will type into the session at each run…',
     pendBanner:(s,h)=>`${s} asks to schedule this routine (${h}). It won’t run until it’s activated.`, pendEditHint:'You can correct it before activating: Activate saves your changes.',
     failBanner:(h,why)=>`The ${h} run could not start: ${why}`, failHint:'Fix the outlined field below, then run it again.', errDirExisting:'This session’s folder no longer exists on this PC.',
@@ -652,8 +652,8 @@ function cards(){
     scene: `<div class="paneframe">${rpage(brief)}</div>`});
 
   C.push({tag:'new', title:'Modifier : la barre « Modifications non enregistrées »', wide:true,
-    why:'Un champ changé : un point ambre devant le nom de l’onglet (« • briefing »), et la barre en bas de la page. <b>Enregistrer</b> (Ctrl+S) applique tout et le daemon recalcule le prochain tir ; <b>Annuler les modifications</b> remet la page comme elle était. Fermer l’onglet ou cliquer une autre routine dans la barre latérale avec des modifications en cours : la question habituelle « Enregistrer / Ne pas enregistrer / Annuler ». Les erreurs s’affichent sous le champ, comme en v1 ; Enregistrer avec une erreur met le focus dessus.',
-    keys:'routines.dirty · .discard · .save · routines.err.* (v1) · question de fermeture : celle des dispositions (existante)',
+    why:'Un champ changé : un point ambre devant le nom de l’onglet (« • briefing »), et la barre en bas de la page. <b>Enregistrer</b> (Ctrl+S) applique tout et le daemon recalcule le prochain tir ; <b>Annuler les modifications</b> remet la page comme elle était. Fermer l’onglet avec des modifications en cours : un dialogue « Modifications non enregistrées · briefing », Enregistrer / Ne pas enregistrer / Annuler. Cliquer une autre routine dans la barre latérale ouvre son onglet, sans question (un onglet par routine). Sur la page, les dates portent toujours le mois (« ven. 20 nov. »), ou « aujourd’hui », « demain », « hier ». Les erreurs s’affichent sous le champ, comme en v1 ; Enregistrer avec une erreur met le focus dessus.',
+    keys:'routines.dirty · .discard · .save · routines.err.* (v1) · routines.unsaved.{title(name),save,dontSave,cancel} (nouveau dialogue)',
     scene: ide(rpage(brief, {dirty:true, noRuns:true, form:{times:['07:30','13:30','16:30']}}), {side:rside({sel:'briefing'}), tabs:[['Iris',''],['• briefing','on']], tall:true})});
 
   C.push({tag:'new', title:'Nouvelle routine : la même page, vide', wide:true,
@@ -690,7 +690,7 @@ function cards(){
     scene: `<div class="paneframe" style="max-height:330px;overflow:hidden">${rpage(revue, {banner: bannerBox('bad', x.delQ('revue-prs'), x.delWhy('Otto'), `<button class="btn">${x.cancel}</button><button class="btn dangerfill">${x.delGo}</button>`), noRuns:true, form:{name:'revue-prs', times:['09:00'], s:'Otto', tool:'codex', st:'idle', stTxt:x.st.idle, dir:'~/Workspace/ledge'}})}</div>`});
 
   C.push({tag:'new', title:'États : vide, connexion, daemon hors ligne', wide:true,
-    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : les routines de la machine choisie dans la barre de titre, comme le reste de l’IDE. <b>Beaucoup de routines</b> : la barre latérale défile.',
+    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : l’IDE n’a pas de machine choisie dans la barre de titre ; règle en attente de jde (proposition : un titre par machine dans la barre latérale, comme la TUI, carte 27). <b>Beaucoup de routines</b> : la barre latérale défile.',
     keys:'routines.empty.{title,side} · routines.connecting · routines.offlineShort',
     scene: `${rside({empty:true})}${rside({connecting:true})}${rside({offline:true})}`});
 
