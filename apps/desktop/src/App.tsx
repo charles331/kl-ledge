@@ -101,7 +101,7 @@ import { useRoutines } from './routines/useRoutines';
 import { useRoutineActions } from './routines/useRoutineActions';
 import { RoutineTabLabel } from './routines/icons';
 import type { PageDirt } from './routines/RoutinePage';
-import { atoiRoutineItems, findRoutine, homeLabel, NEW_ROUTINE_REF, proposalsOf, routineRef, routinesBadge, routinesOfSession, sessionOfRoutine, type SpecDraft } from './routines/model';
+import { atoiRoutineItems, findRoutine, TASKS_MACHINE, homeLabel, NEW_ROUTINE_REF, proposalsOf, routineRef, routinesBadge, routinesOfSession, sessionOfRoutine, type SpecDraft } from './routines/model';
 import { whenLabel } from './routines/schedule';
 import type { FleetRoutine } from '@ledge/fleet';
 import { useForge } from './forge/useForge';
@@ -1038,7 +1038,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
             offline={localDown} onClose={() => closeNow(key)} /> : null;
         }
         const machine = x?.machineId ?? (routineMachines.some(m => m.id === newMachine) ? newMachine : 'local');
-        const group = x ? routineProposals.find(g => g.ids.includes(x.id)) : undefined;
+        // The tasks (and so the proposals) are the local daemon's: only a local routine belongs to one.
+        const group = x && x.machineId === TASKS_MACHINE ? routineProposals.find(g => g.ids.includes(x.id)) : undefined;
         return <IdeRoutine key={x ? key : `new:${newPrefill.n}`} routine={x ?? null} prefill={x ? null : newPrefill.draft} machine={machine}
           others={routines.filter(o => o.machineId === machine)} session={x ? routineSession(x) : undefined}
           sessions={known.filter(s => (s.machineId ?? 'local') === machine)} dirLabel={path => homeLabel(path, homeOf(machine))}

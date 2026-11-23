@@ -35,6 +35,9 @@ export const PAST_KEEP_DAYS = 30;
 
 /** Several routines a session asked for while its request waited: one « À toi » item (`TaskRoutine.ids`, card 23). */
 export interface Proposal { task: Task; who: string; ids: readonly string[] }
+/** The machine the tasks come from: the fleet keeps the LOCAL daemon's tasks only, and a routine id is unique per machine, so a
+ *  task's `routine.id` / `ids` name that machine's routines, never another's with the same id. */
+export const TASKS_MACHINE = 'local';
 /** The open « À toi » items of the routines (tasks given to Ledge that carry `routine`), oldest first. */
 export const routineTasks = (tasks: readonly Task[]): Task[] => tasks.filter(t => !!t.routine && openDecision(t));
 export const proposalsOf = (tasks: readonly Task[]): Proposal[] =>
@@ -64,13 +67,14 @@ export function sideGroups(rs: readonly FleetRoutine[], proposals: readonly Prop
   const onceRows: SideRow[] = [];
   const placed = new Set<string>();
   for (const r of once) {
-    if (placed.has(r.id)) continue;
-    const p = proposals.find(x => x.ids.includes(r.id));
+    // Keyed by machine and id: two machines may hold the same id.
+    if (placed.has(routineRef(r))) continue;
+    const p = r.machineId === TASKS_MACHINE ? proposals.find(x => x.ids.includes(r.id)) : undefined;
     const members = p ? p.ids.map(id => once.find(x => x.id === id && x.machineId === r.machineId)).filter((x): x is FleetRoutine => !!x && x.state === 'pending') : [];
     if (p && members.length > 1) {
       onceRows.push({ kind: 'proposed', who: p.who, n: p.ids.length, key: p.task.id });
-      members.forEach(m => { placed.add(m.id); onceRows.push({ kind: 'routine', r: m, of: { i: p.ids.indexOf(m.id) + 1, n: p.ids.length } }); });
-    } else { placed.add(r.id); onceRows.push({ kind: 'routine', r }); }
+      members.forEach(m => { placed.add(routineRef(m)); onceRows.push({ kind: 'routine', r: m, of: { i: p.ids.indexOf(m.id) + 1, n: p.ids.length } }); });
+    } else { placed.add(routineRef(r)); onceRows.push({ kind: 'routine', r }); }
   }
   const row = (r: FleetRoutine): SideRow => ({ kind: 'routine', r });
   const groups: SideGroup[] = [
@@ -109,8 +113,9 @@ export function routinesOfSession(s: Session, rs: readonly FleetRoutine[], home?
 
 /** A routine's « À toi » item (cards 13, 14, 23): the task, and the routines it covers that still wait (approve) or the failed one. */
 export interface AtoiRoutineItem { task: Task; kind: 'approve' | 'failed'; routines: FleetRoutine[] }
-export function atoiRoutineItems(tasks: readonly Task[], rs: readonly FleetRoutine[]): AtoiRoutineItem[] {
+export function atoiRoutineItems(tasks: readonly Task[], all: readonly FleetRoutine[], machine: string = TASKS_MACHINE): AtoiRoutineItem[] {
   const out: AtoiRoutineItem[] = [];
+  const rs = all.filter(r => r.machineId === machine);
   for (const task of routineTasks(tasks)) {
     const tr = task.routine!;
     const ids = tr.ids ?? [tr.id];

@@ -174,3 +174,27 @@ describe('« À toi »’s decisions', () => {
     expect(openDecisions([plain, task('t1', { kind: 'approve', id: 'r000001', name: 'a' })]).map(t => t.id)).toEqual(['t0']);
   });
 });
+
+describe('a routine id is unique per machine only (review HIGH)', () => {
+  // The fleet keeps the local daemon's tasks only: a task's routine.id / ids name local routines, even when a remote machine
+  // listed first holds a routine with the same id.
+  const remote = (id: string, extra: Partial<Routine> = {}) => ({ ...routine(id, extra), machineId: 'lap', name: `lap-${id}` });
+  it('« À toi » items resolve on the local machine', () => {
+    const rs = [remote('r000001', { state: 'pending' }), remote('r000002', { state: 'pending' }), routine('r000001', { state: 'pending' }), routine('r000002', { state: 'pending' }), remote('r000003'), routine('r000003')];
+    const items = atoiRoutineItems([
+      task('t1', { kind: 'approve', id: 'r000001', name: 'r-r000001', ids: ['r000001', 'r000002'] }),
+      task('t2', { kind: 'failed', id: 'r000003', name: 'r-r000003' })
+    ], rs);
+    expect(items.map(i => i.routines.map(r => `${r.machineId}:${r.id}`))).toEqual([['local:r000001', 'local:r000002'], ['local:r000003']]);
+  });
+  it('the sidebar groups a proposal on the local machine only', () => {
+    const once = (m: 'lap' | 'local', id: string) => ({ ...(m === 'lap' ? remote(id) : routine(id)), state: 'pending' as const, schedule: { kind: 'once' as const, at: ['2026-12-03T16:00'] } });
+    const proposals = proposalsOf([task('t1', { kind: 'approve', id: 'r000001', name: 'r-r000001', ids: ['r000001', 'r000002'] })]);
+    const g = sideGroups([once('lap', 'r000001'), once('lap', 'r000002'), once('local', 'r000001'), once('local', 'r000002')], proposals, Date.parse('2026-11-23T12:00:00Z'));
+    const rows = g.find(x => x.key === 'once')!.rows.map(x => (x.kind === 'proposed' ? 'proposed' : `${x.r.machineId}:${x.r.id}${x.of ? ' of' : ''}`));
+    expect(rows.filter(x => x.endsWith(' of'))).toEqual(['local:r000001 of', 'local:r000002 of']);
+    expect(rows.filter(x => x === 'proposed')).toHaveLength(1);
+    // Every routine keeps its row: the remote ones with the same ids are not taken for the local ones.
+    expect(rows).toEqual(['lap:r000001', 'lap:r000002', 'proposed', 'local:r000001 of', 'local:r000002 of']);
+  });
+});
