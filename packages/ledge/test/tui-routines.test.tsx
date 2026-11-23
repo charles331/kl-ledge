@@ -192,26 +192,34 @@ describe('tui routines: the model (mockup cards 18 and 25)', () => {
 const sent = <T extends ClientMessage['type']>(received: ClientMessage[], type: T) => received.filter((m): m is Extract<ClientMessage, { type: T }> => m.type === type);
 
 /** A TUI on a daemon that serves routines: it lists the mockup's and answers each command with the routine as it is. */
-async function routinesTui(list: Routine[], o: { sessions?: ReturnType<typeof mockupSessions>; refuse?: string } = {}) {
-  const tui = await startTui({ daemonExtras: { routines: true }, ...(o.sessions ? { sessions: o.sessions } : {}) });
-  tui.daemon.onMessage(m => {
-    if (m.type === 'routine.list') tui.daemon.push({ type: 'routine.listed', rid: m.rid, routines: list });
+async function routinesTui(list: Routine[], o: { sessions?: ReturnType<typeof mockupSessions>; refuse?: string; slowMs?: number } = {}) {
+  // The daemon answers from before the TUI connects: the fleet asks `routine.list` as soon as it reads the snapshot.
+  const tui = await startTui({ daemonExtras: { routines: true }, ...(o.sessions ? { sessions: o.sessions } : {}), ...(o.slowMs ? { slowMs: o.slowMs } : {}), answer: daemon => daemon.onMessage(m => {
+    if (m.type === 'routine.list') daemon.push({ type: 'routine.listed', rid: m.rid, routines: list });
     if (m.type === 'routine.cmd') {
       const r = list.find(x => x.id === m.routine);
-      if (!r) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'not_found', reason: 'routine inconnue' }); return; }
-      if (o.refuse) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'forbidden', reason: o.refuse }); return; }
+      if (!r) { daemon.push({ type: 'routine.result', rid: m.rid, code: 'not_found', reason: 'routine inconnue' }); return; }
+      if (o.refuse) { daemon.push({ type: 'routine.result', rid: m.rid, code: 'forbidden', reason: o.refuse }); return; }
       // An approve bound to another version than the routine's own is refused, as the daemon does (card 32).
-      if (m.op === 'approve' && r.key && m.expect !== r.key) { tui.daemon.push({ type: 'routine.result', rid: m.rid, code: 'stale', reason: 'la routine a changé (texte du daemon)' }); return; }
+      if (m.op === 'approve' && r.key && m.expect !== r.key) { daemon.push({ type: 'routine.result', rid: m.rid, code: 'stale', reason: 'la routine a changé (texte du daemon)' }); return; }
       const next = m.op === 'pause' ? { ...r, state: 'paused' as const } : m.op === 'resume' ? { ...r, state: 'enabled' as const } : r;
-      tui.daemon.push({ type: 'routine.result', rid: m.rid, routine: next });
+      daemon.push({ type: 'routine.result', rid: m.rid, routine: next });
     }
-  });
+  }) });
   await until(() => (tui.client.fleet?.routines().length ?? 0) === list.length);
   return tui;
 }
 const strip = ({ machineId: _m, ...r }: FleetRoutine): Routine => r;
 
 describe('ledge tui: the Routines screen (7)', () => {
+  it('lists the routines on a slower machine too: the first `routine.list` is answered (release 0.63.0 CI)', async () => {
+    const tui = await routinesTui([strip(CARD18[2]!)], { slowMs: 300 });
+    try {
+      await tui.press('7');
+      await until(() => tui.frame().includes('ROUTINES · 1'));
+    } finally { await tui.cleanup(); }
+  });
+
   it('7 opens it; j k choose, r runs now, p pauses and resumes, the delivery comes as a toast; esc goes back', async () => {
     const list = CARD18.map(strip);
     const tui = await routinesTui(list);
