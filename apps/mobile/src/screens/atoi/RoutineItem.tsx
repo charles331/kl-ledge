@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PhoneRoutine, PhoneRoutineDetail, PhoneSession } from '@ledge/protocol';
 import { copy, locale } from '../../copy';
-import { askerOf, coveredIds, scheduleView, sessionOf, type RoutineTask } from '../../model/routines';
+import { askerOf, coveredIds, failureWhy, scheduleView, sessionOf, type RoutineTask } from '../../model/routines';
 import { href } from '../../router';
 import type { MobileState, MobileStore } from '../../state/store';
 import { Card } from '../../ui/kit/Box';
@@ -144,7 +144,7 @@ function FailedItem({ store, task, state }: RoutineItemProps) {
   const session = routine ? sessionOf(routine, state.sessions.values()) : undefined;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const why = task.routine.reason ?? routine?.lastRun?.reason ?? '';
+  const why = failureWhy(routine, task.routine.reason);
   const line = A.failedLine(routine?.name ?? task.routine.name, routine?.target.name ?? '', why);
   const retry = async () => {
     setBusy(true); setError(null);

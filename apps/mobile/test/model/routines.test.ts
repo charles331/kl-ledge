@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLang } from '../../src/copy';
-import { coveredIds, nextLine, routineGroups, routineItems, routinesEntry, scheduleView, sessionOf, whenText, wokenSessions } from '../../src/model/routines';
+import { coveredIds, failureWhy, nextLine, routineGroups, routineItems, routinesEntry, scheduleView, sessionOf, whenText, wokenSessions } from '../../src/model/routines';
 import { openDecisions } from '../../src/model/tasks';
 import { session } from './fixtures';
 import { at, NOW, oneShot, pointHebdo, routine, routineTask, veille } from './routine-fixtures';
@@ -83,6 +83,16 @@ describe('the list', () => {
     expect(sessionOf(routine(), [old, iris, lu])?.id).toBe('iris');
     expect([...wokenSessions([routine(), oneShot('r000002', 'x', '2026-11-19T16:00', { state: 'done', target: { name: 'Lu', cwd: '~', tool: 'claude' } })], [iris, lu])]).toEqual(['iris']);
     expect(wokenSessions(null, [iris]).size).toBe(0);
+  });
+});
+
+describe('why a run did not leave', () => {
+  it('a run about the folder in the screen’s words (the daemon’s are French); any other reason as the daemon gave it', () => {
+    expect(failureWhy(veille())).toBe('dossier introuvable : ~/veille');
+    setLang('en');
+    expect(failureWhy(veille())).toBe('folder not found: ~/veille');
+    expect(failureWhy(veille({ lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'Nova tourne hors de Ledge', field: 'session' } }))).toBe('Nova tourne hors de Ledge');
+    expect(failureWhy(undefined, 'raison de la tâche')).toBe('raison de la tâche');
   });
 });
 

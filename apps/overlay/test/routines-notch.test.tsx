@@ -15,7 +15,7 @@ const iris = { name: 'Iris', cwd: '~/assistant', tool: 'claude' as const };
 /** The mockup's examples (docs/mockups/ledge-routines.html, cards 15 and 23), on the local machine. */
 const pointHebdo: FleetRoutine = { ...base, machineId: 'local', id: 'r3f9a12', name: 'point-hebdo', target: iris, schedule: { kind: 'recurring', times: ['17:00'], days: ['fri'] }, state: 'pending' };
 const veille: FleetRoutine = { ...base, machineId: 'local', id: 'r81c0d4', name: 'veille', target: { name: 'Nova', cwd: '~/veille', tool: 'claude' }, createdBy: { kind: 'user' },
-  schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, state: 'enabled', lastRun: { at: T, slot: '18:00', outcome: 'failed', reason: 'folder not found: ~/veille' } };
+  schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, state: 'enabled', lastRun: { at: T, slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille', field: 'cwd' } };
 const once = (id: string, name: string, at: string): FleetRoutine => ({ ...base, machineId: 'local', id, name, target: iris, schedule: { kind: 'once', at: [at] }, state: 'pending' });
 const group = [once('r000001', 'prepa-121', '2026-12-03T16:00'), once('r000002', 'prepa-comite-archi', '2026-12-07T15:00'), once('r000003', 'prepa-demo-compart', '2026-12-08T09:30')];
 const task = (id: string, routine: Task['routine'], extra: Partial<Task> = {}): Task => ({
@@ -64,7 +64,7 @@ function fleetClient(tasks: Task[], routines: FleetRoutine[]) {
   let notices: ReadonlyMap<string, OperatorNotice[]> = new Map();
   const listeners = new Set<() => void>();
   const machines = [{ id: 'local', label: 'Local', status: 'open', ready: true }];
-  let fail: string | null = null;
+  let fail: { code: string; message: string } | null = null;
   const fleet = {
     selected: () => 'local', select() {}, terminal: () => null, turnMachine: () => machines[0], configure() {}, probe: async () => ({}), retry() {},
     subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn); },
@@ -72,13 +72,13 @@ function fleetClient(tasks: Task[], routines: FleetRoutine[]) {
     sendTo: () => true,
     routineCmd: async (machine: string, ask: RoutineAsk) => {
       cmds.push({ machine, ask });
-      if (fail) throw { code: 'not_pending', message: fail };
+      if (fail) throw fail;
       return { type: 'routine.result', rid: 'x' };
     }
   };
   const client = { connect() {}, close() {}, send: () => {}, status: () => 'open', onMessage: () => () => {}, onStatus: () => () => {}, fleet } as unknown as DaemonClient;
   const set = (next: Record<string, OperatorNotice[]>) => act(() => { notices = new Map(Object.entries(next)); listeners.forEach(fn => fn()); });
-  return { client, cmds, set, failWith: (m: string) => { fail = m; } };
+  return { client, cmds, set, failWith: (message: string, code = 'not_pending') => { fail = { code, message }; } };
 }
 
 const tick = (n: number) => act(() => { vi.advanceTimersByTime(n); });
@@ -119,10 +119,15 @@ describe('the island’s routine items (card 15)', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
     expect(f.cmds.map(c => c.ask)).toEqual([{ op: 'refuse', routine: 'r000001' }]);
     expect(bubble()).toHaveTextContent('nothing pending');
+    // A machine down is said in the island's own words, never the fleet's French « hors ligne ».
+    f.failWith('hors ligne', 'offline');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refuse' })); });
+    expect(bubble()).toHaveTextContent('Offline: reconnecting to the daemon');
   });
 
   it('a failure: Run again fires it, View opens its page in Desktop', async () => {
-    const f = fleetClient([task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'folder not found: ~/veille' }, { giverName: 'Ledge' })], [veille]);
+    // The daemon's reason is French; the English island says the folder with the mockup's words, from `field`.
+    const f = fleetClient([task('t3', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giverName: 'Ledge' })], [veille]);
     mount(f);
     f.set({ local: [decision('t3')] });
     tick(540);

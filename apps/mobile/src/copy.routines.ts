@@ -25,6 +25,8 @@ export const routinesFr = {
   /** Every other week inside an activation request (« 16:00 (jeu, 1 sem. sur 2) »), approved by the owner. */
   every2: '1 sem. sur 2',
   oneShot: 'unique',
+  /** Why a run did not leave, from the field the daemon names (the mockup's words); any other reason is the daemon's own. */
+  why: { cwd: (dir: string) => `dossier introuvable : ${dir}` },
   /** The items of « À toi »: an activation request (one routine, or several proposed together), a failure. */
   atoi: {
     kind: 'Routine', ask: 'Demande', failed: 'Échec',

@@ -27,7 +27,7 @@ const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri'] as const;
 const ROUTINES: PhoneRoutine[] = [
   { ...base, id: 'r3f9a12', name: 'point-hebdo', target: iris, schedule: { kind: 'recurring', times: ['17:00'], days: ['fri'] }, state: 'pending', createdBy: { kind: 'session', id: 'iris', name: 'Iris' }, key: 'k1' },
   { ...base, id: 'r81c0d4', name: 'veille', target: { name: 'Nova', cwd: '~/veille', tool: 'claude' }, schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, state: 'enabled', key: 'k2',
-    nextRun: local(10, 23, 18, 0), lastRun: { at: local(10, 22, 18, 0), slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille' } },
+    nextRun: local(10, 23, 18, 0), lastRun: { at: local(10, 22, 18, 0), slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille', field: 'cwd' } },
   { ...base, id: 'r1a2b3c', name: 'briefing', target: iris, schedule: { kind: 'recurring', times: ['08:00', '13:30', '16:30'], days: [...weekdays] }, state: 'enabled', key: 'k3',
     nextRun: local(10, 23, 13, 30), lastRun: { at: local(10, 23, 8, 42), slot: '08:00', outcome: 'resumed', late: true } },
   { ...base, id: 'r5e6f70', name: 'bilan-sprint', target: iris, schedule: { kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, state: 'enabled', key: 'k4',

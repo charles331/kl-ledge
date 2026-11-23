@@ -21,6 +21,7 @@ export const routinesEn: RoutinesCopy = {
   everyOther: 'every other week',
   every2: 'every 2 wks',
   oneShot: 'once',
+  why: { cwd: (dir: string) => `folder not found: ${dir}` },
   atoi: {
     kind: 'Routine', ask: 'Request', failed: 'Failure',
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,

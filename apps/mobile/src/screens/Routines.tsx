@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { PhoneRoutine, PhoneSession } from '@ledge/protocol';
 import { copy } from '../copy';
-import { nextLine, routineFailed, routineGroups, scheduleView, sessionOf } from '../model/routines';
+import { failureWhy, nextLine, routineFailed, routineGroups, scheduleView, sessionOf } from '../model/routines';
 import { goBack, href } from '../router';
 import { TabPage } from '../shell/Shell';
 import type { ChatAction } from '../state/chat';
@@ -77,7 +77,7 @@ function RoutineCard({ store, routine: r, session, offline, now }: { store: Mobi
       </div>
       {paused ? <div><Pill>{R.paused}</Pill></div> : next && <p className="text-[13px] text-muted">{next}</p>}
       <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted">{lastLine}</div>
-      {failed && last?.reason && <p className="text-[13px] [overflow-wrap:anywhere] text-muted">{last.reason}</p>}
+      {failed && failureWhy(r) && <p className="text-[13px] [overflow-wrap:anywhere] text-muted">{failureWhy(r)}</p>}
       <div className="flex gap-2">
         {pending ? (
           <a href={href({ name: 'atoi' })} className={routineButton()}>{R.seeInAtoi}</a>

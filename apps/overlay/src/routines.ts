@@ -75,7 +75,10 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
   const one = find(r.id);
   if (r.kind === 'failed') {
     const who = one?.target.name ?? task.giverName;
-    return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, r.reason ?? one?.lastRun?.reason ?? ''), first: { id: r.id, name: one?.name ?? r.name } };
+    // The daemon's reasons are French: a run about the folder is said with the mockup's words, any other as the daemon gave it.
+    const run = one?.lastRun?.outcome === 'failed' ? one.lastRun : undefined;
+    const why = run?.field === 'cwd' && one ? R.why.cwd(one.target.cwd) : r.reason ?? run?.reason ?? '';
+    return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, why), first: { id: r.id, name: one?.name ?? r.name } };
   }
   const covered = r.ids ?? [r.id];
   const listed = covered.map(find).filter((x): x is FleetRoutine => !!x);

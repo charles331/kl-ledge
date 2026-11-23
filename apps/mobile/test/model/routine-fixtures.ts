@@ -24,7 +24,7 @@ export const pointHebdo = (extra: Partial<PhoneRoutine> = {}): PhoneRoutine => r
 export const veille = (extra: Partial<PhoneRoutine> = {}): PhoneRoutine => routine({
   id: 'r81c0d4', name: 'veille', target: { name: 'Nova', cwd: '~/veille', tool: 'claude' }, key: 'k-veille',
   schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, nextRun: at(23, 18, 0),
-  lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille' }, ...extra
+  lastRun: { at: '2026-11-22T17:00:00.000Z', slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille', field: 'cwd' }, ...extra
 });
 
 /** A one-shot proposed with two others, waiting on the user. */

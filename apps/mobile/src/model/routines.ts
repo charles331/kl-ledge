@@ -96,6 +96,16 @@ export function nextLine(r: Pick<PhoneRoutine, 'nextRun' | 'schedule'>, now: num
   return dated ? copy.routines.nextDated(when) : copy.routines.next(when);
 }
 
+/**
+ * Why a routine's last run did not leave, in the screen's language: the daemon's reasons are French, so a run about the folder
+ * (`field: 'cwd'`) is said with the mockup's words; any other reason is shown as the daemon gave it. `fallback`: an item's own.
+ */
+export function failureWhy(r: Pick<PhoneRoutine, 'lastRun' | 'target'> | undefined, fallback?: string): string {
+  const run = r?.lastRun?.outcome === 'failed' ? r.lastRun : undefined;
+  if (run?.field === 'cwd' && r) return copy.routines.why.cwd(r.target.cwd);
+  return run?.reason ?? fallback ?? '';
+}
+
 /** A routine that may still fire: a fired one-shot (`done`) is history, read on the PC only. */
 export const routineLive = (r: Pick<PhoneRoutine, 'state'>): boolean => r.state !== 'done';
 /** Its last run did not leave. */

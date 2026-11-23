@@ -746,7 +746,9 @@ export function Surface({ screenH, screenW = window.innerWidth, theme, client, d
       for (const id of action === 'run' ? [r.first.id] : r.ids) await fleet.routineCmd(r.machine, { op: action, routine: id });
       setAside(o.key, true); sounds.user(action === 'refuse' ? 'deny' : 'accept');
     } catch (e) {
-      setOperatorFailure({ key: o.key, message: (e as { message?: string }).message ?? String(e) });
+      // The island's own words for a machine down or too old; a daemon's refusal is said with its reason (French, the daemon's).
+      const f = e as { code?: string; message?: string };
+      setOperatorFailure({ key: o.key, message: f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.machines.problem.ledge : f.message ?? String(e) });
     } finally { setRoutineBusy(null); }
   };
   const sendOn = (machine: string, m: Parameters<DaemonClient['send']>[0]): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
