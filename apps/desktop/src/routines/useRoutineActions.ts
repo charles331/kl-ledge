@@ -78,7 +78,8 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
     },
     pause(r) { void cmd(r.machineId, { op: 'pause', routine: r.id }); },
     resume(r) { void cmd(r.machineId, { op: 'resume', routine: r.id }); },
-    approve: async (r, spec) => (await cmd(r.machineId, { op: 'approve', routine: r.id, ...(spec ? { spec } : {}) })) !== false,
+    // Bound to the routine as shown (its daemon-computed key): one a session changed since is refused `stale`, never applied unseen.
+    approve: async (r, spec) => (await cmd(r.machineId, { op: 'approve', routine: r.id, ...(r.key ? { expect: r.key } : {}), ...(spec ? { spec } : {}) })) !== false,
     refuse: async r => (await cmd(r.machineId, { op: 'refuse', routine: r.id })) !== false,
     remove: async r => (await cmd(r.machineId, { op: 'rm', routine: r.id })) !== false,
     update: async (r, patch) => { const out = await cmd(r.machineId, { op: 'update', routine: r.id, patch }); return out || null; },

@@ -74,6 +74,20 @@ const shot = async (page: Page, name: string, clip?: { x: number; y: number; wid
 };
 const box = async (page: Page, sel: string) => (await page.locator(sel).first().boundingBox())!;
 
+test('an activation cannot approve a prompt changed after the page was shown (review of 17323905)', async ({ page }) => {
+  const list = routines();
+  const shown = list[0]!.prompt;
+  const daemon = await boot(page, 'dark', 'fr', list);
+  await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+  await page.getByRole('region', { name: 'Routines' }).locator('[data-routine="local:r3f9a12"] .rtn-hit').click();
+  const tab = page.getByRole('tabpanel', { name: /^point-hebdo/ });
+  await expect(tab.locator('textarea')).toHaveValue(shown);
+  list[0] = { ...list[0]!, prompt: 'Different prompt not shown to the owner' };
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activer' }).click();
+  await expect.poll(() => daemon.received.some(m => m.type === 'routine.cmd' && m.op === 'approve' && m.expect !== undefined)).toBe(true);
+  expect(list[0]!.state).toBe('pending');
+});
+
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
   test(`Routines (${theme}, ${lang}): the view, a page, a change, the questions`, async ({ page }) => {
     const daemon = await boot(page, theme, lang);

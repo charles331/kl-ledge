@@ -181,9 +181,10 @@ export function faultOf(x: { field?: RoutineField | undefined; reason?: string |
 
 /** A refusal's or a failure's reason in the screen's language (the daemon's stays French): built from its `field` where the
  *  mockup gives a text (a folder, a tool), else the daemon's own words. */
-export function whyText(x: { field?: RoutineField | undefined; reason?: string | undefined }, target: { cwd: string; tool: string }, dirLabel: (p: string) => string, t: R): string {
+export function whyText(x: { field?: RoutineField | undefined; reason?: string | undefined; cause?: RoutineRun['cause'] }, target: { cwd: string; tool: string }, dirLabel: (p: string) => string, t: R): string {
   if (x.field === 'cwd') return t.why.cwd(dirLabel(target.cwd));
   if (x.field === 'tool') return t.why.tool(target.tool);
+  if (x.cause === 'timeout') return t.why.timeout;
   return x.reason ?? '';
 }
 

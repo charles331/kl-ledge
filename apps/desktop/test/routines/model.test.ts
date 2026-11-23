@@ -150,6 +150,8 @@ describe('the Routines screens rules', () => {
     expect(faultOf({ message: 'dossier introuvable : /x' })).toBe('dir');
     expect(whyText({ field: 'cwd', reason: 'dossier introuvable : /home/jde/veille' }, { cwd: '/home/jde/veille', tool: 'claude' }, () => '~/veille', en)).toBe('folder not found: ~/veille');
     expect(whyText({ reason: 'pas tapée en 30 min' }, { cwd: '/x', tool: 'claude' }, p => p, en)).toBe('pas tapée en 30 min');
+    // The daemon's cause (4b5087f2) words a firing not typed in time in the screen's language (card 3).
+    expect(whyText({ cause: 'timeout', reason: 'pas remise dans les 30 minutes' }, { cwd: '/x', tool: 'claude' }, p => p, en)).toBe('not typed within 30 min (session busy)');
   });
   it('says each daemon refusal in the front’s words, under its field (card 28)', () => {
     const d = { ...specDraft(routine('a')), name: 'briefing', target: { name: 'Iris', cwd: '~/x', tool: 'cursor' as const, model: 'gpt-9' } };

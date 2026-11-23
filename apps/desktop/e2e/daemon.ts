@@ -3,6 +3,16 @@ import type { Page, WebSocketRoute } from '@playwright/test';
 import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task, Routine, RoutineRun } from '@ledge/protocol';
 
 /** How long a launched session stays `starting` in the fake daemon before it is `working`. */
+/** A routine's key as the fake daemon gives it: a digest of what « Activer » applies, as the real `routineKey` (not its bytes). */
+function fakeKey(r: Routine): string {
+  const { name, target, schedule, prompt, catchUp } = r.proposal?.spec ?? r;
+  const text = JSON.stringify({ name, target, schedule, prompt, catchUp: catchUp ?? null, proposal: !!r.proposal });
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return `k${h.toString(36)}`;
+}
+const keyed = (r: Routine): Routine => ({ ...r, key: fakeKey(r) });
+
 export const LAUNCH_SETTLE_MS = 1500;
 export const T0 = new Date(Date.now() - 5 * 60_000).toISOString();
 /** A local daemon that can route the chat between machines (spec 2026-10-14 §5.3): the fleet coordinates through it. */
@@ -95,13 +105,16 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
       if (msg.type === 'openrig.permissions') { const p = extras.rigPermissions?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.permissionList', requestId: msg.requestId, rig: msg.rig, seats: p?.seats ?? [], ...(p?.policy ? { policy: p.policy } : {}), ...(p ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.queue') { const rows = extras.rigQueues?.[msg.rig]; ws.send(JSON.stringify({ type: 'openrig.queueState', requestId: msg.requestId, rig: msg.rig, rows: rows ?? [], truncated: false, ...(rows ? {} : { error: 'unknown_rig' }) })); }
       if (msg.type === 'openrig.role.duplicate' && extras.roles) ws.send(JSON.stringify({ type: 'openrig.roleDuplicated', requestId: msg.requestId, ok: true, roleId: `dup-${msg.name}`, path: `/home/me/.openrig/specs/${msg.name}` }));
-      if (msg.type === 'routine.list' && extras.routines) ws.send(JSON.stringify({ type: 'routine.listed', rid: msg.rid, routines: extras.routines.list }));
+      if (msg.type === 'routine.list' && extras.routines) ws.send(JSON.stringify({ type: 'routine.listed', rid: msg.rid, routines: extras.routines.list.map(keyed) }));
       if (msg.type === 'routine.preview' && extras.routines) ws.send(JSON.stringify({ type: 'routine.previewed', rid: msg.rid, nextRuns: extras.routines.preview ?? [] }));
       if (msg.type === 'routine.cmd' && extras.routines) {
         const list = extras.routines.list;
         const at = list.findIndex(r => r.id === msg.routine || r.name === msg.routine);
         const was = list[at];
-        if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
+        // As the real daemon: an approval bound to a routine that changed since it was shown is refused, nothing applied.
+        if (msg.op === 'approve' && was && msg.expect !== undefined && msg.expect !== fakeKey(was)) {
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, code: 'stale', reason: `la routine ${was.name} a changé depuis qu'elle a été montrée` }));
+        } else if (msg.op === 'rm' || (msg.op === 'refuse' && was?.state === 'pending')) {
           if (at >= 0) list.splice(at, 1);
           ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(was ? { removed: was.id } : {}) }));
           if (was) ws.send(JSON.stringify({ type: 'routine.changed', removed: was.id }));
@@ -114,13 +127,13 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
             : msg.op === 'update' ? { ...was, ...msg.patch }
             : was;
           if (next) { if (at >= 0) list[at] = next; else list.unshift(next); }
-          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(next ? { routine: next } : { code: 'not_found', reason: 'not found' }) }));
-          if (next) ws.send(JSON.stringify({ type: 'routine.changed', routine: next }));
+          ws.send(JSON.stringify({ type: 'routine.result', rid: msg.rid, ...(next ? { routine: keyed(next) } : { code: 'not_found', reason: 'not found' }) }));
+          if (next) ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(next) }));
           // As the real daemon: `run` is answered at once, its firing's outcome comes later in a `routine.changed`.
           if (msg.op === 'run' && was && next) setTimeout(() => {
             const ran: Routine = { ...next, runs: [extras.routines!.runOutcome ?? { at: new Date(Date.now() + 60_000).toISOString(), slot: '13:02', outcome: 'delivered' }, ...(next.runs ?? [])].slice(0, 5) };
             list[list.indexOf(next)] = ran;
-            ws.send(JSON.stringify({ type: 'routine.changed', routine: ran }));
+            ws.send(JSON.stringify({ type: 'routine.changed', routine: keyed(ran) }));
           }, 1500);
         }
       }

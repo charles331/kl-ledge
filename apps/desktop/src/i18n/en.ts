@@ -1751,7 +1751,7 @@ export const en: Messages = {
       unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
       tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`
     },
-    why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}` },
+    why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
     atoi: {
       block: 'Routines', blockSub: 'to activate, or that could not run', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `wants to schedule “${r}”: ${times} (${days}), in ${dir}`,

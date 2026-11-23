@@ -1851,7 +1851,7 @@ export const fr = {
       tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`
     },
     // A failed run's reason built from its `field` (mockup T.failNoDir, T.failNoTool), so it reads in the screen's language.
-    why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}` },
+    why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
     atoi: {
       block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
