@@ -19,6 +19,7 @@ export const routinesEn: RoutinesCopy = {
   days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
   daily: 'every day',
   everyOther: 'every other week',
+  every2: 'every 2 wks',
   oneShot: 'once',
   atoi: {
     kind: 'Routine', ask: 'Request', failed: 'Failure',

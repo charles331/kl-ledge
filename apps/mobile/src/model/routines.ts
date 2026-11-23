@@ -11,7 +11,8 @@ import { taskClosed } from './tasks';
 export interface ScheduleView {
   /** A card's words after the session: « 08:00, 13:30, 16:30 · lun–ven », « jeu. 16:00 · 1 semaine sur 2 », « unique ». */
   card: string;
-  /** An activation request's words: « 17:00 (ven) », « jeu. 16:00 · 1 semaine sur 2 », « jeu. 3 déc. 16:00 ». */
+  /** An activation request's words: « 17:00 (ven) », « 16:00 (jeu, 1 sem. sur 2) », « jeu. 3 déc. 16:00 » (the last two approved
+   *  by the owner on 2026-11-23). */
   ask: string;
   /** Every other week, or a one-shot: its next run says its date, never « aujourd’hui ». */
   dated: boolean;
@@ -63,8 +64,7 @@ export function scheduleView(s: RoutineSchedule): ScheduleView {
   if (s.every?.weeks === 2) {
     // Every other week reads like a date (« jeu. 16:00 »): one day by its dated name, several as a list.
     const days = s.days.length === 1 ? dayShort(s.days[0]!) : daysText(s.days);
-    const card = `${days} ${times} · ${R.everyOther}`;
-    return { card, ask: card, dated: true, moments: [] };
+    return { card: `${days} ${times} · ${R.everyOther}`, ask: `${times} (${daysText(s.days)}, ${R.every2})`, dated: true, moments: [] };
   }
   const days = daysText(s.days);
   return { card: `${times} · ${days}`, ask: `${times} (${days})`, dated: false, moments: [] };
@@ -136,6 +136,10 @@ export function wokenSessions(routines: readonly PhoneRoutine[] | null, sessions
   }
   return out;
 }
+
+/** The session that asks for a routine: its change's author, else its creator; the daemon raises the item itself (its giver is Ledge). */
+export const askerOf = (r: Pick<PhoneRoutine, 'createdBy'> & { proposal?: { by: { name: string } } | undefined }): string | undefined =>
+  r.proposal?.by.name ?? (r.createdBy.kind === 'session' ? r.createdBy.name : undefined);
 
 /** A task that is a routine's item of « À toi ». */
 export type RoutineTask = PhoneTask & { routine: TaskRoutine };

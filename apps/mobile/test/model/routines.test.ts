@@ -19,6 +19,8 @@ describe('how a schedule reads on the phone (docs/mockups/ledge-routines.html, c
   it('every other week: the day as a date names it, then « 1 semaine sur 2 »; its next run is dated', () => {
     const v = scheduleView({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } });
     expect(v.card).toBe('jeu. 16:00 · 1 semaine sur 2');
+    // The request's words, approved by the owner (2026-11-23).
+    expect(v.ask).toBe('16:00 (jeu, 1 sem. sur 2)');
     expect(v.dated).toBe(true);
   });
 
@@ -26,6 +28,7 @@ describe('how a schedule reads on the phone (docs/mockups/ledge-routines.html, c
     const v = scheduleView({ kind: 'once', at: ['2026-12-08T09:30', '2026-12-03T16:00'] });
     expect(v.card).toBe('unique');
     expect(v.moments).toEqual(['jeu. 3 déc. 16:00', 'mar. 8 déc. 09:30']);
+    expect(scheduleView({ kind: 'once', at: ['2026-12-03T16:00'] }).ask).toBe('jeu. 3 déc. 16:00');
     expect(v.dated).toBe(true);
   });
 
@@ -35,6 +38,8 @@ describe('how a schedule reads on the phone (docs/mockups/ledge-routines.html, c
     expect(scheduleView(pointHebdo().schedule).ask).toBe('17:00 (Fri)');
     expect(scheduleView(veille().schedule).card).toBe('18:00 · every day');
     expect(scheduleView({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }).card).toBe('Thu 16:00 · every other week');
+    expect(scheduleView({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }).ask).toBe('16:00 (Thu, every 2 wks)');
+    expect(scheduleView({ kind: 'once', at: ['2026-12-03T16:00'] }).ask).toBe('Thu 3 Dec 16:00');
     expect(scheduleView({ kind: 'once', at: ['2026-12-03T16:00'] }).moments).toEqual(['Thu 3 Dec 16:00']);
   });
 });

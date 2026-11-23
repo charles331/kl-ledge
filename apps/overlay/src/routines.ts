@@ -8,7 +8,9 @@ import type { Messages } from './i18n/lang';
  * `decision` notice of the task that carries it (`Task.routine`).
  */
 
-/** How a schedule reads in the island: « 17:00 (ven) », « 16:00 (jeu, 1 sem. sur 2) », or a one-shot's moments « 3 déc. 16:00 ». */
+/** How a schedule reads in the island: an activation request's words, « 17:00 (ven) », « 16:00 (jeu, 1 sem. sur 2) » or
+ *  « jeu. 3 déc. 16:00 » (the last two approved by the owner on 2026-11-23); and a one-shot's moments in a grouped request,
+ *  « 3 déc. 16:00 » (card 23). */
 export interface RoutineWhen { ask: string; moments: string[] }
 
 /** The days as the island writes them: every day, runs of three or more as a range (« lun–ven »), the others listed. */
@@ -27,19 +29,22 @@ function daysText(days: readonly Weekday[], m: Messages): string {
   return parts.join(', ');
 }
 
-/** A one-shot's local moment, « 2026-12-03T16:00 », as « 3 déc. 16:00 »: a wall-clock time, never moved to another zone. */
-function momentText(at: string, m: Messages): string {
+/** A one-shot's local moment, « 2026-12-03T16:00 », as « 3 déc. 16:00 », or with its weekday « jeu. 3 déc. 16:00 »: a wall-clock
+ *  time, never moved to another zone. */
+function momentText(at: string, m: Messages, weekday = false): string {
   const [date = '', time = ''] = at.split('T');
   const [y, mo, d] = date.split('-').map(Number);
-  const month = new Date(Date.UTC(y!, mo! - 1, d!)).toLocaleDateString(m.time.locale, { month: 'short', timeZone: 'UTC' });
-  return `${d} ${month} ${time}`;
+  const day = new Date(Date.UTC(y!, mo! - 1, d!));
+  const month = day.toLocaleDateString(m.time.locale, { month: 'short', timeZone: 'UTC' });
+  const wd = weekday ? `${day.toLocaleDateString(m.time.locale, { weekday: 'short', timeZone: 'UTC' })} ` : '';
+  return `${wd}${d} ${month} ${time}`;
 }
 
 /** The one place the island reads a schedule's fields (`times`, `days`, `every`, `at`). */
 export function routineWhen(s: RoutineSchedule, m: Messages): RoutineWhen {
   if (s.kind === 'once') {
-    const moments = [...s.at].sort().map(at => momentText(at, m));
-    return { ask: moments.join(', '), moments };
+    const at = [...s.at].sort();
+    return { ask: at.map(x => momentText(x, m, true)).join(', '), moments: at.map(x => momentText(x, m)) };
   }
   const every = s.every?.weeks === 2 ? `, ${m.atoi.routine.every2}` : '';
   return { ask: `${[...s.times].sort().join(', ')} (${daysText(s.days, m)}${every})`, moments: [] };
@@ -72,13 +77,15 @@ export function routineNotice(notice: OperatorNotice, machine: string, task: Tas
     const who = one?.target.name ?? task.giverName;
     return { kind: 'failed', machine, ids: [r.id], who, text: R.failed(one?.name ?? r.name, who, r.reason ?? one?.lastRun?.reason ?? ''), first: { id: r.id, name: one?.name ?? r.name } };
   }
-  const who = notice.who ?? task.giverName;
   const covered = r.ids ?? [r.id];
   const listed = covered.map(find).filter((x): x is FleetRoutine => !!x);
   // The ones still waiting: a routine answered elsewhere leaves the count of « Activer les 3 ».
   const waiting = listed.filter(x => x.state === 'pending' || !!x.proposal).map(x => x.id);
   const ids = listed.length ? waiting : covered;
   const first = { id: r.id, name: one?.name ?? r.name };
+  // The daemon raises the item itself (its giver is Ledge): the session that asks is the routine's own.
+  const asker = (x: FleetRoutine | undefined) => x?.proposal?.by.name ?? (x?.createdBy.kind === 'session' ? x.createdBy.name : undefined);
+  const who = asker(one) ?? asker(listed[0]) ?? notice.who ?? task.giverName;
   if (covered.length > 1) {
     const list = listed.map(x => `${x.name} (${routineWhen(x.schedule, m).moments[0] ?? routineWhen(x.schedule, m).ask})`).join(', ');
     return { kind: 'approve', machine, ids, who, text: listed.length ? R.groupAsk(who, ids.length, list) : notice.text, first };

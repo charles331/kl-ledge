@@ -19,7 +19,7 @@ const veille: FleetRoutine = { ...base, machineId: 'local', id: 'r81c0d4', name:
 const once = (id: string, name: string, at: string): FleetRoutine => ({ ...base, machineId: 'local', id, name, target: iris, schedule: { kind: 'once', at: [at] }, state: 'pending' });
 const group = [once('r000001', 'prepa-121', '2026-12-03T16:00'), once('r000002', 'prepa-comite-archi', '2026-12-07T15:00'), once('r000003', 'prepa-demo-compart', '2026-12-08T09:30')];
 const task = (id: string, routine: Task['routine'], extra: Partial<Task> = {}): Task => ({
-  id, title: 'Iris veut programmer « point-hebdo »', giver: 'iris', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: T, updatedAt: T, log: [], routine, ...extra
+  id, title: 'Iris veut programmer « point-hebdo »', giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: T, updatedAt: T, log: [], routine, ...extra
 });
 const decision = (taskId: string): OperatorNotice => ({ id: `decision:${taskId}`, kind: 'decision', text: 'Iris veut programmer « point-hebdo »', who: 'Iris', priority: 'routine', at: T });
 
@@ -33,6 +33,10 @@ describe('the island’s words for a routine (cards 15 and 23)', () => {
     expect(routineWhen({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, fr).ask).toBe('16:00 (jeu, 1 sem. sur 2)');
     expect(routineWhen(group[0]!.schedule, fr).moments).toEqual(['3 déc. 16:00']);
     expect(routineWhen(group[0]!.schedule, en).moments).toEqual(['3 Dec 16:00']);
+    // A single one-off's and every other week's request words, approved by the owner (2026-11-23).
+    expect(routineWhen(group[0]!.schedule, fr).ask).toBe('jeu. 3 déc. 16:00');
+    expect(routineWhen(group[0]!.schedule, en).ask).toBe('Thu 3 Dec 16:00');
+    expect(routineWhen({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, en).ask).toBe('16:00 (Thu, every 2 wks)');
   });
 
   it('a request, a group and a failure, as the mockup says them; a plain decision is none', () => {
@@ -49,6 +53,7 @@ describe('the island’s words for a routine (cards 15 and 23)', () => {
     // A routine answered elsewhere leaves the count; one not listed yet keeps the task's title.
     expect(n(task('t2', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }), [{ ...group[0]!, state: 'enabled' }, group[1]!, group[2]!])?.ids).toEqual(['r000002', 'r000003']);
     expect(n(task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), [])?.text).toBe('Iris veut programmer « point-hebdo »');
+    expect(n(task('t4', { kind: 'approve', id: 'r000001', name: 'prepa-121' }))?.text).toBe('Iris veut programmer « prepa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
     expect(routineNotice(decision('t9'), 'local', task('t9', undefined), [pointHebdo], fr)).toBeNull();
   });
 });

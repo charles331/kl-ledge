@@ -36,7 +36,7 @@ const ROUTINES: PhoneRoutine[] = [
 ];
 const PROMPTS = { r3f9a12: 'Point de la semaine du {date} : relis journal/, résume ce qui a avancé et ce qui reste, mets les décisions dans À toi.' };
 const ask = (at: string, routine: PhoneTask['routine'], extra: Partial<PhoneTask> = {}): PhoneTask => ({
-  id: `t${routine!.id}`, title: `Iris veut programmer « ${routine!.name} »`, owner: 'ledge', ownerName: 'Ledge', giver: 'iris', giverName: 'Iris', state: 'open', at, updatedAt: at, routine, ...extra
+  id: `t${routine!.id}`, title: `Iris veut programmer « ${routine!.name} »`, owner: 'ledge', ownerName: 'Ledge', giver: 'ledge', giverName: 'Ledge', state: 'open', at, updatedAt: at, routine, ...extra
 });
 const TASKS: PhoneTask[] = [
   ask(local(10, 23, 2, 10), { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }),

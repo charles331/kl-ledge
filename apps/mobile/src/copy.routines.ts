@@ -22,6 +22,8 @@ export const routinesFr = {
   days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' },
   daily: 'tous les jours',
   everyOther: '1 semaine sur 2',
+  /** Every other week inside an activation request (« 16:00 (jeu, 1 sem. sur 2) »), approved by the owner. */
+  every2: '1 sem. sur 2',
   oneShot: 'unique',
   /** The items of « À toi »: an activation request (one routine, or several proposed together), a failure. */
   atoi: {

@@ -41,6 +41,6 @@ export const detail = (r: PhoneRoutine, prompt: string): PhoneRoutineDetail => {
 
 /** A routine's item of « À toi », given to Ledge by the session that asked. */
 export const routineTask = (id: string, routine: TaskRoutine, extra: Partial<PhoneTask> = {}): RoutineTask => ({
-  id, title: 'Iris veut programmer « point-hebdo »', owner: 'ledge', ownerName: 'Ledge', giver: 'iris', giverName: 'Iris', state: 'open',
+  id, title: 'Iris veut programmer « point-hebdo »', owner: 'ledge', ownerName: 'Ledge', giver: 'ledge', giverName: 'Ledge', state: 'open',
   at: new Date(2026, 10, 23, 2, 10).toISOString(), updatedAt: new Date(2026, 10, 23, 2, 10).toISOString(), routine, ...extra
 });

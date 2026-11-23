@@ -21,7 +21,7 @@ const ROUTINES: Routine[] = [
     .map(([id, name, at]): Routine => ({ ...base, id, name, target: iris, schedule: { kind: 'once', at: [at] }, state: 'pending' }))
 ];
 const task = (id: string, routine: Task['routine'], at: string, extra: Partial<Task> = {}): Task => ({
-  id, title: 'Iris veut programmer une routine', giver: 'iris', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge', state: 'open', at, updatedAt: at, log: [], routine, ...extra
+  id, title: 'Iris veut programmer une routine', giver: 'ledge', giverName: 'Ledge', owner: 'ledge', ownerName: 'Ledge', state: 'open', at, updatedAt: at, log: [], routine, ...extra
 });
 const TASKS: Record<string, Task> = {
   ask: task('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }, '2026-11-23T01:10:00.000Z'),

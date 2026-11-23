@@ -146,6 +146,14 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'approve', routine: 'r3f9a12', routineKey: 'k-point', assertion: ASSERTION });
   });
 
+  it('a single one-off asks with its dated moment, the session that asked named (the item itself is Ledge’s)', () => {
+    const r = oneShot('r000001', 'prepa-121', '2026-12-03T16:00');
+    const t = pc([r], [routineTask('t1', { kind: 'approve', id: 'r000001', name: 'prepa-121' })]);
+    render(<Inbox store={t.store} />);
+    act(() => t.deliver({ type: 'routine.detail', id: 'r000001', routine: detail(r, 'Prépare le 121.') }));
+    expect(screen.getByRole('article', { name: 'Demande · prepa-121' })).toHaveTextContent('Iris veut programmer « prepa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
+  });
+
   it('« Refuser » needs no check', () => {
     const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
     render(<Inbox store={t.store} />);
