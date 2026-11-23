@@ -334,6 +334,7 @@ main{padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(380
 .prev3.shift .hint{color:var(--st-ask)}
 .rs-prop{grid-column:1/-1;font-size:10.5px;color:var(--muted-foreground);padding:4px 6px 2px 27px;border-left:2px solid color-mix(in srgb,var(--st-ask) 60%,transparent);margin:2px 0 0 9px}
 .rsrow.dimrow{opacity:.6}
+.rs-mach{display:flex;align-items:center;gap:7px;padding:10px 6px 2px;font-size:12px;font-weight:600}
 .glist{margin-left:22px;border-left:2px solid var(--border);padding-left:10px;display:flex;flex-direction:column;gap:4px}
 .glinks a{color:var(--note);cursor:pointer}
 section.fiche{grid-column:1/-1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
@@ -358,7 +359,7 @@ section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
 const T = {
   fr: {
     h1:'Ledge — Routines', hsub:'v2 validée + ajout (récurrente / unique, deux semaines) · Desktop (IDE de main 756fd2a2), « À toi », « Le point », téléphone, ledge tui',
-    tomorrowDay:'demain (mar.)', wednesday:'mer. 25', saturday:'sam. 21', pickSession:'Choisir une session…', yesterday:'hier', friday:'ven. 20', stEnabled:'Active', stPaused:'En pause', wakes:'Réveille ', inDir:'dans', runs:'Tirs', nextRuns:'Prochains', pastRuns:'Derniers', config:'Configuration',
+    tomorrowDay:'demain', wednesday:'mer. 25 nov.', saturday:'sam. 21 nov.', pickSession:'Choisir une session…', yesterday:'hier', friday:'ven. 20 nov.', stEnabled:'Active', stPaused:'En pause', wakes:'Réveille ', inDir:'dans', runs:'Tirs', nextRuns:'Prochains', pastRuns:'Derniers', config:'Configuration',
     noneUntil:'aucun tant qu’elle n’est pas activée', noneWhilePaused:'aucun tant qu’elle est en pause', dirty:'Modifications non enregistrées', discard:'Annuler les modifications', promptPh:'Ce que Ledge tapera dans la session à chaque tir…',
     pendBanner:(s,h)=>`${s} demande à programmer cette routine (${h}). Elle ne partira qu’une fois activée.`, pendEditHint:'Tu peux la corriger avant de l’activer : Activer enregistre tes modifications.',
     failBanner:(h,why)=>`Le tir de ${h} n’a pas pu partir : ${why}`, failHint:'Corrige le champ entouré ci-dessous, puis relance.', errDirExisting:'Le dossier de cette session n’existe plus sur ce PC.',
@@ -408,7 +409,7 @@ const T = {
     decisions:'Décisions', requests:'Demandes', finished:'Terminé depuis ton passage', allow:'Autoriser', deny:'Refuser', allowCommand:'Autoriser une commande',
     // point
     pointBy:'de lui-même', groups:{atoi:'À toi', ongoing:'En cours', done:'Terminé'},
-    ptLine:(r,s)=>`${r} de ${s}`, ptSub:'routine', ptSince:m=>`routine · depuis ${m} min`, ptLate:(r,s,h)=>`${r} de ${s}, lancé à ${h} au réveil`, ptSee:'Voir', ptLead:'Iris travaille sur le briefing de 13:30. Celui de 08:00 est parti en retard, au réveil du PC.',
+    ptLine:(r,slot)=>`${r} de ${slot}`, ptSub:'routine', ptSince:m=>`routine · depuis ${m} min`, ptLate:(r,slot,h)=>`${r} de ${slot}, lancé à ${h} au réveil`, ptSee:'Voir', ptLead:'Iris travaille sur le briefing de 13:30. Celui de 08:00 est parti en retard, au réveil du PC.',
     ptFail:r=>`: la routine ${r} n’a pas pu partir`,
     // phone
     pSessions:'Sessions', pEntry:'Routines', pEntrySub:(n,h)=>`${n} routines · prochain tir ${h}`, pBack:'Retour aux sessions', pReadonly:'Créer ou modifier une routine : sur le PC, ou en le demandant à Ledge.',
@@ -422,7 +423,7 @@ const T = {
   },
   en: {
     h1:'Ledge — Routines', hsub:'v2 approved + addition (recurring / once, two weeks) · Desktop (IDE of main 756fd2a2), “For you”, the point, phone, ledge tui',
-    tomorrowDay:'tomorrow (Tue)', wednesday:'Wed 25', saturday:'Sat 21', pickSession:'Pick a session…', yesterday:'yesterday', friday:'Fri 20', stEnabled:'Active', stPaused:'Paused', wakes:'Wakes ', inDir:'in', runs:'Runs', nextRuns:'Next', pastRuns:'Recent', config:'Settings',
+    tomorrowDay:'tomorrow', wednesday:'Wed 25 Nov', saturday:'Sat 21 Nov', pickSession:'Pick a session…', yesterday:'yesterday', friday:'Fri 20 Nov', stEnabled:'Active', stPaused:'Paused', wakes:'Wakes ', inDir:'in', runs:'Runs', nextRuns:'Next', pastRuns:'Recent', config:'Settings',
     noneUntil:'none until it’s activated', noneWhilePaused:'none while paused', dirty:'Unsaved changes', discard:'Discard changes', promptPh:'What Ledge will type into the session at each run…',
     pendBanner:(s,h)=>`${s} asks to schedule this routine (${h}). It won’t run until it’s activated.`, pendEditHint:'You can correct it before activating: Activate saves your changes.',
     failBanner:(h,why)=>`The ${h} run could not start: ${why}`, failHint:'Fix the outlined field below, then run it again.', errDirExisting:'This session’s folder no longer exists on this PC.',
@@ -466,7 +467,7 @@ const T = {
     failLine:(r,s,why)=>`The routine ${r} (${s}) could not run: ${why}`,
     decisions:'Decisions', requests:'Requests', finished:'Finished since your last visit', allow:'Allow', deny:'Deny', allowCommand:'Allow a command',
     pointBy:'on its own', groups:{atoi:'For you', ongoing:'In progress', done:'Done'},
-    ptLine:(r,s)=>`${s}’s ${r}`, ptSub:'routine', ptSince:m=>`routine · for ${m} min`, ptLate:(r,s,h)=>`${s}’s ${r}, sent at ${h} on wake`, ptSee:'View', ptLead:'Iris is working on the 13:30 briefing. The 08:00 one left late, when the PC woke.',
+    ptLine:(r,slot)=>`${slot} ${r}`, ptSub:'routine', ptSince:m=>`routine · for ${m} min`, ptLate:(r,slot,h)=>`${slot} ${r}, sent at ${h} on wake`, ptSee:'View', ptLead:'Iris is working on the 13:30 briefing. The 08:00 one left late, when the PC woke.',
     ptFail:r=>`: routine ${r} could not run`,
     pSessions:'Sessions', pEntry:'Routines', pEntrySub:(n,h)=>`${n} routines · next run ${h}`, pBack:'Back to sessions', pReadonly:'To create or edit a routine: on the PC, or ask Ledge.',
     pNext:h=>`Next run ${h}`, pPendingSee:'See in For you', pAsk:'Request', pFail:'Failure', pRoutine:'Routine',
@@ -652,8 +653,8 @@ function cards(){
     scene: `<div class="paneframe">${rpage(brief)}</div>`});
 
   C.push({tag:'new', title:'Modifier : la barre « Modifications non enregistrées »', wide:true,
-    why:'Un champ changé : un point ambre devant le nom de l’onglet (« • briefing »), et la barre en bas de la page. <b>Enregistrer</b> (Ctrl+S) applique tout et le daemon recalcule le prochain tir ; <b>Annuler les modifications</b> remet la page comme elle était. Fermer l’onglet ou cliquer une autre routine dans la barre latérale avec des modifications en cours : la question habituelle « Enregistrer / Ne pas enregistrer / Annuler ». Les erreurs s’affichent sous le champ, comme en v1 ; Enregistrer avec une erreur met le focus dessus.',
-    keys:'routines.dirty · .discard · .save · routines.err.* (v1) · question de fermeture : celle des dispositions (existante)',
+    why:'Un champ changé : un point ambre devant le nom de l’onglet (« • briefing »), et la barre en bas de la page. <b>Enregistrer</b> (Ctrl+S) applique tout et le daemon recalcule le prochain tir ; <b>Annuler les modifications</b> remet la page comme elle était. Fermer l’onglet avec des modifications en cours : un dialogue « Modifications non enregistrées · briefing », Enregistrer / Ne pas enregistrer / Annuler. Cliquer une autre routine dans la barre latérale ouvre son onglet, sans question (un onglet par routine). Sur la page, les dates portent toujours le mois (« ven. 20 nov. »), ou « aujourd’hui », « demain », « hier ». Les erreurs s’affichent sous le champ, comme en v1 ; Enregistrer avec une erreur met le focus dessus.',
+    keys:'routines.dirty · .discard · .save · routines.err.* (v1) · routines.unsaved.{title(name),save,dontSave,cancel} (nouveau dialogue)',
     scene: ide(rpage(brief, {dirty:true, noRuns:true, form:{times:['07:30','13:30','16:30']}}), {side:rside({sel:'briefing'}), tabs:[['Iris',''],['• briefing','on']], tall:true})});
 
   C.push({tag:'new', title:'Nouvelle routine : la même page, vide', wide:true,
@@ -690,7 +691,7 @@ function cards(){
     scene: `<div class="paneframe" style="max-height:330px;overflow:hidden">${rpage(revue, {banner: bannerBox('bad', x.delQ('revue-prs'), x.delWhy('Otto'), `<button class="btn">${x.cancel}</button><button class="btn dangerfill">${x.delGo}</button>`), noRuns:true, form:{name:'revue-prs', times:['09:00'], s:'Otto', tool:'codex', st:'idle', stTxt:x.st.idle, dir:'~/Workspace/ledge'}})}</div>`});
 
   C.push({tag:'new', title:'États : vide, connexion, daemon hors ligne', wide:true,
-    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : les routines de la machine choisie dans la barre de titre, comme le reste de l’IDE. <b>Beaucoup de routines</b> : la barre latérale défile.',
+    why:'<b>Vide</b> : dans la barre latérale, une phrase qui dit ce qu’est une routine et le bouton <b>Nouvelle routine</b> ; l’éditeur garde ce qu’il montrait. <b>Connexion</b> : une ligne, pas de squelette. <b>Daemon hors ligne</b> : un bandeau en tête de la barre latérale (« rien ne part »), la liste estompée ; les pages ouvertes restent lisibles, leurs boutons et Enregistrer désactivés. <b>Plusieurs machines</b> : l’IDE n’a pas de machine choisie dans la barre de titre ; un titre par machine dans la barre latérale, comme la TUI (validé, carte 28). <b>Beaucoup de routines</b> : la barre latérale défile.',
     keys:'routines.empty.{title,side} · routines.connecting · routines.offlineShort',
     scene: `${rside({empty:true})}${rside({connecting:true})}${rside({offline:true})}`});
 
@@ -731,7 +732,7 @@ function atoiCards(){
 function pointCard(){
   const x = t();
   const pr = (dot, whoTxt, txt, sub, btns='') => `<div class="pr"><span class="dot ${dot}"></span><div><b>${whoTxt}</b> ${txt}${sub?`<small>${sub}</small>`:''}</div>${btns?`<div class="acts">${btns}</div>`:''}</div>`;
-  const brief = L==='fr' ? 'briefing de 13:30' : '13:30 briefing';
+  const brief = x.ptLine('briefing','13:30');
   return {tag:'new', title:'« Le point » : la ligne d’une routine', wide:false,
     why:'Une ligne par tir, dans les groupes existants de PointTurn, avec le point de la tonalité habituelle. <b>En cours</b> (point bleu) tant que la session y travaille : « <b>Iris</b> briefing de 13:30 », sous-ligne « routine · depuis 4 min ». <b>Terminé</b> (point vert) quand elle redevient libre, avec l’heure comme les autres lignes terminées. <b>En retard</b> : « briefing de 08:00, lancé à 08:42 au réveil ». Bouton : <b>Voir</b> (la session). <b>Échec</b> : dans « À toi » du point, avec Relancer. Aucune pastille « À toi » pour un tir normal.',
     keys:'operator/point.ts L.routine(name,slot) · L.routineLate(name,slot,at) · L.routineFailed(name) · sous-ligne « routine » (nouveaux, FR/EN)',
@@ -739,7 +740,7 @@ function pointCard(){
       <p style="margin:0">${x.ptLead}</p>
       <h5>${x.groups.atoi} <span class="mono">1</span></h5>${pr('perm','Nova', x.ptFail('veille'), x.failNoDir, `<button class="btn pri">${x.retry}</button><button class="btn ghost">${x.ptSee}</button>`)}
       <h5>${x.groups.ongoing} <span class="mono">1</span></h5>${pr('work','Iris', brief, x.ptSince(4), `<button class="btn ghost">${x.ptSee}</button>`)}
-      <h5>${x.groups.done} <span class="mono">2</span></h5>${pr('idle','Iris', L==='fr'?'briefing de 08:00, lancé à 08:42 au réveil':'08:00 briefing, sent at 08:42 on wake', `${x.ptSub} · 08:51`)}${pr('idle','Otto', L==='fr'?'revue-prs de 09:00':'09:00 revue-prs', `${x.ptSub} · 09:12`)}
+      <h5>${x.groups.done} <span class="mono">2</span></h5>${pr('idle','Iris', x.ptLate('briefing','08:00','08:42'), `${x.ptSub} · 08:51`)}${pr('idle','Otto', x.ptLine('revue-prs','09:00'), `${x.ptSub} · 09:12`)}
     </div></div>`};
 }
 
@@ -778,7 +779,7 @@ function tuiCard(){
   const L1 = (sel, name, right, sub, cls='') => `<span class="${sel?'sel':''}" style="display:block">${cls?`<span class="${cls}">`:''}<b>${pad(name, 22)}</b>${cls?'</span>':''}${right}</span><span class="dim" style="display:block">  ${sub}</span>`;
   const body = [
     L1(false, 'point-hebdo', `<span class="warn">? ${x.tPending}</span>`, `Iris · 17:00 · ${x.fri}`),
-    L1(false, 'veille', `<span class="bad">! 08:00 ${x.out.failed}</span>`, `Nova · 18:00 · ${x.daily} · ${x.failNoDir}`),
+    L1(false, 'veille', `<span class="bad">! 18:00 ${x.out.failed}</span>`, `Nova · 18:00 · ${x.daily} · ${x.failNoDir}`),
     L1(true,  'briefing', `<span class="ok">●</span> ${fr?'prochain':'next'} 13:30   <span class="ok">✓</span> 08:00 <span class="warn">${x.late}</span>`, `Iris · 08:00 13:30 16:30 · ${x.monfri} · ${x.out.resumed}`),
     L1(false, 'revue-prs', `<span class="ok">●</span> ${fr?'demain':'tomorrow'} 09:00  <span class="ok">✓</span> 09:00`, `Otto · 09:00 · ${x.monfri} · ${x.out.delivered}`),
     L1(false, 'nettoyage-branches', `<span class="dim">‖ ${x.paused}</span>`, `Pim · 19:30 · ${x.fri}`, 'dim'),
@@ -974,11 +975,94 @@ function addCards(){
   return C;
 }
 
+/* Précisions validées par jde le 2026-11-23 (qitem-20261123035235-5e47d4ad38c8f6be), after dev-front's questions on the point
+   and the TUI: a) the point's activation row has « Voir » only, b) a routine run replaces « a terminé », c) the TUI's toasts and
+   the old daemon, d) one group per machine; plus the TUI overview's « À toi » items (v2 question 4). */
+function precCards(){
+  const x = t(), fr = L==='fr', C = [];
+  const P = fr ? {
+    ask:'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant', since:'routine · depuis 4 min', done:'routine · 13:52',
+    notRunning:'Iris ne tourne pas : r lance la routine, qui la reprendra.', delivered:'« briefing » remise à Iris', resumed:'Iris reprise, « briefing » remise', launched:'Iris lancée, « briefing » remise',
+    failed:'« veille » n’a pas pu partir : dossier introuvable : ~/veille', pauseRefused:'Pause refusée : &lt;raison&gt;', resumeRefused:'Reprise refusée : &lt;raison&gt;',
+    old:'Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.', m1:'PC du bureau', m2:'Portable',
+    yours:'À toi · 3', a1:'Iris veut programmer « point-hebdo » : 17:00 (ven)', a2:'Iris veut programmer 3 routines uniques : 3, 7 et 8 déc.', a3:'La routine veille (Nova) n’a pas pu partir : dossier introuvable',
+    kAct:'activer', kRef:'refuser', kRetry:'relancer', kActAll:'activer les 3', kRefAll:'refuser les 3',
+  } : {
+    ask:'wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant', since:'routine · for 4 min', done:'routine · 13:52',
+    notRunning:'Iris isn’t running: r runs the routine, which resumes it.', delivered:'“briefing” delivered to Iris', resumed:'Iris resumed, “briefing” delivered', launched:'Iris launched, “briefing” delivered',
+    failed:'“veille” could not run: folder not found: ~/veille', pauseRefused:'Pause refused: &lt;reason&gt;', resumeRefused:'Resume refused: &lt;reason&gt;',
+    old:'This daemon doesn’t know routines yet: update Ledge.', m1:'Office PC', m2:'Laptop',
+    yours:'For you · 3', a1:'Iris wants to schedule “point-hebdo”: 17:00 (Fri)', a2:'Iris wants to schedule 3 one-shot routines: 3, 7 and 8 Dec', a3:'The routine veille (Nova) could not run: folder not found',
+    kAct:'activate', kRef:'refuse', kRetry:'run again', kActAll:'activate all 3', kRefAll:'refuse all 3',
+  };
+  const pr = (dot, who, txt, sub, btns='') => `<div class="pr"><span class="dot ${dot}"></span><div><b>${who}</b> ${txt}${sub?`<small>${sub}</small>`:''}</div>${btns?`<div class="acts">${btns}</div>`:''}</div>`;
+  C.push({tag:'add', title:'« Le point » : une demande d’activation, et la fin d’un tir (validé)', wide:false,
+    why:'<b>a)</b> Une demande d’activation apparaît sous « À toi » du point avec son texte et <b>un seul bouton, Voir</b>, qui ouvre la page de la routine : pas d’Activer ni de Refuser dans le point (choix 7 : ils vivent sur la page, prompt sous les yeux, et dans « À toi »), pas de « Répondre ». <b>b)</b> Quand une session redevient libre à la fin d’un tir de routine, <b>la ligne de routine remplace « Iris a terminé »</b> sous « Terminé » : une seule ligne, avec l’heure de fin. Une fin sans tir en cours garde la ligne habituelle. Textes EN : « 13:30 briefing » (ptLine(nom, créneau)).',
+    keys:'operator/point.ts : la ligne de demande reprend le texte de l’item « À toi » · nav « Voir » (pointCopy.nav) · aucune clé nouvelle',
+    scene: `<div style="width:300px;background:var(--side);border:1px solid var(--border);border-radius:6px;padding:10px"><div class="pt"><div class="ph"><span class="m"></span><b>Ledge</b><span>${x.pointBy}</span><span style="flex:1"></span><span class="mono">13:55</span></div>
+      <h5>${x.groups.atoi} <span class="mono">1</span></h5>${pr('ask','Iris', P.ask, '', `<button class="btn ghost">${x.ptSee}</button>`)}
+      <h5>${x.groups.done} <span class="mono">1</span></h5>${pr('idle','Iris', x.ptLine('briefing','13:30'), P.done)}</div></div>`});
+  const k = (key, label) => `<span class="k">${key}</span> ${label}`;
+  const box = (title, body, extra='') => `<div class="box" style="min-height:0"><span class="lg">${title}</span>${body}</div>${extra}`;
+  const pad = (s,n) => s + ' '.repeat(Math.max(1, n - s.length));
+  const tl = (name, right, sub) => `<span style="display:block"><b>${pad(name,22)}</b>${right}</span><span class="dim" style="display:block">  ${sub}</span>`;
+  const toasts = [[`<span class="ok">✓</span>`, P.delivered],[`<span class="ok">✓</span>`, P.resumed],[`<span class="ok">✓</span>`, P.launched],[`<span class="bad">!</span>`, P.failed],[`<span class="bad">!</span>`, P.pauseRefused],[`<span class="bad">!</span>`, P.resumeRefused],[`<span class="warn">·</span>`, P.notRunning]].map(([m,s])=>`  ${m} ${s}`).join('\n');
+  C.push({tag:'add', title:'ledge tui : toasts, daemon ancien, plusieurs machines, « À toi » (validé)', wide:true,
+    why:'<b>c)</b> Les toasts sous le cadre, dans les mots du Desktop : <code>r</code> remise, reprise ou lancée, ou son échec ; <code>p</code> refusé (« Pause refusée : … », « Reprise refusée : … ») ; <code>↵</code> sur une routine dont la session ne tourne pas : « Iris ne tourne pas : r lance la routine, qui la reprendra. ». Connexion et hors ligne : la barre d’état les dit, rien dans le cadre. Un <b>daemon trop ancien</b> n’affiche pas l’état vide (il mentirait) mais une phrase dans le cadre. <b>d)</b> Avec <b>plusieurs machines</b>, un titre de groupe par machine dans le cadre, comme les groupes de la vue d’ensemble ; UNIQUES se range dans chaque machine. Une machine seule : rien ne change. <b>Vue d’ensemble</b> (question 4 de la v2, validée) : les items « À toi » des routines y sont, avec <code>y</code> / <code>n</code> comme les demandes : activer / refuser, activer les N / refuser les N, relancer (pas de <code>n</code> pour un échec).',
+    keys:'tui i18n : routines.toast.{delivered,resumed,launched,failed,notRunning} · routines.refused.{pause,resume}(why) · routines.oldDaemon · overview : routines.ask / groupAsk / failed · keys.{activate,refuse,retry,activateAll(n),refuseAll(n)}',
+    scene: `<div class="tui" style="width:640px">${box(x.tTitle(5), tl('briefing',`<span class="ok">●</span> ${fr?'prochain':'next'} 13:30`, `Iris · 08:00 13:30 16:30 · ${x.monfri}`))}${toasts}</div>
+      <div class="col" style="gap:14px"><div class="tui" style="width:560px">${box(x.tTitle(0), `<span class="warn" style="display:block;white-space:normal">${P.old}</span>`)}</div>
+      <div class="tui" style="width:560px">${box(x.tTitle(4), `<span class="acc" style="display:block">${P.m1} ●</span>${tl('briefing',`<span class="ok">●</span> ${fr?'prochain':'next'} 13:30`, `Iris · ${x.monfri}`)}<span class="acc" style="display:block;margin-top:6px">${P.m2} ●</span>${tl('garde-mr',`<span class="ok">●</span> ${fr?'prochain':'next'} 15:00`, `Garde · ${x.monfri}`)}<span class="dim" style="display:block">  ${fr?'UNIQUES':'ONCE'}</span>${tl('rappel-conges',`<span class="ok">●</span> ${fr?'4 déc.':'4 Dec'} 09:00`, `Garde · ${fr?'unique':'once'}`)}`)}</div></div>
+      <div class="tui" style="width:640px">${box(P.yours, `<span style="display:block"><span class="warn">?</span> ${P.a1}</span><span class="dim" style="display:block">  ${k('y',P.kAct)}  ${k('n',P.kRef)}</span><span style="display:block;margin-top:4px"><span class="warn">?</span> ${P.a2}</span><span class="dim" style="display:block">  ${k('y',P.kActAll)}  ${k('n',P.kRefAll)}</span><span style="display:block;margin-top:4px"><span class="bad">!</span> ${P.a3}</span><span class="dim" style="display:block">  ${k('y',P.kRetry)}</span>`)}</div>`});
+  return C;
+}
+
+/* Desktop précisions confirmed by jde on 2026-11-23 (qitem-20261123042718-96d4f615fce34eb1), after dev-front's 11 questions. */
+function precDesktopCards(){
+  const x = t(), fr = L==='fr', C = [];
+  const P = fr ? {
+    m1:'PC du bureau', m2:'Portable', machine:'Machine', errName:'Nom invalide : lettres, chiffres, - et _ seulement.', errSession:'Choisis une session.', errPrompt:'Le prompt est vide.', errDate:'Au moins une date.', errAnchor:'Choisis la semaine de référence.',
+    gone:'Cette routine n’existe plus : elle a été supprimée ailleurs.', closeTab:'Fermer l’onglet',
+    many:'Iris veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant',
+    wakesOn:'· PC du bureau',
+    refusals:[['cwd','Ce dossier n’existe pas sur ce PC.'],['at','Ce moment est déjà passé.'],['name','Iris a déjà une routine « briefing ».'],['tz','Fuseau horaire inconnu : <tz>.'],['session','Cette session ne répond pas.  /  Cette session n’est pas suivie par Ledge.'],['tool','Outil absent sur ce PC : <outil>.'],['model','Modèle inconnu pour <outil> : <modèle>.'],['schedule','Au moins une heure.  /  Au moins un jour.  /  Choisis la semaine de référence.'],['prompt','Le prompt est vide.'],['?','la raison brute du daemon, sous le champ indiqué (ou en tête de la configuration)']],
+  } : {
+    m1:'Office PC', m2:'Laptop', machine:'Machine', errName:'Invalid name: letters, digits, - and _ only.', errSession:'Pick a session.', errPrompt:'The prompt is empty.', errDate:'At least one date.', errAnchor:'Pick the reference week.',
+    gone:'This routine no longer exists: it was deleted elsewhere.', closeTab:'Close the tab',
+    many:'Iris wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant',
+    wakesOn:'· Office PC',
+    refusals:[['cwd','This folder doesn’t exist on this PC.'],['at','This moment has already passed.'],['name','Iris already has a routine “briefing”.'],['tz','Unknown time zone: <tz>.'],['session','This session isn’t responding.  /  This session isn’t followed by Ledge.'],['tool','Tool not found on this PC: <tool>.'],['model','Unknown model for <tool>: <model>.'],['schedule','At least one time.  /  At least one day.  /  Pick the reference week.'],['prompt','The prompt is empty.'],['?','the daemon’s raw reason, under the field it names (or at the top of the settings)']],
+  };
+  const esc = s => s.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const mrow = (name, right, sub, mark='<span class="dot idle" style="margin:5px 3px 0"></span>') => `<div class="rsrow">${mark}<b>${name}</b><span class="nx">${right}</span><small>${logo('claude',11)}<span>${sub}</span></small></div>`;
+  const mhead = (n, on=true) => `<div class="rs-mach"><span class="dot ${on?'idle':''}"></span>${n}</div>`;
+  const side = `<aside class="exp rside" style="min-height:360px"><div class="h"><span>${x.routines}</span><span class="hb">${I.plus(14)}</span></div>
+    ${mhead(P.m1)}<div class="rs-grp">▾ ${fr?'Récurrentes':'Recurring'} · 2</div>${mrow('briefing','13:30',`Iris · 08:00 13:30 16:30 · ${x.monfri}`,'<span class="dot work" style="margin:5px 3px 0"></span>')}${mrow('cloture','17:15',`Iris · 17:15 · ${x.monfri}`,'<span class="dot work" style="margin:5px 3px 0"></span>')}
+    ${mhead(P.m2)}<div class="rs-grp">▾ ${fr?'Récurrentes':'Recurring'} · 1</div>${mrow('garde-mr','15:00',`Garde · 10:30 15:00 · ${x.monfri}`)}<div class="rs-grp">▾ ${fr?'Uniques':'Once'} · 1</div>${mrow('rappel-conges',fr?'4 déc. 09:00':'4 Dec 09:00',`Garde · ${fr?'unique':'once'}`)}
+    <div class="rs-foot">${x.tzFoot}</div></aside>`;
+  C.push({tag:'add', title:'Desktop : plusieurs machines, erreurs, routine supprimée, refus (validé)', wide:true,
+    why:'<b>Plusieurs machines</b> : avec plus d’une machine, la barre latérale a un niveau de plus, <b>un titre par machine</b> (nom et point d’état), avec dedans les groupes Récurrentes / Uniques / En pause / Passées ; la page dit « Réveille Iris … dans ~/assistant · PC du bureau » ; « Nouvelle routine » gagne un champ <b>Machine</b> en tête de la configuration. Avec une machine, rien ne change (même règle que la TUI). <b>Erreurs</b> : chaque contour rouge a son texte sous le champ. <b>Routine supprimée ailleurs</b> : son onglet remplace la page par une phrase et « Fermer l’onglet ». <b>Au-delà de 3 moments</b> dans un texte « À toi » : « … et N autres ». <b>Refus du daemon</b> : un texte du front par champ (le daemon garde ses raisons en français ; contrat ff7a19c2).',
+    keys:'routines.machine · routines.err.{name,session,prompt,date,anchor,tz,unreachable,notLedge,tool(t),model(t,m)} · routines.gone · .closeTab · atoi.routine.more(n)',
+    scene: `${side}
+      <div class="col" style="gap:14px;width:100%;max-width:700px">
+        <div class="paneframe" style="width:100%"><div class="rp2"><section class="sect" style="border:0"><h4>${x.config}</h4><div class="form">
+          ${field(P.machine, `<div class="inp sel" style="max-width:260px"><span class="dot idle"></span>${P.m1}</div>`)}
+          ${field(x.fName, `<div class="col"><div class="inp err">brief ing!</div><span class="hint err">${P.errName}</span></div>`)}
+          ${field(x.fSession, `<div class="col"><div class="inp sel err"><span class="ph">${x.pickSession}</span></div><span class="hint err">${P.errSession}</span></div>`)}
+          ${field(x.fPrompt, `<div class="col"><div class="ta" style="min-height:44px;border-color:var(--st-perm)"></div><span class="hint err">${P.errPrompt}</span></div>`)}
+        </div></section></div></div>
+        <div class="paneframe" style="width:100%;padding:28px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center"><span class="mut">${I.alarm(22)}</span><span>${P.gone}</span><button class="btn">${P.closeTab}</button></div>
+        <div class="line" style="font-size:12.5px;background:var(--pane);border:1px solid var(--border);border-radius:8px;padding:9px 12px"><span class="mk ask">?</span><span class="grow wrap">${P.many}</span></div>
+        <div class="paneframe" style="width:100%;padding:12px 16px"><table style="border-collapse:collapse;width:100%;font-size:12px">${P.refusals.map(([f,txt])=>`<tr><td class="mono" style="padding:4px 10px 4px 0;color:var(--muted-foreground);vertical-align:top">${f}</td><td style="padding:4px 0">${esc(txt)}</td></tr>`).join('')}</table></div>
+      </div>`});
+  return C;
+}
+
 function render(){
   const x = t();
   document.getElementById('h1').textContent = x.h1;
   document.getElementById('hsub').textContent = x.hsub;
-  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards()];
+  const all = [...cards(), ...atoiCards(), pointCard(), ...phoneCards(), tuiCard(), ...addCards(), ...precCards(), ...precDesktopCards()];
   document.getElementById('main').innerHTML = all.map((c,i)=>`<article class="card ${c.wide?'wide':''} ${c.tag==='add'?'addc':''}" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.tag}">${c.tag==='add'?(L==='fr'?'ajout':'addition'):c.tag==='q'?(L==='fr'?'à trancher':'to decide'):(L==='fr'?'nouveau':'new')}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys && c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
 }
 function set(kind, v){
