@@ -395,9 +395,8 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
       if (p.config.ssh && m.sshAlias !== p.config.ssh) { p.error = 'Update the local Ledge daemon: SSH transport is unavailable'; p.client.close(); publish(); return; }
       p.snapshot = m; p.fresh = true; p.error = undefined; p.restarting = false; p.previews.clear(); p.browsers.clear(); publish();
       if (machine === 'local') askTasks(p);
-      // Its routines, asked again at each snapshot (a reconnection), from a daemon that announces them only. The flag is read
-      // untyped until DaemonInfo carries it (qitem-20261123031829-72b2b113584d5a76).
-      if ((m.daemon as { routines?: unknown } | undefined)?.routines === true) p.client.send({ type: 'routine.list', rid: `routines-${++routineSeq}` });
+      // Its routines, asked again at each snapshot (a reconnection), from a daemon that announces them only.
+      if (m.daemon?.routines) p.client.send({ type: 'routine.list', rid: `routines-${++routineSeq}` });
       return;
     }
     // A session's traffic is relayed as it came, qualified; a peer without a snapshot yet has nothing to relay against.
