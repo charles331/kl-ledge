@@ -10,7 +10,7 @@ import { SHELL_ICONS } from '../shell/icons';
 import { ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { AlarmIcon, ROUTINE_ICONS } from './icons';
-import { failedLast, lastRunOf, routineRef, sideGroups, waitsForOwner, type GroupKey, type Proposal } from './model';
+import { failedLast, lastRunOf, routineRef, sideGroups, waitsForOwner, whyText, type GroupKey, type Proposal } from './model';
 import { dayMonth, firstMoment, hhmm, localZone, momentDate, nextLabel, scheduleLine } from './schedule';
 import '../styles/routines.css';
 
@@ -31,6 +31,8 @@ export interface RoutinesViewProps {
   proposals: readonly Proposal[];
   /** The session each routine wakes, for its dot. */
   sessionOf(r: FleetRoutine): Session | undefined;
+  /** A folder of a routine's machine, from `~` (a failure's reason names it). */
+  dirLabel?(r: FleetRoutine, path: string): string;
   /** The routine in front of the focused group (its tab ref), lit; and those the explorer's clock asked to light (card 12). */
   current: string | null; lit?: ReadonlySet<string>;
   /** « Lancer maintenant » in flight, by ref (card 9). */
@@ -79,7 +81,7 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
     if (x.state === 'done') return null;
     if (waitsForOwner(x)) return <span className="rt-x3"><span className="rt-pill ask">{r.pending}</span>{of && <span className="rt-mut">{r.ofN(of.i, of.n)}</span>}</span>;
     const last = lastRunOf(x);
-    if (last?.outcome === 'failed') return <span className="rt-x3 rt-reason" title={last.reason}>{last.reason}</span>;
+    if (last?.outcome === 'failed') { const why = whyText(last, x.target, path => p.dirLabel?.(x, path) ?? path, r); return <span className="rt-x3 rt-reason" title={why}>{why}</span>; }
     if (last?.late) return <span className="rt-x3"><span className="rt-pill late">{r.late}</span><span className="rt-mut">{r.lateLong(last.slot, hhmm(last.at))}</span></span>;
     return null;
   };

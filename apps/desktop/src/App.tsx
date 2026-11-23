@@ -848,7 +848,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const routineTab = (ref: string): Tab => ({ kind: 'routine', ref });
   const openRoutineRef = (ref: string, where?: 'right') => wsStore.update(w => openTab(w, routineTab(ref), where));
   const showRoutinesView = () => { if (!(layout.sideOpen && layout.sideView === 'routines')) onLayout({ type: 'view', view: 'routines' }); };
-  const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); }, routines);
+  const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); }, routines, (r, path) => homeLabel(path, homeOf(r.machineId)));
   const runRoutine = (r: FleetRoutine) => { const s = routineSession(r); routineActions.run(r, r.target.name, !!s && !s.offline && s.state !== 'exited'); };
   const openRoutineSession = (r: FleetRoutine) => { const s = routineSession(r); if (s) dispatch({ type: 'open', id: s.id }); };
   // « Supprimer… » from the sidebar opens the page on its question; « Programmer à nouveau… » a prefilled « Nouvelle routine ».
@@ -1074,7 +1074,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
         routinesBadge={routinesBadge(routines)}
         explorer={layout.sideView === 'routines'
-          ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
+          ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
               running={routineActions.running} connecting={routinesConnecting} offline={localDown}
               onOpen={r => { setRoutinesLit(new Set()); onTab(routineTab(routineRef(r))); }} onNew={() => openNewRoutine()}
               onRun={runRoutine} onPause={r => routineActions.pause(r)} onResume={r => routineActions.resume(r)}

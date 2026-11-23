@@ -3,7 +3,7 @@ import type { Routine, RoutineSpec } from '@ledge/protocol';
 import type { Fleet, FleetRoutine, RoutineFailure } from '@ledge/fleet';
 import type { Messages } from '../i18n/messages';
 import type { ToastAction } from '../shell/Toast';
-import { lastRunOf, routineRef } from './model';
+import { lastRunOf, routineRef, whyText } from './model';
 
 type R = Messages['routines'];
 type Source = Pick<Fleet, 'routineCmd'>;
@@ -31,20 +31,20 @@ export type Refused = (failure: RoutineFailure) => boolean;
  *  opens the routine's page (card 9). The daemon answers `run` at once and tells the firing's outcome later, in a `routine.changed`
  *  whose last run is new: « attend que X soit libre… » stays until then. `refused` sees a refusal first: true when it says it
  *  where it belongs. */
-export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction) => void, onSee: (ref: string) => void, routines: readonly FleetRoutine[] = []): RoutineActions {
+export function useRoutineActions(fleet: Source | null | undefined, t: R, notify: (text: string, action?: ToastAction) => void, onSee: (ref: string) => void, routines: readonly FleetRoutine[] = [], dirLabel: (r: FleetRoutine, path: string) => string = (_r, path) => path): RoutineActions {
   const [running, setRunning] = useState<ReadonlyMap<string, string>>(new Map());
   // A firing asked for, by ref: the last run it started from (its `at`), and the session named in the toast.
-  const asked = useRef(new Map<string, { before: string | undefined; session: string; name: string }>());
+  const asked = useRef(new Map<string, { before: string | undefined; session: string; name: string; r: FleetRoutine }>());
   const told = useCallback((ref: string, r: Routine): boolean => {
     const a = asked.current.get(ref);
     const last = lastRunOf(r);
     if (!a || !last || last.at === a.before) return false;
     asked.current.delete(ref);
     setRunning(m => { const n = new Map(m); n.delete(ref); return n; });
-    if (last.outcome === 'failed') notify(t.toastFailed(a.name, last.reason ?? ''), { label: t.see, run: () => onSee(ref), undo: false, tone: 'warn' });
+    if (last.outcome === 'failed') notify(t.toastFailed(a.name, whyText(last, a.r.target, path => dirLabel(a.r, path), t)), { label: t.see, run: () => onSee(ref), undo: false, tone: 'warn' });
     else notify(last.outcome === 'resumed' ? t.toastResumed(a.name, a.session) : t.toastRun(a.name, a.session));
     return true;
-  }, [notify, onSee, t]);
+  }, [notify, onSee, t, dirLabel]);
   useEffect(() => {
     for (const ref of [...asked.current.keys()]) {
       const r = routines.find(x => routineRef(x) === ref);
@@ -56,8 +56,9 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
   const fail = useCallback((e: unknown) => {
     const f = e as RoutineFailure;
     if (refused.current?.(f)) return;
-    notify(f?.message || String(e));
-  }, [notify]);
+    // The daemon's reason is French: a folder or a moment past, which the mockup words, read in the screen's language.
+    notify(f?.field === 'cwd' ? t.err.dir : f?.field === 'at' ? t.err.past : f?.message || String(e));
+  }, [notify, t]);
   const cmd = useCallback(async (machine: string, ask: Parameters<Source['routineCmd']>[1]): Promise<Routine | null | false> => {
     if (!fleet) return false;
     try { const res = await fleet.routineCmd(machine, ask); return res.routine ?? null; } catch (e) { fail(e); return false; }
@@ -69,7 +70,7 @@ export function useRoutineActions(fleet: Source | null | undefined, t: R, notify
       const ref = routineRef(r);
       if (running.has(ref)) return;
       setRunning(m => new Map(m).set(ref, alive ? t.waiting(session) : t.starting(session)));
-      asked.current.set(ref, { before: lastRunOf(r)?.at, session, name: r.name });
+      asked.current.set(ref, { before: lastRunOf(r)?.at, session, name: r.name, r });
       void cmd(r.machineId, { op: 'run', routine: r.id }).then(out => {
         if (out === false) { asked.current.delete(ref); setRunning(m => { const n = new Map(m); n.delete(ref); return n; }); return; }
         if (out) told(ref, out);

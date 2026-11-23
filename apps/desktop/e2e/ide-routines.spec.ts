@@ -24,7 +24,7 @@ const routines = (): Routine[] => [
   { ...base, id: 'r81c0d4', name: 'veille', target: { name: 'Nova', cwd: '~/veille', tool: 'claude' }, state: 'enabled',
     schedule: { kind: 'recurring', times: ['18:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }, prompt: 'Veille du {date} : lis les flux de sources.md.',
     nextRuns: [at('2026-11-23T17:00:00Z'), at('2026-11-24T17:00:00Z'), at('2026-11-25T17:00:00Z')],
-    runs: [{ at: at('2026-11-22T17:00:00Z'), slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : ~/veille' }, { at: at('2026-11-21T17:00:00Z'), slot: '18:00', outcome: 'launched' }] },
+    runs: [{ at: at('2026-11-22T17:00:00Z'), slot: '18:00', outcome: 'failed', reason: 'dossier introuvable : /home/jde/veille', field: 'cwd' }, { at: at('2026-11-21T17:00:00Z'), slot: '18:00', outcome: 'launched' }] },
   { ...base, id: 'r1a2b3c', name: 'briefing', target: iris, state: 'enabled', schedule: { kind: 'recurring', times: ['08:00', '13:30', '16:30'], days: [...WEEK] },
     prompt: 'Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi.',
     nextRuns: [at('2026-11-23T12:30:00Z'), at('2026-11-23T15:30:00Z'), at('2026-11-24T07:00:00Z')],
@@ -151,8 +151,9 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     // Card 8: veille's failure, the faulty field outlined.
     await view.locator('[data-routine="local:r81c0d4"] .rt-hit').click();
     const fail = page.getByRole('tabpanel', { name: /^veille/ });
-    await expect(fail.locator('.rt-bn.bad')).toContainText(fr ? 'Le tir de 18:00 n’a pas pu partir : dossier introuvable : ~/veille' : 'The 18:00 run could not start: dossier introuvable : ~/veille');
+    await expect(fail.locator('.rt-bn.bad')).toContainText(fr ? 'Le tir de 18:00 n’a pas pu partir : dossier introuvable : ~/veille' : 'The 18:00 run could not start: folder not found: ~/veille');
     await expect(fail.locator('.rt-sel.err')).toBeVisible();
+    await expect(view.locator('[data-routine="local:r81c0d4"] .rt-x3')).toHaveText(fr ? 'dossier introuvable : ~/veille' : 'folder not found: ~/veille');
     await shot(page, `echec-${theme}-${lang}`);
 
     // Card 10: delete from the right click, Échap cancels.

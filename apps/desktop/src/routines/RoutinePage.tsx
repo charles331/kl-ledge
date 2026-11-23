@@ -9,7 +9,7 @@ import { ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { AlarmIcon, ROUTINE_ICONS } from './icons';
 import {
-  draftErrors, failedLast, faultyField, hasErrors, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
+  draftErrors, failedLast, faultOf, hasErrors, whyText, type FormFault, isDirty, lastRunOf, proposalChanges, proposalFields, routineRef, specDraft, specOf, specPatch,
   type DraftErrors, type Proposal, type SpecDraft
 } from './model';
 import { RoutineForm, type PreviewState } from './RoutineForm';
@@ -74,8 +74,8 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const [shown, setShown] = useState<DraftErrors | null>(null);
   const [focus, setFocus] = useState<{ field: string; n: number } | null>(null);
   const [taken, setTaken] = useState(false);
-  // The daemon refused the folder (« dossier introuvable »): said under the folder, as the form's own check would.
-  const [noDir, setNoDir] = useState(false);
+  // The part a daemon's refusal names (its `field`): outlined, its error under it when the mockup has one.
+  const [refused, setRefused] = useState<FormFault | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -92,11 +92,11 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   useEffect(() => { if (p.askDelete) setDeleting(true); }, [p.askDelete]);
-  useEffect(() => { setNoDir(false); }, [draft.target.cwd, draft.target.name]);
+  useEffect(() => { setRefused(null); }, [draft]);
 
   const others = p.others.filter(o => !x || o.id !== x.id);
   const errors = draftErrors(draft, others, new Date(now));
-  const shownErrors: DraftErrors = { ...(shown ?? {}), ...(taken ? { name: 'taken' as const } : {}), ...(noDir && draft.mode === 'new' ? { dir: true as const } : {}) };
+  const shownErrors: DraftErrors = { ...(shown ?? {}), ...(taken ? { name: 'taken' as const } : {}), ...(refused === 'dir' && draft.mode === 'new' ? { dir: true as const } : {}) };
 
   // The next 3 runs: the daemon's for what is saved; asked again for a schedule changed or not saved yet (card 20).
   const schedKey = JSON.stringify(scheduleOf(draft.schedule));
@@ -126,8 +126,13 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
     setBusy(true);
     p.actions.refusedBy(fail => {
       if (fail.code === 'name_taken') { setTaken(true); setFocus(f => ({ field: 'name', n: (f?.n ?? 0) + 1 })); return true; }
-      if (fail.code === 'invalid' && faultyField(fail.message) === 'dir') { setNoDir(true); setFocus(f => ({ field: draft.mode === 'new' ? 'dir' : 'session', n: (f?.n ?? 0) + 1 })); return true; }
-      return false;
+      const part = fail.code === 'invalid' || fail.code === 'forbidden' ? faultOf(fail) : null;
+      if (!part) return false;
+      setRefused(part);
+      const at = part === 'dir' ? (draft.mode === 'new' ? 'dir' : 'session') : part === 'at' || part === 'schedule' ? (draft.schedule.kind === 'once' ? 'at' : 'times') : part;
+      setFocus(f => ({ field: at, n: (f?.n ?? 0) + 1 }));
+      // A folder or a moment past has its text under the field (cards 5, 19); the other parts keep the daemon's words in a toast.
+      return part === 'dir' || part === 'at';
     });
     try {
       if (!x) {
@@ -142,7 +147,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       return !!done;
     } finally { setBusy(false); p.actions.refusedBy(null); }
   };
-  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setTaken(false); setNoDir(false); };
+  const discard = () => { setDraft(saved ? specDraft(saved) : blank); setShown(null); setTaken(false); setRefused(null); };
   const latest = useRef({ save, discard });
   latest.current = { save, discard };
   useEffect(() => { p.onDirt({ dirty, save: () => latest.current.save(), discard: () => latest.current.discard() }); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -159,7 +164,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
   const who = x ? (x.createdBy.kind === 'session' ? x.createdBy.name : x.proposal?.by.name ?? '') : '';
   const last = x ? lastRunOf(x) : undefined;
   const failed = !!x && x.state !== 'done' && failedLast(x);
-  const fault = failed ? faultyField(last?.reason) : noDir && draft.mode === 'existing' ? 'dir' : null;
+  const fault: FormFault | null = failed ? faultOf(last) : refused;
   const done = x?.state === 'done';
   const pending = x?.state === 'pending';
   const run = () => { if (x) p.actions.run(x, x.target.name, !!p.session && look.dot !== 'off'); };
@@ -205,7 +210,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       <span>{r.editOld}</span>
     </>, <>{btn(r.activate, () => { void activate(x); }, { pri: true, disabled: off })}{btn(r.refuse, () => { void refuse(x); }, { disabled: off })}</>);
   } else if (x && failed && last) {
-    top = banner('bad', r.failBanner(hhmm(last.slotAt ?? last.at), last.reason ?? ''), fault ? r.failHint : null,
+    top = banner('bad', r.failBanner(hhmm(last.slotAt ?? last.at), whyText(last, x.target, p.dirLabel, r)), fault ? r.failHint : null,
       btn(<><Icon d={SHELL_ICONS.play} size={12} />{r.retry}</>, run, { pri: true, disabled: off || !!running }), 'alert');
   } else if (x && done && last) {
     top = banner('plain', r.ranOn(`${dateLong(new Date(last.at), lang)} ${hhmm(last.at)}`, r.out[last.outcome]), r.readonly, null);
@@ -239,7 +244,7 @@ export function RoutinePage(p: RoutinePageProps): JSX.Element {
       <span className={`rt-mk ${u.outcome === 'failed' ? 'bad' : 'ok'}`} aria-hidden="true">{u.outcome === 'failed' ? '!' : '✓'}</span>
       <span className="rt-mono">{u.slot}</span><span className="rt-mut">{runDay(u.slotAt ?? u.at, new Date(now), lang, r)}</span><span>{r.out[u.outcome]}</span>
       {u.late && <><span className="rt-pill late">{r.late}</span><span className="rt-mut">{r.lateLong(u.slot, hhmm(u.at))}</span></>}
-      {u.reason && <span className="rt-reason">{u.reason}</span>}
+      {u.outcome === 'failed' && (u.reason || u.field) && <span className="rt-reason">{whyText(u, x!.target, p.dirLabel, r)}</span>}
     </li>
   ));
 

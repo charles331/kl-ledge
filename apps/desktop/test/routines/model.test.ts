@@ -3,7 +3,7 @@ import type { Routine, Session, Task } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet';
 import { MESSAGES } from '../../src/i18n/messages';
 import {
-  atoiRoutineItems, draftErrors, expandHome, faultyField, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
+  atoiRoutineItems, draftErrors, expandHome, faultOf, faultyField, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
   routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
 } from '../../src/routines/model';
 import { anchorWeek, askLine, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
@@ -130,6 +130,12 @@ describe('the Routines screens rules', () => {
     expect(faultyField('dossier introuvable : ~/veille')).toBe('dir');
     expect(faultyField('tool missing: cursor-agent')).toBe('tool');
     expect(faultyField('pas tapée en 30 min (session occupée)')).toBeNull();
+    // The daemon's `field` (ff7a19c2) wins over the words; the words are only the fallback.
+    expect(faultOf({ field: 'tz', reason: 'dossier introuvable' })).toBe('schedule');
+    expect(faultOf({ field: 'cwd' })).toBe('dir');
+    expect(faultOf({ message: 'dossier introuvable : /x' })).toBe('dir');
+    expect(whyText({ field: 'cwd', reason: 'dossier introuvable : /home/jde/veille' }, { cwd: '/home/jde/veille', tool: 'claude' }, () => '~/veille', en)).toBe('folder not found: ~/veille');
+    expect(whyText({ reason: 'pas tapée en 30 min' }, { cwd: '/x', tool: 'claude' }, p => p, en)).toBe('pas tapée en 30 min');
     const r = routine('a', { schedule: { kind: 'recurring', times: ['08:00', '13:30', '16:30'], days: ['mon'] } });
     r.proposal = { spec: { ...r, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: ['mon'] } }, by: { id: 's', name: 'Iris' }, at: T0 };
     expect(proposalChanges(r, 'fr', fr)).toEqual([{ label: 'Heures', before: '08:00, 13:30, 16:30', after: '07:30, 13:30, 16:30' }]);

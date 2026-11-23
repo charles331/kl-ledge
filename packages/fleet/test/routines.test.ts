@@ -67,6 +67,10 @@ describe('routines through the fleet', () => {
     const rm = fleet.routineCmd('server', { op: 'rm', routine: 'r000009' });
     server.emit({ type: 'routine.result', rid: (server.sent.at(-1) as { rid: string }).rid, code: 'not_found', reason: 'aucune routine r000009' });
     await expect(rm).rejects.toEqual({ code: 'not_found', message: 'aucune routine r000009' });
+    // The field the daemon names reaches the front (ff7a19c2): it marks that field without reading the French reason.
+    const add = fleet.routineCmd('server', { op: 'add', spec: { name: 'x', target: { name: 'Iris', cwd: '/nope', tool: 'claude' }, schedule: { kind: 'once', at: ['2030-01-01T10:00'] }, prompt: 'p' } });
+    server.emit({ type: 'routine.result', rid: (server.sent.at(-1) as { rid: string }).rid, code: 'invalid', reason: 'dossier introuvable : /nope', field: 'cwd' });
+    await expect(add).rejects.toEqual({ code: 'invalid', message: 'dossier introuvable : /nope', field: 'cwd' });
   });
 
   it('a machine that falls keeps its last list, rejects its command in flight « hors ligne », and refuses new ones; an old daemon is « outdated »', async () => {

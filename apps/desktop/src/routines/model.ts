@@ -1,4 +1,4 @@
-import { isArchived, openDecision, RoutineNameSchema, type Routine, type RoutineRun, type RoutineSpec, type Session, type Task, type Tool } from '@ledge/protocol';
+import { isArchived, openDecision, RoutineNameSchema, type Routine, type RoutineField, type RoutineRun, type RoutineSpec, type Session, type Task, type Tool } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet';
 import type { Lang, Messages } from '../i18n/messages';
 import { draftOf, scheduleChanges, scheduleErrors, scheduleOf, type ScheduleChange, type ScheduleDraft } from './schedule';
@@ -164,8 +164,25 @@ export function draftErrors(d: SpecDraft, others: readonly Routine[], now: Date)
 }
 export const hasErrors = (e: DraftErrors): boolean => Object.keys(e).length > 0;
 
-/** A failed run's reason that names a field (card 8): the folder or the tool, outlined in red in the configuration. The daemon's
- *  reason is free text (contract: `RoutineRun.reason`), so this reads its words. */
+/** The form's part a daemon's `field` points to (ff7a19c2): outlined in red there (card 8), its error under it. */
+export type FormFault = 'dir' | 'tool' | 'session' | 'model' | 'name' | 'schedule' | 'at' | 'prompt';
+const FAULT: Record<RoutineField, FormFault | null> = { name: 'name', session: 'session', cwd: 'dir', tool: 'tool', model: 'model', schedule: 'schedule', tz: 'schedule', at: 'at', prompt: 'prompt' };
+/** The part a refusal or a failed run is about: its `field`, else (an older daemon) the words of its reason. */
+export function faultOf(x: { field?: RoutineField | undefined; reason?: string | undefined; message?: string | undefined } | undefined): FormFault | null {
+  if (!x) return null;
+  if (x.field) return FAULT[x.field];
+  return faultyField(x.reason ?? x.message);
+}
+
+/** A refusal's or a failure's reason in the screen's language (the daemon's stays French): built from its `field` where the
+ *  mockup gives a text (a folder, a tool), else the daemon's own words. */
+export function whyText(x: { field?: RoutineField | undefined; reason?: string | undefined }, target: { cwd: string; tool: string }, dirLabel: (p: string) => string, t: R): string {
+  if (x.field === 'cwd') return t.why.cwd(dirLabel(target.cwd));
+  if (x.field === 'tool') return t.why.tool(target.tool);
+  return x.reason ?? '';
+}
+
+/** A failed run's reason that names a field (card 8), read from its words: the fallback when the daemon names no `field`. */
 export function faultyField(reason: string | undefined): 'dir' | 'tool' | null {
   if (!reason) return null;
   if (/dossier|folder|directory|ENOENT|cwd/i.test(reason)) return 'dir';

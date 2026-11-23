@@ -2,7 +2,7 @@ import { useState, type JSX } from 'react';
 import type { FleetRoutine } from '@ledge/fleet';
 import { useI18n } from '../i18n/lang';
 import { AlarmIcon } from './icons';
-import { lastRunOf, type AtoiRoutineItem } from './model';
+import { lastRunOf, whyText, type AtoiRoutineItem } from './model';
 import { askLine, dayMonth, firstMoment, momentDate, momentLabel } from './schedule';
 import '../styles/routines.css';
 
@@ -16,7 +16,12 @@ export interface AtoiRoutineHandlers {
   offline?: boolean;
 }
 
-const reasonOf = (i: AtoiRoutineItem): string => i.task.routine?.reason ?? lastRunOf(i.routines[0]!)?.reason ?? '';
+/** A failure's reason in the screen's language: the last run's, built from its `field` when it names one, else the item's. */
+const reasonOf = (i: AtoiRoutineItem, h: AtoiRoutineHandlers, t: Parameters<typeof whyText>[3]): string => {
+  const r = i.routines[0]!;
+  const last = lastRunOf(r);
+  return whyText(last?.outcome === 'failed' ? last : { reason: i.task.routine?.reason }, r.target, () => h.dirLabel(r), t);
+};
 
 /** The page « À toi »'s block « Routines » (cards 13, 23), after Décisions; hidden when nothing waits. A request: « ? », the
  *  spec's line, « Voir le prompt » unfolding it, Activer / Refuser. Several one-shots asked together: one item, a line per routine
@@ -42,7 +47,7 @@ export function AtoiRoutinesBlock({ items, ...h }: AtoiRoutineHandlers & { items
         if (i.kind === 'failed') return (
           <div key={id} className="atoi-line" data-routine-item={id}>
             <span className="atoi-mk bad" aria-hidden="true">!</span>
-            <span className="grow">{a.failed(first.name, first.target.name, reasonOf(i))}</span>
+            <span className="grow">{a.failed(first.name, first.target.name, reasonOf(i, h, r))}</span>
             <button type="button" className="fg-btn pri" disabled={off} onClick={() => h.onRetry(first)}>{r.retry}</button>
             <button type="button" className="fg-btn" onClick={() => h.onSee(first)}>{r.see}</button>
           </div>
@@ -94,7 +99,7 @@ export function AtoiRoutineCards({ items, ...h }: AtoiRoutineHandlers & { items:
   return <>{items.map(i => {
     const first = i.routines[0]!;
     const failed = i.kind === 'failed';
-    const text = failed ? a.failedShort(first.name, reasonOf(i))
+    const text = failed ? a.failedShort(first.name, reasonOf(i, h, r))
       : i.routines.length > 1 ? a.groupShort(i.routines.length, i.routines.map(x => { const m = firstMoment(x.schedule); return m ? dayMonth(momentDate(m), lang) : ''; }).filter(Boolean).join(', '))
       : askLine(first.proposal?.spec.schedule ?? first.schedule, first.name, h.dirLabel(first), lang, r);
     return (

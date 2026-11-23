@@ -1743,6 +1743,7 @@ export const en: Messages = {
       dir: 'This folder doesn’t exist on this PC.', dirExisting: 'This session’s folder no longer exists on this PC.', dup: (h: string) => `${h} is already in the list.`,
       past: 'This moment has already passed.'
     },
+    why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}` },
     atoi: {
       block: 'Routines', blockSub: 'to activate, or that could not run', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `wants to schedule “${r}”: ${times} (${days}), in ${dir}`,

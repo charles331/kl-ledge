@@ -1838,6 +1838,8 @@ export const fr = {
       dir: 'Ce dossier n’existe pas sur ce PC.', dirExisting: 'Le dossier de cette session n’existe plus sur ce PC.', dup: (h: string) => `${h} est déjà dans la liste.`,
       past: 'Ce moment est déjà passé.'
     },
+    // A failed run's reason built from its `field` (mockup T.failNoDir, T.failNoTool), so it reads in the screen's language.
+    why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}` },
     atoi: {
       block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
       ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
