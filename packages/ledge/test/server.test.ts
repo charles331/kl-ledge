@@ -915,6 +915,25 @@ describe('server', () => {
       expect((await c.next('task.result', 3000)).tasks!.map(t => t.id)).toEqual([r.task!.id]);
       c.close();
     });
+    it('routines: anyone reads them, a session adds in its own name only, its routine waits for the owner (routines spec)', async () => {
+      store.upsert(mk('a'));
+      const dir = tmpDir();
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      c.send({ type: 'routine.list', rid: 'l1' });
+      expect(await c.next('routine.listed', 3000)).toMatchObject({ rid: 'l1', routines: [] });
+      const spec = { name: 'briefing', target: { name: 'Otto', cwd: dir, tool: 'claude' as const }, schedule: { kind: 'recurring' as const, times: ['08:00'], days: ['mon' as const] }, prompt: 'Briefing.' };
+      c.send({ type: 'routine.cmd', rid: 'a0', op: 'add', by: 'a', spec });
+      expect(await c.next('routine.result', 3000)).toMatchObject({ rid: 'a0', code: 'forbidden' });
+      c.send({ type: 'routine.cmd', rid: 'a1', op: 'add', by: 'a', key: sessionKey('a'), spec });
+      const added = await c.next('routine.result', 3000);
+      expect(added.routine).toMatchObject({ state: 'pending', createdBy: { kind: 'session', id: 'a', name: 'Otto' }, target: { cwd: dir } });
+      c.send({ type: 'routine.cmd', rid: 'a2', op: 'approve', routine: added.routine!.id });
+      expect((await c.next('routine.result', 3000)).routine).toMatchObject({ state: 'enabled', nextRuns: expect.any(Array) });
+      expect((await c.next('routine.changed', 3000)).routine).toMatchObject({ id: added.routine!.id });
+      c.send({ type: 'routine.preview', rid: 'p1', schedule: { kind: 'once', at: ['2099-01-01T08:00'] } });
+      expect((await c.next('routine.previewed', 3000)).nextRuns).toHaveLength(1);
+      c.close();
+    });
     it('a task given between two sessions reaches the fronts with its transmission, and Ledge lists it (#92)', async () => {
       store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
@@ -2319,7 +2338,7 @@ describe('update.daemon', () => {
       updater: { running: () => false, update: async (v, send) => { seen.push(v); send({ type: 'update.progress', version: v, step: 'installing' }); }, restart: async () => {} } });
     const c = await connect({ port: srv.port });
     const snap = await c.next('snapshot');
-    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true });
+    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true });
     c.send({ type: 'update.daemon', version: '0.3.0' });
     expect(await c.next('update.progress')).toMatchObject({ step: 'installing' });
     expect(seen).toEqual(['0.3.0']);

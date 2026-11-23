@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { backendOf, givenByLedge, type BrainChoice, type BrainProposal, type ReportRequest, isArchived, LEDGE_GIVER, taskClosed, type ClientMessage, type ServerMessage, type Session, type Task, type TaskLogEntry } from '@ledge/protocol';
+import { backendOf, givenByLedge, type TaskRoutine, type BrainChoice, type BrainProposal, type ReportRequest, isArchived, LEDGE_GIVER, taskClosed, type ClientMessage, type ServerMessage, type Session, type Task, type TaskLogEntry } from '@ledge/protocol';
 import { proposalTask } from '../brain/write.js';
 import type { Store } from './store.js';
 import type { Mailbox } from './mailbox.js';
@@ -27,6 +27,12 @@ export interface TasksDeps {
 }
 export interface Tasks {
   run(cmd: TaskCmd): TaskResult; all(): Task[];
+  /** An item of « À toi » the daemon itself raises (a routine's activation request or failure): Ledge's, to Ledge, open. */
+  raise(item: { title: string; text?: string; routine: TaskRoutine }): Task;
+  /** Closes such an item once it is answered or moot, with what came of it; undefined when it is not open. */
+  settle(id: string, result: string): Task | undefined;
+  /** Rewords such an item while it is open (a routine joins a session's waiting request); undefined when it is not open. */
+  amend(id: string, item: { title: string; text?: string; routine: TaskRoutine }): Task | undefined;
   close(): void;
 }
 
@@ -108,6 +114,8 @@ export function createTasks(d: TasksDeps): Tasks {
   // What the last daemon left: an owner that ended meanwhile drops its tasks now.
   // A decision's owner is the user (Ledge): it waits for its asker instead.
   for (const id of new Set([...tasks.values()].filter(t => !taskClosed(t)).map(t => (t.owner === LEDGE_GIVER ? t.giver : t.owner)))) {
+    // Ledge's own items (a routine's) have no session to end: they wait for the user.
+    if (id === LEDGE_GIVER) continue;
     const s = d.store.get(id);
     if (!s || s.state === 'exited') dropFor(id);
   }
@@ -259,7 +267,33 @@ export function createTasks(d: TasksDeps): Tasks {
     return refuse('opération inconnue');
   }
 
-  return { run, all: () => [...tasks.values()].sort((a, b) => a.at.localeCompare(b.at)), close: () => { unsubscribe(); for (const timer of timers.values()) clearTimeout(timer); timers.clear(); } };
+  const ledgeSide = { id: LEDGE_GIVER, name: 'Ledge' };
+  function raise(item: { title: string; text?: string; routine: TaskRoutine }): Task {
+    const at = now();
+    const task: Task = { id: newId(), title: item.title, ...(item.text ? { text: item.text } : {}), giver: LEDGE_GIVER, giverName: 'Ledge',
+      owner: LEDGE_GIVER, ownerName: 'Ledge', state: 'open', at, updatedAt: at, routine: item.routine,
+      log: [{ at, by: 'Ledge', what: 'confiée à Ledge (décision)', ...sides('give', ledgeSide, ledgeSide) }] };
+    tasks.set(task.id, task); save();
+    d.onTask?.(task, task.log[0]);
+    return task;
+  }
+  function settle(id: string, result: string): Task | undefined {
+    const t = tasks.get(id);
+    if (!t || taskClosed(t)) return undefined;
+    return put({ ...t, state: 'done', result }, 'Ledge', `terminée : ${result}`, sides('done', ledgeSide, ledgeSide));
+  }
+
+  function amend(id: string, item: { title: string; text?: string; routine: TaskRoutine }): Task | undefined {
+    const t = tasks.get(id);
+    if (!t || taskClosed(t)) return undefined;
+    const { text: _t, ...rest } = t;
+    const next: Task = { ...rest, title: item.title, ...(item.text ? { text: item.text } : {}), routine: item.routine, updatedAt: now() };
+    tasks.set(id, next); save();
+    d.onTask?.(next);
+    return next;
+  }
+
+  return { run, raise, settle, amend, all: () => [...tasks.values()].sort((a, b) => a.at.localeCompare(b.at)), close: () => { unsubscribe(); for (const timer of timers.values()) clearTimeout(timer); timers.clear(); } };
 }
 
 export function tasksJournal(path: string): TasksJournal & { flush(): Promise<void> } {
