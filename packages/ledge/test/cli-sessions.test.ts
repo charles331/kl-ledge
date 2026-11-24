@@ -10,7 +10,8 @@ import { connect, type Client } from '../src/client.js';
 import type { Tmux } from '../src/tmux.js';
 import { sessionKey } from '../src/auth.js';
 import { SESSION_KEY_VAR } from '../src/auth.js';
-import { commandArgs, formatStatus, runSessionCommand, runStatus, sessionRow } from '../src/cli/sessions.js';
+import { WebSocketServer } from 'ws';
+import { commandArgs, formatStatus, OLD_DAEMON, runSessionCommand, runStatus, sessionRow } from '../src/cli/sessions.js';
 import { printWho } from '../src/cli/who.js';
 import { until } from './helpers.js';
 
@@ -114,5 +115,17 @@ describe('the commands, against a daemon', () => {
     const r = await runSessionCommand('resume', ['nobody', '--json'], { port: srv.port, ...user });
     expect(r.code).toBe(1);
     expect(JSON.parse(r.line)).toMatchObject({ ok: false, reason: 'unknown session nobody' });
+  });
+});
+
+describe('a daemon older than the command', () => {
+  it('says so, after a short wait, instead of a bare timeout', async () => {
+    // It cannot read the new action, so it never answers.
+    const silent = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+    await new Promise(r => silent.once('listening', r));
+    const port = (silent.address() as { port: number }).port;
+    try {
+      expect(await runSessionCommand('rename', ['Otto', 'x'], { port, env: {}, ownMs: 200 })).toEqual({ code: 1, line: OLD_DAEMON });
+    } finally { await new Promise(r => silent.close(r)); }
   });
 });

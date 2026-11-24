@@ -80,7 +80,7 @@ describe('the action card in the Desktop\'s words (#94)', () => {
   });
 
   it('a verb for each action of the generic card, in French and English', () => {
-    const generic = ACTIONS.filter(a => a.card === 'generic').map(a => a.id).sort();
+    const generic = ACTIONS.filter(a => a.card === 'generic' && a.chat !== false).map(a => a.id).sort();
     expect(Object.keys(fr.chat.action.verbs).sort()).toEqual(generic);
     expect(Object.keys(en.chat.action.verbs).sort()).toEqual(generic);
   });

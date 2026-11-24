@@ -93,11 +93,19 @@ export function commandArgs(cmd: Command, args: string[]): { words: string[]; js
   return fits ? { words, json: args.includes('--json'), yes: args.includes('--yes'), close: args.includes('--close') } : undefined;
 }
 
+/** The CLI's own actions answer at once; a daemon older than them cannot read them and stays silent, so the wait is short. */
+const OWN_MS = 8_000;
+export const OLD_DAEMON = 'pas de réponse de Ledge : son daemon est peut-être plus ancien que cette commande. Mets Ledge à jour (Réglages › À propos), puis réessaie';
+const own = async (client: Client, action: 'session.topic' | 'session.move' | 'session.delete', args: Record<string, unknown>, o: { by?: ReturnType<typeof callerOf>; confirmed?: boolean; ms?: number }): Promise<ActionResult> => {
+  try { return await runOnClient(client, action, args, { by: o.by, confirmed: o.confirmed, ms: o.ms ?? OWN_MS }); }
+  catch { throw new Error(OLD_DAEMON); }
+};
+
 /** One session's run of a command, each step's result: archive closes it first when asked (a session already ended skips that). */
-async function runOne(client: Client, cmd: Command, words: string[], o: { yes: boolean; close: boolean; by?: ReturnType<typeof callerOf> }): Promise<ActionResult[]> {
-  const by = o.by;
-  if (cmd === 'rename') return [await runOnClient(client, 'session.topic', { session: words[0], topic: words[1] }, { by })];
-  if (cmd === 'move') return [await runOnClient(client, 'session.move', { session: words[0], project: words[1] }, { by })];
+async function runOne(client: Client, cmd: Command, words: string[], o: { yes: boolean; close: boolean; by?: ReturnType<typeof callerOf>; ownMs?: number }): Promise<ActionResult[]> {
+  const by = o.by; const ms = o.ownMs;
+  if (cmd === 'rename') return [await own(client, 'session.topic', { session: words[0], topic: words[1] }, { by, ms })];
+  if (cmd === 'move') return [await own(client, 'session.move', { session: words[0], project: words[1] }, { by, ms })];
   const session = words[0]!;
   const steps: ActionResult[] = [];
   if (cmd === 'archive' && o.close) {
@@ -106,12 +114,14 @@ async function runOne(client: Client, cmd: Command, words: string[], o: { yes: b
     if (!ended) steps.push(closed);
     if (closed.reason !== undefined && !ended) return steps;
   }
-  steps.push(await runOnClient(client, MANY[cmd as keyof typeof MANY], { session }, { by, ...(cmd === 'delete' && o.yes ? { confirmed: true } : {}) }));
+  steps.push(cmd === 'delete'
+    ? await own(client, 'session.delete', { session }, { by, ms, ...(o.yes ? { confirmed: true } : {}) })
+    : await runOnClient(client, MANY[cmd as keyof typeof MANY], { session }, { by }));
   return steps;
 }
 
 /** `ledge archive|unarchive|resume|rename|move|delete …`: each session in turn; stops at the first that cannot be. */
-export async function runSessionCommand(cmd: Command, args: string[], opts: { port?: number; env?: NodeJS.ProcessEnv } = {}): Promise<{ line: string; code: number }> {
+export async function runSessionCommand(cmd: Command, args: string[], opts: { port?: number; env?: NodeJS.ProcessEnv; ownMs?: number } = {}): Promise<{ line: string; code: number }> {
   const parsed = commandArgs(cmd, args);
   if (!parsed) return { line: SESSIONS_USAGE, code: args.length ? 1 : 0 };
   let client;
@@ -122,7 +132,7 @@ export async function runSessionCommand(cmd: Command, args: string[], opts: { po
   const lines: string[] = [];
   try {
     for (const words of targets) {
-      for (const step of await runOne(client, cmd, words, { yes: parsed.yes, close: parsed.close, by })) {
+      for (const step of await runOne(client, cmd, words, { yes: parsed.yes, close: parsed.close, by, ownMs: opts.ownMs })) {
         const r = resultLine(step, parsed.json);
         lines.push(r.line);
         if (r.code) return { line: lines.join('\n'), code: 1 };
@@ -130,6 +140,7 @@ export async function runSessionCommand(cmd: Command, args: string[], opts: { po
     }
     return { line: lines.join('\n'), code: 0 };
   } catch (e) {
-    return { line: [...lines, `pas de réponse de Ledge : ${(e as Error).message}`].join('\n'), code: 1 };
+    const m = (e as Error).message;
+    return { line: [...lines, m === OLD_DAEMON ? m : `pas de réponse de Ledge : ${m}`].join('\n'), code: 1 };
   } finally { await client.close(); }
 }
