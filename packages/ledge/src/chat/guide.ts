@@ -4,7 +4,7 @@
 import { access, constants, readFile, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ACTIONS, NEVER_PROPOSED, ToolSchema, type ActionDef, type Tool } from '@ledge/protocol';
+import { CHAT_ACTIONS, NEVER_PROPOSED, ToolSchema, type ActionDef, type Tool } from '@ledge/protocol';
 
 export const LEDGE_MD = 'ledge.md';
 
@@ -46,7 +46,7 @@ export interface LedgeInfo {
 
 /** The text of `ledge.md`: the guide, then the part generated from the code. */
 export function ledgeMd(info: LedgeInfo): string {
-  const actions = info.actions ?? ACTIONS;
+  const actions = info.actions ?? CHAT_ACTIONS;
   return [
     info.guide?.trim() || '# Ledge\n\n(The Ledge guide is missing from this installation: answer from the part below only, and say so.)',
     '',

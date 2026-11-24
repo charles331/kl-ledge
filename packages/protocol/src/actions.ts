@@ -22,7 +22,8 @@ export const ACTION_IDS = [
   'session.launch', 'session.relay', 'session.close', 'project.propose', 'task.give',
   'session.model', 'session.interrupt', 'session.archive', 'session.restore', 'session.resume', 'session.decide',
   'task.cancel', 'task.pass', 'task.answer', 'note.add', 'rig.act', 'rig.seats',
-  'rig.answer', 'rig.goal', 'rig.goal.reply', 'rig.send', 'brain.answer', 'session.handover', 'pr.fix'
+  'rig.answer', 'rig.goal', 'rig.goal.reply', 'rig.send', 'brain.answer', 'session.handover', 'pr.fix',
+  'session.topic', 'session.move', 'session.delete'
 ] as const;
 export const ActionIdSchema = z.enum(ACTION_IDS);
 export type ActionId = z.infer<typeof ActionIdSchema>;
@@ -36,6 +37,8 @@ export interface ActionDef<A extends z.ZodTypeAny = z.ZodTypeAny> {
   id: ActionId; args: A; summary: string; when: string; example: z.input<A>;
   risk: ActionRisk | ((args: z.infer<A>) => ActionRisk);
   max: number; card: ActionCard; phone: ActionPhoneCheck | null; cli?: string;
+  /** `false`: a command of the CLI only, never in the chat's persona nor taken from its answer (deleting is never proposed, spec §6.2). */
+  chat?: false;
 }
 /** Typed against its own args where it is written, then kept as a plain entry of the registry. */
 const def = <A extends z.ZodTypeAny>(d: ActionDef<A>): ActionDef => d as unknown as ActionDef;
@@ -218,8 +221,34 @@ export const ACTIONS: readonly ActionDef[] = [
     summary: 'demander à la session d\'une pull request suivie de corriger son pipeline en échec (pr, son id de prs.md ; session, sinon la plus active de la branche)',
     when: 'seulement quand l\'utilisateur demande explicitement de faire corriger une pull request ou son pipeline, et que prs.md la montre suivie',
     example: { pr: 'github.com/alice/api#226' }
+  }),
+  // The CLI's own (chat: false): what Desktop's « Gérer la session » does and the chat never proposes, so a session (the user's
+  // « chef ») can tidy the others up from its shell.
+  def({
+    id: 'session.topic', args: z.object({ session: SessionRef, topic: z.string().trim().max(500) }), card: 'generic', phone: null, risk: 'reversible', max: 8, chat: false,
+    cli: 'ledge rename <session> "<sujet>"',
+    summary: 'changer le sujet d\'une session (son nom d\'agent ne change pas) ; un sujet vide rend la main au sujet automatique',
+    when: 'quand l\'utilisateur demande de renommer une session',
+    example: { session: 'Nova', topic: 'Pagination de /invoices' }
+  }),
+  def({
+    id: 'session.move', args: z.object({ session: SessionRef, project: z.string().trim().min(1).max(80) }), card: 'generic', phone: null, risk: 'reversible', max: 8, chat: false,
+    cli: 'ledge move <session> <projet>',
+    summary: 'ranger une session dans un projet (son id ou son nom) : son dossier y est rattaché, comme « Ranger dans… » de Desktop',
+    when: 'quand l\'utilisateur demande de ranger ou de déplacer une session dans un projet',
+    example: { session: 'Nova', project: 'iptv' }
+  }),
+  def({
+    id: 'session.delete', args: z.object({ session: SessionRef }), card: 'generic', phone: null, risk: 'destructive', max: 8, chat: false,
+    cli: 'ledge delete <session> --yes',
+    summary: 'supprimer une session pour de bon, archivée ou non (son agent est arrêté) ; irréversible',
+    when: 'seulement quand l\'utilisateur le lance lui-même',
+    example: { session: 'Nova' }
   })
 ];
+
+/** The actions the chat may propose: the registry but the CLI's own. */
+export const CHAT_ACTIONS: readonly ActionDef[] = ACTIONS.filter(a => a.chat !== false);
 
 const byId = new Map<string, ActionDef>(ACTIONS.map(a => [a.id, a]));
 export const actionById = (id: string): ActionDef | undefined => byId.get(id);
@@ -245,6 +274,7 @@ export function parseActionBlock(kind: BlockKind, raw: string): { action: Action
   } else { id = LEGACY_FENCE_ACTION[kind]; args = json; }
   const action = actionById(id);
   if (!action) return { error: `unknown action ${id}` };
+  if (action.chat === false) return { error: `${id} is the CLI's own, never the chat's` };
   const parsed = action.args.safeParse(args);
   if (!parsed.success) return { error: `invalid args for ${id}: ${parsed.error.issues.map(i => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}` };
   return { action, args: parsed.data };

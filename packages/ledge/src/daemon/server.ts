@@ -89,6 +89,7 @@ import type { OperatorWired } from '../operator/index.js';
 import { applySuggestionRow, createPointActor, rowWhere, type Fail } from '../operator/act.js';
 import { pointHandlers } from '../operator/point-handlers.js';
 import type { DeviceId } from '../operator/journal.js';
+import { withRule } from '@ledge/fleet/projects';
 
 /** A seat's session without what belonged to the harness it ran before: its request, its reply, its conversation, its model. */
 function withoutHarness(s: Session): Session {
@@ -1154,7 +1155,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
    * one place: a row fails on the handler's `error`, or on the reason its `task.result` carries.
    */
   /** The live state a row resolves against, read again for each row: an earlier row of the plan may have changed it. */
-  const liveCtx = (): ResolveCtx => ({ sessions: store.all(), tasks: tasks.all(), rigs: openrig.peek?.(), ...(forge ? { prs: forge.state().prs } : {}) });
+  const liveCtx = (): ResolveCtx => ({ sessions: store.all(), tasks: tasks.all(), rigs: openrig.peek?.(), projects, ...(forge ? { prs: forge.state().prs } : {}) });
   /** The asks and goals, read from OpenRig only for the rows that name them; a read that fails leaves them out, so those rows are refused. */
   async function rigCtx(actions: Array<string | undefined>): Promise<Pick<ResolveCtx, 'asks' | 'goals'>> {
     if (!actions.some(a => a === 'rig.answer' || a === 'rig.goal.reply')) return {};
@@ -1331,6 +1332,15 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     }
     if (r.action === 'session.close') {
       const failure = await closeForCard(String(r.args.session)).then(() => undefined, e => (e as Error).message);
+      return answer({ row: r, ...(failure !== undefined ? { reason: failure, code: 'failed' } : {}) });
+    }
+    // « Ranger dans… » from the CLI: the same rule Desktop writes (its folder, on its machine, to the project), through projects.set.
+    if (r.action === 'session.move') {
+      const s = store.get(String(r.args.session));
+      if (!s) return answer({ row: r, reason: 'unknown session', code: 'failed' });
+      let failure: string | undefined;
+      await handle({ type: 'projects.set', projects: withRule(projects, { machine: s.machineId ?? 'local', path: s.cwd, project: String(r.args.project) }) },
+        m => { if (m.type === 'error') failure ??= m.message; });
       return answer({ row: r, ...(failure !== undefined ? { reason: failure, code: 'failed' } : {}) });
     }
     const { failure } = await applyRow(r, msg.rid);

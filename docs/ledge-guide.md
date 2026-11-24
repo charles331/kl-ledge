@@ -9,7 +9,8 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
 - **Le daemon** (`ledge daemon`, paquet npm `@paradow/ledge`) tourne dans WSL ou sur un serveur. Il suit les sessions par leurs hooks et par tmux, garde les projets, les tâches et les messages entre sessions, et fait tourner le chat de Ledge. La CLI `ledge` lui parle :
   - `ledge claude|codex|cursor` lance un agent suivi ;
   - `ledge attach <id>` met le terminal sur une session ;
-  - `ledge who` et `ledge status` listent les sessions ;
+  - `ledge who` liste les sessions en vie, et `ledge status` toutes les sessions avec leur id (`--all` : les archivées aussi) ; `--json` donne à un agent l'id, le nom, l'outil, l'état, le projet, le dossier, la branche, le sujet, l'archive et la dernière activité ;
+  - « Gérer la session » en ligne de commande : `ledge archive <session>…` (`--close` ferme d'abord proprement une session en cours), `ledge unarchive`, `ledge resume`, `ledge rename <session> "<sujet>"` (le sujet ; le nom de l'agent ne change pas), `ledge move <session> <projet>` et `ledge delete <session>… --yes`. Une session agent peut tout faire sauf supprimer, qui reste à l'utilisateur ;
   - `ledge send` et `ledge read` servent aux messages entre sessions ;
   - `ledge task`, `ledge decide`, `ledge handover` et `ledge close` gèrent les tâches, les décisions, la passation de relais et la fermeture ;
   - `ledge brain` montre ce que Ledge sait de lui-même (`@ledge`, `@projects`, `@machines`) et l'index des notes de l'utilisateur ; `ledge brain <nom>` en lit une ;
@@ -525,7 +526,7 @@ Ces écrans ne sont pas des adresses : l'application les montre d'elle-même, se
 | lancer une session lui-même | Nouvelle session (`N`, `Ctrl+Alt+N`) |
 | créer, modifier ou supprimer un projet, lui ajouter un dossier | Réglages › Projets (desktop ou mobile), ou le menu d'un projet dans la vue Projets ; les dossiers d'un serveur sur le desktop |
 | choisir les notifications d'un téléphone, les mettre en pause | Réglages (mobile) › Notifications sur cet appareil |
-| renommer, archiver, supprimer une session, passer le relais | Session › « Gérer la session » |
+| renommer, archiver, supprimer une session, passer le relais | Session › « Gérer la session », ou `ledge rename`, `ledge archive`, `ledge delete` |
 | trancher une décision, suivre une tâche | Chat de Ledge › Tâches, ou la page « À toi » |
 | suivre une MR ou une PR, la faire corriger, la fusionner | vue et onglet MR et PR |
 | démarrer, arrêter, lancer ou régler un rig OpenRig | vue Rigs, vue Rig, page OpenRig, Lancer un rig |

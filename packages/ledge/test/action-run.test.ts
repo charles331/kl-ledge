@@ -111,23 +111,65 @@ describe('action.run', () => {
 
   it('refuses an agent what the rule does not give it, with the reason', async () => {
     const [ann, bob] = await two();
-    expect(await run('session.close', { session: bob }, { by: ann })).toMatchObject({ code: 'agent', reason: expect.stringContaining('utilisateur') });
-    expect(store.get(bob)!.state).not.toBe('exited');
+    expect(await run('session.delete', { session: bob }, { by: ann, confirmed: true })).toMatchObject({ code: 'agent', reason: expect.stringContaining('utilisateur') });
+    expect(store.get(bob)).toBeDefined();
+  });
+
+  it('lets a session tidy another up (the user\'s decision of 2026-11-24): close, archive, restore, rename, file', async () => {
+    const [ann, bob] = await two();
+    expect((await run('session.close', { session: bob }, { by: ann })).reason).toBeUndefined();
+    await until(() => store.get(bob)?.state === 'exited');
+    expect((await run('session.archive', { session: bob }, { by: ann })).reason).toBeUndefined();
+    await until(() => store.get(bob)?.archivedAt !== undefined);
+    expect((await run('session.restore', { session: bob }, { by: ann })).reason).toBeUndefined();
+    await until(() => store.get(bob)?.archivedAt === undefined);
+    const topic = await run('session.topic', { session: ann, topic: 'Relire la PR' }, { by: ann });
+    expect(topic).toMatchObject({ row: { action: 'session.topic', args: { session: ann, topic: 'Relire la PR' }, risk: 'reversible' } });
+    await until(() => store.get(ann)?.topic === 'Relire la PR');
+    expect(await run('session.topic', { session: ann, topic: 'Relire la PR' })).toMatchObject({ code: 'refused', reason: expect.stringContaining('already has that topic') });
   });
 });
 
-describe('runGuard (#93 (a), decided by the user on 2026-10-26: option 4)', () => {
+describe('the CLI\'s own actions (chat: false)', () => {
+  it('session.move: the project by id or name, its folder ruled there through projects.set; unknown or already there refused', async () => {
+    const [ann] = await two();
+    c.send({ type: 'projects.set', projects: { projects: [
+      { id: 'api', name: 'API', color: 'blue', repos: [{ machine: 'local', path: '/tmp/api-folder' }] },
+      { id: 'chef', name: 'Chef', color: 'blue', repos: [{ machine: 'local', path: '/tmp/chef-folder' }] }
+    ], rules: [] } } as never);
+    while (!(await c.next('projects', 3000)).projects.projects.length);
+    expect(await run('session.move', { session: ann, project: 'nowhere' })).toMatchObject({ code: 'refused', reason: 'unknown project nowhere' });
+    const r = await run('session.move', { session: ann, project: 'chef' });
+    expect(r).toMatchObject({ row: { action: 'session.move', args: { session: ann, project: 'chef' } } });
+    expect(r.reason).toBeUndefined();
+    const after = await c.next('projects', 3000);
+    expect(after.projects.rules).toEqual([{ machine: 'local', path: work, project: 'chef' }]);
+    expect(await run('session.move', { session: ann, project: 'Chef' })).toMatchObject({ code: 'refused', reason: expect.stringContaining('already in Chef') });
+  });
+
+  it('session.delete: asked again, then done for the user', async () => {
+    const [, bob] = await two();
+    expect(await run('session.delete', { session: bob })).toMatchObject({ code: 'confirm_required', row: { risk: 'destructive' } });
+    expect((await run('session.delete', { session: bob }, { confirmed: true })).reason).toBeUndefined();
+    await until(() => store.get(bob) === undefined);
+  });
+});
+
+describe('runGuard (#93; the user\'s decision of 2026-11-24: what can be undone)', () => {
   const close = (s: string) => ({ action: 'session.close' as const, session: s });
   const cancel = { action: 'task.cancel' as const, session: 'bob' };
   const archive = { action: 'session.archive' as const, session: 'eve' };
+  const del = { action: 'session.delete' as const, session: 'eve' };
 
   it('lets the user run anything', () => {
-    for (const row of [close('eve'), cancel, archive]) expect(runGuard(row, undefined)).toBeNull();
+    for (const row of [close('eve'), cancel, archive, del]) expect(runGuard(row, undefined)).toBeNull();
   });
-  it('lets any session close itself, and nothing else', () => {
+  it('lets a session run on any session what can be undone, and nothing else', () => {
     expect(runGuard(close('eve'), 'eve')).toBeNull();
-    expect(runGuard(close('bob'), 'ann')).toMatch(/utilisateur/);
+    expect(runGuard(close('bob'), 'ann')).toBeNull();
+    expect(runGuard(archive, 'ann')).toBeNull();
+    for (const a of ['session.restore', 'session.resume', 'session.topic', 'session.move'] as const) expect(runGuard({ action: a, session: 'eve' }, 'ann')).toBeNull();
+    expect(runGuard(del, 'ann')).toMatch(/utilisateur/);
     expect(runGuard(cancel, 'bob')).toMatch(/utilisateur/);
-    expect(runGuard(archive, 'eve')).toMatch(/utilisateur/);
   });
 });

@@ -1,7 +1,7 @@
 // The daemon's side of the action registry (spec 2026-10-26 action registry §2.1): whether an action is possible now, and
 // the message the daemon already handles that applies it. The chat's generic card and, in #93, the CLI share it.
 import { createHash } from 'node:crypto';
-import { backendOf, isArchived, LEDGE_GIVER, offers, pendingKey, riskOf, taskClosed, actionById, DETAIL_MAX, KERNEL_RIG, seatPlan, seatsByRole, type ActionErrorCode, type ActionId, type ChatAction, type ClientMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type PullRequest, type Session, type Task } from '@ledge/protocol';
+import { backendOf, isArchived, projectOf, LEDGE_GIVER, offers, pendingKey, riskOf, taskClosed, actionById, DETAIL_MAX, KERNEL_RIG, seatPlan, seatsByRole, type ActionErrorCode, type ActionId, type ChatAction, type ClientMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type Projects, type PullRequest, type Session, type Task } from '@ledge/protocol';
 import { isOmpSeat } from './omp/seats.js';
 import { noteName } from '../brain/write.js';
 
@@ -13,6 +13,8 @@ export interface ResolveCtx {
   rigs?: OpenRigState;
   /** What the rigs ask the person (rig.answer, rig.goal.reply), Max's goals (rig.goal.reply) and the followed pull requests (pr.fix), as last read. */
   asks?: readonly HumanAsk[]; goals?: readonly Goal[]; prs?: readonly PullRequest[];
+  /** The projects as the daemon keeps them (session.move): none, and that row is refused. */
+  projects?: Projects;
 }
 /** Why not: the daemon's words (the log, the PC's error) and a code for a front's own. */
 /** `missing`: for `unknown`, what is gone (OpenRig, the rig, the role's seats), so a front names the right cause. */
@@ -278,27 +280,61 @@ export function cardRefusal(row: Pick<ChatAction, 'action' | 'args' | 'vars' | '
 /** The generic actions the daemon can resolve (the six earlier cards resolve in chat/service.ts). */
 export const GENERIC_ACTIONS = Object.keys(IMPLS) as ActionId[];
 
-/** The actions `action.run` takes (#93, the CLI): the generic ones, and the clean close, which the chat keeps on its close card. */
-export const RUN_ACTIONS: readonly ActionId[] = [...GENERIC_ACTIONS, 'session.close'];
+/** A project as the CLI names it: its id, else its name (case aside) when only one has it. */
+function projectRef(ref: string, projects: Projects): Projects['projects'][number] | Refusal {
+  const byId = projects.projects.find(p => p.id === ref);
+  if (byId) return byId;
+  const named = projects.projects.filter(p => p.name.toLowerCase() === ref.toLowerCase());
+  if (named.length === 1) return named[0]!;
+  return named.length ? no('ambiguous', `several projects named ${ref}`) : no('unknown', `unknown project ${ref}`);
+}
+
+/** The CLI's own actions (`chat: false`): Desktop's « Gérer la session » from a shell, never resolved for the chat. */
+const CLI_IMPLS: Partial<Record<ActionId, Impl>> = {
+  // As Desktop's « Renommer… »: the topic, on a session that has not ended.
+  'session.topic': (a, ctx) => withSession(ctx, a.session, s => (s.state === 'exited' ? no('exited', `${s.name} has exited`) : null), s => {
+    const topic = String(a.topic ?? '').trim();
+    if (topic === (s.topic ?? '')) return no('unchanged', `${s.name} already has that topic`);
+    return row('session.topic', { session: s.id, topic }, topic ? `Renommer ${b(s.name)} : ${topic}` : `Rendre son sujet automatique à ${b(s.name)}`, { session: s.name, topic }, { session: s.id });
+  }),
+  // As « Ranger dans… »: a rule ties the session's folder, on its machine, to the project.
+  'session.move': (a, ctx) => withSession(ctx, a.session, () => null, s => {
+    if (!ctx.projects) return no('unknown', 'the projects are not read');
+    const p = projectRef(String(a.project), ctx.projects);
+    if (isRefusal(p)) return p;
+    if (projectOf(s, ctx.projects) === p.id) return no('unchanged', `${s.name} is already in ${p.name}`);
+    return row('session.move', { session: s.id, project: p.id }, `Ranger ${b(s.name)} dans ${b(p.name)}`, { session: s.name, project: p.name }, { session: s.id });
+  }),
+  'session.delete': (a, ctx) => withSession(ctx, a.session, () => null,
+    s => row('session.delete', { session: s.id }, `Supprimer ${b(s.name)} pour de bon`, { session: s.name }, { session: s.id }))
+};
+
+/** The actions `action.run` takes (#93, the CLI): the generic ones, the clean close, which the chat keeps on its close card, and the CLI's own. */
+export const RUN_ACTIONS: readonly ActionId[] = [...GENERIC_ACTIONS, 'session.close', ...Object.keys(CLI_IMPLS) as ActionId[]];
 
 /** An action's parsed args against the live state, for `action.run` (#93): who may run it is `runGuard`'s call. */
 export function resolveRun(id: ActionId, args: unknown, ctx: ResolveCtx): Resolved {
   if (!RUN_ACTIONS.includes(id)) return no('unknown', `${id} is not run from the CLI`);
+  const cli = CLI_IMPLS[id];
+  if (cli) return cli(args as Args, ctx);
   if (id !== 'session.close') return resolveAction(id, args, ctx);
   return withSession(ctx, (args as Args).session, writable, s => row('session.close', { session: s.id }, `Fermer ${b(s.name)}`, { session: s.name }, { session: s.id }));
 }
 
-const AGENT_REFUSED = 'une session agent ne peut que se fermer elle-même. Le reste, demande-le à l\'utilisateur (il le lance lui-même, avec --yes si c\'est irréversible)';
+const AGENT_REFUSED = 'une session agent ne fait que ce qui se défait (fermer, archiver, restaurer, reprendre, renommer, ranger). Le reste, demande-le à l\'utilisateur (il le lance lui-même, avec --yes si c\'est irréversible)';
+
+/** What a session may run on any session, its own or another's: what can be undone (the user's decision of 2026-11-24, so the
+ *  session they talk to can tidy the others up). Deleting, and every other action, stay the user's. */
+const AGENT_RUNS: ReadonlySet<string> = new Set<ActionId>(['session.close', 'session.archive', 'session.restore', 'session.resume', 'session.topic', 'session.move']);
 
 /**
- * Who may run what outside the chat (#93, point (a), decided by the user on 2026-10-26, option 4), from the row as resolved
- * (action, ids), and the session that asks (`by`, left out for the user); the rule lives here alone.
- * The user runs anything. A session closes itself; nothing else. Null when allowed, else the reason.
+ * Who may run what outside the chat (#93), from the row as resolved (action, ids), and the session that asks (`by`, left out
+ * for the user); the rule lives here alone. The user runs anything. A session runs what can be undone on sessions
+ * (AGENT_RUNS); nothing else. Null when allowed, else the reason.
  */
 export function runGuard(row: Pick<ChatAction, 'action' | 'session'>, by: string | undefined): string | null {
   if (by === undefined) return null;
-  if (row.action === 'session.close' && row.session === by) return null;
-  return AGENT_REFUSED;
+  return AGENT_RUNS.has(row.action) ? null : AGENT_REFUSED;
 }
 
 /** A generic action's parsed args against the live state: a row ready to apply, or why not. */
@@ -319,6 +355,8 @@ export function actionMessage(r: Pick<ChatAction, 'action' | 'args'>, rid: strin
     case 'session.archive': return { type: 'session.archive', id: s };
     case 'session.restore': return { type: 'session.restore', id: s };
     case 'session.resume': return { type: 'session.resume', id: s };
+    case 'session.topic': return { type: 'session.rename', id: s, topic: String(a.topic ?? '') };
+    case 'session.delete': return { type: 'session.delete', id: s };
     case 'session.decide': {
       const expect = a.expect as { kind: 'permission' | 'diff' | 'plan'; text: string; key: string };
       return { type: 'session.decide', id: s, decision: a.decision as 'accept' | 'deny', ...(a.note ? { note: String(a.note) } : {}), expect };
