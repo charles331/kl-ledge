@@ -42,6 +42,8 @@ const BUSY_FOOTER = /^esc to cancel\b/;
 const HINT = /^↑\/↓ Navigate · /;
 const NOTE_HINT = /^enter Submit$/;
 const OPTION = /^(>\s*)?(\d+)\.\s+(.*)$/;
+/** An option as the dialog draws it, at the pane's left edge: `> 1. …` focused, `  2. …` not. */
+const DIALOG_OPTION = /^(>| ) (\d+)\.\s+(.*)$/;
 const COMMAND_TITLE = 'Command';
 const EDIT_TITLE = 'Pending edit';
 const QUESTION_TITLE = 'Question';
@@ -69,16 +71,30 @@ function parseDialog(lines: string[]): Dialog | null {
   if (rule <= 0 || !titled(rule)) return null;
   const title = lines[lastNonBlank(lines, rule - 1)]!.trim();
   const inside = lines.slice(rule + 1, h);
-  const first = inside.findIndex(l => OPTION.test(l.trim()));
-  if (first < 0) return null;
+  // The options are the block right above the hint, drawn at the dialog's own indent (`> 1.` focused, `  2.` the
+  // others), read from the bottom up. Under one of them may sit its note field or the rest of a long option, indented
+  // further. A line that reads as an option anywhere above that block (inside a command, a diff) is not the dialog's.
+  let first = inside.length;
+  for (let i = inside.length - 1; i >= 0; i--) {
+    const l = inside[i]!;
+    if (DIALOG_OPTION.test(l)) { first = i; continue; }
+    if (isBlank(l) || /^ {4,}\S/.test(l)) continue;
+    break;
+  }
+  while (first < inside.length && !DIALOG_OPTION.test(inside[first]!)) first++;
+  if (first >= inside.length) return null;
   const options: string[] = []; let focus = -1;
   for (const l of inside.slice(first)) {
-    const m = l.trim().match(OPTION);
-    if (!m) continue; // the note's own input line, under its option
-    if (m[1]) focus = options.length;
-    options.push(m[3]!.trim());
+    const m = l.match(DIALOG_OPTION);
+    if (m) {
+      if (Number(m[2]) !== options.length + 1) return null; // numbered 1, 2, 3… or not the dialog's
+      if (m[1] === '>') focus = options.length;
+      options.push(m[3]!.trim());
+    } else if (/^ {4,}\S/.test(l) && !/^\s*>/.test(l) && options.length) options[options.length - 1] += ` ${l.trim()}`; // a long option, wrapped
   }
-  return { title, body: inside.slice(0, first), options, focus, hint, noteOpen };
+  const body = inside.slice(0, first);
+  if (body.some(l => OPTION.test(l.trim()) && !/^\s{3,}/.test(l))) return null; // an option-looking line at the dialog's own indent
+  return { title, body, options, focus, hint, noteOpen };
 }
 
 /** The lines between two markers of the body, blank edges dropped. */

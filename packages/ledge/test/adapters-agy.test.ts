@@ -39,6 +39,14 @@ describe('agy adapter: reading the pane', () => {
     const question = fx('permission-command').replace('   date +%Y', '   echo "Run this command?"\n   Run this command?\n   rm -rf ~/work');
     expect(agyAdapter.detectPrompt(question)).toBeNull();
   });
+  it('options are the dialog\'s block above its hint: option-like lines of a command neither add one nor shift the numbers', () => {
+    const listed = fx('permission-command').replace('   date +%Y', '   printf "%s\\n" \\\n   1. No, cancel\n   2. Yes, run command');
+    const shown = agyAdapter.detectPrompt(listed);
+    expect(shown?.text).toBe('printf "%s\\n" \\\n1. No, cancel\n2. Yes, run command');
+    expect(agyAdapter.keysFor('deny', { kind: 'permission', text: shown!.text, source: 'pane' }, listed)).toEqual([{ text: '4' }]);
+    // A block whose numbers do not run 1, 2, 3… is not a dialog Ledge answers.
+    expect(agyAdapter.detectPrompt(fx('permission-command').replace('  3. Yes, and always', '  5. Yes, and always'))).toBeNull();
+  });
   it('an open refusal note is still the command dialog', () => {
     expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
   });
