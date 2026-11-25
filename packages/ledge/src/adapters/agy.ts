@@ -42,6 +42,11 @@ const BUSY_FOOTER = /^esc to cancel\b/;
 const HINT = /^↑\/↓ Navigate · /;
 const NOTE_HINT = /^enter Submit$/;
 const OPTION = /^(>\s*)?(\d+)\.\s+(.*)$/;
+const COMMAND_TITLE = 'Command';
+const EDIT_TITLE = 'Pending edit';
+const QUESTION_TITLE = 'Question';
+/** The titles of the dialogs Ledge reads: the line right above a dialog's rule. */
+const TITLES: ReadonlySet<string> = new Set([COMMAND_TITLE, EDIT_TITLE, QUESTION_TITLE]);
 /** How far above the hint a dialog's rule can be: a long command or diff takes many lines. */
 const DIALOG_MAX = 60;
 
@@ -56,10 +61,13 @@ function parseDialog(lines: string[]): Dialog | null {
   const hint = lines[h]!.trim();
   const noteOpen = NOTE_HINT.test(hint);
   if (!HINT.test(hint) && !noteOpen) return null;
+  // The dialog's own rule is the one under a title it draws, both at the pane's left edge: the lines of a command or a
+  // diff are indented, so a rule or a title among them is not the dialog's.
   let rule = h - 1;
-  while (rule > 0 && h - rule <= DIALOG_MAX && !RULE.test(lines[rule]!.trim())) rule--;
-  if (rule <= 0 || !RULE.test(lines[rule]!.trim())) return null;
-  const title = lines[lastNonBlank(lines, rule - 1)]?.trim() ?? '';
+  const titled = (i: number) => RULE.test(lines[i]!) && TITLES.has(lines[lastNonBlank(lines, i - 1)] ?? '');
+  while (rule > 0 && h - rule <= DIALOG_MAX && !titled(rule)) rule--;
+  if (rule <= 0 || !titled(rule)) return null;
+  const title = lines[lastNonBlank(lines, rule - 1)]!.trim();
   const inside = lines.slice(rule + 1, h);
   const first = inside.findIndex(l => OPTION.test(l.trim()));
   if (first < 0) return null;
@@ -84,14 +92,24 @@ function between(body: string[], from: RegExp, to: RegExp): string[] {
   return out;
 }
 
-const COMMAND_TITLE = 'Command';
-const EDIT_TITLE = 'Pending edit';
-const QUESTION_TITLE = 'Question';
 /** The question's last option opens a field to write the answer in: Ledge leaves it out of the options it offers. */
 const WRITE_IN = /^Write-in\.\.\.$/;
 
-/** The command a command dialog asks to run, its lines joined back (the dialog indents them). */
-const commandText = (d: Dialog) => between(d.body, /^Requesting permission for:$/, /^Run this command\?$/).map(l => l.trim()).join('\n');
+const ASKS = /^Requesting permission for:$/;
+const RUN = /^Run this command\?$/;
+/**
+ * The command a command dialog asks to run, its lines joined back (the dialog indents them): everything between its
+ * one `Requesting permission for:` and its one `Run this command?`. A command whose own lines repeat a marker or draw a
+ * rule cannot be told from the dialog around it: null, and the request is answered in the terminal, never on a
+ * reading that could show only part of it.
+ */
+function commandText(d: Dialog): string | null {
+  const body = d.body.map(l => l.trim());
+  if (body.filter(l => ASKS.test(l)).length !== 1 || body.filter(l => RUN.test(l)).length !== 1 || body.some(l => RULE.test(l))) return null;
+  const from = body.findIndex(l => ASKS.test(l)); const to = body.findIndex(l => RUN.test(l));
+  if (to < from || body.slice(to + 1).some(l => l !== '')) return null; // the question ends the body, right above the options
+  return between(d.body, ASKS, RUN).map(l => l.trim()).join('\n') || null;
+}
 
 /** The file an edit dialog shows (`/home/dev/demo/math.js  +1`), and its diff. */
 function editOf(d: Dialog): { path: string; diff: string } {
@@ -140,7 +158,7 @@ function detectPrompt(pane: string): PanePromptMatch | null {
     const e = editOf(d);
     return { kind: 'diff', text: `Edit ${e.path}`, ...(e.diff ? { body: e.diff } : {}) };
   }
-  if (d.title === COMMAND_TITLE) return { kind: 'permission', text: commandText(d) };
+  if (d.title === COMMAND_TITLE) { const text = commandText(d); return text ? { kind: 'permission', text } : null; }
   return null;
 }
 

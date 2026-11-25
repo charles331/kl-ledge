@@ -114,6 +114,11 @@ describe('agy launch', () => {
     expect(agentModeArgs('agy', ['--mode', 'auto'])).toEqual([]);
     expect(agentModeArgs('agy', ['--dangerously-skip-permissions'])).toEqual([]);
     expect(agentModeArgs('claude', [])).toEqual([]);
+    // A value is not an option: a first prompt or a folder reading `--mode` picks no mode.
+    expect(agentModeArgs('agy', ['-i', '--mode'])).toEqual(['--settings', '{"agentMode":""}']);
+    expect(agentModeArgs('agy', ['--add-dir', '--dangerously-skip-permissions'])).toEqual(['--settings', '{"agentMode":""}']);
+    expect(agentModeArgs('agy', launchArgs({ tool: 'agy', prompt: '--settings' }))).toEqual(['--settings', '{"agentMode":""}']);
+    expect(agentModeArgs('agy', ['--mode=plan'])).toEqual([]);
   });
 });
 

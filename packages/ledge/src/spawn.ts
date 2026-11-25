@@ -19,8 +19,17 @@ const AGY_OWN_MODE = /^(--mode|--settings|--dangerously-skip-permissions)(=|$)/;
  * `agentMode`, set for this session only (`--settings` is never saved).
  */
 export function agentModeArgs(tool: Tool, args: string[]): string[] {
-  return tool === 'agy' && !args.some(a => AGY_OWN_MODE.test(a)) ? ['--settings', '{"agentMode":""}'] : [];
+  if (tool !== 'agy') return [];
+  // Only options count, never the value an option takes: a first prompt (`-i`) reading `--mode` picks no mode.
+  for (let i = 0; i < args.length; i++) {
+    if (AGY_TAKES_VALUE.has(args[i]!)) { i++; continue; }
+    if (AGY_OWN_MODE.test(args[i]!)) return [];
+  }
+  return ['--settings', '{"agentMode":""}'];
 }
+/** agy's options that take the next argument as their value (agy --help, 1.5.17). */
+const AGY_TAKES_VALUE: ReadonlySet<string> = new Set(['-i', '--prompt-interactive', '-p', '--print', '--prompt', '--add-dir', '--model', '--effort',
+  '--conversation', '-r', '--resume', '--agent', '--project', '--log-file', '--input-format', '--output-format', '--json-schema', '--print-timeout']);
 
 /**
  * How a Codex hook learns its Ledge session. Codex runs hooks either inside the `codex` process (they get its
