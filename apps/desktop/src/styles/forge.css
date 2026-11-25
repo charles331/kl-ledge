@@ -8,6 +8,10 @@
 
 /* The sidebar view (mockup explorer `prs`). */
 .fg-side { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+/* A repository path, a branch or a title without spaces breaks where it must, so the view and the tab scroll vertically
+   only (issue #14); code, diffs and logs keep their lines (`white-space: pre`) and scroll inside their own box. `anywhere`,
+   unlike `break-word`, also lets the flex and grid items that hold such text shrink to the box. */
+.fg-side, .fg-page { overflow-wrap: anywhere; }
 .fg-side-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 32px; padding: 0 14px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); flex: none; }
 .fg-side-h small { font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .fg-tree { display: flex; flex-direction: column; padding: 0 8px; }
