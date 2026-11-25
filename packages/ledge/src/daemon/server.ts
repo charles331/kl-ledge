@@ -102,11 +102,12 @@ function withoutHarness(s: Session): Session {
 /** The OpenRig runtimes Ledge follows as a session, and the harness each one is. */
 const SEAT_TOOLS: Readonly<Record<string, Tool>> = { 'claude-code': 'claude', codex: 'codex', omp: 'omp' };
 
-/** How each agent resumes the folder's last conversation, all three verified (Cursor Agent: `--continue`). */
-export const CONTINUE_ARGS: Record<TmuxTool, string[]> = { claude: ['--continue'], codex: ['resume', '--last'], cursor: ['--continue'] };
+/** How each agent resumes the folder's last conversation, all verified (Cursor Agent and Antigravity CLI: `--continue`). */
+export const CONTINUE_ARGS: Record<TmuxTool, string[]> = { claude: ['--continue'], codex: ['resume', '--last'], cursor: ['--continue'], agy: ['--continue'] };
 
-/** How each agent continues one conversation by its own id (Claude Code and Cursor Agent `--resume <id>`, Codex `resume <id>`). */
-export const RESUME_ARGS: Record<TmuxTool, (id: string) => string[]> = { claude: id => ['--resume', id], codex: id => ['resume', id], cursor: id => ['--resume', id] };
+/** How each agent continues one conversation by its own id (Claude Code and Cursor Agent `--resume <id>`, Codex `resume <id>`,
+ *  Antigravity CLI `--conversation <id>`, which does not keep the model: a resume names it again, see `session.resume`). */
+export const RESUME_ARGS: Record<TmuxTool, (id: string) => string[]> = { claude: id => ['--resume', id], codex: id => ['resume', id], cursor: id => ['--resume', id], agy: id => ['--conversation', id] };
 
 /** The agent's own conversation id: the one its hooks gave, else, for Claude Code, the name of its transcript file. */
 export function resumeKey(s: Session): string | undefined {
@@ -116,13 +117,14 @@ export function resumeKey(s: Session): string | undefined {
   return s.tool === 'claude' && s.transcriptPath ? basename(s.transcriptPath, '.jsonl') : undefined;
 }
 
-/** The harnesses that take extra folders, and how. Claude only (verified: `claude --add-dir a b -- "prompt"`). */
-export const MULTI_DIR_ARGS: Partial<Record<TmuxTool, (dirs: string[]) => string[]>> = { claude: dirs => ['--add-dir', ...dirs] };
+/** The harnesses that take extra folders, and how: Claude's option takes them all (`claude --add-dir a b -- "prompt"`),
+ *  Antigravity CLI's one each (`agy --add-dir a --add-dir b`). */
+export const MULTI_DIR_ARGS: Partial<Record<TmuxTool, (dirs: string[]) => string[]>> = { claude: dirs => ['--add-dir', ...dirs], agy: dirs => dirs.flatMap(d => ['--add-dir', d]) };
 
 /** How each agent takes a model (#58): Claude Code `--model`, Codex `-m` (also after `resume`), Cursor Agent `--model`. */
-export const MODEL_ARGS: Record<TmuxTool, (model: string) => string[]> = { claude: m => ['--model', m], codex: m => ['-m', m], cursor: m => ['--model', m] };
+export const MODEL_ARGS: Record<TmuxTool, (model: string) => string[]> = { claude: m => ['--model', m], codex: m => ['-m', m], cursor: m => ['--model', m], agy: m => ['--model', m] };
 /** How each agent takes an effort; Cursor Agent has none apart from its model id (`gpt-5.3-codex-high`). */
-export const EFFORT_ARGS: Partial<Record<TmuxTool, (effort: string) => string[]>> = { claude: e => ['--effort', e], codex: e => ['-c', `model_reasoning_effort="${e}"`] };
+export const EFFORT_ARGS: Partial<Record<TmuxTool, (effort: string) => string[]>> = { claude: e => ['--effort', e], codex: e => ['-c', `model_reasoning_effort="${e}"`], agy: e => ['--effort', e] };
 
 /** The agent's arguments for a `session.launch`: the resume flag, the model and effort, then the first instruction as the positional prompt. */
 export function launchArgs(msg: { tool: TmuxTool; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string }): string[] {
@@ -130,6 +132,8 @@ export function launchArgs(msg: { tool: TmuxTool; prompt?: string; continue?: bo
   const more = msg.dirs?.length ? MULTI_DIR_ARGS[msg.tool]?.(msg.dirs) : undefined;
   const model = msg.model ? MODEL_ARGS[msg.tool](msg.model) : [];
   const effort = msg.effort ? EFFORT_ARGS[msg.tool]?.(msg.effort) ?? [] : [];
+  // Antigravity CLI takes the first prompt of an interactive session with -i (a positional prompt is not one).
+  if (msg.tool === 'agy') return [...(msg.continue ? CONTINUE_ARGS.agy : []), ...model, ...effort, ...(more ?? []), ...(prompt ? ['-i', prompt] : [])];
   // The `--` only follows --add-dir: the option is variadic and would swallow the prompt.
   return [...(msg.continue ? CONTINUE_ARGS[msg.tool] : []), ...model, ...effort, ...(more ?? []), ...(prompt ? [...(more ? ['--'] : []), prompt] : [])];
 }

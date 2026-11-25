@@ -20,7 +20,9 @@ const READS: Record<Tool, string> = {
   // --mode ask --sandbox enabled
   cursor: 'Pour lire, tu as la lecture et la recherche du mode ask ; aucune écriture.',
   // --tools read,grep,glob
-  omp: 'Pour lire, tu as les outils `read`, `grep` et `glob` ; pas de shell.'
+  omp: 'Pour lire, tu as les outils `read`, `grep` et `glob` ; pas de shell.',
+  // Ask Ledge does not run on Antigravity CLI (chat/service.ts refuses it): never said.
+  agy: ''
 };
 
 const RISK: Record<'read' | 'reversible' | 'destructive', string> = {

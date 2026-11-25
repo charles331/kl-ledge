@@ -109,7 +109,7 @@ export interface ChatDeps {
   now?: () => string; today?: () => string; uuid?: () => string; bin?: string[]; bins?: Partial<Record<Tool, string[]>>; spawn?: typeof nodeSpawn; timeoutMs?: number;
 }
 
-const TOOL_LABEL: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' };
+const TOOL_LABEL: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP', agy: 'Antigravity CLI' };
 export const runTool = (tool: Tool, o: RunOptions, onEvent: (e: ClaudeEvent) => void, spawn?: typeof nodeSpawn) =>
   tool === 'omp' ? runOmp(o, onEvent, spawn) : tool === 'codex' ? runCodex(o, onEvent, spawn) : tool === 'cursor' ? runCursor(o, onEvent, spawn) : runClaude(o, onEvent, spawn);
 
@@ -366,6 +366,8 @@ export function createChat(deps: ChatDeps): Chat {
   }
 
   async function run(turn: ChatTurn, emit: (m: ChatMessage) => void, fresh: boolean, mine: Running, tool: Tool): Promise<{ ok: true } | { ok: false; message: string; resumed: boolean }> {
+    // No headless runner for Antigravity CLI yet: Ask Ledge would send the context to Google without one reviewed.
+    if (tool === 'agy') return { ok: false, message: 'Ask Ledge does not run on Antigravity CLI yet: pick another agent for it', resumed: false };
     // The chat runs on the CLI's own login: an API key the daemon inherited is never billed (spec §5.2).
     const env = await chatEnv(deps);
     const ctx = await writeChatContext(deps, contextDir, { forgeRead: asksForge(turn.question), qid: turn.qid });

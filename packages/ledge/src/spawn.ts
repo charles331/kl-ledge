@@ -9,7 +9,18 @@ import { claudeTranscriptPath } from './daemon/transcript.js';
 
 /** The harnesses Ledge drives through a tmux pane: OMP is driven over its own protocol (daemon/omp), never typed into. */
 export type TmuxTool = Exclude<Tool, 'omp'>;
-export const AGENT_BIN: Record<Tool, string> = { claude: 'claude', codex: 'codex', cursor: 'cursor-agent', omp: 'omp' };
+export const AGENT_BIN: Record<Tool, string> = { claude: 'claude', codex: 'codex', cursor: 'cursor-agent', omp: 'omp', agy: 'agy' };
+
+/** Antigravity CLI arguments that choose its permission mode themselves: Ledge then sets none. */
+const AGY_OWN_MODE = /^(--mode|--settings|--dangerously-skip-permissions)(=|$)/;
+/**
+ * Antigravity CLI starts in Auto mode, which runs edits and the commands it deems safe without asking; Ledge starts it
+ * in the mode that asks, as it does OMP, unless the arguments pick one. `--mode` has no value for it: it is the empty
+ * `agentMode`, set for this session only (`--settings` is never saved).
+ */
+export function agentModeArgs(tool: Tool, args: string[]): string[] {
+  return tool === 'agy' && !args.some(a => AGY_OWN_MODE.test(a)) ? ['--settings', '{"agentMode":""}'] : [];
+}
 
 /**
  * How a Codex hook learns its Ledge session. Codex runs hooks either inside the `codex` process (they get its
@@ -99,7 +110,7 @@ export async function spawnSession(opts: SpawnOptions): Promise<Session> {
   const project = basename(opts.cwd) || opts.cwd;
   const tmuxSession = `ledge-${id}`;
   const agentSessionId = opts.command ? undefined : claudeSessionId(opts.tool, opts.args);
-  const agent = opts.command ?? [AGENT_BIN[opts.tool], ...agentIdArgs(opts.tool, id), ...(agentSessionId ? ['--session-id', agentSessionId] : []), ...opts.args];
+  const agent = opts.command ?? [AGENT_BIN[opts.tool], ...agentIdArgs(opts.tool, id), ...agentModeArgs(opts.tool, opts.args), ...(agentSessionId ? ['--session-id', agentSessionId] : []), ...opts.args];
   const env = opts.env ?? process.env;
   const transcriptPath = agentSessionId ? claudeTranscriptPath(opts.cwd, agentSessionId, env) : undefined;
   // With recordExit, sh runs the agent with its argv untouched ("$@") and writes its exit code to

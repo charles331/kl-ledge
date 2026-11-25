@@ -1,0 +1,119 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { agyAdapter } from '../src/adapters/agy.js';
+import { adapterFor, buildPreview } from '../src/adapters/index.js';
+
+// Panes captured from Antigravity CLI 1.5.17 in tmux (140×45), the account and home folder replaced.
+const fx = (n: string) => readFileSync(new URL(`./fixtures/panes/agy-${n}.txt`, import.meta.url), 'utf8');
+const tail = (pane: string, n = 5) => pane.replace(/\s+$/g, '').split('\n').slice(-n).join('\n');
+type Until = { until: (p: string) => boolean };
+
+const command = { kind: 'permission' as const, text: 'date +%Y', source: 'pane' as const };
+const edit = { kind: 'diff' as const, text: 'Edit /home/dev/demo/math.js', source: 'pane' as const };
+const question = { kind: 'question' as const, text: 'Which name should the new function have?', source: 'pane' as const };
+const trust = { kind: 'permission' as const, text: 'Trust this folder? /home/dev/demo', source: 'pane' as const };
+
+describe('agy adapter: reading the pane', () => {
+  it('reads a command permission: the command it asks to run', () => {
+    expect(agyAdapter.detectPrompt(fx('permission-command'))).toEqual({ kind: 'permission', text: 'date +%Y' });
+  });
+  it('reads a file edit as a diff: the file and its changed lines', () => {
+    expect(agyAdapter.detectPrompt(fx('permission-edit'))).toEqual({
+      kind: 'diff', text: 'Edit /home/dev/demo/math.js',
+      body: '  1     export const add = (a, b) => a + b;\n  2  +  export const sub = (a, b) => a - b;\n  3     export const mul = (a, b) => a * b;'
+    });
+  });
+  it('reads a question and its options, without the write-in field', () => {
+    expect(agyAdapter.detectPrompt(fx('question'))).toEqual({ kind: 'question', text: 'Which name should the new function have?', options: ['minus', 'subtract'] });
+  });
+  it('reads the trust dialog of a new folder', () => {
+    expect(agyAdapter.detectPrompt(fx('trust'))).toEqual({ kind: 'permission', text: 'Trust this folder? /home/dev/demo', options: ['Yes, I trust this folder', 'No, exit'] });
+  });
+  it('an open refusal note is still the command dialog', () => {
+    expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
+  });
+  it('reads no request at rest, while working, in a plan written to a file, or in a settings panel', () => {
+    for (const n of ['rest-banner', 'rest-ask', 'rest-auto', 'rest-after-deny', 'rest-plan', 'working', 'hooks-panel']) expect(agyAdapter.detectPrompt(fx(n)), n).toBeNull();
+  });
+  it('at rest whatever the input box holds (the mode hint, nothing), never while working or asking', () => {
+    for (const n of ['rest-banner', 'rest-ask', 'rest-auto', 'rest-after-deny', 'rest-plan']) expect(agyAdapter.atRest!(fx(n)), n).toBe(true);
+    for (const n of ['working', 'permission-command', 'permission-edit', 'question', 'trust', 'permission-note-field']) expect(agyAdapter.atRest!(fx(n)), n).toBe(false);
+  });
+  it('sees a dialog at the bottom, the open note too, but not a running turn (both end in `esc to cancel`)', () => {
+    for (const n of ['permission-command', 'permission-edit', 'question', 'trust', 'permission-note-field']) expect(agyAdapter.promptStillVisible(tail(fx(n))), n).toBe(true);
+    for (const n of ['working', 'rest-ask', 'rest-after-deny']) expect(agyAdapter.promptStillVisible(tail(fx(n))), n).toBe(false);
+  });
+  it('the preview drops the input box and footer, and keeps a dialog whole', () => {
+    const rest = buildPreview(fx('rest-after-deny'), agyAdapter);
+    expect(rest.at(-1)).toContain('Interrupted');
+    expect(rest.some(l => l.startsWith('? for shortcuts'))).toBe(false);
+    expect(buildPreview(fx('permission-command'), agyAdapter).at(-1)).toMatch(/^esc to cancel/);
+  });
+  it('a request answered is gone once another is on screen or none; the open note is not gone', () => {
+    expect(agyAdapter.promptGone!(fx('rest-after-deny'), command)).toBe(true);
+    expect(agyAdapter.promptGone!(fx('permission-edit'), command)).toBe(true);
+    expect(agyAdapter.promptGone!(fx('permission-command'), command)).toBe(false);
+    expect(agyAdapter.promptGone!(fx('permission-note-field'), command)).toBe(false);
+  });
+});
+
+describe('agy adapter: answering', () => {
+  it('a number key answers at once: 1 accepts, the « No » option refuses', () => {
+    expect(agyAdapter.keysFor('accept', command, fx('permission-command'))).toEqual([{ text: '1' }]);
+    expect(agyAdapter.keysFor('deny', command, fx('permission-command'))).toEqual([{ text: '4' }]);
+    expect(agyAdapter.keysFor('accept', edit, fx('permission-edit'))).toEqual([{ text: '1' }]);
+    expect(agyAdapter.keysFor('deny', edit, fx('permission-edit'))).toEqual([{ text: '2' }]);
+  });
+  it('« always » is this conversation\'s option, never the one written to the user\'s settings; an edit has none', () => {
+    expect(agyAdapter.keysFor('always', command, fx('permission-command'))).toEqual([{ text: '2' }]);
+    expect(() => agyAdapter.keysFor('always', edit, fx('permission-edit'))).toThrow(/always/);
+  });
+  it('a refusal with a note: down to « No », Tab, the note once the field is open, Enter once it holds it', () => {
+    const plan = agyAdapter.keysFor('deny', command, fx('permission-command'), 'Use node -e instead.');
+    expect(plan[0]).toEqual({ keys: ['Down', 'Down', 'Down'] });
+    expect((plan[1] as Until).until(fx('permission-command'))).toBe(false);
+    expect(plan[2]).toEqual({ keys: ['Tab'] });
+    expect((plan[3] as Until).until(fx('permission-note-field'))).toBe(true);
+    expect((plan[3] as Until).until(fx('permission-command'))).toBe(false);
+    expect(plan[4]).toEqual({ text: 'Use node -e instead.' });
+    const filled = fx('permission-note-field').replace(/^(\s{4})>\s*$/m, '$1> Use node -e instead.');
+    expect((plan[5] as Until).until(filled)).toBe(true);
+    expect((plan[5] as Until).until(fx('permission-note-field'))).toBe(false);
+    expect(plan[6]).toEqual({ keys: ['Enter'] });
+  });
+  it('no note on an edit, a question or the trust dialog', () => {
+    expect(() => agyAdapter.keysFor('deny', edit, fx('permission-edit'), 'no')).toThrow(/note/);
+    expect(() => agyAdapter.keysFor('deny', trust, fx('trust'), 'no')).toThrow(/note/);
+  });
+  it('a question: its option number, Esc skips it', () => {
+    expect(agyAdapter.keysFor('accept', question, fx('question'))).toEqual([{ text: '1' }]);
+    expect(agyAdapter.keysFor('deny', question, fx('question'))).toEqual([{ keys: ['Escape'] }]);
+    expect(agyAdapter.replyPlan('2', question, fx('question'))).toEqual([{ text: '2' }]);
+  });
+  it('the trust dialog: Enter on Yes, Down then Enter for No', () => {
+    expect(agyAdapter.keysFor('accept', trust, fx('trust'))).toEqual([{ keys: ['Enter'] }]);
+    const no = agyAdapter.keysFor('deny', trust, fx('trust'));
+    expect(no[0]).toEqual({ keys: ['Down'] });
+    expect(no[2]).toEqual({ keys: ['Enter'] });
+  });
+  it('refuses an answer meant for another kind of dialog than the one on screen', () => {
+    expect(() => agyAdapter.keysFor('accept', question, fx('permission-command'))).toThrow(/changed/);
+  });
+  it('a reply: the text, then Enter once the input box holds exactly it (not the mode hint)', () => {
+    const plan = agyAdapter.replyPlan('run the\ntests');
+    expect(plan[0]).toEqual({ text: 'run the tests' });
+    expect(plan[2]).toEqual({ keys: ['Enter'] });
+    const until = (plan[1] as Until).until;
+    expect(until(fx('rest-ask'))).toBe(false);
+    expect(until(fx('rest-ask').replace(/^>\s*$/m, '> run the tests'))).toBe(true);
+    const a = (agyAdapter.replyPlan('A')[1] as Until).until;
+    expect(a(fx('rest-auto'))).toBe(false); // `> Auto mode: …` is the hint, not the reply
+  });
+  it('Esc interrupts; quitting waits after Esc so `/exit` is not read as Alt+/', () => {
+    expect(agyAdapter.interruptKeys()).toEqual(['Escape']);
+    expect(agyAdapter.exitPlan()).toEqual([{ keys: ['Escape'] }, { waitMs: 300 }, { text: '/exit' }, { waitMs: 300 }, { keys: ['Enter'] }]);
+  });
+  it('adapterFor returns it', () => {
+    expect(adapterFor('agy')).toBe(agyAdapter);
+  });
+});
