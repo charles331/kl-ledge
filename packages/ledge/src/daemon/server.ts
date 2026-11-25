@@ -57,7 +57,7 @@ import { broadcastFromSession, broadcastFromUser } from './broadcast.js';
 import { addFromUser, applyProposal, checkProposal, clearFlag, markChecked, noteInfos } from '../brain/write.js';
 import { notesDir } from '../brain/notes.js';
 import { createTasks, type TasksJournal } from './tasks.js';
-import { createRoutines, type Routines, type RoutinesJournal } from './routines.js';
+import { createRoutines, routineSchemaRefusal, type Routines, type RoutinesJournal } from './routines.js';
 import { createHandovers, heldNames } from './handover.js';
 import { readTurn } from './context.js';
 import type { createDaemonUpdater } from '../update/run-update.js';
@@ -2203,6 +2203,10 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         // The type and the id it carried, when it has them: a newer front's value this daemon does not know is refused by
         // name, for that very session, at once (not left to the front's own timeout).
         // Only a session's id: a mobile.* id names a pairing or a device, never a session a front would fail.
+        // A routine's command or preview is refused as the routine refuses, its field named: never a generic error, which a
+        // front reads as a daemon too old for routines (issue #22).
+        const routine = routineSchemaRefusal(raw, e);
+        if (routine) return reply(routine);
         const { type, id } = (raw ?? {}) as { type?: unknown; id?: unknown };
         const named = typeof type === 'string' && type.length <= 64 ? type : undefined;
         return reply({ type: 'error', message: 'invalid message', ...((named?.startsWith('session.') || named?.startsWith('term.')) && typeof id === 'string' && id.length <= 200 ? { id } : {}), ...(named ? { request: named } : {}), code: 'invalid' });

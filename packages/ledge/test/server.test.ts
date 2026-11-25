@@ -915,6 +915,18 @@ describe('server', () => {
       expect((await c.next('task.result', 3000)).tasks!.map(t => t.id)).toEqual([r.task!.id]);
       c.close();
     });
+    it('an empty session name is refused as the routine refuses, field session; a bad preview too; an unknown type stays a generic error (issue #22)', async () => {
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      // The very message Desktop sent: « Une nouvelle session », its name left empty.
+      c.send({ type: 'routine.cmd', rid: 'e1', op: 'add', spec: { name: 'veille', target: { name: '', cwd: '/w/assistant', tool: 'claude' }, schedule: { kind: 'recurring', times: ['08:00'], days: ['mon'] }, prompt: 'p', catchUp: 'once' } } as never);
+      expect(await c.next('routine.result', 3000)).toEqual({ type: 'routine.result', rid: 'e1', code: 'invalid', reason: 'nom de session vide', field: 'session' });
+      c.send({ type: 'routine.preview', rid: 'e2', schedule: { kind: 'recurring', times: ['08:00'], days: [] } } as never);
+      expect(await c.next('routine.previewed', 3000)).toMatchObject({ rid: 'e2', nextRuns: [], field: 'schedule' });
+      // A type this daemon does not know is still the generic error a front reads as « too old ».
+      c.send({ type: 'routine.frobnicate', rid: 'e3' } as never);
+      expect(await c.next('error', 3000)).toMatchObject({ message: 'invalid message', request: 'routine.frobnicate', code: 'invalid' });
+      c.close();
+    });
     it('routines: anyone reads them, a session adds in its own name only, its routine waits for the owner (routines spec)', async () => {
       store.upsert(mk('a'));
       const dir = tmpDir();
