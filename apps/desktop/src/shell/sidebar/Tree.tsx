@@ -14,6 +14,7 @@ import { ProviderLogo } from '../../ide/ProviderLogo';
 import { providerOf } from '../../workspace/sessionTab';
 import { kidsAtWork, newestCommand, restingWithWork } from '../../session/background';
 import { AutoMark } from '../SessionBot';
+import { useSkin } from '../theme';
 import type { MenuTarget } from '../../manage/useContextMenu';
 import { isMenuKey, menuPoint } from './menuPoint';
 import type { ProjectGroup } from './model';
@@ -143,6 +144,8 @@ export function Tree(p: {
   paused: boolean;
 }): JSX.Element {
   const { t } = useI18n();
+  // Issue #28: under the « Atelier » skin a session that waits says « À toi » in place of its time.
+  const skin = useSkin();
   const { closed, onClosed: setClosed } = p;
   const [shown, setShown] = useState<Set<string>>(() => new Set());
   const [kids, setKids] = useState<Set<string>>(() => new Set());
@@ -259,7 +262,7 @@ export function Tree(p: {
         </button>
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
           {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
-        <span className={cls('st-time', waiting && timeClass)}>{s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
+        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.yours}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
         <span className="st-acts">
           <button type="button" tabIndex={-1} aria-label={t.side.terminalOne(name)} title="Terminal · T" onClick={() => p.onTerminal(s)}><Icon d={SHELL_ICONS.terminal} size={13} /></button>
           {!helper && <button type="button" tabIndex={-1} aria-label={t.side.archiveOne(s.name)} title={`${t.manage.menu.archive} · E`} onClick={() => p.onArchive([s.id])}><Icon d={SHELL_ICONS.archive} size={13} /></button>}
