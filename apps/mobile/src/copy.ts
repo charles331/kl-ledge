@@ -1209,9 +1209,16 @@ const fr = {
     ideas: ['Relire la dernière pull request', 'Corriger les tests qui échouent', 'Mettre à jour la documentation'],
     pick: (model: string, effort: string | null) => (effort ? `${model} · ${effort}` : model),
     summary: (tool: string, model: string | null, machine: string, project: string) => `${model ? `${tool} · ${model}` : tool} sur ${machine}, dans ${project}`,
+    // Issue #15 (docs/mockups/ledge-launch-name.html, card 6): an optional name, behind a switch on the Project label's right.
+    nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laisse vide pour ${n}`,
+    nameHint: 'Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.',
+    nameCleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
+    nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisis un autre nom, ou laisse vide.`,
+    nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,
+    nameReserved: 'ledge est réservé à Ledge lui-même. Choisis un autre nom.',
     launchCheck: 'Lancer avec Face ID', launchDevice: 'Lancer avec mon appareil', launching: 'Lancement…',
     missing: {
-      prompt: 'Écris la consigne', machine: 'Aucune machine en ligne', setup: 'Protège d’abord tes accords',
+      prompt: 'Écris la consigne', machine: 'Aucune machine en ligne', setup: 'Protège d’abord tes accords', name: 'Choisis un autre nom',
       pcOld: (machine: string) => `${machine} ne lance pas encore depuis le téléphone`
     },
     setupBody: 'Lancer demande la passkey de cet appareil, comme fermer une session.', openSettings: 'Ouvrir Réglages',

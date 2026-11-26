@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { PHONE_LAUNCH_MULTI, type OperationReason, type PhoneFolder, type PhoneLaunch, type PhoneProject, type Tool } from '@ledge/protocol';
+import { cleanName, nameHolder, nameRefusal, namesInUse, pickName, PHONE_LAUNCH_MULTI, type OperationReason, type PhoneFolder, type PhoneLaunch, type PhoneProject, type Tool } from '@ledge/protocol';
 import { copy } from '../copy';
 import { MOBILE_STORAGE_PREFIX } from '../link/keys';
 import { effortLabel, efforts, modelHint, type Pick } from '../model/modelChoice';
@@ -67,6 +67,14 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [op, setOp] = useState<string | null>(null);
   const promptId = useId();
+  // Issue #15 (docs/mockups/ledge-launch-name.html, card 6): « Définir un nom ? », off at each opening. On, the Name field shows
+  // under the project and takes the focus; off, it goes and is not sent, but what was typed stays until the screen closes.
+  const [named, setNamed] = useState(false);
+  const [name, setName] = useState('');
+  const nameId = useId();
+  const nameField = useRef<HTMLInputElement>(null);
+  const switched = useRef(false);
+  useEffect(() => { if (named && switched.current) nameField.current?.focus(); }, [named]);
 
   // A new project: its folders from the PC, its last choice back.
   const pid = project?.id;
@@ -132,6 +140,8 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
     if (!project) return;
     const body: PhoneLaunch = {
       project: project.id, tool, folders: where, prompt: prompt.trim(),
+      // No name (off, or nothing left once cleaned): the PC picks the first free one.
+      ...(clean ? { name: clean } : {}),
       ...(pick.model ? { model: pick.model } : {}), ...(pick.effort ? { effort: pick.effort } : {}),
       // Only OMP takes it, and only when it is not the default (Q78 B).
       ...(tool === 'omp' && approval !== 'always-ask' ? { approval } : {})
@@ -159,6 +169,17 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
   /** A receipt without « Réessayer »: a launch of unknown outcome that may not be sent again. */
   const stuck = (o: Outcome) => o.kind === 'timeout' && o.op !== null && !!state.ops[o.op] && isLive(state.ops[o.op]!.phase) && !store.canLaunchAgain(o.op);
 
+  // The name: checked against this PC's live sessions, whose daemon refuses a taken one (name_taken).
+  const live = [...state.sessions.values()].filter(s => s.state !== 'exited');
+  const typed = named ? name : '';
+  const clean = cleanName(typed);
+  const nameRefused = nameRefusal(namesInUse(live), typed) !== undefined;
+  const holder = nameRefused ? nameHolder(live, typed) : undefined;
+  const nameError = !nameRefused ? null
+    : !holder ? L.nameReserved
+    : holder.name.toLowerCase() === clean.toLowerCase() && holder.project ? L.nameTaken(clean, holder.project)
+    : L.nameTakenBy(clean, holder.name);
+
   const agent = copy.tools[tool];
   const offline = !state.fresh;
   const missing: { label: string; body?: ReactNode } | null =
@@ -172,6 +193,7 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
       </>
     }
     : !project || where.length === 0 ? { label: L.chooseProject }
+    : nameRefused ? { label: L.missing.name }
     : prompt.trim() === '' ? { label: L.missing.prompt }
     : null;
   // Offline, « n'a pas répondu » gives way to the button's own state (m2-lancement.html, Comportements).
@@ -190,7 +212,15 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
         name={L.title}
       />
       <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain pt-3.5 pb-4">
-        <Field label={L.project}>
+        <Field label={L.project} aside={projects.length > 0 ? (
+          <button type="button" role="switch" aria-checked={named} onClick={() => change(() => { switched.current = true; setNamed(v => !v); })}
+            className="-my-1 inline-flex items-center gap-2 rounded-lg px-1.5 py-1 text-[13px] text-fg">
+            <span aria-hidden="true" className={`relative inline-block h-[17px] w-[30px] flex-none rounded-full border ${named ? 'border-transparent bg-primary' : 'border-input bg-raised'}`}>
+              <span className={`absolute top-[2px] size-[11px] rounded-full transition-all ${named ? 'left-[15px] bg-white' : 'left-[2px] bg-muted'}`} />
+            </span>
+            {L.nameToggle}
+          </button>
+        ) : undefined}>
           {projects.length === 0
             ? <p className="text-body text-muted">{copy.launch.noProjects} {L.noProjectsBody}</p>
             : (
@@ -199,6 +229,17 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
                 sub={project ? [machine, offline ? L.offline : last ? L.remembered : null].filter(Boolean).join(' · ') : undefined} dim={offline} />
             )}
         </Field>
+        {named && projects.length > 0 && (
+          <Field label={L.name} htmlFor={nameId}>
+            <input id={nameId} ref={nameField} type="text" value={name} placeholder={L.namePlaceholder(pickName(namesInUse(live)))}
+              spellCheck={false} autoComplete="off" autoCapitalize="off" aria-invalid={nameRefused || undefined} aria-describedby={`${nameId}-say`}
+              onChange={e => { const v = e.target.value; change(() => setName(v)); }}
+              className={`h-12 rounded-lg border bg-surface px-3 text-[15px] outline-none placeholder:text-muted focus:border-ring focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ring)_30%,transparent)] ${nameRefused ? 'border-danger-fg' : 'border-input'}`} />
+            {nameError
+              ? <span id={`${nameId}-say`} role="alert" className="text-[12px] leading-4 text-danger-fg">{nameError}</span>
+              : <span id={`${nameId}-say`} className={`text-[12px] leading-4 ${clean && clean !== typed ? 'text-fg' : 'text-muted'}`}>{clean && clean !== typed ? L.nameCleaned(clean) : L.nameHint}</span>}
+          </Field>
+        )}
         {project && (
           <Field label={L.where}>
             <PickRow onClick={() => setSheet('where')} lead={<Icon name={firstFolder?.branch ? 'branch' : 'folder'} className="size-4 text-muted" />} label={L.where}
@@ -237,7 +278,7 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
         </Field>
       </main>
       <div className="bleed flex flex-none flex-col gap-1.5 border-t border-line bg-bg px-3.5 pt-2.5 pb-[calc(14px+var(--foot-inset))]">
-        {shown && <OutcomeReceipt outcome={shown} agent={agent} machine={machine} onRetry={stuck(shown) ? null : () => again(shown)} />}
+        {shown && <OutcomeReceipt outcome={shown} agent={agent} machine={machine} taken={nameError ?? L.missing.name} onRetry={stuck(shown) ? null : () => again(shown)} />}
         {missing ? (
           <>
             <button type="button" disabled className={kitButtonClass({ variant: 'primary', className: 'w-full' })}>{missing.label}</button>
@@ -294,11 +335,12 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
   );
 }
 
-function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+function Field({ label, htmlFor, aside, children }: { label: string; htmlFor?: string; aside?: ReactNode; children: ReactNode }) {
   const Tag = htmlFor ? 'label' : 'span';
+  const head = <Tag {...(htmlFor ? { htmlFor } : {})} className="text-[12px] font-medium text-muted">{label}</Tag>;
   return (
     <div className="flex flex-col gap-1.5">
-      <Tag {...(htmlFor ? { htmlFor } : {})} className="text-[12px] font-medium text-muted">{label}</Tag>
+      {aside ? <div className="flex items-center justify-between gap-2">{head}{aside}</div> : head}
       {children}
     </div>
   );
@@ -335,7 +377,7 @@ function MenuRow({ on, disabled = false, onClick, lead, text, sub }: { on: boole
 }
 
 /** One receipt per end (m2-lancement.html §2, M2 §9): a title, what was kept or what to do, and the action that helps. */
-function OutcomeReceipt({ outcome, agent, machine, onRetry }: { outcome: Outcome; agent: string; machine: string; onRetry: (() => void) | null }) {
+function OutcomeReceipt({ outcome, agent, machine, taken, onRetry }: { outcome: Outcome; agent: string; machine: string; /** A name taken between the check and the launch (#15): what the Name field says, once the list shows its holder. */ taken: string; onRetry: (() => void) | null }) {
   const retry = { label: L.retry, onClick: onRetry ?? (() => {}) };
   // A launch that may not go again may have started a session (Q88): the receipt sends to Sessions, never to a new launch.
   if (outcome.kind === 'timeout') return onRetry
@@ -351,6 +393,7 @@ function OutcomeReceipt({ outcome, agent, machine, onRetry }: { outcome: Outcome
     case 'assertion_invalid': return <Receipt tone="fail" title={R.assertion_invalid} body={L.kept} action={retry} />;
     case 'assertion_expired': return <Receipt tone="warn" title={R.assertion_expired} body={R.expiredBody} action={retry} />;
     case 'unavailable': return <Receipt tone="warn" title={R.unavailable(machine)} body={R.unavailableBody} />;
+    case 'name_taken': return <Receipt tone="fail" title={taken} />;
     default: return <Receipt tone="fail" title={R.other} body={L.kept} />;
   }
 }
