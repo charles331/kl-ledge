@@ -74,7 +74,7 @@ Desktop screen is checked with zoomed Playwright screenshots (alignment included
 
 `openrig/` holds the `ledge-dev` rig (a lead, a UX/UI designer, two developers, a Codex reviewer); its culture is
 `openrig/CULTURE.md`. Its seats start in the checkout the rig is launched from, wherever it lives: `cwd: ".."` in
-`openrig/rig.yaml` is the repository root next to the spec, and a library copy of the spec, which has no repository
-beside it, is launched with `rig up ledge-dev --cwd <checkout>`. There OpenRig writes guidance blocks marked
-`<!-- BEGIN OpenRig MANAGED BLOCK: … -->`: Claude seats get theirs in `CLAUDE.local.md` (ignored by git), the Codex
-reviewer appends its own to this `AGENTS.md`. **Never commit OpenRig's managed blocks.**
+`openrig/rig.yaml` is the repository root next to the spec, so the rig is launched by that path (`rig up
+openrig/rig.yaml`), not from OpenRig's library copy, which has no repository beside it. There OpenRig writes guidance
+blocks marked `<!-- BEGIN OpenRig MANAGED BLOCK: … -->`: Claude seats get theirs in `CLAUDE.local.md` (ignored by
+git), the Codex reviewer appends its own to this `AGENTS.md`. **Never commit OpenRig's managed blocks.**

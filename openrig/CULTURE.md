@@ -32,7 +32,8 @@ la met en tête d'« À toi ».
 ## Le dépôt
 
 - Ne jamais travailler dans la copie principale, celle d'où l'équipe est lancée et où démarrent les sièges :
-  l'utilisateur y a souvent du travail en cours non commité. Chaque dev crée un worktree par tâche (voir son rôle) et y fait `pnpm install`.
+  l'utilisateur y a souvent du travail en cours non commité. Chaque dev crée un worktree par tâche (voir son rôle) et
+  y fait `pnpm install`.
 - Pas de push, de PR, de merge, de release ni d'opération destructive sans autorisation explicite de l'utilisateur
   pour cette action-là.
 - Tests : Node 24 (le Node par défaut, via nvm). Node 18 et `hook.test` sous charge échouent aussi sur `main` : ce n'est
