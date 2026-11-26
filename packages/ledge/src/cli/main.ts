@@ -5,8 +5,11 @@ ledge daemon                                                 run the daemon in t
 ledge hook [codex|cursor] <Event>                            receive a hook (reads JSON on stdin)
 ledge setup                                                  install hooks and ~/.ledge
 ledge uninstall [--purge]                                    remove hooks, service and link (--purge: ~/.ledge too)
-ledge status                                                 list sessions
-ledge who                                                    list the live sessions (name, tool, state, project, branch, topic)
+ledge status [--all] [--json]                                list the sessions with their ids (--all: the archived ones too)
+ledge who [--json]                                           list the live sessions (name, tool, state, project, branch, topic)
+ledge archive|unarchive|resume <session>… [--json]           archive (--close: close a running one first), restore, resume sessions
+ledge rename <session> "<topic>" | move <session> <project>  change a session's topic, file it in a project
+ledge delete <session>… --yes                                delete sessions for good (the user only, not an agent session)
 ledge send <nom> "<message>" [--summary <texte>]             write to another Ledge session
 ledge read <id>                                              print a long message whole (the id is in its pointer)
 ledge brain [<nom>]                                          what Ledge knows of itself and of your environment (your notes)
@@ -34,8 +37,14 @@ async function main(argv: string[]): Promise<number> {
       if (!args) { console.log(USAGE); return rest.every(a => a === '--help' || a === '-h') ? 0 : 1; }
       const r = await runUninstall(args); for (const l of r.lines) console.log(l); return r.ok ? 0 : 1;
     }
-    case 'status': { const { printStatus } = await import('./status.js'); console.log(await printStatus()); return 0; }
-    case 'who': { const { printWho } = await import('./who.js'); console.log(await printWho()); return 0; }
+    case 'status': { const { runStatus } = await import('./sessions.js'); const r = await runStatus(rest); console.log(r.line); return r.code; }
+    case 'who': {
+      if (rest.some(a => a !== '--json')) { console.log(USAGE); return 1; }
+      const { printWho } = await import('./who.js'); console.log(await printWho({ json: rest.includes('--json') })); return 0;
+    }
+    case 'archive': case 'unarchive': case 'resume': case 'rename': case 'move': case 'delete': {
+      const { runSessionCommand } = await import('./sessions.js'); const r = await runSessionCommand(cmd, rest); console.log(r.line); return r.code;
+    }
     case 'send': { const { sendMessage } = await import('./send.js'); const r = await sendMessage(rest); console.log(r.line); return r.code; }
     case 'brain': {
       if (rest[0] === 'propose' || rest[0] === 'flag') { const { runBrainWrite } = await import('../brain/cli.js'); const r = await runBrainWrite(rest); console.log(r.line); return r.code; }

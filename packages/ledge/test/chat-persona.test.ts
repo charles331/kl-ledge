@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ACTIONS, MAX_PROPOSALS, NEVER_PROPOSED } from '@ledge/protocol';
+import { CHAT_ACTIONS as ACTIONS, MAX_PROPOSALS, NEVER_PROPOSED } from '@ledge/protocol';
 import { buildPersona } from '../src/chat/persona.js';
 import { PERSONA } from '../src/chat/claude.js';
 

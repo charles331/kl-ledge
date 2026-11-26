@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ACTIONS, NEVER_PROPOSED } from '@ledge/protocol';
+import { ACTIONS as REGISTRY, CHAT_ACTIONS as ACTIONS, NEVER_PROPOSED } from '@ledge/protocol';
 import { installedAgents, ledgeMd, readGuide } from '../src/chat/guide.js';
 import { writeContext, stepFor } from '../src/chat/context.js';
 import { buildPersona } from '../src/chat/persona.js';
@@ -22,6 +22,8 @@ describe('ledge.md', () => {
     expect(md).toContain('- Daemon version: 1.2.3');
     expect(md).toContain('- Agents installed (found on the PATH): claude, omp');
     for (const a of ACTIONS) expect(md).toContain(`- \`${a.id}\` — ${a.summary} — `);
+    // The CLI's own (deleting, filing) are never in the chat's reach.
+    for (const a of REGISTRY.filter(x => x.chat === false)) expect(md).not.toContain(`- \`${a.id}\` — `);
     for (const n of NEVER_PROPOSED) expect(md).toContain(`- ${n}`);
   });
 

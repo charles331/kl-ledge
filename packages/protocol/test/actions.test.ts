@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ACTIONS, ACTION_IDS, actionById, riskOf, ActionRiskSchema, parseActionBlock, LEGACY_FENCE_ACTION } from '../src/actions.js';
+import { ACTIONS, ACTION_IDS, CHAT_ACTIONS, actionById, riskOf, ActionRiskSchema, parseActionBlock, LEGACY_FENCE_ACTION } from '../src/actions.js';
 import { extractProposal, hideProposal } from '../src/proposal.js';
 import { MAX_PROPOSALS } from '../src/chat.js';
 
@@ -28,11 +28,17 @@ describe('the action registry', () => {
     expect(actionById('session.decide')!.args.safeParse({ session: 'Nova', decision: 'always' }).success).toBe(false);
   });
   it('asks a phone for its device check before every destructive action', () => {
-    for (const a of ACTIONS) if (riskOf(a, a.example) === 'destructive') expect(a.phone, a.id).not.toBeNull();
+    // The CLI's own never reach a phone: only the chat's are on its cards.
+    for (const a of CHAT_ACTIONS) if (riskOf(a, a.example) === 'destructive') expect(a.phone, a.id).not.toBeNull();
     expect(Object.fromEntries(ACTIONS.filter(a => a.card === 'generic' && a.phone).map(a => [a.id, a.phone]))).toEqual({
       'session.resume': 'act', 'session.decide': 'act', 'task.cancel': 'act', 'task.answer': 'act', 'rig.act': 'act', 'rig.seats': 'act',
       'rig.answer': 'act', 'rig.goal.reply': 'act', 'brain.answer': 'act', 'pr.fix': 'act'
     });
+  });
+  it('keeps the CLI\'s own out of the chat: not in its actions, refused from its answer', () => {
+    expect(ACTIONS.filter(a => a.chat === false).map(a => a.id)).toEqual(['session.topic', 'session.move', 'session.delete']);
+    expect(CHAT_ACTIONS.some(a => a.chat === false)).toBe(false);
+    expect(parseActionBlock('action', JSON.stringify({ action: 'session.delete', args: { session: 'Nova' } }))).toEqual({ error: 'session.delete is the CLI\'s own, never the chat\'s' });
   });
   it('keeps the five earlier cards on their own card', () => {
     expect(Object.fromEntries(ACTIONS.filter(a => a.card !== 'generic').map(a => [a.id, a.card]))).toEqual({

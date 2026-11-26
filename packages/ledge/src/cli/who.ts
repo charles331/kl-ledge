@@ -32,11 +32,16 @@ export async function whoOnClient(client: Client, self: string | undefined, time
   return formatWho(sessions, self, projects);
 }
 
-/** `ledge who`: the directory, read from the daemon. */
-export async function printWho(opts: { port?: number; self?: string } = {}): Promise<string> {
+/** `ledge who`: the directory, read from the daemon; `json`, the same sessions as `ledge status --json` gives them. */
+export async function printWho(opts: { port?: number; self?: string; json?: boolean } = {}): Promise<string> {
   let client;
   try { client = await connect({ port: opts.port, timeoutMs: 800 }); }
   catch { return 'daemon not running (start a session with `ledge claude`, or run `ledge daemon`)'; }
-  try { return await whoOnClient(client, opts.self ?? process.env.LEDGE_SESSION); }
+  try {
+    if (!opts.json) return await whoOnClient(client, opts.self ?? process.env.LEDGE_SESSION);
+    const { reachable, sessionRow, sessionsOnClient } = await import('./sessions.js');
+    const { sessions, projects } = await sessionsOnClient(client);
+    return JSON.stringify(reachable(sessions).map(s => sessionRow(s, projects)));
+  }
   finally { await client.close(); }
 }
