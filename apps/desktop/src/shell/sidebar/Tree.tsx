@@ -359,13 +359,15 @@ export function Tree(p: {
   // end of the tree for the last one, never between a project's heading and its first session.
   const projectMark = ro.dragged?.kind === 'project' ? ro.mark : null;
   const projectIds = p.groups.map(g => g.id);
+  // « Sans projet » (null, always last) takes the line before it too: a project dropped after the last one lands above it.
   const lineBefore = (gid: string | null): boolean => {
-    if (!projectMark || gid === null) return false;
-    if (projectMark.id === gid && !projectMark.after) return true;
+    if (!projectMark) return false;
+    if (gid !== null && projectMark.id === gid && !projectMark.after) return true;
     const i = projectIds.indexOf(gid);
     return i > 0 && projectMark.after && projectIds[i - 1] === projectMark.id;
   };
-  const lastProject = [...projectIds].reverse().find(x => x !== null) ?? null;
+  // The tree's end only when nothing follows the last project.
+  const lastProject = projectIds.at(-1) ?? null;
   for (const g of p.groups) {
     const label = g.id === null ? t.side.unassigned : g.name;
     const pkey = projectKey(g.id);

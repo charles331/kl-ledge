@@ -28,7 +28,7 @@ const projectsShown = (page: Page) => tree(page).locator('.st-project .st-main s
 const said = (page: Page) => page.locator('.st-said');
 const box = async (l: Locator) => (await l.boundingBox())!;
 
-async function boot(page: Page, o: { theme?: 'dark' | 'light'; lang?: 'fr' | 'en' } = {}) {
+async function boot(page: Page, o: { theme?: 'dark' | 'light'; lang?: 'fr' | 'en'; extra?: ReturnType<typeof session>[] } = {}) {
   const { theme = 'dark', lang = 'en' } = o;
   await page.addInitScript(([t, l]) => {
     try {
@@ -36,7 +36,7 @@ async function boot(page: Page, o: { theme?: 'dark' | 'light'; lang?: 'fr' | 'en
       localStorage.setItem('ledge.ide.layout', JSON.stringify({ sideOpen: true, sideWidth: 280, sideView: 'projects', bottom: false, bottomHeight: 200, right: false }));
     } catch { /* ignore */ }
   }, [theme, lang]);
-  const daemon = await fakeDaemon(page, sessions, { projects: twoProjects });
+  const daemon = await fakeDaemon(page, [...sessions, ...(o.extra ?? [])], { projects: twoProjects });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 30_000 });
   await expect(row(page, 'Echo')).toBeVisible();
@@ -136,4 +136,15 @@ test('#16 review C2: a project dropped after an unfolded project lands below its
   });
   await expect.poll(() => projectsShown(page)).toEqual(['Website', 'Ledge']);
   expect(daemon.received.filter(m => m.type === 'projects.set')).toHaveLength(1);
+});
+
+test('#16 review C2: with « No project » shown last, a project dropped after the last project has its line above « No project »', async ({ page }) => {
+  await boot(page, { extra: [session('kit', { name: 'Kit', cwd: '/tmp', project: 'tmp', startedAt: T(5) })] });
+  const none = tree(page).locator('.st-project').last();
+  await expect(none.locator('.st-main strong')).toHaveText('No project');
+  await drag(page, row(page, 'Ledge'), async () => { const b = await box(row(page, 'Website')); return { x: b.x + b.width / 2, y: b.y + b.height - 3 }; }, async () => {
+    await expect(none).toHaveClass(/st-mark-before/);
+    await expect(tree(page).locator('.st-mark-end')).toHaveCount(0);
+  });
+  await expect.poll(() => projectsShown(page)).toEqual(['Website', 'Ledge', 'No project']);
 });
