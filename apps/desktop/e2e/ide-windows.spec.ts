@@ -164,7 +164,8 @@ for (const theme of ['dark', 'light'] as const) {
     expect(b.y).toBe(0);
     expect(b.height).toBe(34);
     const strip = await box(pop.locator('.dv-tabs-and-actions-container').first());
-    expect(strip.y).toBe(34);
+    // Atelier (#28): the group is a card, its 1 px border above the strip.
+    expect(strip.y).toBe(35);
     const page0 = pop.viewportSize()!;
     const content = await box(pop.locator('.dv-groupview').first());
     expect(Math.round(content.y + content.height)).toBe(page0.height);

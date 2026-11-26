@@ -418,7 +418,8 @@ test('Review Focus 5: four groups in a 1280 px window keep 300 px each, the edit
   await expect(groups(page)).toHaveCount(4);
   for (let i = 0; i < 4; i++) {
     const w = (await box(groups(page).nth(i))).width;
-    expect(w, `group ${i}`).toBeGreaterThanOrEqual(299);
+    // Atelier (#28, spec §9): the 6 px gap after the first group is taken inside each group, so a group's card is 300 − 6.
+    expect(w, `group ${i}`).toBeGreaterThanOrEqual(i === 0 ? 299 : 293);
   }
   const scroller = page.locator('.ide-dock-scroll');
   const sizes = await scroller.evaluate(el => ({ sw: el.scrollWidth, cw: el.clientWidth }));
