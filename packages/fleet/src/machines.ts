@@ -50,6 +50,9 @@ export interface Fleet {
   projects(): Projects | null;
   /** Asks the local daemon to replace them; applied on its broadcast. Throws when invalid, `DaemonOffline` when not connected, `DaemonOutdated` when it never sent projects. */
   setProjects(next: Projects): void;
+  /** Issue #16: one project's sessions in a new order (its id, or NO_PROJECT ''; `ids` as placeSessions gives them), kept by the local
+   *  daemon and applied on its `projects` broadcast. Throws `DaemonOffline` when not connected, `DaemonOutdated` when it never sent projects. */
+  orderSessions(project: string, ids: readonly string[]): void;
   /** The island's settings as the local daemon holds them: undefined until it speaks of them, null while none was set; kept while it is down. */
   island(): IslandPrefs | null | undefined;
   /** Asks the local daemon to replace them; applied on its broadcast. Throws when invalid, `DaemonOffline` when not connected, `DaemonOutdated` when it never sent them. */

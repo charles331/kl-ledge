@@ -1,6 +1,8 @@
 import { useId, type JSX, type ReactNode } from 'react';
 import type { Projects, Session } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
+import { Kbd } from '@ledge/ui/ui/Kbd';
+import { useReorderCtl } from './useReorder';
 import { useI18n } from '../../i18n/lang';
 import type { SessionActions } from '../../manage/useSessionActions';
 import type { ContextMenuState } from '../../manage/useContextMenu';
@@ -26,15 +28,15 @@ export interface SidebarMenuHostProps {
   notify(text: string): void;
 }
 
-interface ItemOptions { danger?: boolean; disabled?: boolean; note?: string }
+interface ItemOptions { danger?: boolean; disabled?: boolean; note?: string; /** A key shown at the right (issue #16: Alt ↑…). */ hint?: string; keys?: string }
 
 /** One choice: its label is its accessible name, an icon before it; a note goes on its own line under it and is its description. */
 function Item({ label, icon, onSelect, o = {} }: { label: string; icon: readonly string[]; onSelect(): void; o?: ItemOptions }): JSX.Element {
   const noteId = useId();
   const cls = [o.danger && 'danger', o.note && 'with-note'].filter(Boolean).join(' ') || undefined;
   return (
-    <MenuItem aria-label={label} aria-describedby={o.note ? noteId : undefined} className={cls} disabled={o.disabled} onSelect={onSelect}>
-      <span><Icon d={icon} size={14} />{label}</span>{o.note && <small id={noteId} className="menu-note">{o.note}</small>}
+    <MenuItem aria-label={label} aria-describedby={o.note ? noteId : undefined} aria-keyshortcuts={o.keys} className={cls} disabled={o.disabled} onSelect={onSelect}>
+      <span><Icon d={icon} size={14} />{label}</span>{o.hint && <small aria-hidden="true"><Kbd>{o.hint}</Kbd></small>}{o.note && <small id={noteId} className="menu-note">{o.note}</small>}
     </MenuItem>
   );
 }
@@ -45,6 +47,8 @@ const item = (label: string, icon: readonly string[], onSelect: () => void, o: I
 export function SidebarMenuHost(p: SidebarMenuHostProps): JSX.Element | null {
   const { t } = useI18n();
   const c = t.side.ctx;
+  const m = t.manage.menu;
+  const ro = useReorderCtl();
   const { menu } = p.state;
   if (!menu || menu.target.kind === 'session') return null;
   const target = menu.target;
@@ -74,6 +78,12 @@ export function SidebarMenuHost(p: SidebarMenuHostProps): JSX.Element | null {
         {item(c.addFolder, ICONS.folder.d, () => go({ type: 'modal', modal: { kind: 'project', edit: id, addFolder: true } }))}
         {item(c.edit, SHELL_ICONS.pencil, () => go({ type: 'modal', modal: { kind: 'project', edit: id } }))}
         {has && foldItem(projectKey(id))}
+        {ro && (<>
+          <hr />
+          {item(m.up, [], () => ro.move('project', id, 'up'), { hint: m.upKey, keys: 'Alt+ArrowUp', disabled: !ro.can('project', id, 'up') })}
+          {item(m.down, [], () => ro.move('project', id, 'down'), { hint: m.downKey, keys: 'Alt+ArrowDown', disabled: !ro.can('project', id, 'down') })}
+          {item(m.topList, [], () => ro.move('project', id, 'top'), { hint: m.topKey, keys: 'Alt+Home', disabled: !ro.can('project', id, 'top') })}
+        </>)}
         <hr />
         {item(c.deleteProject, SHELL_ICONS.trash, () => go({ type: 'modal', modal: { kind: 'project', edit: id, delete: true } }), { danger: true })}
       </>;

@@ -53,7 +53,7 @@ describe('archive and delete from the sidebar tree', () => {
     const fromPointer = await screen.findByRole('menu', { name: 'Manage Otto' });
     const labels = menuLabels(fromPointer);
     // The IDE's session menu (ideSessionMenu): open here or to the right, its terminal, the editor, then the old entries.
-    expect(labels).toEqual(['Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Hand over', 'End session', 'End and archive…', 'Delete…']);
+    expect(labels).toEqual(['Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Hand over', 'End session', 'End and archive…', 'Delete…']);
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
 

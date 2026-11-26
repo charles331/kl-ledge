@@ -19,6 +19,8 @@ export interface ProjectGroup {
   flatten: boolean;
   /** The project's sessions, by branch. */
   branches: BranchGroup[];
+  /** The project's sessions in their order (issue #16: the person's), what the tree shows when it is not grouped by branch. */
+  sessions: Session[];
 }
 
 function branchGroups(sessions: readonly Session[]): BranchGroup[] {
@@ -46,7 +48,8 @@ function projectGroup(id: string | null, name: string, sessions: readonly Sessio
     name,
     ...(repo !== undefined ? { repo } : {}),
     flatten: id === null || branches.length <= 1,
-    branches
+    branches,
+    sessions: [...sessions]
   };
 }
 
