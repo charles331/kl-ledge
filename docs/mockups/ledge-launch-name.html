@@ -105,6 +105,13 @@ kbd{font:10px 'Geist Mono',monospace;border:1px solid #ffffff55;border-radius:4p
 .pgrid div.on{border-color:var(--foreground)}
 .pbtn{height:46px;border-radius:12px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:500}
 .pbtn.dis{opacity:.5}
+.sw{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:12.5px;color:var(--foreground);flex:none}
+.sw i{width:30px;height:17px;border-radius:9px;background:var(--muted);border:1px solid var(--input);position:relative;display:inline-block}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--muted-foreground)}
+.sw.on i{background:var(--primary);border-color:transparent}.sw.on i::after{left:15px;background:#fff}
+.sw.focus i{box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 35%,transparent)}
+.prj{display:flex;gap:12px;align-items:center}.prj .inp{flex:1}
+.plab{display:flex;align-items:center;justify-content:space-between}
 section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
 section.fiche h2{font-size:13px;margin:0 0 6px}
 section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
@@ -126,7 +133,7 @@ const T = {
   fr: {
     h1:'Nouvelle session — un nom dès la création', hsub:'Issue kl-ledge/ledge#15. À valider par l’utilisateur.',
     title:'Nouvelle session', opensIn:'S’ouvre dans le groupe actif. Ctrl+Entrée lance, Échap ferme.',
-    project:'Projet', name:'Nom', optional:'facultatif', namePh:n=>`Laissez vide pour ${n}`,
+    project:'Projet', toggle:'Définir un nom ?', name:'Nom', optional:'facultatif', namePh:n=>`Laissez vide pour ${n}`,
     nameHint:'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
     taken:(n,o)=>`${n} est déjà le nom d’une session de ${o}. Choisissez un autre nom, ou laissez vide.`, takenNum:(n,o)=>`${n} est déjà pris : ${o} porte ce nom.`,
     reserved:'ledge est réservé à Ledge lui-même. Choisissez un autre nom.',
@@ -135,13 +142,13 @@ const T = {
     where:'Où travailler', onBranch:'Sur <span class="mono">⎇ main</span>, dans le dossier du projet', agent:'Agent', model:'Modèle', message:'Premier message', open:'Ouvrir', active:'Dans le groupe actif', right:'À droite',
     launch:'Lancer', cancel:'Annuler', msg:'Relis la PR #231 et dis-moi si elle peut partir.',
     started:(n)=>`${n} démarre à la table ledge.`,
-    pTitle:'Nouvelle session', pNamePh:n=>`Laisse vide pour ${n}`, pHint:'Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.',
+    pToggle:'Définir un nom ?', pTitle:'Nouvelle session', pNamePh:n=>`Laisse vide pour ${n}`, pHint:'Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.',
     pTaken:(n,o)=>`${n} est déjà le nom d’une session de ${o}. Choisis un autre nom, ou laisse vide.`, pMissing:'Choisis un autre nom', pLaunch:'Lancer avec mon appareil', pMsg:'Que doit faire l’agent ? Décris le résultat attendu.',
   },
   en: {
     h1:'New session — a name from the start', hsub:'Issue kl-ledge/ledge#15. For the user to validate.',
     title:'New session', opensIn:'Opens in the active group. Ctrl+Enter launches, Esc closes.',
-    project:'Project', name:'Name', optional:'optional', namePh:n=>`Leave empty for ${n}`,
+    project:'Project', toggle:'Set a name?', name:'Name', optional:'optional', namePh:n=>`Leave empty for ${n}`,
     nameHint:'It is its address: other sessions write to it under this name (ledge who, SendMessage). Letters, digits, - and _.',
     taken:(n,o)=>`${n} is already the name of a session in ${o}. Choose another name, or leave it empty.`, takenNum:(n,o)=>`${n} is already taken: ${o} has it.`,
     reserved:'ledge is reserved for Ledge itself. Choose another name.',
@@ -150,7 +157,7 @@ const T = {
     where:'Where to work', onBranch:'On <span class="mono">⎇ main</span>, in the project folder', agent:'Agent', model:'Model', message:'First message', open:'Open', active:'In the active group', right:'On the right',
     launch:'Launch', cancel:'Cancel', msg:'Review PR #231 and tell me whether it can go.',
     started:(n)=>`${n} starts at the ledge table.`,
-    pTitle:'New session', pNamePh:n=>`Leave empty for ${n}`, pHint:'Its address: other sessions write to it under this name. Letters, digits, - and _.',
+    pToggle:'Set a name?', pTitle:'New session', pNamePh:n=>`Leave empty for ${n}`, pHint:'Its address: other sessions write to it under this name. Letters, digits, - and _.',
     pTaken:(n,o)=>`${n} is already the name of a session in ${o}. Choose another name, or leave it empty.`, pMissing:'Choose another name', pLaunch:'Launch with my device', pMsg:'What should the agent do? Describe the expected result.',
   }
 };
@@ -158,14 +165,15 @@ let L = 'fr';
 const t = () => T[L];
 const LOGO = { claude:'#d97757', codex:'#10a37f', cursor:'#8b8b8b', omp:'#a78bfa' };
 
-/* o = {val, focus, err, errText, cleaned, missing} */
+/* o = {on, swFocus, val, focus, err, errText, cleaned, missing} */
 function modal(o={}){
   const x = t();
+  const sw = `<span class="sw new ${o.on?'on':''} ${o.swFocus?'focus':''}" style="padding:2px 6px"><i></i>${x.toggle}</span>`;
   const nameInput = `<div class="new"><div class="inp ${o.focus?'focus':''} ${o.err?'err':''}">${o.val?`${o.val}${o.focus?'<span class="cur" style="margin-left:1px"></span>':''}`:`${o.focus?'<span class="cur" style="margin-left:0"></span>':''}<span class="ph">${x.namePh('Nova')}</span>`}</div>
     ${o.err?`<span class="ferr" role="alert">${o.errText}</span>`:o.cleaned?`<span class="hint" style="color:var(--foreground)">${x.cleaned(o.cleaned)}</span>`:`<span class="hint">${x.nameHint}</span>`}</div>`;
   return `<div class="modal"><div class="mt"><h2>${x.title}</h2><span class="x">✕</span></div><div class="lm"><p class="lm-sub">${x.opensIn}</p><div class="fld">
-    <span class="lbl">${x.project}</span><div class="inp"><b>ledge</b><span class="mut">· ~/Workspace/ledge · PC</span><span class="car">▾</span></div>
-    <span class="lbl new" style="padding:5px 6px 0;margin:0 -6px">${x.name}<small>${x.optional}</small></span>${nameInput}
+    <span class="lbl">${x.project}</span><div class="prj"><div class="inp"><b>ledge</b><span class="mut">· ~/Workspace/ledge · PC</span><span class="car">▾</span></div>${sw}</div>
+    ${o.on?`<span class="lbl new" style="padding:5px 6px 0;margin:0 -6px">${x.name}</span>${nameInput}`:''}
     <span class="lbl">${x.where}</span><div style="padding-top:5px">${x.onBranch}</div>
     <span class="lbl">${x.agent}</span><div class="agents">${[['claude','Claude Code','Anthropic'],['codex','Codex','OpenAI'],['cursor','Cursor Agent','Cursor'],['omp','OMP','Oh My Pi']].map(([k,n,p],i)=>`<div class="agent ${i===0?'on':''}"><span class="an"><span class="lg" style="background:${LOGO[k]}"></span>${n}</span><small>${p}</small><small>${L==='fr'?'Limite 5 h':'5 h limit'} <b>${[34,12,8,0][i]} %</b></small></div>`).join('')}</div>
     <span class="lbl">${x.model}</span><div class="inp" style="width:260px"><b>Sonnet 5.5</b><span class="car">▾</span></div>
@@ -182,8 +190,8 @@ function side(name, topic){
 function phone(o={}){
   const x = t();
   return `<div class="phone"><div class="top">${x.pTitle}<span class="x">✕</span></div>
-    <div class="pf"><span>${x.project}</span><div class="prow"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span><div><b style="font-weight:500">ledge</b><small>PC</small></div></div></div>
-    <div class="pf new" style="padding:4px;margin:-4px"><span>${x.name} · ${x.optional}</span><div class="pin ${o.err?'err':''}">${o.val?o.val:`<span class="mut">${x.pNamePh('Nova')}</span>`}</div>${o.err?`<span class="ferr">${x.pTaken(o.val,'ledge')}</span>`:`<span class="hint" style="font-size:12px">${x.pHint}</span>`}</div>
+    <div class="pf"><div class="plab"><span style="font-size:12px;font-weight:500;color:var(--muted-foreground)">${x.project}</span><span class="sw new ${o.on?'on':''}" style="padding:2px 6px;font-size:13px"><i></i>${x.pToggle}</span></div><div class="prow"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span><div><b style="font-weight:500">ledge</b><small>PC</small></div></div></div>
+    ${o.on?`<div class="pf new" style="padding:4px;margin:-4px"><span>${x.name}</span><div class="pin ${o.err?'err':''}">${o.val?o.val:`<span class="mut">${x.pNamePh('Nova')}</span>`}</div>${o.err?`<span class="ferr">${x.pTaken(o.val,'ledge')}</span>`:`<span class="hint" style="font-size:12px">${x.pHint}</span>`}</div>`:''}
     <div class="pf"><span>${x.where}</span><div class="prow">⎇ main</div></div>
     <div class="pf"><span>${x.agent}</span><div class="pgrid"><div class="on">Claude Code</div><div>Codex</div><div>Cursor Agent</div><div>OMP</div></div></div>
     <div class="pf"><span>${x.message}</span><div class="prow" style="min-height:64px;align-items:flex-start;color:var(--muted-foreground)">${x.pMsg}</div></div>
@@ -192,45 +200,55 @@ function phone(o={}){
 
 function cards(){
   const x = t(), C = [], F = L==='fr';
-  C.push({title:F?'Le champ « Nom », facultatif, sous « Projet »':'The “Name” field, optional, under “Project”',
-    why:`Une ligne de plus dans la grille de la fenêtre : <b>Nom</b> (« facultatif » sous le libellé), juste sous Projet. Vide, le champ montre le nom que Ledge donnerait (« Laissez vide pour Nova » : le prochain nom libre, comme aujourd’hui). Sous le champ, une phrase dit à quoi sert ce nom : <b>c’est l’adresse de la session</b>, celle que les autres sessions utilisent (<code>ledge who</code>, SendMessage), et ce qu’il accepte (lettres, chiffres, - et _). Le focus reste sur le premier message à l’ouverture, comme aujourd’hui : le nom se remplit seulement si on le veut. Le cadre violet ne marque que la nouveauté sur la maquette.`,
-    keys:F?'Nouveaux : launch.modal.name, .optional, .namePlaceholder(n), .nameHint':'New: launch.modal.name, .optional, .namePlaceholder(n), .nameHint',
+  C.push({title:F?'Par défaut : un interrupteur, éteint':'By default: a switch, off',
+    why:`Demande de l’utilisateur (« réduire la taille du formulaire ») : le champ ne s’affiche plus d’office. À droite du champ <b>Projet</b>, sur la même ligne, un interrupteur <b>« Définir un nom ? »</b>, éteint par défaut. La boîte garde exactement sa hauteur d’aujourd’hui ; la session reçoit son nom par défaut, comme aujourd’hui. Le cadre violet ne marque que la nouveauté sur la maquette.`,
+    keys:F?'Nouveau : launch.modal.nameToggle':'New: launch.modal.nameToggle',
     scene: modal({})});
-  C.push({title:F?'Rempli : la session naît sous ce nom':'Filled in: the session is born with this name',
-    why:`Le nom tapé est nettoyé comme tout nom de session : espaces et ponctuation retirés, première lettre en majuscule, 24 caractères au plus. Quand le nettoyage change quelque chose, la phrase d’aide le dit (« La session s’appellera RevuePR »). Au lancement, la session porte ce nom partout : barre latérale, onglet, <code>ledge who</code>. Le titre de la ligne reste ce qu’il est aujourd’hui (tiré du premier message) ; c’est lui que « Renommer… » change ensuite.`,
-    keys:F?'Nouveau : launch.modal.cleaned(n)':'New: launch.modal.cleaned(n)',
-    scene: `<div>${modal({val:'Revue PR', focus:true, cleaned:'RevuePR'})}<div class="cap">${F?'« Revue PR » tapé : l’aide dit ce qui sera gardé':'“Revue PR” typed: the hint says what will be kept'}</div></div>
-      <div>${side('RevuePR', F?'Relis la PR #231 et dis-moi si elle peut partir.':'Review PR #231 and tell me whether it can go.')}<div class="cap">${F?'Barre latérale : le nom en gras, le titre dessous':'Sidebar: the name in bold, the title below'}</div></div>
+  C.push({title:F?'Allumé : le champ apparaît sous Projet':'On: the field appears under Project',
+    why:`Allumer l’interrupteur (clic, ou Espace quand il a le focus) fait apparaître la ligne <b>Nom</b> sous Projet, avec sa phrase d’aide (inchangée), et <b>met le focus dans le champ</b> (question 5). Vide, le champ montre le nom que Ledge donnerait ; laissé vide, la session reçoit ce nom, comme interrupteur éteint. Rempli, le nom est nettoyé comme tout nom de session et l’aide dit le résultat quand il change.`,
+    keys:F?'Repris de la v1 : launch.modal.name, .namePlaceholder(n), .nameHint, .cleaned(n)':'From v1: launch.modal.name, .namePlaceholder(n), .nameHint, .cleaned(n)',
+    scene: `<div>${modal({on:true, focus:true})}<div class="cap">${F?'Allumé, champ vide, focus dedans':'On, empty field, focus inside'}</div></div><div>${modal({on:true, val:'Revue PR', focus:true, cleaned:'RevuePR'})}<div class="cap">${F?'Rempli : l’aide dit ce qui sera gardé':'Filled: the hint says what will be kept'}</div></div>`});
+  C.push({title:F?'Nom déjà pris, ou réservé':'Name already taken, or reserved',
+    why:`Inchangé depuis la v1 : la fenêtre le dit avant de lancer, le champ passe en rouge, et « Lancer » ne part pas (« Choisissez un autre nom pour la session » au clic). Éteindre l’interrupteur lève le blocage : le nom tapé est ignoré.`,
+    keys:F?'Repris de la v1 : .nameTaken(n, p), .nameReserved, launch.missing.name':'From v1: .nameTaken(n, p), .nameReserved, launch.missing.name',
+    scene: modal({on:true, val:'Otto', err:true, errText:x.taken('Otto','ledge'), missing:true})});
+  C.push({title:F?'Éteindre après avoir tapé un nom':'Switching off after typing a name',
+    why:`Le champ disparaît et <b>le nom n’est pas utilisé</b> au lancement : la session reçoit son nom par défaut. Recommandé (question 6) : le nom tapé est <b>gardé</b> tant que la boîte est ouverte, et revient si on rallume ; il est oublié à la fermeture de la boîte.`,
+    keys:'—',
+    scene: `<div>${modal({})}<div class="cap">${F?'« RevuePR » tapé puis interrupteur éteint : boîte à sa taille, nom ignoré':'“RevuePR” typed then switch off: box at its size, name ignored'}</div></div>`});
+  C.push({title:F?'Après le lancement : le nom partout':'After launch: the name everywhere',
+    why:`Inchangé depuis la v1 : la session naît sous ce nom (barre latérale, onglet, <code>ledge who</code>) ; le titre reste tiré du premier message.`,
+    keys:'—',
+    scene: `<div>${side('RevuePR', F?'Relis la PR #231 et dis-moi si elle peut partir.':'Review PR #231 and tell me whether it can go.')}</div>
       <div><div class="term"><span class="p">otto@ledge $</span> ledge who
 <span class="g">RevuePR</span>  claude  ledge  ${F?'au travail':'working'}
-Otto     claude  ledge  ${F?'au repos':'idle'}</div><div class="cap">${F?'Les autres sessions la joignent sous ce nom':'Other sessions reach it under this name'}</div></div>`});
-  C.push({title:F?'Un nom déjà pris, ou réservé':'A name already taken, or reserved',
-    why:`Les noms sont uniques, sans tenir compte des majuscules, et « Otto » est pris dès qu’« Otto-2 » existe (règle actuelle, <code>nameTaken</code>). Aujourd’hui le daemon remplace en silence un nom pris par un autre au hasard ; ici, la fenêtre le dit <b>avant</b> : le champ passe en rouge, la phrase dit dans quel projet est la session qui le porte (un « Otto-2 » rend aussi « Otto » pris), et « Lancer » ne part pas (au clic, « Choisissez un autre nom pour la session » à côté du bouton, comme les autres champs manquants). « ledge » est réservé à Ledge. Si deux lancements visent le même nom au même instant, le second reçoit un nom libre, comme aujourd’hui (le toast dit le nom donné).`,
-    keys:F?'Nouveaux : launch.modal.nameTaken(n, o), .nameReserved, launch.missing.name':'New: launch.modal.nameTaken(n, o), .nameReserved, launch.missing.name',
-    scene: `<div>${modal({val:'Otto', err:true, errText:x.taken('Otto','ledge'), missing:true})}<div class="cap">${F?'Pris : rien ne part tant qu’on ne change pas':'Taken: nothing leaves until it changes'}</div></div>
-      <div>${modal({val:'ledge', err:true, errText:x.reserved})}<div class="cap">${F?'Réservé':'Reserved'}</div></div>`});
-  C.push({title:F?'Téléphone : la même boîte, le même champ':'Phone: the same box, the same field',
-    why:`Le téléphone a la même boîte « Nouvelle session » (Projet, Où travailler, Agent, Modèle, Premier message). Il reçoit le même champ, au même endroit, avec les mêmes règles ; les phrases tutoient, comme le reste de l’app. Nom pris : le bouton du bas dit « Choisis un autre nom », comme il dit déjà ce qui manque.`,
-    keys:F?'Mobile : launch.name, .optional, .namePlaceholder(n), .nameHint, .nameTaken(n, o), missing.name':'Mobile: launch.name, .optional, .namePlaceholder(n), .nameHint, .nameTaken(n, o), missing.name',
-    scene: `<div>${phone({})}<div class="cap">${F?'Vide':'Empty'}</div></div><div>${phone({val:'Otto', err:true})}<div class="cap">${F?'Nom pris':'Name taken'}</div></div>`});
+Otto     claude  ledge  ${F?'au repos':'idle'}</div></div>`});
+  C.push({title:F?'Téléphone : le même interrupteur':'Phone: the same switch',
+    why:`L’interrupteur « Définir un nom ? » se place à droite du libellé <b>Projet</b> (la boîte garde sa hauteur) ; allumé, le champ Nom apparaît sous le projet, avec les mêmes règles et le tutoiement de l’app.`,
+    keys:F?'Mobile : launch.nameToggle (+ les textes de la v1)':'Mobile: launch.nameToggle (+ v1 texts)',
+    scene: `<div>${phone({})}<div class="cap">${F?'Éteint (défaut)':'Off (default)'}</div></div><div>${phone({on:true})}<div class="cap">${F?'Allumé, vide':'On, empty'}</div></div><div>${phone({on:true, val:'Otto', err:true})}<div class="cap">${F?'Nom pris':'Name taken'}</div></div>`});
   return C;
 }
 
 function fiche(){
-  return `<section class="fiche"><h2>Fiche de transmission (dev-front, dev-back)</h2><table>
+  return `<section class="fiche"><h2>Fiche de transmission (dev-front, dev-back) · v2, avec l’interrupteur</h2><table>
   <tr><th>Point</th><th>Règle</th></tr>
-  <tr><td>Champ</td><td><code>LaunchModal</code> : une paire libellé/champ sous Projet ; <code>form.name</code> (déjà dans <code>LaunchForm</code> pour l’ancien composeur). Placeholder = le prochain nom libre (<code>pickName</code> sur <code>namesInUse</code>). Focus inchangé (premier message).</td></tr>
-  <tr><td>Nom</td><td>Le nom-adresse de la session (<code>session.name</code>), pas le titre (<code>topic</code>, que change « Renommer… »). Nettoyé par <code>cleanName</code> à l’envoi ; l’aide montre le résultat quand il diffère de la saisie.</td></tr>
-  <tr><td>Pris</td><td>Vérifié dans la fenêtre avec <code>nameTaken(namesInUse(sessions), nom)</code> et le nom réservé ; « Lancer » bloqué tant que le nom est pris (même mécanique que <code>missing</code>). Course entre deux lancements : la règle du daemon reste (nom libre), et le toast « {nom} démarre… » dit le nom réellement donné.</td></tr>
-  <tr><td>Téléphone</td><td><code>NewSession.tsx</code> : même champ sous Projet, mêmes règles ; le daemon doit accepter un nom venant du téléphone (à vérifier par dev-back).</td></tr>
-  <tr><td>Textes</td><td>Nouveaux (FR vouvoie sur Desktop, tutoie sur le téléphone · EN) : Nom · Name ; facultatif · optional ; Laissez vide pour {n} · Leave empty for {n} ; la phrase d’aide ; La session s’appellera {n} : … ; {n} est déjà le nom d’une session de {projet}. … ; ledge est réservé à Ledge lui-même. … ; Choisissez un autre nom pour la session. L’ancien <code>launch.agentNameHint</code> (« un nom déjà pris reçoit un suffixe ») est inexact : il n’est plus utilisé ici.</td></tr>
+  <tr><td>Interrupteur</td><td>Dans la ligne Projet de <code>LaunchModal</code>, à droite du sélecteur : <code>role="switch"</code>, libellé « Définir un nom ? » / “Set a name?”, éteint à chaque ouverture. Allumé : la paire Nom apparaît sous Projet et prend le focus. Éteint : la paire disparaît, <code>form.name</code> n’est pas envoyé.</td></tr>
+  <tr><td>Nom</td><td>Le nom-adresse de la session (<code>session.name</code>), pas le titre (<code>topic</code>). Nettoyé par <code>cleanName</code> ; vide (allumé) = nom par défaut. Placeholder = le prochain nom libre.</td></tr>
+  <tr><td>Pris</td><td><code>nameTaken(namesInUse(sessions), nom)</code> et nom réservé, seulement quand l’interrupteur est allumé ; « Lancer » bloqué tant que le nom est pris. Course entre deux lancements : règle du daemon (nom libre), le toast dit le nom donné.</td></tr>
+  <tr><td>Saisie gardée</td><td>Le nom tapé reste en mémoire dans la boîte quand on éteint, et revient si on rallume ; oublié à la fermeture (selon la question 6).</td></tr>
+  <tr><td>Téléphone</td><td><code>NewSession.tsx</code> : l’interrupteur à droite du libellé Projet, mêmes règles, tutoiement ; le daemon accepte un nom venant du téléphone (dev-back).</td></tr>
+  <tr><td>Textes</td><td>Nouveaux (FR · EN) : Définir un nom ? · Set a name? ; Nom · Name ; Laissez vide pour {n} · Leave empty for {n} ; la phrase d’aide ; La session s’appellera {n} : … ; {n} est déjà le nom d’une session de {projet}. … ; ledge est réservé à Ledge lui-même. … ; Choisissez un autre nom pour la session. Téléphone au tutoiement. (« facultatif » n’est plus nécessaire : l’interrupteur le dit.)</td></tr>
   </table>
   <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
   <ol>
-    <li><b>Ce que le champ règle</b> : l’issue dit « comme si on l’avait renommée » et « le nom par lequel les autres sessions la joignent », mais aujourd’hui « Renommer… » change le titre, pas l’adresse. A) le champ donne <b>le nom-adresse</b> (en gras dans la barre latérale, celui de <code>ledge who</code>) ; le titre reste tiré du premier message (recommandé : c’est ce qui sert aux autres sessions) ; B) le champ donne le titre, comme « Renommer… », et l’adresse reste au hasard ; C) les deux : un nom et un titre, deux champs.</li>
-    <li><b>Un nom déjà pris</b> : A) la fenêtre le dit et bloque « Lancer » (recommandé) ; B) on lance quand même et Ledge ajoute un numéro (« Otto-3 ») ; C) comme aujourd’hui, Ledge choisit un autre nom au hasard.</li>
-    <li><b>Le téléphone</b> : A) même champ tout de suite (recommandé : même boîte) ; B) Desktop d’abord.</li>
+    <li><b>Ce que le nom règle</b> : « Renommer… » change aujourd’hui le titre, pas l’adresse. A) le nom-adresse (en gras dans la barre latérale, celui de <code>ledge who</code>) ; le titre reste tiré du premier message (recommandé) ; B) le titre, comme « Renommer… » ; C) les deux, deux champs.</li>
+    <li><b>Un nom déjà pris</b> : A) la fenêtre le dit et bloque « Lancer » (recommandé) ; B) Ledge ajoute un numéro (« Otto-3 ») ; C) comme aujourd’hui, un autre nom au hasard.</li>
+    <li><b>Le téléphone</b> : A) même interrupteur et même champ tout de suite (recommandé) ; B) Desktop d’abord.</li>
     <li><b>Les textes nouveaux</b> (fiche) : d’accord ?</li>
+    <li><b>Le focus en allumant l’interrupteur</b> : A) il va dans le champ Nom (recommandé : on allume pour taper) ; B) il reste sur l’interrupteur.</li>
+    <li><b>Éteindre après avoir tapé un nom</b> : le nom n’est jamais utilisé tant que l’interrupteur est éteint. A) il est gardé et revient si on rallume, jusqu’à la fermeture de la boîte (recommandé) ; B) il est effacé.</li>
+    <li><b>L’emplacement de l’interrupteur</b> : A) sur la ligne Projet, à droite (recommandé : la boîte garde sa hauteur) ; B) une ligne à lui sous Projet ; C) dans le pied, à côté de « Lancer ».</li>
   </ol></section>`;
 }
 

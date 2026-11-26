@@ -14,7 +14,7 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'fr'], ['dark', 'en']]) {
   await page.goto(`${url}?theme=${theme}&lang=${lang}`);
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);
-  for (const id of [1, 2, 3, 4]) await page.locator(`#s${id}`).screenshot({ path: resolve(out, `ledge-launch-name-s${id}-${theme}-${lang}.png`) });
+  for (const id of [1, 2, 3, 4, 5, 6]) await page.locator(`#s${id}`).screenshot({ path: resolve(out, `ledge-launch-name-s${id}-${theme}-${lang}.png`) });
 }
 await page.goto(`${url}?theme=dark&lang=fr`);
 await page.waitForLoadState('networkidle');
