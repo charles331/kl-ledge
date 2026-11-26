@@ -3,6 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import { getDnd, loadNotifyMode, loadSounds, resetDndForTests, resetSoundPrefsForTests, setDnd, setNotifyMode, useDnd } from '../src/notify/prefs';
 import { resetAppearanceForTests, setAccent, setTheme, useAppearance, useTheme } from '../src/shell/theme';
 import { applyUiScale, loadUiScale, saveUiScale, type ZoomDeps } from '../src/settings/scale';
+import { accentTokens } from '@ledge/ui/accent';
 
 beforeEach(() => {
   localStorage.clear();
@@ -47,10 +48,12 @@ describe('theme and accent, live', () => {
     expect(localStorage.getItem('desktop.theme')).toBe('light');
     act(() => setAccent('#3366FF'));
     expect(localStorage.getItem('desktop.accent')).toBe('#3366ff');
-    expect(document.documentElement.style.getPropertyValue('--primary')).not.toBe('');
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe(accentTokens('#3366ff', 'light').sidebarPrimary);
     act(() => setAccent(null));
     expect(localStorage.getItem('desktop.accent')).toBeNull();
-    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+    // Issue #28: without an accent the « Atelier » skin's own coral (palette « Établi », light).
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#d6543d');
+    expect(document.documentElement.dataset.skin).toBe('atelier');
   });
 });
 
