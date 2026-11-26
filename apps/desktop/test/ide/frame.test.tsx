@@ -667,8 +667,11 @@ describe('preview tabs', () => {
     const nav = await screen.findByRole('navigation', { name: /Réglages|Sections/ });
     await user.click(within(nav).getAllByRole('button')[1]!);
     expect(isPreview('Réglages')).toBe(true);
-    await user.click(within(pane()).getAllByRole('radio')[0]!);
+    // The setting itself changes: keeping the tab must not get in the way of the act.
+    const at = within(pane()).getAllByRole('radio').findIndex(r => !(r as HTMLInputElement).checked && r.getAttribute('aria-checked') !== 'true');
+    await user.click(within(pane()).getAllByRole('radio')[at]!);
     await waitFor(() => expect(isPreview('Réglages')).toBe(false));
+    await waitFor(() => expect(within(pane()).getAllByRole('radio')[at]).toBeChecked());
   });
 
   it('a click in a preview that opens another tab keeps the first; the new one is the preview', async () => {

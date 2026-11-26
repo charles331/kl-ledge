@@ -62,9 +62,11 @@ function Pane({ api }: IDockviewPanelProps): JSX.Element | null {
   if (!tab) return null;
   const group = c!.groupOf(api.id) ?? '';
   const place: TabPlace = { key: api.id, group, visible, active: visible && group === c!.focus };
-  // Acting in a preview keeps it (§5.4), before the act itself: typing in one of its fields, pasting, a button of a tab whose
-  // buttons act, a setting or a routine's field changed. A click in it is noted, so a tab it opens is a preview and this one kept.
-  const keep = () => { if (c!.isPreview(api.id)) c!.pin(api.id); };
+  // Acting in a preview keeps it (§5.4): typing in one of its fields, pasting, a button of a tab whose buttons act, a setting
+  // or a routine's field changed. Kept once the event is over: no other click can come in between, and a render in the
+  // middle of the event would lose the act itself (a radio clicked in Réglages). A click in it is noted, so a tab it opens is
+  // a preview and this one kept.
+  const keep = () => { if (c!.isPreview(api.id)) setTimeout(() => c!.pin(api.id), 0); };
   const acting = ACTING_KINDS.has(tab.kind);
   return (
     <TabPlaceContext.Provider value={place}>

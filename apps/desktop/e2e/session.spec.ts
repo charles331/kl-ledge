@@ -18,7 +18,8 @@ const longThread: ThreadItem[] = Array.from({ length: 120 }, (_, i): ThreadItem[
   ];
 }).flat();
 
-const open = async (page: Page, name: string) => { await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).click(); };
+// A double click: a kept tab (a single click opens a preview the next one replaces).
+const open = async (page: Page, name: string) => { await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).dblclick(); };
 const thread = (page: Page) => page.locator('.session-thread');
 const gap = (page: Page) => thread(page).evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight);
 

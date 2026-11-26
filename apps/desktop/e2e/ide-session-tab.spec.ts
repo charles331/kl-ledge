@@ -48,7 +48,8 @@ async function open(page: Page, name: string, view: 'Projects' | 'OpenRig rigs' 
   // The explorer shows the projects' sessions or the rigs' seats (activity bar).
   const button = page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: view, exact: true });
   if (!(await button.getAttribute('class'))?.includes('on')) await button.click();
-  await page.locator('.ide-explorer').getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  // A double click: a kept tab, so the sessions opened next sit beside it (a single click opens a preview the next one replaces).
+  await page.locator('.ide-explorer').getByRole('button', { name: new RegExp(`^${name}`) }).first().dblclick();
   await expect(tabOf(page, name)).toHaveClass(/dv-active-tab/);
   // The session page's chunk loads on the first visit: under load it can take a while.
   await expect(pane(page, name).locator('.session-page')).toBeVisible({ timeout: 20_000 });
