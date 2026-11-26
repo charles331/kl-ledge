@@ -10,14 +10,12 @@
 html, body, #root { height: auto !important; min-height: 100%; overflow: visible !important; }
 #root { position: static !important; display: block !important; }
 
-/* ---- The proposal: the preview tab's title in italic (spec §5.5), and the two other marks Guillaume may choose. ---- */
+/* ---- The preview tab's title in italic (spec §5.5; the owner chose the italic alone, 2026-11-26). ---- */
 /* The label's wrapper takes no box: the tab's own flex layout (.ide-tab, gap 7 px) stays as Desktop draws it. */
 .mk-pv { display: contents; }
 /* Desktop sets `font-synthesis: none` on :root and loads Geist without an italic: a bare `font-style: italic` draws upright
    there (`.notice-summary` today). The preview's title asks the browser to slant Geist itself. */
 .mk-pv.on .tab-name { font-style: italic; font-synthesis-style: auto; }
-/* (3) another mark: a dotted underline under the title, in the tab's own colour. */
-.mk-mark-dots .mk-pv.on .tab-name { text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 60%, transparent); }
 
 /* ---- The mockup's own frame ---- */
 .mk-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--background); border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -42,7 +40,6 @@ html, body, #root { height: auto !important; min-height: 100%; overflow: visible
 
 /* One editing area of Desktop: the `.ide` tokens, the dock box sized as the app sizes it (DockHost fills `.ide-dock-area`). */
 .mk-ide { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--background); }
-.mk-tipwrap { position: relative; }
 /* `.ide` is the whole window's grid (title bar, body, status bar): here it only carries the IDE's tokens. */
 .mk-ide .ide { display: block; height: 100%; }
 .mk-ide .ide-editor { height: 100%; }
@@ -64,8 +61,4 @@ html, body, #root { height: auto !important; min-height: 100%; overflow: visible
 .mk-reset { align-self: flex-start; font-size: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted-foreground); }
 .mk-reset:hover { color: var(--foreground); background: var(--muted); }
 
-/* (2) the tooltip, drawn as Windows draws a native `title` (screenshots never show the real one). */
-.mk-tip { position: absolute; z-index: 20; padding: 3px 7px; font-size: 12px; white-space: nowrap; background: #f9f9f9; color: #1f1f1f; border: 1px solid #b9b9b9; box-shadow: 1px 2px 4px rgb(0 0 0 / .18); }
-:root[data-theme="dark"] .mk-tip { background: #2b2b2b; color: #f1f1f1; border-color: #5a5a5a; }
-.mk-cursor { position: absolute; z-index: 21; width: 12px; height: 18px; pointer-events: none; }
 

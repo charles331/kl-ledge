@@ -2,7 +2,7 @@
 // click replaces in place; a double click keeps it; its title is in italic. The real DockHost (dockview, PanelTab, the
 // strip's tools) and SessionTabLabel on mockup workspaces; the preview itself (one per group, §5.1) is kept by the mockup,
 // since the model does not have it yet, and drawn as a class on the tab's label.
-import { useEffect, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Session } from '@ledge/protocol';
 import { LangProvider, useI18n } from '../../../apps/desktop/src/i18n/lang';
@@ -14,7 +14,6 @@ import { activate, find, focused, keyOf, MAIN, open, type Group, type Tab, type 
 import { createWorkspaceStore } from '../../../apps/desktop/src/workspace/store';
 
 type Lang = 'fr' | 'en';
-type Mark = 'italic' | 'tip' | 'dots';
 const q = new URLSearchParams(location.search);
 
 const S = (id: string, name: string, tool: Session['tool'], state: Session['state'], rig?: string): Session =>
@@ -55,13 +54,6 @@ const MK = {
     repNote: <>Sol prend <b>la place</b> de Nova, qui se ferme : il n’avait servi qu’à regarder. #226, ouvert gardé depuis la palette, ne bouge pas.</>,
     splitH: 'Deux groupes : un aperçu chacun',
     splitNote: <>À gauche, Nova est l’aperçu, en retrait : italique et gris. À droite, la routine est l’aperçu de ce groupe. Un clic ne remplace que l’aperçu du groupe actif ; <kbd>Ctrl</kbd>+clic, celui du groupe de droite.</>,
-    propH: 'À trancher : rien d’autre que l’italique ?',
-    propP: 'La spec laisse à la maquette ce qui irait au-delà de l’italique. Trois façons ; j’en recommande une.',
-    o1: '1 · Italique seul · recommandé', o1n: <>Comme VS Code, que tu connais. Rien de plus dans la barre d’onglets.</>,
-    o2: '2 · Italique et info-bulle', o2n: <>Au survol de l’aperçu, une info-bulle : « Aperçu · double-clic pour le garder ». Aujourd’hui l’onglet lui-même n’en a pas, seul son logo (« Anthropic »).</>,
-    o3: '3 · Italique et pointillés', o3n: <>Le titre souligné en pointillés : plus visible de loin, mais VS Code ne le fait pas, et ça se lit comme un lien.</>,
-    tip: 'Aperçu · double-clic pour le garder',
-    question: <><b>La question pour toi :</b> l’italique seul (1, recommandé), avec l’info-bulle (2), ou avec les pointillés (3) ?</>
   },
   en: {
     title: 'Preview tabs · a click looks, a double click keeps', spec: 'spec 2026-11-26, §5.5',
@@ -77,18 +69,11 @@ const MK = {
     repNote: <>Sol takes <b>Nova’s place</b>; Nova closes, it was only looked at. #226, opened kept from the palette, stays.</>,
     splitH: 'Two groups: one preview each',
     splitNote: <>On the left, Nova is the preview, behind: italic and grey. On the right, the routine is that group’s preview. A click replaces only the active group’s preview; <kbd>Ctrl</kbd>+click, the right group’s.</>,
-    propH: 'To decide: nothing but the italic?',
-    propP: 'The spec leaves anything beyond the italic to the mockup. Three ways; I recommend one.',
-    o1: '1 · Italic only · recommended', o1n: <>As VS Code, which you know. Nothing more in the tab strip.</>,
-    o2: '2 · Italic and tooltip', o2n: <>Hovering the preview, a tooltip: « Preview · double-click to keep it ». Today the tab itself has none, only its logo (« Anthropic »).</>,
-    o3: '3 · Italic and dots', o3n: <>The title with a dotted underline: easier to spot from afar, but VS Code does not do it, and it reads like a link.</>,
-    tip: 'Preview · double-click to keep it',
-    question: <><b>The question for you:</b> italic only (1, recommended), with the tooltip (2), or with the dots (3)?</>
   }
 } as const;
 
 /** One editing area: the real DockHost on its own store, and the previews (§5.1) the mockup keeps beside it. */
-function Scene({ lang, ws: init, prev: initPrev, width, height = 132, mark = 'italic', tip, list }: { lang: Lang; ws: Workspace; prev: Prev; width: number; height?: number; mark?: Mark; tip?: string; list?: boolean }): JSX.Element {
+function Scene({ lang, ws: init, prev: initPrev, width, height = 132, list }: { lang: Lang; ws: Workspace; prev: Prev; width: number; height?: number; list?: boolean }): JSX.Element {
   const { t } = useI18n();
   const m = MK[lang];
   const [store, setStore] = useState(() => createWorkspaceStore(init));
@@ -138,23 +123,8 @@ function Scene({ lang, ws: init, prev: initPrev, width, height = 132, mark = 'it
     <div className="mk-tab-body"><span><b>{title(tab)}</b></span><div className="mk-line" style={{ width: '62%' }} /><div className="mk-line" style={{ width: '44%' }} /><div className="mk-line" style={{ width: '53%' }} /></div>
   );
 
-  // (2) the tooltip under the preview tab, placed once dockview has drawn the strip.
-  const box = useRef<HTMLDivElement>(null);
-  const [tipAt, setTipAt] = useState<{ x: number; y: number } | null>(null);
-  useEffect(() => {
-    if (!tip) return;
-    const id = window.setTimeout(() => {
-      const tabEl = box.current?.querySelector('.mk-pv.on')?.closest('.dv-tab');
-      const r0 = box.current?.getBoundingClientRect();
-      const r = tabEl?.getBoundingClientRect();
-      if (r && r0) setTipAt({ x: r.left - r0.left, y: r.bottom - r0.top - 6 });
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [tip, lang]);
-
   const dock = (
-    <div ref={box} className="mk-tipwrap" style={list ? { height: '100%' } : { width }}>
-    <div className={`mk-ide mk-mark-${mark === 'dots' ? 'dots' : 'none'}`} style={list ? { height: '100%' } : { height }}
+    <div className="mk-ide" style={list ? { height: '100%' } : { width, height }}
       onDoubleClick={e => { const k = (e.target as HTMLElement).closest('.dv-tab')?.querySelector('[data-k]')?.getAttribute('data-k'); if (k) pin(k); }}>
       <div className="ide" style={{ height: '100%' }}>
         <section className="ide-editor"><div className="ide-dock-area">
@@ -162,11 +132,6 @@ function Scene({ lang, ws: init, prev: initPrev, width, height = 132, mark = 'it
             alert={() => null} onTabMenu={() => {}} onNewSession={() => {}} emptyGroup={() => null} />
         </div></section>
       </div>
-    </div>
-      {tip && tipAt && <>
-        <svg className="mk-cursor" style={{ left: tipAt.x + 58, top: tipAt.y - 14 }} viewBox="0 0 12 18" aria-hidden="true"><path d="M1 1v14l3.6-3.4 2.6 5.6 2.2-1-2.6-5.4H12z" fill="#fff" stroke="#000" strokeWidth="1" strokeLinejoin="round" /></svg>
-        <span className="mk-tip" style={{ left: tipAt.x - 6, top: tipAt.y + 8 }}>{tip}</span>
-      </>}
     </div>
   );
   if (!list) return dock;
@@ -231,14 +196,6 @@ function Page({ lang }: { lang: Lang }): JSX.Element {
         <p className="mk-note" style={{ maxWidth: 980 }}>{m.splitNote}</p>
       </section>
 
-      <section className="mk-sect" id="prop"><h2>{m.propH}</h2><p>{m.propP}</p>
-        <div className="mk-row">
-          <Fig kicker={m.o1} note={m.o1n} rec><div id="prop-1"><Scene lang={lang} width={400} height={118} ws={W([['g1', [T.pim, T.atoi, T.nova], 2]])} prev={P(['g1', T.nova])} /></div></Fig>
-          <Fig kicker={m.o2} note={m.o2n}><div id="prop-2"><Scene lang={lang} width={400} height={118} tip={m.tip} ws={W([['g1', [T.pim, T.atoi, T.nova], 2]])} prev={P(['g1', T.nova])} /></div></Fig>
-          <Fig kicker={m.o3} note={m.o3n}><div id="prop-3"><Scene lang={lang} width={400} height={118} mark="dots" ws={W([['g1', [T.pim, T.atoi, T.nova], 2]])} prev={P(['g1', T.nova])} /></div></Fig>
-        </div>
-        <p className="mk-lede">{m.question}</p>
-      </section>
     </main>
   );
 }
