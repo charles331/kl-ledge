@@ -42,19 +42,20 @@ const PROJECTS = { projects: [
 ], rules: [] };
 
 /** The mockup's window: French, the explorer 248 px wide on « Projets », Pim in front of the focused group, Nova and Ida beside. */
-async function scene(page: Page, theme: 'dark' | 'light', sessions: Session[] = SESSIONS) {
+async function scene(page: Page, theme: 'dark' | 'light', sessions: Session[] = SESSIONS, sidebar?: { hideDone: boolean; dense: boolean; byBranch: boolean }) {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await realFonts(page);
-  await page.addInitScript(([th]) => {
+  await page.addInitScript(([th, sb]) => {
     const set = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
     set('desktop.lang', 'fr');
     set('desktop.theme', th!);
+    if (sb) set('desktop.sidebar', sb);
     set('ledge.ide.layout', JSON.stringify({ sideOpen: true, sideWidth: 248, sideView: 'projects', bottom: true, bottomHeight: 200, right: true }));
     set('ledge.ide.workspace', JSON.stringify(JSON.stringify({ version: 1, windows: ['main'], groups: [
       { id: 'g1', window: 'main', tabs: [{ kind: 'session', ref: 'local:pim' }], active: 0, link: 'violet' },
       { id: 'g2', window: 'main', tabs: [{ kind: 'session', ref: 'local:nova' }, { kind: 'session', ref: 'local:ida' }], active: 0, link: 'teal' }
     ], focus: 'g1', next: 3 })));
-  }, [theme]);
+  }, [theme, sidebar ? JSON.stringify(sidebar) : '']);
   await fakeDaemon(page, sessions, { projects: PROJECTS, daemon: { version: '0.63.0', install: 'npm', systemd: true, routing: true } });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 45_000 });
@@ -161,4 +162,73 @@ for (const theme of ['dark', 'light'] as const) {
       });
     });
   }
+}
+
+// Issues #31 and #32 (state/pr/kl28-known-defects.md): a session row keeps its parts apart when room runs short. The name gives way
+// before the time or « À toi » (#31, compact); the branch tag gives way before the name, and the sub-agents' count stays (#32, not
+// grouped by branch). Long names and a long branch, Léa with a folded sub-agent; no mouse over the tree (its tools would cover the time).
+const LONG: Session[] = [
+  mk('pim', { name: 'Pim', state: 'idle', branch: 'main', topic: 'Relire' }),
+  mk('kit', { name: 'Kit-avec-un-nom-tres-long', state: 'waiting_input', branch: 'main', topic: 'Une tâche', pending: { kind: 'question', text: 'Quel port ?', source: 'hook' } }),
+  mk('max', { name: 'Max-avec-un-nom-tres-long', state: 'working', branch: 'main', topic: 'Une autre tâche' }),
+  mk('lea', { name: 'Léa', state: 'idle', branch: 'feat/ide-shell-with-a-long-name', topic: 'Relire le fil', helpers: [{ id: 'h1', kind: 'Explore', task: 'Chercher', state: 'working' }] }),
+  mk('zed', { name: 'Zed', state: 'working', branch: 'main', topic: 'Corriger le build' })
+];
+/** A session row's parts: the row, its name (the text alone), its branch tag, the sub-agents' count, its time or pill. */
+async function parts(page: Page, name: string) {
+  // By the name's own span: a row with sub-agents has its chevron's label first in its accessible name.
+  return page.locator('[role=treeitem]').filter({ has: page.locator('.st-name', { hasText: new RegExp(`^${name}`) }) }).evaluate(r => {
+    const box = (el: Element | null) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, right: b.right }; };
+    const name = r.querySelector<HTMLElement>('.st-name');
+    const tag = r.querySelector<HTMLElement>('.st-btag');
+    const tagText = r.querySelector<HTMLElement>('.st-btag .st-btag-name');
+    return { row: box(r)!, name: box(name), nameCut: !!name && name.scrollWidth > name.clientWidth, tag: box(tag), tagCut: !!tagText && tagText.scrollWidth > tagText.clientWidth,
+      // The tag's name is shown when it sits on the tag's one line, not on the hidden second one.
+      tagNameShown: !!tag && !!tagText && tagText.getBoundingClientRect().top < tag.getBoundingClientRect().bottom - 2,
+      tagNameW: tagText?.getBoundingClientRect().width ?? 0,
+      ch: (() => { if (!tagText) return 0; const m = document.createElement('span'); m.textContent = '0'; tagText.append(m); const w = m.getBoundingClientRect().width; m.remove(); return w; })(),
+      kids: box(r.querySelector(':scope > .st-kids')), time: box(r.querySelector(':scope > .st-time')), timeText: r.querySelector(':scope > .st-time')?.textContent ?? '' };
+  });
+}
+
+for (const theme of ['dark', 'light'] as const) {
+  test(`#31, compact, ${theme}: a long name ends with « … » before its time or « À toi », which stay whole`, async ({ page }) => {
+    await scene(page, theme, LONG, { hideDone: true, dense: true, byBranch: true });
+    await page.mouse.move(900, 900);
+    for (const name of ['Kit', 'Max']) {
+      const p = await parts(page, name);
+      expect(p.nameCut, name).toBe(true);
+      expect(p.name!.right, name).toBeLessThanOrEqual(p.time!.x);
+      expect(p.time!.right, name).toBeLessThanOrEqual(p.row.right);
+    }
+    expect((await parts(page, 'Kit')).timeText).toBe('À toi');
+    // A short name is not cut.
+    expect((await parts(page, 'Zed')).nameCut).toBe(false);
+  });
+
+  test(`#32, not grouped by branch, ${theme}: the name whole, then the branch tag shortened, then the sub-agents' count`, async ({ page }) => {
+    await scene(page, theme, LONG, { hideDone: true, dense: false, byBranch: false });
+    await page.mouse.move(900, 900);
+    const lea = await parts(page, 'Léa');
+    expect(lea.nameCut).toBe(false);
+    expect(lea.tag).not.toBeNull();
+    expect(lea.tag!.w).toBeGreaterThan(20);
+    expect(lea.tagCut).toBe(true);
+    expect(lea.tag!.x).toBeGreaterThanOrEqual(lea.name!.right);
+    expect(lea.tag!.right).toBeLessThanOrEqual(lea.kids!.x);
+    // A short branch is whole beside a short name.
+    const zed = await parts(page, 'Zed');
+    expect(zed.nameCut).toBe(false);
+    expect(zed.tagCut).toBe(false);
+    // A name longer than the line: the tag first, then the name gives way; both stay inside the row.
+    const kit = await parts(page, 'Kit');
+    expect(kit.nameCut).toBe(true);
+    expect(kit.tag!.right).toBeLessThanOrEqual(kit.time!.x);
+    // Too little room for three characters and « … »: the tag is its icon alone, in its frame (its name on the hidden second line).
+    expect(kit.tag!.w).toBeLessThan(24);
+    expect(kit.tagNameShown).toBe(false);
+    // Léa's tag shows at least three characters before « … ».
+    expect(lea.tagNameShown).toBe(true);
+    expect(lea.tagNameW).toBeGreaterThanOrEqual(lea.ch * 4 - 1);
+  });
 }

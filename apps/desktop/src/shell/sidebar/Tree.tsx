@@ -31,7 +31,7 @@ function BranchTag({ session }: { session: Session }): JSX.Element | null {
   if (!b) return null;
   return (
     <span className={cls('st-btag', DEFAULT_BRANCHES.has(b) && 'default')} title={t.side.branchTag(b)}>
-      <Icon d={branchIcon} size={9} />{b}{session.worktree && <i>wt</i>}
+      <Icon d={branchIcon} size={9} /><span className="st-btag-name">{b}</span>{session.worktree && <i>wt</i>}
     </span>
   );
 }
@@ -257,7 +257,7 @@ export function Tree(p: {
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
         <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
-          <strong>{name}{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          <strong><span className="st-name">{name}</span>{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
           {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
         </button>
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>

@@ -211,4 +211,13 @@ describe('the sidebar tree', () => {
     expect(time).toHaveClass('t-error');
     expect(time.querySelector('.at-tag')).toHaveTextContent('Your turn');
   });
+
+  // Issues #31 and #32: the name in its own span (it gives way with « … »), the branch tag's name in its own (it gives way first).
+  it('a session row carries its name and its branch tag\'s name in their own spans', async () => {
+    localStorage.setItem('desktop.sidebar', JSON.stringify({ hideDone: true, dense: false, byBranch: false }));
+    const { side } = await boot({ projects: PROJECTS, sessions: listSessions() });
+    const otto = within(side.getByRole('tree', { name: 'Projects, branches and sessions' })).getByRole('treeitem', { name: /Otto/ });
+    expect(otto.querySelector('.st-main strong > .st-name')).toHaveTextContent(/^Otto$/);
+    expect(otto.querySelector('.st-main strong > .st-btag > .st-btag-name')).toHaveTextContent(/^desktop$/);
+  });
 });

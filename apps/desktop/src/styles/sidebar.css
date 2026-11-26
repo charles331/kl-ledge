@@ -49,6 +49,19 @@
 .st-none{background:none!important;border:1px dashed var(--muted-foreground)}
 .st .st-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding:4px 0}
 .st-main strong{font-weight:500;color:var(--sidebar-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A session's first line (#31, #32): its name, then its marks (a routine's clock, auto, a rig, the branch, the context). The marks keep
+   their size but the branch tag, which gives way first, its name ending in « … »; then the name does. Never one under the next part. */
+.st-agent .st-main strong{display:flex;align-items:center;min-width:0}
+.st-agent .st-main strong>*{flex:none}
+.st-agent .st-main strong>.st-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* #32, design-ux and the lead (2026-11-26): the tag shortens with « … » while it can show three characters (« ⎇ fea… », « ⎇ main »);
+   below that it is its icon alone in its frame, the branch in its tooltip (and still in the row's text). Done by wrapping: the name
+   holds at least 3 characters and « … » (4ch); when that does not fit beside the icon it goes to a second line, which the tag's
+   one-line height hides. */
+.st-agent .st-main strong>.st-btag{flex:0 999 auto;min-width:20px;box-sizing:border-box;height:17px;flex-wrap:wrap;align-content:flex-start;row-gap:0;overflow:hidden}
+.st-btag-name{flex:1 1 4ch;min-width:4ch;overflow:hidden;text-overflow:ellipsis}
+/* The icon's line as tall as a line of text, so a name sent to the second line is wholly under the frame, not peeking into it. */
+.st-agent .st-main strong>.st-btag>svg{min-height:15px}
 .st-main span{font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-project .st-main{flex-direction:row;align-items:baseline;gap:6px}
 .st-project .st-main strong{font-weight:600;flex:none;max-width:60%}
@@ -68,7 +81,10 @@
 .st-card .st-bot{margin-top:1px}
 .st-agent.helper{min-height:28px;align-items:center}
 .st-agent.helper .st-main{flex-direction:row;gap:6px;align-items:baseline}
-.st-agent.helper .st-main strong,.st-dense .st-agent .st-main strong{flex:none}
+.st-agent.helper .st-main strong{flex:none}
+/* Compact (#31): on its one line the topic gives way first, then the name, never the time or « À toi ». */
+.st-dense .st-agent:not(.helper) .st-main strong{flex:0 1 auto}
+.st-dense .st-agent:not(.helper) .st-main>span{flex:1 1 0;min-width:0}
 .st-agent.helper>.st-chev,.st-agent.helper>.st-gap,.st-agent.helper .st-bot,.st-agent.helper .st-time,.st-agent.helper .st-kids{margin-top:0}
 .st-agent.done{opacity:.6}
 .st-agent.off .st-main strong{color:var(--muted-foreground)}
