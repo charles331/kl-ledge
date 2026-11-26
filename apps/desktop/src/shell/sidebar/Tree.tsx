@@ -149,7 +149,12 @@ export function Tree(p: {
   const { t } = useI18n();
   // Issue #28: under the « Atelier » skin a session that waits says « À toi » in place of its time.
   const skin = useSkin();
-  const ro = useReorder({ groups: p.groups, byBranch: p.byBranch, projects: p.projects, all: project => p.reorder?.all(project) ?? [], ...(p.reorder?.write ? { write: p.reorder.write } : {}), notify: text => p.reorder?.notify(text), active: !!p.reorder });
+  // What the eye shows of a group (its finished sessions may be hidden, unless « +N finished » showed them): a move steps over the rest.
+  const shownIn = (s: Session, g: { project: string | null; branch?: string }) => {
+    const key = g.branch !== undefined ? `${projectKey(g.project)}:${g.branch}` : projectKey(g.project);
+    return !p.hideDone || shown.has(key) || !isEnded(s);
+  };
+  const ro = useReorder({ groups: p.groups, byBranch: p.byBranch, projects: p.projects, all: project => p.reorder?.all(project) ?? [], ...(p.reorder?.write ? { write: p.reorder.write } : {}), notify: text => p.reorder?.notify(text), active: !!p.reorder, shown: shownIn });
   const canDrag = !!p.reorder?.write;
   /** After a move by the keyboard, the row keeps the focus once the daemon's broadcast redraws the tree. */
   const keepFocus = (key: string) => requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -350,6 +355,17 @@ export function Tree(p: {
   };
 
   const rows: ReactNode[] = [];
+  // #16 review C2: « after » a project lands below its sessions, so its line is drawn there: before the next project's row, or at the
+  // end of the tree for the last one, never between a project's heading and its first session.
+  const projectMark = ro.dragged?.kind === 'project' ? ro.mark : null;
+  const projectIds = p.groups.map(g => g.id);
+  const lineBefore = (gid: string | null): boolean => {
+    if (!projectMark || gid === null) return false;
+    if (projectMark.id === gid && !projectMark.after) return true;
+    const i = projectIds.indexOf(gid);
+    return i > 0 && projectMark.after && projectIds[i - 1] === projectMark.id;
+  };
+  const lastProject = [...projectIds].reverse().find(x => x !== null) ?? null;
   for (const g of p.groups) {
     const label = g.id === null ? t.side.unassigned : g.name;
     const pkey = projectKey(g.id);
@@ -404,7 +420,7 @@ export function Tree(p: {
       <div key={pkey} role="treeitem" aria-level={1} aria-expanded={has ? open : undefined}
         className={cls('st-row st-project', p.filter === (g.id ?? 'none') && !p.current && 'sel', filingHere && 'drop-over',
           gid !== null && canDrag && 'st-grab', ro.dragged?.kind === 'project' && ro.dragged.id === gid && 'st-lifted',
-          gid !== null && ro.mark?.id === gid && (ro.mark.after ? 'st-mark-after' : 'st-mark-before'))}
+          lineBefore(gid) && 'st-mark-before')}
         style={{ '--d': 0 } as CSSProperties} {...dnd} onContextMenu={e => menuOn(target, e)}>
         {gid !== null && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
         {filingHere && <span className="st-drop-tip" role="status">{t.side.reorder.fileInto(filedName, label)}</span>}
@@ -528,7 +544,7 @@ export function Tree(p: {
   return (
     <>
       {header}
-      <div ref={treeRef} role="tree" aria-label={t.side.tree} className={cls('st-tree', p.dense && 'st-dense')} onKeyDown={onTreeKey}>{rows}</div>
+      <div ref={treeRef} role="tree" aria-label={t.side.tree} className={cls('st-tree', p.dense && 'st-dense')} onKeyDown={onTreeKey}>{rows}{projectMark?.after && projectMark.id === lastProject && <div className="st-mark-end" aria-hidden="true" />}</div>
       {/* Issue #16: « Ida est maintenant 1re sur 3 dans feat/ide-shell. », for screen readers. */}
       {p.reorder && <div className="visually-hidden st-said" aria-live="polite" aria-atomic="true">{ro.said}</div>}
     </>

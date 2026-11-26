@@ -205,3 +205,6 @@
 /* A session from another project over this one: the row ringed, and the existing words under it. */
 .st-project.drop-over{outline-color:var(--task);background:color-mix(in srgb,var(--task) 10%,transparent)}
 .st-drop-tip{position:absolute;left:28px;top:calc(100% + 4px);z-index:8;padding:4px 10px;border-radius:7px;background:var(--popover);color:var(--foreground);border:1px solid var(--border);box-shadow:0 6px 18px #0006;font-size:12px;line-height:18px;white-space:nowrap;pointer-events:none}
+/* After the last project (#16 review C2): its line under its last row, at the tree's end. */
+.st-mark-end{position:relative;height:2px;margin:1px 6px 0 4px;border-radius:1px;background:var(--task)}
+.st-mark-end::before{content:"";position:absolute;left:-5px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--task);background:var(--sidebar);box-sizing:border-box}

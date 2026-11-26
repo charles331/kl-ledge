@@ -122,3 +122,18 @@ test('a session never lands among another group\'s sessions: no line, nothing se
   expect(daemon.received.filter(m => m.type === 'sessions.order')).toHaveLength(before);
   expect(await names(page, 'Ledge')).toEqual(['Pim', 'Ida', 'Nova']);
 });
+
+test('#16 review C2: a project dropped after an unfolded project lands below its sessions, and the line is drawn there', async ({ page }) => {
+  const daemon = await boot(page);
+  // Ledge on the lower half of Website's heading: Website is unfolded (Echo under it) and last.
+  await drag(page, row(page, 'Ledge'), async () => { const b = await box(row(page, 'Website')); return { x: b.x + b.width / 2, y: b.y + b.height - 3 }; }, async () => {
+    await expect(row(page, 'Website')).not.toHaveClass(/st-mark/);
+    await expect(row(page, 'Echo')).not.toHaveClass(/st-mark/);
+    const end = tree(page).locator('.st-mark-end');
+    await expect(end).toBeVisible();
+    expect((await box(end)).y).toBeGreaterThan((await box(row(page, 'Echo'))).y);
+    await tree(page).screenshot({ path: `${OUT}/drag-project-after-dark-en.png` });
+  });
+  await expect.poll(() => projectsShown(page)).toEqual(['Website', 'Ledge']);
+  expect(daemon.received.filter(m => m.type === 'projects.set')).toHaveLength(1);
+});

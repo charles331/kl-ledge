@@ -71,6 +71,8 @@ for (const lang of ['fr', 'en'] as const) for (const theme of ['dark', 'light'] 
       const nova = ledge.getByRole('link').nth(2);
       await liftAndDrag(page, nova, async () => (await box(ledge.getByRole('link').nth(0))).y + 4, async () => {
         await expect(page.locator('[data-insert-line]')).toHaveCount(1);
+        // #16 review C3: the line shows above the lifted row, which is held over it.
+        expect(await page.locator('[data-insert-line]').evaluate(el => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el; })).toBe(true);
         await expect(nova).toHaveAttribute('style', /scale\(1\.02\)/);
         await page.screenshot({ path: `${OUT}/phone-drag-${theme}-${lang}.png` });
       });

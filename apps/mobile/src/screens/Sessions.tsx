@@ -120,7 +120,8 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
 /** A row or a heading lifted (card 6): it follows the finger, a little bigger, with a shadow. */
 const liftedStyle = (dy: number): CSSProperties => ({ transform: `translateY(${dy}px) scale(1.02)`, position: 'relative', zIndex: 5, boxShadow: '0 10px 28px #0008', background: 'var(--color-surface)', borderRadius: 10, touchAction: 'none' });
 /** Where a lifted row or heading lands: a violet line. */
-const InsertLine = () => <div aria-hidden="true" data-insert-line="" className="mx-3 my-0.5 h-[3px] rounded-full bg-task" />;
+// Above the lifted row (#16 review C3): it is drawn where that row is held, and would hide it.
+const InsertLine = () => <div aria-hidden="true" data-insert-line="" className="relative z-10 mx-3 my-0.5 h-[3px] rounded-full bg-task" />;
 
 function Group({ group, children, drag }: { group: SessionGroup; children: React.ReactNode;
   /** Issue #16: the project's heading lifts and drags among the projects; a long press without moving opens Monter / Descendre. */

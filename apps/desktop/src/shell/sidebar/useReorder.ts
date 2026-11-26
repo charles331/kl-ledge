@@ -3,14 +3,16 @@ import type { Projects, Session } from '@ledge/protocol';
 import type { FileResult } from '../../atelier/filing';
 import { useI18n } from '../../i18n/lang';
 import type { ProjectGroup } from './model';
-import { dropIndex, movedProjects, moveTo, orderIds, ordinalFr, projectKeyOf, sessionGroup, target, type How } from './reorder';
+import { placeSessions, type Project } from '@ledge/protocol';
+import { dropIndex, moveTo, orderIds, ordinalFr, projectKeyOf, sessionGroup, target, type How, type SessionGroup } from './reorder';
 
 /** Writes the order to the local daemon (the app's fleet). Never throws: what went wrong is its result. */
 export interface OrderWriter {
   sessions(project: string, ids: string[]): FileResult;
   projects(next: Projects): FileResult;
-  /** A `sessions.order` the daemon refused (`stale`): the notice names the session that was moved. */
-  onStale(fn: () => void): () => void;
+  /** A `sessions.order` the daemon refused, with its code: `stale` (the list changed), any other from a daemon too old to know it
+   *  (#16 review C1: a daemon before #16 answers `invalid`). The notice names the session that was moved. */
+  onRefused(fn: (code: string) => void): () => void;
 }
 
 /** What the menus offer (Monter, Descendre, En haut…): enabled when it would move something. */
@@ -40,6 +42,9 @@ export function useReorder(o: {
   all(project: string | null): readonly Session[];
   write?: OrderWriter;
   notify(text: string): void;
+  /** Whether the tree shows a session of a group (the eye may hide the finished ones): a move steps over the hidden ones, which keep
+   *  their places (the lead's call on #16 review C4). */
+  shown(s: Session, g: SessionGroup): boolean;
   /** The tree is shown: its controller serves the menus. */
   active: boolean;
 }) {
@@ -61,10 +66,19 @@ export function useReorder(o: {
     return true;
   };
 
-  /** Session `id` at index `to` of its group. */
+  /** Session `id`'s group as the tree shows it: the sessions it hides are left out (they keep their places). */
+  const visibleGroup = (id: string, unassigned = ''): SessionGroup | null => {
+    const { groups, byBranch, shown } = latest.current;
+    const g = sessionGroup(groups, byBranch, id, unassigned);
+    return g ? { ...g, sessions: g.sessions.filter(s => s.id === id || shown(s, g)) } : null;
+  };
+  /** The projects the tree shows, in their order (the eye may hide some). */
+  const visibleProjects = (): string[] => latest.current.groups.flatMap(g => (g.id === null ? [] : [g.id]));
+
+  /** Session `id` at index `to` of its group as shown. */
   const placeSession = (id: string, to: number) => {
-    const { groups, byBranch, write, all } = latest.current;
-    const g = sessionGroup(groups, byBranch, id, t.side.unassigned);
+    const { write, all } = latest.current;
+    const g = visibleGroup(id, t.side.unassigned);
     const from = g ? g.sessions.findIndex(s => s.id === id) : -1;
     if (!g || from < 0 || from === to || !write) return;
     const s = g.sessions[from]!;
@@ -73,24 +87,28 @@ export function useReorder(o: {
     if (failed(write.sessions(projectKeyOf(g.project), orderIds(all(g.project), next)), s.name)) return;
     setSaid(r.moved(s.name, nth(to + 1, true), next.length, g.label));
   };
+  /** Project `id` at index `to` among the projects shown; the hidden ones keep their places among the others. */
   const placeProject = (id: string, to: number) => {
     const { projects, write } = latest.current;
     if (!projects || !write) return;
-    const from = projects.projects.findIndex(p => p.id === id);
+    const shown = visibleProjects();
+    const from = shown.indexOf(id);
     if (from < 0 || from === to) return;
-    const name = projects.projects[from]!.name;
+    const byId = new Map(projects.projects.map(p => [p.id, p]));
+    const name = byId.get(id)?.name ?? id;
+    const ids = placeSessions(projects.projects.map(p => p.id), moveTo(shown, from, to));
     lastMoved.current = name;
-    if (failed(write.projects(movedProjects(projects, id, to)), name)) return;
-    setSaid(r.movedProject(name, nth(to + 1, false), projects.projects.length));
+    if (failed(write.projects({ ...projects, projects: ids.map(x => byId.get(x)!).filter((p): p is Project => !!p) }), name)) return;
+    setSaid(r.movedProject(name, nth(to + 1, false), shown.length));
   };
 
   const where = (kind: 'session' | 'project', id: string): { i: number; n: number } | null => {
-    const { groups, byBranch, projects } = latest.current;
     if (kind === 'project') {
-      const i = projects?.projects.findIndex(p => p.id === id) ?? -1;
-      return i < 0 ? null : { i, n: projects!.projects.length };
+      const shown = visibleProjects();
+      const i = latest.current.projects ? shown.indexOf(id) : -1;
+      return i < 0 ? null : { i, n: shown.length };
     }
-    const g = sessionGroup(groups, byBranch, id, '');
+    const g = visibleGroup(id);
     const i = g ? g.sessions.findIndex(s => s.id === id) : -1;
     return i < 0 ? null : { i, n: g!.sessions.length };
   };
@@ -111,8 +129,8 @@ export function useReorder(o: {
     publish(proxy);
     return () => { if (ctl === proxy) publish(null); };
   }, [o.active]);
-  // The daemon refused a move (the list changed meanwhile): said, and the row is where the daemon keeps it.
-  useEffect(() => o.write?.onStale(() => latest.current.notify(r.stale(lastMoved.current))), [o.write, r]);
+  // The daemon refused a move: the list changed meanwhile, or it is too old to keep the order. Said; the row stays where it was.
+  useEffect(() => o.write?.onRefused(code => latest.current.notify(code === 'stale' ? r.stale(lastMoved.current) : r.outdated(lastMoved.current))), [o.write, r]);
 
   /** The drop of `dragged` before or after row `over` (same group, or another project for a project). */
   const drop = (over: Mark) => {
@@ -120,12 +138,12 @@ export function useReorder(o: {
     setDragged(null); setMark(null); setFileOver(null);
     if (!d || d.id === over.id) return;
     if (d.kind === 'project') {
-      const list = latest.current.projects?.projects ?? [];
-      const from = list.findIndex(p => p.id === d.id), at = list.findIndex(p => p.id === over.id);
+      const list = visibleProjects();
+      const from = list.indexOf(d.id), at = list.indexOf(over.id);
       if (from >= 0 && at >= 0) placeProject(d.id, dropIndex(from, at, over.after));
       return;
     }
-    const g = sessionGroup(latest.current.groups, latest.current.byBranch, d.id, '');
+    const g = visibleGroup(d.id);
     if (!g) return;
     const from = g.sessions.findIndex(s => s.id === d.id), at = g.sessions.findIndex(s => s.id === over.id);
     if (from >= 0 && at >= 0) placeSession(d.id, dropIndex(from, at, over.after));
@@ -135,7 +153,7 @@ export function useReorder(o: {
     const d = dragged;
     if (!d || d.kind !== kind || d.id === id || !latest.current.write) return false;
     if (kind === 'project') return true;
-    const g = sessionGroup(latest.current.groups, latest.current.byBranch, d.id, '');
+    const g = visibleGroup(d.id);
     return !!g && g.sessions.some(s => s.id === id);
   };
 

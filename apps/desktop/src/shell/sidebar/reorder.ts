@@ -9,14 +9,14 @@ import type { ProjectGroup } from './model';
 export type How = 'up' | 'down' | 'top';
 
 /** Where a session can move: its project (null: « Sans projet »), what the announcement names, and the sessions it moves among. */
-export interface SessionGroup { project: string | null; label: string; sessions: readonly Session[] }
+export interface SessionGroup { project: string | null; label: string; sessions: readonly Session[]; /** The branch, when the group is one (by branch). */ branch?: string }
 
 /** The group of session `id` as the tree shows it. */
 export function sessionGroup(groups: readonly ProjectGroup[], byBranch: boolean, id: string, unassigned: string): SessionGroup | null {
   for (const g of groups) {
     const label = g.id === null ? unassigned : g.name;
     if (byBranch && !g.flatten) {
-      for (const b of g.branches) if (b.sessions.some(s => s.id === id)) return { project: g.id, label: b.branch, sessions: b.sessions };
+      for (const b of g.branches) if (b.sessions.some(s => s.id === id)) return { project: g.id, label: b.branch, sessions: b.sessions, branch: b.branch };
     } else if (g.sessions.some(s => s.id === id)) return { project: g.id, label, sessions: g.sessions };
   }
   return null;

@@ -551,8 +551,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     return {
       sessions: (project, ids) => run(() => fleet.orderSessions(project, ids)),
       projects: next => run(() => fleet.setProjects(next)),
-      onStale: fn => fleet.onMachineMessage((machine, m) => {
-        if (machine === 'local' && m.type === 'error' && m.request === 'sessions.order' && m.code === 'stale') fn();
+      onRefused: fn => fleet.onMachineMessage((machine, m) => {
+        if (machine === 'local' && m.type === 'error' && m.request === 'sessions.order') fn(m.code ?? '');
       })
     };
   }, [fleet]);

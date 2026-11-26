@@ -102,7 +102,8 @@ describe('the tree, by the keyboard and the menus', () => {
     const next = (sent(d).at(-1) as { projects: Projects }).projects;
     expect(next.projects.map(p => p.id)).toEqual(['pay', 'ledge', 'docs']);
     expect(next.rules).toEqual(PROJECTS.rules);
-    expect(document.querySelector('.st-said')).toHaveTextContent('Ledge is now 2 of 3 projects.');
+    // Docs has no session: the tree hides it, and the announcement counts the projects shown (#16 review C4, the lead's call).
+    expect(document.querySelector('.st-said')).toHaveTextContent('Ledge is now 2 of 2 projects.');
     fireEvent.contextMenu(side.getByRole('button', { name: /^Payment/ }));
     const menu = await screen.findByRole('menu', { name: /Payment/ });
     expect(within(menu).getByRole('menuitem', { name: 'To the top of the list' })).toBeDisabled();
@@ -115,5 +116,38 @@ describe('the tree, by the keyboard and the menus', () => {
     fireEvent.keyDown(side.getByRole('button', { name: /^Cy/ }), { key: 'ArrowUp', altKey: true });
     expect(await screen.findByText('Could not move Cy: the local Ledge daemon is not reachable.')).toBeInTheDocument();
     expect(rows(side, /^Ledge/)).toEqual(['Ada', 'Bob', 'Cy']);
+  });
+});
+
+describe('#16 review: refusals and what the eye hides', () => {
+  const raw = (id: string, extra: Partial<Session>) => fakeSession(id, { name: id[0]!.toUpperCase() + id.slice(1), cwd: '/w/ledge', state: 'working', ...extra });
+  const sent = (d: { received: unknown[] }) => d.received.filter(m => (m as { type: string }).type === 'sessions.order' || (m as { type: string }).type === 'projects.set');
+
+  it('C1: a daemon too old to keep the order refuses sessions.order (invalid): the notice says to update it', async () => {
+    const { d, side } = await boot({ sessions: [raw('ada', { startedAt: at(1) }), raw('cy', { startedAt: at(2) })], projects: PROJECTS });
+    fireEvent.keyDown(side.getByRole('button', { name: /^Cy/ }), { key: 'ArrowUp', altKey: true });
+    await waitFor(() => expect(sent(d).at(-1)).toMatchObject({ type: 'sessions.order' }));
+    // What a daemon before #16 answers an unknown message.
+    d.refuse('invalid message', undefined, 'sessions.order');
+    expect(await screen.findByText('Could not move Cy: update the local Ledge daemon, it can\'t keep the order yet.')).toBeInTheDocument();
+  });
+
+  it('C4: a project steps over the projects the eye hides, which keep their places', async () => {
+    // Ledge, Docs (no session: hidden), Payment.
+    const order: Projects = { ...PROJECTS, projects: [PROJECTS.projects[0]!, PROJECTS.projects[2]!, PROJECTS.projects[1]!] };
+    const { d, side } = await boot({ sessions: [raw('ada', { startedAt: at(1) }), raw('nova', { cwd: '/w/pay', startedAt: at(2) })], projects: order });
+    fireEvent.keyDown(side.getByRole('button', { name: /^Ledge/ }), { key: 'ArrowDown', altKey: true });
+    await waitFor(() => expect(sent(d).at(-1)).toMatchObject({ type: 'projects.set' }));
+    expect((sent(d).at(-1) as { projects: Projects }).projects.projects.map(p => p.id)).toEqual(['pay', 'docs', 'ledge']);
+    expect(document.querySelector('.st-said')).toHaveTextContent('Ledge is now 2 of 2 projects.');
+  });
+
+  it('C4: a session steps over the finished ones the eye hides, which keep their places', async () => {
+    const { d, side } = await boot({ sessions: [raw('ada', { startedAt: at(1) }), raw('bob', { startedAt: at(2), state: 'exited' }), raw('cy', { startedAt: at(3) })], projects: PROJECTS });
+    expect(side.queryByRole('button', { name: /^Bob/ })).toBeNull();
+    fireEvent.keyDown(side.getByRole('button', { name: /^Cy/ }), { key: 'ArrowUp', altKey: true });
+    await waitFor(() => expect(sent(d).at(-1)).toMatchObject({ type: 'sessions.order' }));
+    expect((sent(d).at(-1) as { ids: string[] }).ids).toEqual(['local:cy', 'local:bob', 'local:ada']);
+    expect(document.querySelector('.st-said')).toHaveTextContent('Cy is now 1 of 2 in Ledge.');
   });
 });
