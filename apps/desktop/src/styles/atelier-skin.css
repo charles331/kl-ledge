@@ -43,7 +43,11 @@
 :root[data-skin="atelier"] .ide-reply.session-reply > form { border-radius: var(--radius-lg); }
 :root[data-skin="atelier"] .ide-pane .session-thread { padding-inline: 14px; }
 
-:root[data-skin="atelier"] .ide-bottom { border: 1px solid var(--at-line); border-radius: var(--radius-lg); overflow: hidden; background: var(--at-pane); }
+/* The card's corners are clipped by its two children, not by the card: the « + » shell menu opens upward out of it (#28 review of
+   the e2e tour: with overflow hidden on the card it was cut off and a click under it fell on the editing area). */
+:root[data-skin="atelier"] .ide-bottom { border: 1px solid var(--at-line); border-radius: var(--radius-lg); background: var(--at-pane); }
+:root[data-skin="atelier"] .ide-bottom > .ide-bp-tabs { border-radius: 11px 11px 0 0; }
+:root[data-skin="atelier"] .ide-bottom > .ide-bp-body { border-radius: 0 0 11px 11px; } /* its own overflow: auto clips */
 :root[data-skin="atelier"] .ide-bp-tabs { height: 34px; background: var(--at-side); border-bottom: 0; }
 :root[data-skin="atelier"] .ide-bterms { gap: 0; background: transparent; }
 :root[data-skin="atelier"] .ide-btile + .ide-btile { border-left: 1px solid var(--at-line); }
