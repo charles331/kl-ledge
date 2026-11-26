@@ -5,7 +5,7 @@ import { homedir, hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import { folderProblems, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
+import { cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
 import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
@@ -1349,6 +1349,14 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   type LaunchReq = { tool: Tool; cwd: string; name?: string; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string; approval?: OmpApproval };
   /** Spawns the agent as `ledge <tool>` would and records it; throws the reason (bad folder, tmux). */
   async function launch(req: LaunchReq): Promise<Session> {
+    // Issue #15: a name given is the user's choice: taken, it is refused (the front says so before), never changed behind them.
+    if (req.name !== undefined) {
+      const live = store.all();
+      if (nameRefusal([...namesInUse(live), ...heldNames(live)], req.name)) {
+        const holder = nameHolder(live.filter(s => s.state !== 'exited' && !s.archivedAt), req.name);
+        throw new Refusal(`le nom ${cleanName(req.name)} est déjà pris${holder ? ` : ${holder.name} porte ce nom` : ''}`, 'name_taken');
+      }
+    }
     const cwd = await resolveFolder(req.cwd, opts.home);
     if (req.approval && req.tool !== 'omp') throw new Error(`launch: ${req.tool} takes no approval mode`);
     const session = req.tool === 'omp' ? await launchOmp({ ...req, cwd }) : await launchTmux({ ...req, cwd, tool: req.tool });

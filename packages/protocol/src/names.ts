@@ -32,6 +32,27 @@ export function nameTaken(taken: Iterable<string>, name: string): boolean {
   return false;
 }
 
+/**
+ * Issue #15: why a name given at launch is refused, or undefined when it may be taken. It is cleaned first (cleanName, as every
+ * session name): nothing left is no name at all, never a refusal. Taken: whatever its case, or its base held by a numbered session
+ * (« Otto » while « Otto-2 » runs), or reserved (« ledge »). `taken`: the names in use (namesInUse).
+ */
+export function nameRefusal(taken: Iterable<string>, raw: string): 'name_taken' | undefined {
+  const name = cleanName(raw);
+  if (!name) return undefined;
+  if (RESERVED.includes(name.toLowerCase()) || nameTaken(taken, name)) return 'name_taken';
+  return undefined;
+}
+
+/** The session that holds a name (cleaned, whatever its case, or its base through a numbered one), for « {n} est déjà le nom
+ *  d'une session de {projet} »; undefined when none does (a reserved name is held by Ledge itself, not a session). */
+export function nameHolder<T extends { name: string }>(sessions: Iterable<T>, raw: string): T | undefined {
+  const key = cleanName(raw).toLowerCase();
+  if (!key) return undefined;
+  const all = [...sessions];
+  return all.find(s => s.name.toLowerCase() === key) ?? all.find(s => { const n = s.name.toLowerCase(); return n.startsWith(`${key}-`) && /^\d+$/.test(n.slice(key.length + 1)); });
+}
+
 /** What a fresh launch should ask for. A suggestion of a base a numbered session already holds (`Otto` while `Otto-2`
  *  is live) is dropped, so the next list name is chosen. An exact clash is kept and suffixed (`Otto` → `Otto-2`). */
 export function openName(taken: Iterable<string>, preferred?: string): string | undefined {
