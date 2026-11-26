@@ -21,8 +21,9 @@ async function boot(page: Page): Promise<void> {
 test('the grid has the mockup\'s sizes', async ({ page }) => {
   await boot(page);
   await expect(side(page)).toBeVisible();
-  expect((await box(page.locator('.ide-titlebar'))).height).toBe(34);
-  expect((await box(page.locator('.ide-status'))).height).toBe(24);
+  // Under the « Atelier » skin (#28, spec §4): a 38 px title bar and a 30 px status bar on the bench.
+  expect((await box(page.locator('.ide-titlebar'))).height).toBe(38);
+  expect((await box(page.locator('.ide-status'))).height).toBe(30);
   expect((await box(page.getByRole('navigation', { name: 'Activity bar' }))).width).toBe(48);
   expect((await box(side(page))).width).toBe(248);
   expect((await box(page.locator('.ide-right'))).width).toBe(300);

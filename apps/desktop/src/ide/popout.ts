@@ -30,7 +30,7 @@ export function mirrorRoot(target: Document, source: Document = document): () =>
   const from = source.documentElement;
   const to = target.documentElement;
   const copy = () => {
-    for (const name of ['data-theme', 'style', 'class', 'lang']) {
+    for (const name of ['data-theme', 'data-skin', 'style', 'class', 'lang']) {
       const v = from.getAttribute(name);
       if (v === null) to.removeAttribute(name); else if (to.getAttribute(name) !== v) to.setAttribute(name, v);
     }
@@ -38,7 +38,7 @@ export function mirrorRoot(target: Document, source: Document = document): () =>
   copy();
   if (typeof MutationObserver === 'undefined') return () => {};
   const mo = new MutationObserver(copy);
-  mo.observe(from, { attributes: true, attributeFilter: ['data-theme', 'style', 'class', 'lang'] });
+  mo.observe(from, { attributes: true, attributeFilter: ['data-theme', 'data-skin', 'style', 'class', 'lang'] });
   return () => mo.disconnect();
 }
 

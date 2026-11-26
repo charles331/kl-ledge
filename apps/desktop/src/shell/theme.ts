@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { applyAccent, loadAccent, parseAccent, saveAccent } from '@ledge/ui/accent';
+import { applySkin } from '@ledge/ui/skin';
 
 const KEY = 'desktop.theme';
 export type Theme = 'dark' | 'light';
@@ -34,10 +35,20 @@ export function setAccent(hex: string | null): void {
 export function useTheme(): Theme { return useSyncExternalStore(subscribe, () => theme, () => theme); }
 /** The chosen accent (`desktop.accent`), null for the factory coral. */
 export function useAccent(): string | null { return useSyncExternalStore(subscribe, () => accent, () => accent); }
-/** Mounted once by the App: mirrors the theme on the root element for the shared tokens and paints the accent for it. */
+/** Issue #28: the « Atelier » skin replaces the IDE's former look (the owner's choice pending: on by default, one palette,
+ *  « Établi »). `false` gives back today's look, tokens.css alone. */
+export const SKIN_ON = true;
+/** Whether the IDE wears the « Atelier » skin (a few components draw differently under it, the explorer's « À toi »). */
+export function useSkin(): boolean { return SKIN_ON; }
+/** Mounted once by the App: mirrors the theme on the root element for the shared tokens and paints the accent for it, then the
+ *  skin's tokens (@ledge/ui/skin), which fold the accent in. */
 export function useAppearance(): void {
   const t = useTheme(); const a = useAccent();
-  useEffect(() => { document.documentElement.dataset.theme = t; applyAccent(a, t); }, [t, a]);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = t;
+    if (SKIN_ON) { applyAccent(a, t); applySkin({ theme: t, accent: a }, root); } else { applySkin(null, root); applyAccent(a, t); }
+  }, [t, a]);
 }
 /** Test hook: the next read reloads from storage. */
 export function resetAppearanceForTests(): void { theme = loadTheme(); accent = loadAccent('desktop'); emit(); }
