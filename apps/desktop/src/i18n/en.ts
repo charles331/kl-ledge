@@ -1749,7 +1749,7 @@ export const en: Messages = {
       past: 'This moment has already passed.',
       outdatedGroup: 'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
       outdated: 'This machine’s Ledge is too old for this action: update it. Nothing changed.',
-      nameInvalid: 'Invalid name: letters, digits, dot, hyphen and underscore only.', session: 'Pick a session.', prompt: 'The prompt is empty.',
+      nameInvalid: 'Invalid name: letters, digits, dot, hyphen and underscore only.', session: 'Pick a session.', sessionName: 'Name the session.', prompt: 'The prompt is empty.',
       date: 'At least one date.', anchor: 'Pick the reference week.', tz: (tz: string) => `Unknown time zone: ${tz}.`,
       unreachable: 'This session isn’t responding.', notLedge: 'This session isn’t followed by Ledge.',
       tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`

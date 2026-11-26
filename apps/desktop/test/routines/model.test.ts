@@ -163,6 +163,8 @@ describe('the Routines screens rules', () => {
     const now = new Date(2026, 10, 23);
     expect(draftErrors(d, [routine('b', { name: 'r-a' })], now)).toEqual({ name: 'taken' });
     expect(draftErrors(specDraft(), [], now)).toMatchObject({ name: 'invalid', session: true, times: true, days: true, prompt: true });
+    // Issue #22: a new session left without a name (or only blanks) cannot be saved either.
+    expect(draftErrors({ ...d, mode: 'new', target: { ...d.target, name: ' ' } }, [], now)).toEqual({ session: true });
   });
   it('reads a failure that names a field, and a session change before → asked', () => {
     expect(faultyField('dossier introuvable : ~/veille')).toBe('dir');
@@ -190,6 +192,14 @@ describe('the Routines screens rules', () => {
     expect(said('invalid', 'tool')).toEqual({ part: 'tool', text: 'Tool not found on this PC: cursor.' });
     expect(said('invalid', 'model')).toEqual({ part: 'model', text: 'Unknown model for cursor: gpt-9.' });
     expect(said('invalid', 'prompt')).toEqual({ part: 'prompt', text: 'The prompt is empty.' });
+    // Issue #22: an empty session name refused by the daemon is not a session out of reach; for a new session, a `session`
+    // refusal is about its name, said under it (variant B).
+    const unnamed = { ...d, target: { ...d.target, name: '  ' } };
+    const empty = { code: 'invalid', field: 'session' as const, message: 'nom de session vide' };
+    expect(refusalOf(empty, unnamed, en)).toEqual({ part: 'session', text: 'Pick a session.' });
+    expect(refusalOf(empty, { ...unnamed, mode: 'new' }, en)).toEqual({ part: 'session', text: 'Name the session.' });
+    expect(refusalOf(empty, { ...unnamed, mode: 'new' }, fr)).toEqual({ part: 'session', text: 'Donne un nom à la session.' });
+    expect(refusalOf({ ...empty, message: 'nom de session invalide' }, { ...d, mode: 'new' }, en)).toEqual({ part: 'session', text: 'Name the session.' });
     expect(said('invalid', 'name')).toEqual({ part: 'name', text: 'Invalid name: letters, digits, dot, hyphen and underscore only.' });
     // A cause the card does not word keeps the daemon's words; no field: the head of the configuration.
     expect(said('not_pending', undefined)).toEqual({ part: null, text: 'raison du daemon' });

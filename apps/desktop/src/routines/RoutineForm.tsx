@@ -131,13 +131,15 @@ export function RoutineForm(p: RoutineFormProps): JSX.Element {
           {d.mode === 'new' && (
             <div className="rtn-sub">
               <div className="rtn-fld sm"><label htmlFor="rtn-sname">{f.sName}</label>
-                <input id="rtn-sname" className="rtn-inp" value={d.target.name} placeholder="Iris" onChange={x => set({ target: { ...d.target, name: x.target.value } })} /></div>
+                <div className="rtn-col"><input id="rtn-sname" ref={autoFocus('session')} className={`rtn-inp${e.session || bad('session') ? ' err' : ''}`} value={d.target.name} placeholder="Iris"
+                  onChange={x => set({ target: { ...d.target, name: x.target.value } })} />
+                  {said('session') ?? (e.session ? <span className="rtn-hint err">{r.err.sessionName}</span> : null)}</div></div>
               <div className="rtn-fld sm"><label htmlFor="rtn-dir">{f.dir}</label>
                 <div className="rtn-col"><div className="rtn-row-in">
                   <span className={`rtn-inp rtn-grow${e.dir || p.fault === 'dir' || bad('dir') ? ' err' : ''}`}><Icon d={ICONS.folder.d} size={13} />
                     <input id="rtn-dir" ref={autoFocus('dir')} className="rtn-bare rtn-mono" value={d.target.cwd} placeholder="~/assistant" onChange={x => set({ target: { ...d.target, cwd: x.target.value } })} /></span>
                   {p.onBrowse && <button type="button" className="fg-btn" onClick={() => { void p.onBrowse!().then(dir => { if (dir) set({ target: { ...d.target, cwd: dir } }); }); }}>{f.browse}</button>}
-                </div>{said('dir', 'session') ?? ((e.dir || p.fault === 'dir') && <span className="rtn-hint err">{r.err.dir}</span>)}</div></div>
+                </div>{said('dir') ?? ((e.dir || p.fault === 'dir') && <span className="rtn-hint err">{r.err.dir}</span>)}</div></div>
               <div className="rtn-fld sm"><label htmlFor="rtn-tool">{f.tool}</label>
                 <span className={`rtn-inp rtn-sel${p.fault === 'tool' || bad('tool') ? ' err' : ''}`}><ProviderLogo provider={providerOf(d.target.tool)} size={12} />{TOOL_NAME[d.target.tool]}
                   <select id="rtn-tool" value={d.target.tool} onChange={x => set({ target: { ...d.target, tool: x.target.value as Tool, model: '' } })}>{TOOLS.map(x => <option key={x} value={x}>{TOOL_NAME[x]}</option>)}</select></span>{said('tool')}</div>

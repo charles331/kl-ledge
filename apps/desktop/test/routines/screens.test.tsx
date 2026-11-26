@@ -58,6 +58,21 @@ describe('Routines on Desktop, card 28', () => {
     expect(screen.getByLabelText('Machine')).toHaveValue('local');
     expect(document.querySelector('.rtn-hint.err')).toHaveTextContent('Ce dossier n’existe pas sur ce PC.');
   });
+  it('a new session without a name: its field outlined, the text under it, nothing under « Dossier » (issue #22, variant B)', () => {
+    const d = { ...specDraft(), mode: 'new' as const, target: { ...specDraft().target, name: '', cwd: '~/assistant' } };
+    const dirHints = () => [...document.querySelector('#rtn-dir')!.closest('.rtn-col')!.querySelectorAll('.rtn-hint.err')];
+    const { unmount } = fr(<RoutineForm draft={d} onChange={vi.fn()} errors={{ session: true }} sessions={[]} dirLabel={x => x} preview={null} lastSlot={null} />);
+    expect(document.querySelector('#rtn-sname')).toHaveClass('err');
+    expect(document.querySelector('#rtn-sname')!.parentElement!.querySelector('.rtn-hint.err')).toHaveTextContent('Donne un nom à la session.');
+    expect(dirHints()).toHaveLength(0);
+    unmount();
+    // The daemon's refusal about the session goes under the name too, no longer under « Dossier ».
+    fr(<RoutineForm draft={d} onChange={vi.fn()} errors={{}} sessions={[]} dirLabel={x => x} preview={null} lastSlot={null} refusal={{ part: 'session', text: 'Donne un nom à la session.' }} />);
+    expect(document.querySelector('#rtn-sname')).toHaveClass('err');
+    expect([...document.querySelectorAll('.rtn-hint.err')].map(e => e.textContent)).toEqual(['Donne un nom à la session.']);
+    expect(document.querySelector('#rtn-sname')!.parentElement!.querySelector('.rtn-hint.err')).not.toBeNull();
+    expect(dirHints()).toHaveLength(0);
+  });
 
   it('the session states the mockup does not draw, in the phone’s words', () => {
     const s = (state: Session['state'], extra: Partial<Session> = {}) => ({ id: 'a', name: 'Iris', cwd: '/x', tool: 'claude', state, ...extra }) as Session;
