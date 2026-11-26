@@ -10,6 +10,10 @@
 :root[data-skin="atelier"] .st-agent .st-time { display: inline-flex; align-items: center; }
 :root[data-skin="atelier"] .at-tag { display: inline-flex; height: 18px; align-items: center; padding: 0 8px; border-radius: 9px; background: var(--at-coral); color: var(--at-coral-ink); font: 600 11px/1 var(--font-sans, 'Geist', sans-serif); white-space: nowrap; }
 :root[data-skin="atelier"] .st-time.t-question .at-tag { background: var(--warning); color: var(--at-warning-ink); }
+/* A session in error waits for the person too, but neither coral (an authorisation) nor amber (a question): « À toi » outlined in the
+   error colour of today's time (the owner's choice A, 2026-11-26; docs/mockups/ledge-ide-atelier-focus.html, card 4). The same box as a
+   filled pill: the 1.5 px line is an inset shadow, which a 1× screen does not round down to 1 px nor add to the width as a border would. */
+:root[data-skin="atelier"] .st-time.t-error .at-tag { background: transparent; box-shadow: inset 0 0 0 1.5px var(--danger-text); color: var(--danger-text); }
 :root[data-skin="atelier"] .st-row { border-radius: 8px; }
 :root[data-skin="atelier"] .st-project, :root[data-skin="atelier"] .st-branch { min-height: 30px; }
 
