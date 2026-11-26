@@ -1346,21 +1346,29 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     const { failure } = await applyRow(r, msg.rid);
     return answer({ row: r, ...(failure !== undefined ? { reason: failure, code: 'failed' } : {}) });
   }
+  /** The names given to launches still under way (#15): taken until their session is recorded. */
+  const launchingNames = new Set<string>();
   type LaunchReq = { tool: Tool; cwd: string; name?: string; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string; approval?: OmpApproval };
   /** Spawns the agent as `ledge <tool>` would and records it; throws the reason (bad folder, tmux). */
   async function launch(req: LaunchReq): Promise<Session> {
     // Issue #15: a name given is the user's choice: taken, it is refused (the front says so before), never changed behind them.
-    if (req.name !== undefined) {
+    // Checked and held before the first await: a second launch of that name meanwhile (the PC and the phone, a double send) is
+    // refused too, never suffixed (review of 72e0a45c).
+    const wanted = req.name !== undefined ? cleanName(req.name) : '';
+    if (wanted) {
       const live = store.all();
-      if (nameRefusal([...namesInUse(live), ...heldNames(live)], req.name)) {
-        const holder = nameHolder(live.filter(s => s.state !== 'exited' && !s.archivedAt), req.name);
-        throw new Refusal(`le nom ${cleanName(req.name)} est déjà pris${holder ? ` : ${holder.name} porte ce nom` : ''}`, 'name_taken');
+      if (nameRefusal([...namesInUse(live), ...heldNames(live), ...launchingNames], wanted)) {
+        const holder = nameHolder(live.filter(s => s.state !== 'exited' && !s.archivedAt), wanted);
+        throw new Refusal(`le nom ${wanted} est déjà pris${holder ? ` : ${holder.name} porte ce nom` : ''}`, 'name_taken');
       }
+      launchingNames.add(wanted);
     }
-    const cwd = await resolveFolder(req.cwd, opts.home);
-    if (req.approval && req.tool !== 'omp') throw new Error(`launch: ${req.tool} takes no approval mode`);
-    const session = req.tool === 'omp' ? await launchOmp({ ...req, cwd }) : await launchTmux({ ...req, cwd, tool: req.tool });
-    return store.get(session.id) ?? session;
+    try {
+      const cwd = await resolveFolder(req.cwd, opts.home);
+      if (req.approval && req.tool !== 'omp') throw new Error(`launch: ${req.tool} takes no approval mode`);
+      const session = req.tool === 'omp' ? await launchOmp({ ...req, cwd }) : await launchTmux({ ...req, cwd, tool: req.tool });
+      return store.get(session.id) ?? session;
+    } finally { if (wanted) launchingNames.delete(wanted); }
   }
   /** `omp --mode rpc-ui` owned by the daemon: no pane. `continue` has no meaning here (a folder's latest journal is never picked). */
   async function launchOmp(req: LaunchReq): Promise<Session> {
@@ -1381,7 +1389,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     const cwd = req.cwd;
     const dirs = req.dirs?.length ? await Promise.all(req.dirs.map(d => resolveFolder(d, opts.home))) : undefined;
     const live = store.all();
-    const names = [...namesInUse(live), ...heldNames(live)];
+    // The names other launches hold right now are not this one's to take (#15), its own aside.
+    const own = req.name !== undefined ? cleanName(req.name) : '';
+    const names = [...namesInUse(live), ...heldNames(live), ...[...launchingNames].filter(n => n !== own)];
     const env = await agentEnv();
     const spawned = await spawnSession({ tool: req.tool, args: launchArgs({ ...req, dirs }), name: openName(names, req.name), cwd, tmux, now, env,
       taken: { names, ids: live.map(s => s.id) } });

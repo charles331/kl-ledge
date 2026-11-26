@@ -2122,6 +2122,21 @@ describe('server', () => {
       expect(store.get((await c.next('session.launched')).id)!.name).toBe('Nova');
       c.close();
     });
+    it('two launches of one name at once (the PC and the phone, a double send): one starts, the other is refused, never « Rex-2 » (#15)', async () => {
+      mkdirSync(join(home(), 'race'));
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'rex' });
+      const launched = await c.next('session.launched');
+      expect(await c.next('error')).toMatchObject({ request: 'session.launch', code: 'name_taken' });
+      expect(store.all().map(x => x.name)).toEqual(['Rex']);
+      expect(tmux.created).toHaveLength(1);
+      // Once recorded, the name is the session's, and the hold is gone: another launch of it is refused by the store itself.
+      expect(store.get(launched.id)!.name).toBe('Rex');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Rex est déjà pris : Rex porte ce nom' });
+      c.close();
+    });
     it('expands ~ and refuses a missing folder or a file with an error for the requester', async () => {
       mkdirSync(join(home(), 'tilde')); writeFileSync(join(home(), 'file.txt'), 'x');
       const srv2 = await startServer({ store, tmux, port: 0, home: home() });

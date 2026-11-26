@@ -1,6 +1,6 @@
 // Issue #15: a name chosen in « Nouvelle session » (docs/mockups/ledge-launch-name.html): what the front shows and the daemon refuses.
 import { describe, it, expect } from 'vitest';
-import { cleanName, nameHolder, nameRefusal, pickName } from '../src/names';
+import { cleanName, nameHolder, nameRefusal, pickName } from '../src/names.js';
 
 describe('a name given at launch (#15)', () => {
   it('is refused when taken whatever its case, when a numbered session holds its base, or when it is « ledge »', () => {
