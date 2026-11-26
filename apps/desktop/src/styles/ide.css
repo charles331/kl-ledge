@@ -429,6 +429,24 @@ body.ide-resizing-y { cursor: row-resize; user-select: none; }
 .launch-modal-go .ledge-btn[aria-disabled=true] { opacity: .55; cursor: not-allowed; }
 .launch-modal-alert { margin: 6px 0 0; color: var(--danger-text, var(--destructive)); font-size: 12px; }
 .launch-modal-go .launch-modal-alert { margin: 0; }
+/* Issue #15 (docs/mockups/ledge-launch-name.html, v2): « Définir un nom ? » on the Project row's right, the Name row under it. */
+.launch-modal-prj { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.launch-modal-prj > .launch-modal-menu { flex: 1; }
+.launch-modal .launch-modal-sw { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px; border: 0; border-radius: 7px; background: none; color: var(--foreground); font-size: 12.5px; white-space: nowrap; }
+.launch-modal-sw i { position: relative; display: inline-block; width: 30px; height: 17px; border-radius: 9px; background: var(--muted); border: 1px solid var(--input); }
+.launch-modal-sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted-foreground); transition: left .15s; }
+.launch-modal-sw[aria-checked=true] i { background: var(--primary); border-color: transparent; }
+.launch-modal-sw[aria-checked=true] i::after { left: 15px; background: var(--primary-foreground); }
+.launch-modal .launch-modal-sw:focus-visible { outline: none; }
+.launch-modal-sw:focus-visible i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 35%, transparent); }
+.launch-modal-name { min-width: 0; }
+.launch-modal-field { width: 100%; height: 30px; padding: 5px 9px; border: 1px solid var(--input); border-radius: 7px; background: var(--background); color: var(--foreground); font: inherit; }
+.launch-modal-field::placeholder { color: var(--muted-foreground); }
+.launch-modal-field:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent); }
+.launch-modal-field[aria-invalid=true] { border-color: color-mix(in srgb, var(--danger-text, var(--destructive)) 70%, var(--input)); }
+.launch-modal-hint, .launch-modal-ferr { display: block; margin-top: 5px; font-size: 11.5px; color: var(--muted-foreground); }
+.launch-modal-hint.said { color: var(--foreground); }
+.launch-modal-ferr { color: var(--danger-text, var(--destructive)); }
 @media (max-width: 640px) {
   .launch-modal-fld { grid-template-columns: 1fr; }
   .launch-modal-fld > .launch-modal-lbl { padding-top: 0; }

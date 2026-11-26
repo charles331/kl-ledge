@@ -1299,7 +1299,7 @@ export const fr = {
     agentName: 'Nom de l’agent', agentNameAuto: (n: string) => `${n} (au hasard)`, agentNameHint: 'C’est son adresse : les autres agents lui écrivent sous ce nom. Lettres, chiffres, - et _ ; un nom déjà pris reçoit un suffixe.',
     pastNames: 'Déjà utilisés dans ce projet',
     newAgent: 'Un nouvel agent', joins: (n: string, t: string) => `${n} rejoindra la table ${t}`, seat: (n: number, m: string, r: string) => `Place ${n} · ${m} · ${r}`, noRepo: 'aucun dossier ni dépôt',
-    missing: { prompt: 'Écrivez la consigne', machine: 'Aucune machine en ligne', repos: 'Choisissez au moins un dossier ou un dépôt' } as Record<'prompt' | 'machine' | 'repos', string>,
+    missing: { prompt: 'Écrivez la consigne', machine: 'Aucune machine en ligne', repos: 'Choisissez au moins un dossier ou un dépôt', name: 'Choisissez un autre nom pour la session' } as Record<'prompt' | 'machine' | 'repos' | 'name', string>,
     cancel: 'Annuler', launch: 'Lancer', launching: 'Lancement…',
     started: (n: string, t: string) => `${n} démarre à la table ${t}.`, startedNoTable: (n: string) => `${n} démarre, sans projet.`, refused: (m: string) => `Démarrage refusé : ${m}`,
     timeout: 'Le démarrage n’a pas répondu. Vérifiez la machine puis réessayez.',
@@ -1324,7 +1324,14 @@ export const fr = {
       open: 'Ouvrir', openActive: 'Dans le groupe actif', openRight: 'À droite',
       limit: (pct: string, reset: string | null) => `Limite 5 h ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitMonth: (pct: string, reset: string | null) => `Limite du mois ${pct}${reset ? ` · réinit. ${reset}` : ''}`,
       limitWeek: (pct: string, reset: string | null) => `Limite de la semaine ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitUnread: 'Limite non lue',
-      offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler'
+      offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler',
+      // Issue #15 (docs/mockups/ledge-launch-name.html, v2): an optional name, behind a switch on the Project row.
+      nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laissez vide pour ${n}`,
+      nameHint: 'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
+      cleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
+      nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisissez un autre nom, ou laissez vide.`,
+      nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,
+      nameReserved: 'ledge est réservé à Ledge lui-même. Choisissez un autre nom.'
     }
   },
   projects: {
