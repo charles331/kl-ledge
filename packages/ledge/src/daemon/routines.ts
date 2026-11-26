@@ -19,6 +19,36 @@ type RoutineCmd = Extract<ClientMessage, { type: 'routine.cmd' }>;
 type RoutineResult = Extract<ServerMessage, { type: 'routine.result' }>;
 type RoutineChanged = Extract<ServerMessage, { type: 'routine.changed' }>;
 type RoutinePreviewed = Extract<ServerMessage, { type: 'routine.previewed' }>;
+
+/** The routine's own word for a part of a spec, as its refusals say it (French, the daemon's). */
+const FIELD_WORDS: Record<RoutineField, string> = {
+  name: 'nom de la routine', session: 'nom de session', session_untracked: 'session', cwd: 'dossier', tool: 'outil', model: 'modèle',
+  schedule: 'horaire', tz: 'fuseau horaire', at: 'moment', prompt: 'prompt'
+};
+/** The form's field a schema failure points to: the path into a `routine.cmd`'s spec or patch, or a `routine.preview`'s schedule. */
+export function routineFieldOf(path: readonly PropertyKey[]): RoutineField | undefined {
+  const [head, sub] = path[0] === 'spec' || path[0] === 'patch' ? path.slice(1) : path;
+  if (head === 'target') return sub === 'cwd' ? 'cwd' : sub === 'tool' ? 'tool' : sub === 'model' ? 'model' : 'session';
+  if (head === 'schedule') return sub === 'tz' ? 'tz' : sub === 'at' ? 'at' : 'schedule';
+  return head === 'name' || head === 'prompt' ? head : undefined;
+}
+/**
+ * A `routine.cmd` or `routine.preview` the message schema refused, answered as the routine refuses (issue #22): `invalid` and
+ * the field, so a front marks that field instead of reading a generic error, which an older daemon also sends for a type it
+ * does not know. Undefined when it is neither, or has no rid an answer can carry.
+ */
+export function routineSchemaRefusal(raw: unknown, error: unknown): RoutineResult | RoutinePreviewed | undefined {
+  const { type, rid } = (raw ?? {}) as { type?: unknown; rid?: unknown };
+  if ((type !== 'routine.cmd' && type !== 'routine.preview') || typeof rid !== 'string' || !rid || rid.length > 100) return undefined;
+  const issues = (error as { issues?: { path: PropertyKey[]; code?: string; minimum?: unknown }[] } | null)?.issues ?? [];
+  const issue = issues.find(i => routineFieldOf(i.path)) ?? issues[0];
+  const field = issue ? routineFieldOf(issue.path) : undefined;
+  const empty = issue?.code === 'too_small' && issue.minimum === 1;
+  const reason = (field ? `${FIELD_WORDS[field]} ${empty ? 'vide' : 'invalide'}` : `message invalide${issue ? ` : ${issue.path.join('.')}` : ''}`).slice(0, ROUTINE_REASON_MAX);
+  return type === 'routine.cmd'
+    ? { type: 'routine.result', rid, code: 'invalid', reason, ...(field ? { field } : {}) }
+    : { type: 'routine.previewed', rid, nextRuns: [], reason, ...(field ? { field } : {}) };
+}
 /** Why a routine cannot be kept, and the field it is about. */
 interface Problem { reason: string; field?: RoutineField }
 

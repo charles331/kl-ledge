@@ -188,7 +188,8 @@ export function draftErrors(d: SpecDraft, others: readonly Routine[], now: Date)
   const name = d.name.trim();
   if (!RoutineNameSchema.safeParse(name).success) e.name = 'invalid';
   else if (others.some(r => r.name === name && r.target.name === d.target.name)) e.name = 'taken';
-  if (!d.target.name.trim()) { if (d.mode === 'existing') e.session = true; }
+  // A new session needs its name as much as an existing one does (issue #22, variant B approved by the owner).
+  if (!d.target.name.trim()) e.session = true;
   if (d.mode === 'new' && !d.target.cwd.trim()) e.dir = true;
   if (!d.prompt.trim()) e.prompt = true;
   return e;
@@ -227,8 +228,11 @@ export function refusalOf(f: { code: string; field?: RoutineField | undefined; m
     : f.field === 'at' ? e.past
     : f.field === 'tz' ? e.tz(tz)
     // The daemon names `session_untracked` for a session Ledge does not follow, `session` for one it cannot reach; an older daemon
-    // named both `session`, told apart by its words.
+    // named both `session`, told apart by its words. For a new session, a `session` refusal is about the name typed (issue #22),
+    // and so is one about an empty name in either mode: neither is a session out of reach.
     : f.field === 'session_untracked' ? e.notLedge
+    : f.field === 'session' && d.mode === 'new' ? e.sessionName
+    : f.field === 'session' && !d.target.name.trim() ? e.session
     : f.field === 'session' ? (/suivie|hors de ledge|outside|not followed/i.test(f.message) ? e.notLedge : e.unreachable)
     : f.field === 'tool' ? e.tool(d.target.tool)
     : f.field === 'model' ? e.model(d.target.tool, d.target.model)

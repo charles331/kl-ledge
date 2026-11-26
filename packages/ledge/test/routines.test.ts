@@ -7,7 +7,7 @@ import { openDecision, TaskSchema, type Routine, type RoutineSpec, type Session,
 import { Store } from '../src/daemon/store.js';
 import { createTasks, type Tasks } from '../src/daemon/tasks.js';
 import { routineKey } from '../src/routineKey.js';
-import { createRoutines, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
+import { createRoutines, routineFieldOf, routineSchemaRefusal, daysLabel, scheduleLabel, latestSlot, loadRoutines, nextSlot, nextSlots, routinesJournal, type RoutineCaller, type Routines, type RoutinesDeps } from '../src/daemon/routines.js';
 
 const TZ = 'Europe/Brussels';
 const T0 = '2026-11-20T06:00:00.000Z'; // Friday 07:00 in Brussels
@@ -549,5 +549,30 @@ describe('commands', () => {
     routines.close(); await journal.flush(); await flush();
     const read: Routine[] = loadRoutines(join(dir, 'routines.json'));
     expect(read.map(r => r.name)).toEqual(['briefing']);
+  });
+});
+
+describe('a routine message the schema refuses (issue #22)', () => {
+  it('names the form\'s field from the path into the spec, the patch or the preview\'s schedule', () => {
+    expect(routineFieldOf(['spec', 'target', 'name'])).toBe('session');
+    expect(routineFieldOf(['spec', 'target'])).toBe('session');
+    expect(routineFieldOf(['patch', 'target', 'cwd'])).toBe('cwd');
+    expect(routineFieldOf(['spec', 'target', 'tool'])).toBe('tool');
+    expect(routineFieldOf(['spec', 'schedule', 'tz'])).toBe('tz');
+    expect(routineFieldOf(['schedule', 'at', 0])).toBe('at');
+    expect(routineFieldOf(['schedule', 'days'])).toBe('schedule');
+    expect(routineFieldOf(['spec', 'name'])).toBe('name');
+    expect(routineFieldOf(['spec', 'prompt'])).toBe('prompt');
+    expect(routineFieldOf(['op'])).toBeUndefined();
+  });
+  it('answers only a routine.cmd or a routine.preview with a rid; anything else keeps the generic error', () => {
+    const empty = { issues: [{ path: ['spec', 'target', 'name'], code: 'too_small', minimum: 1 }] };
+    expect(routineSchemaRefusal({ type: 'routine.cmd', rid: 'r1' }, empty)).toEqual({ type: 'routine.result', rid: 'r1', code: 'invalid', reason: 'nom de session vide', field: 'session' });
+    expect(routineSchemaRefusal({ type: 'routine.preview', rid: 'r2' }, { issues: [{ path: ['schedule', 'tz'], code: 'custom' }] }))
+      .toEqual({ type: 'routine.previewed', rid: 'r2', nextRuns: [], reason: 'fuseau horaire invalide', field: 'tz' });
+    expect(routineSchemaRefusal({ type: 'routine.cmd', rid: 'r3' }, { issues: [{ path: ['op'], code: 'invalid_enum_value' }] }))
+      .toEqual({ type: 'routine.result', rid: 'r3', code: 'invalid', reason: 'message invalide : op' });
+    for (const raw of [{ type: 'routine.cmd' }, { type: 'routine.cmd', rid: '' }, { type: 'routine.cmd', rid: 'x'.repeat(101) }, { type: 'routine.list', rid: 'r' }, { type: 'session.launch' }, null])
+      expect(routineSchemaRefusal(raw, empty)).toBeUndefined();
   });
 });

@@ -1849,7 +1849,7 @@ export const fr = {
       outdatedGroup: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
       outdated: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.',
       // Card 28: a text under each field in error, and the front's text for each field the daemon refuses (ff7a19c2).
-      nameInvalid: 'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', session: 'Choisis une session.', prompt: 'Le prompt est vide.',
+      nameInvalid: 'Nom invalide : lettres, chiffres, point, tiret et tiret bas seulement.', session: 'Choisis une session.', sessionName: 'Donne un nom à la session.', prompt: 'Le prompt est vide.',
       date: 'Au moins une date.', anchor: 'Choisis la semaine de référence.', tz: (tz: string) => `Fuseau horaire inconnu : ${tz}.`,
       unreachable: 'Cette session ne répond pas.', notLedge: 'Cette session n’est pas suivie par Ledge.',
       tool: (tool: string) => `Outil absent sur ce PC : ${tool}.`, model: (tool: string, model: string) => `Modèle inconnu pour ${tool} : ${model}.`

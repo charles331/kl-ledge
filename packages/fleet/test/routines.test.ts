@@ -74,16 +74,34 @@ describe('routines through the fleet', () => {
   });
 
   it('a machine that falls keeps its last list, rejects its command in flight « hors ligne », and refuses new ones; an old daemon is « outdated »', async () => {
-    const { fleet, local, server } = setup();
+    const { fleet, server } = setup();
     server.emit({ type: 'routine.listed', rid: 'y', routines: [routine('r000002', 'veille')] });
     const asked = fleet.routineCmd('server', { op: 'run', routine: 'r000002' });
     server.set('unreachable');
     await expect(asked).rejects.toEqual({ code: 'offline', message: 'hors ligne' });
     expect(fleet.routines().map(r => r.machineId)).toEqual(['server']);
     await expect(fleet.routineCmd('server', { op: 'run', routine: 'r000002' })).rejects.toMatchObject({ code: 'offline' });
-    const old = fleet.routineCmd('local', { op: 'run', routine: 'briefing' });
-    local.emit({ type: 'error', message: 'unknown message', request: 'routine.cmd' });
+    // A daemon that does not announce routines does not know the message: too old.
+    const before = setup(false);
+    const old = before.fleet.routineCmd('local', { op: 'run', routine: 'briefing' });
+    before.local.emit({ type: 'error', message: 'invalid message', request: 'routine.cmd', code: 'invalid' });
     await expect(old).rejects.toEqual({ code: 'outdated', message: 'version trop ancienne' });
+  });
+
+  it('a daemon that announces routines and refuses a message\'s content is not « too old » (issue #22): an invalid refusal', async () => {
+    const { fleet, local } = setup();
+    // An empty session name fails the schema; a daemon of 0.63.0 answers a generic error, not a routine.result.
+    const add = fleet.routineCmd('local', { op: 'add', spec: { name: 'veille', target: { name: '', cwd: '/w/assistant', tool: 'claude' }, schedule: { kind: 'recurring', times: ['08:00'], days: ['mon'] }, prompt: 'p' } });
+    local.emit({ type: 'error', message: 'invalid message', request: 'routine.cmd', code: 'invalid' });
+    await expect(add).rejects.toEqual({ code: 'invalid', message: 'invalid message' });
+    const preview = fleet.routinePreview('local', { kind: 'recurring', times: ['08:00'], days: ['mon'] });
+    local.emit({ type: 'error', message: 'invalid message', request: 'routine.preview', code: 'invalid' });
+    await expect(preview).rejects.toMatchObject({ code: 'invalid' });
+    // The same refusals from a daemon that does not announce routines stay « outdated ».
+    const old = setup(false);
+    const p2 = old.fleet.routinePreview('local', { kind: 'recurring', times: ['08:00'], days: ['mon'] });
+    old.local.emit({ type: 'error', message: 'invalid message', request: 'routine.preview', code: 'invalid' });
+    await expect(p2).rejects.toMatchObject({ code: 'outdated' });
   });
 
   it('previews a schedule on the machine asked, settled by its routine.previewed', async () => {

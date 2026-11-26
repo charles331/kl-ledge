@@ -187,9 +187,10 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
     if (list) next.set(machine, list); else if (!next.delete(machine)) return;
     routineLists = next; routinesChanged();
   };
-  /** Each pending `routine.cmd` of `machine` fails with `code`: offline when it fell, outdated when its daemon does not know routines. */
-  const answerFailedRoutines = (machine: string, code: 'offline' | 'outdated') => {
-    const message = code === 'offline' ? 'hors ligne' : 'version trop ancienne';
+  /** Each pending `routine.cmd` of `machine` fails with `code`: offline when it fell, outdated when its daemon does not know
+   *  routines, invalid when it knows them and refused a message's content (`reason`, its words). */
+  const answerFailedRoutines = (machine: string, code: 'offline' | 'outdated' | 'invalid', reason?: string) => {
+    const message = code === 'offline' ? 'hors ligne' : code === 'outdated' ? 'version trop ancienne' : reason || 'message invalide';
     for (const [rid, a] of routineAsks) if (a.machine === machine) { routineAsks.delete(rid); a.settle(false, { code, message } satisfies RoutineFailure); }
   };
   const forgeChanged = () => { forgeListeners.forEach(fn => fn()); listeners.forEach(fn => fn()); };
@@ -565,7 +566,9 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
       if (m.request?.startsWith('openrig.')) { answerFailedRigs(machine, 'outdated'); return; }
       if (m.request === 'forge.detail' || m.request === 'forge.act') { answerFailedForge(machine, 'outdated'); return; }
       if (m.request === 'routine.list') return;
-      if (m.request === 'routine.cmd' || m.request === 'routine.preview') { answerFailedRoutines(machine, 'outdated'); return; }
+      // Only a daemon that does not announce routines is too old for them; one that does refused this message's content (an
+      // older one of those answers a schema failure this way, issue #22): a refusal of the form, not a version problem.
+      if (m.request === 'routine.cmd' || m.request === 'routine.preview') { answerFailedRoutines(machine, p.snapshot?.daemon?.routines ? 'invalid' : 'outdated', m.message); return; }
       if ((m.request === 'folder.list' || m.request === 'folder.create') && [...listings.values()].some(l => l.machine === machine)) { answerUnfoundListings(machine, m.message || 'not found'); return; }
       // Only the in-flight operation's own refusal ends it: another refused command leaves it waiting for its answer or the machine's drop.
       if (m.request !== undefined && OPERATIONS.has(m.request)) endOperation(machine);

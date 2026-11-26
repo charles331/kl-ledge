@@ -382,6 +382,31 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
   });
 }
 
+test.describe('the session name, zoomed', () => {
+  test.use({ deviceScaleFactor: 2 });
+  for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
+  test(`Routines (${theme}, ${lang}): a new session needs its name (issue #22, variant B)`, async ({ page }) => {
+    const daemon = await boot(page, theme, lang);
+    const fr = lang === 'fr';
+    await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+    const view = page.getByRole('region', { name: 'Routines' });
+    await view.getByRole('button', { name: fr ? 'Nouvelle routine' : 'New routine' }).first().click();
+    const nw = page.getByRole('tabpanel', { name: fr ? /^Nouvelle routine/ : /^New routine/ });
+    await nw.getByRole('radio', { name: fr ? /^Une nouvelle session/ : /^A new session/ }).check();
+    await nw.locator('#rtn-dir').fill('~/assistant');
+    await nw.getByRole('button', { name: fr ? 'Créer la routine' : 'Create the routine' }).click();
+    // The name outlined, its text under it, nothing under « Dossier »; nothing sent to the daemon.
+    const sname = nw.locator('#rtn-sname');
+    await expect(sname).toHaveClass(/\berr\b/);
+    await expect(sname.locator('xpath=..').locator('.rtn-hint.err')).toHaveText(fr ? 'Donne un nom à la session.' : 'Name the session.');
+    await expect(nw.locator('#rtn-dir').locator('xpath=ancestor::div[contains(@class,"rtn-col")][1]').locator('.rtn-hint.err')).toHaveCount(0);
+    expect(daemon.received.some(m => m.type === 'routine.cmd' && m.op === 'add')).toBe(false);
+    const b = await box(page, '.rtn-radios');
+    await shot(page, `nom-session-b-${theme}-${lang}`, { x: b.x - 16, y: b.y - 8, width: Math.min(b.width + 32, 640), height: b.height + 16 });
+  });
+  }
+});
+
 test('Routines: empty, then the daemon gone', async ({ page }) => {
   await boot(page, 'dark', 'fr', []);
   await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
