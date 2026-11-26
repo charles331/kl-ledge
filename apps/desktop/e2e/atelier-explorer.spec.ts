@@ -112,11 +112,13 @@ for (const theme of ['dark', 'light'] as const) {
       expect(s.time!.y, name).toBeGreaterThanOrEqual(s.strong!.y + s.strong!.h);
       expect(s.row.x + s.row.w - (s.time!.x + s.time!.w), name).toBe(8);
     }
-    // « À toi » on the first line of a session that waits, in place of its time: 18 px high, 6 px from the edge.
+    // « À toi » on the first line of a session that waits, in place of its time: 18 px high, its right edge 6 px from the row's
+    // (its width follows the font; the edge does not).
     for (const name of ['Pim', 'Tom']) {
       const s = sessions[name]!;
       expect(s.tagText, name).toBe('À toi');
-      expect(s.tag, name).toMatchObject({ x: 240, h: 18 });
+      expect(s.tag!.h, name).toBe(18);
+      expect(s.row.x + s.row.w - (s.tag!.x + s.tag!.w), name).toBe(6);
       expect(s.tag!.y, name).toBeLessThan(s.strong!.y + s.strong!.h);
     }
     // The session one is in (Pim, in front of the focused group): a raised row, its name semi-bold; the others are not.
