@@ -63,7 +63,7 @@ export function oklchToHex([L, C, H]: Lch, alpha = 1): string {
 const at = (l: number, c: number, h: number, alpha = 1) => oklchToHex([clamp01(l), Math.max(0, c), h], alpha);
 
 /** The ladder of §3.1, from the main background; its chroma is capped (0.04 dark, 0.028 light) so a vivid pick stays usable. */
-export interface Ladder { pane: string; side: string; well: string; bench: string; card: string; raise: string; field: string; ink: string; ink2: string; line: string; line2: string }
+export interface Ladder { pane: string; side: string; well: string; bench: string; card: string; raise: string; field: string; ink: string; ink2: string; line: string; line2: string; /** The focused group's border (#28 focus cue, option A). */ line3: string }
 export function skinLadder(base: string, theme: SkinTheme): Ladder {
   const [l, c0, h] = hexToOklch(base);
   const c = Math.min(c0, theme === 'dark' ? 0.04 : 0.028);
@@ -72,14 +72,14 @@ export function skinLadder(base: string, theme: SkinTheme): Ladder {
     const well = at(l - 0.04, c, h);
     return {
       pane: at(l, c, h), side: at(l - 0.018, c, h), well, bench: at(l - 0.068, c * 0.9, h), card: at(l + 0.04, c, h), raise: at(l + 0.075, c, h),
-      field: well, ink: oklchToHex(ink), ink2: at(0.69, c + 0.004, h), line: oklchToHex(ink, 0.09), line2: oklchToHex(ink, 0.17)
+      field: well, ink: oklchToHex(ink), ink2: at(0.69, c + 0.004, h), line: oklchToHex(ink, 0.09), line2: oklchToHex(ink, 0.17), line3: oklchToHex(ink, 0.32)
     };
   }
   const ink: Lch = [0.24, c + 0.012, h];
   const card = at(Math.min(1, l + 0.02), c * 0.5, h);
   return {
     pane: at(l, c, h), side: at(l - 0.025, c, h), well: at(l - 0.035, c, h), bench: at(l - 0.08, c * 1.1, h), card, raise: at(l - 0.055, c, h),
-    field: card, ink: oklchToHex(ink), ink2: at(0.52, c + 0.012, h), line: oklchToHex(ink, 0.11), line2: oklchToHex(ink, 0.2)
+    field: card, ink: oklchToHex(ink), ink2: at(0.52, c + 0.012, h), line: oklchToHex(ink, 0.11), line2: oklchToHex(ink, 0.2), line3: oklchToHex(ink, 0.38)
   };
 }
 
@@ -97,7 +97,7 @@ export function skinTokens({ theme, palette = DEFAULT_PALETTE, accent = null }: 
   const wh = hexToOklch(theme === 'dark' ? '#fbbf24' : '#b45309')[2];
   return {
     '--at-pane': s.pane, '--at-side': s.side, '--at-well': s.well, '--at-bench': s.bench, '--at-card': s.card, '--at-raise': s.raise,
-    '--at-field': s.field, '--at-ink': s.ink, '--at-ink2': s.ink2, '--at-line': s.line, '--at-line2': s.line2,
+    '--at-field': s.field, '--at-ink': s.ink, '--at-ink2': s.ink2, '--at-line': s.line, '--at-line2': s.line2, '--at-line3': s.line3,
     '--at-coral': coral, '--at-coral-ink': coralInk, '--at-warning-ink': at(0.2, 0.04, wh),
     '--background': s.field, '--foreground': s.ink,
     '--card': s.card, '--card-foreground': s.ink, '--popover': s.card, '--popover-foreground': s.ink,

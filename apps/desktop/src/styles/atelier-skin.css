@@ -145,3 +145,12 @@
 :root[data-skin="atelier"] [role="menu"], :root[data-skin="atelier"] .usage-pop { border-radius: 14px; }
 :root[data-skin="atelier"] [role="menuitem"] { border-radius: 8px; }
 :root[data-skin="atelier"] .modal { border-radius: 16px; }
+
+/* ---------- The focused group (#28 focus cue, option A, the owner 2026-11-26; docs/mockups/ledge-ide-atelier-focus.html) ---------- */
+/* With the coral line under the tab gone, the group that takes the keyboard says so: its card's border is the ink at 32 % (dark) or
+   38 % (light), and the title of its tab in front is in full ink. Only with more than one group: alone, there is nothing to tell apart.
+   No new colour, no animation. */
+:root[data-skin="atelier"] .ide-dock:has(.dv-groupview:not(.dv-active-group)) .dv-groupview.dv-active-group { border-color: var(--at-line3); }
+:root[data-skin="atelier"] .ide-dock:has(.dv-groupview:not(.dv-active-group)) .dv-groupview.dv-active-group .dv-tab.dv-active-tab .tab-name { color: var(--at-ink); }
+/* The other groups' tab in front keeps the secondary ink: the full ink is the focused one's. */
+:root[data-skin="atelier"] .ide-dock:has(.dv-groupview:not(.dv-active-group)) .dv-groupview:not(.dv-active-group) .dv-tab.dv-active-tab .tab-name { color: var(--at-ink2); }
