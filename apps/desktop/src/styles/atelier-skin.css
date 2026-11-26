@@ -137,6 +137,12 @@
 :root[data-skin="atelier"] .ide textarea, :root[data-skin="atelier"] .ide select { border-radius: 8px; }
 /* A long duration (« 9 min 24 s ») widens its column instead of running out of the thread. */
 :root[data-skin="atelier"] .ide-pane .r { grid-template-columns: 40px minmax(0, 1fr) minmax(56px, max-content); }
+/* Under 600 px a session page keeps its narrow rail (session.css: 32 px, 44 px for the time), the time still free to widen, and the
+   actions' block starts as far right of that rail. */
+@container session (max-width: 600px) {
+  :root[data-skin="atelier"] .ide-pane .r { grid-template-columns: 32px minmax(0, 1fr) minmax(44px, max-content); }
+  :root[data-skin="atelier"] .r.action-row::before { left: 36px; }
+}
 /* A key shown inside a coloured button borrows the button's ink, or it is coral on coral. */
 :root[data-skin="atelier"] .ledge-btn kbd, :root[data-skin="atelier"] .fg-btn kbd, :root[data-skin="atelier"] .btn kbd { background: color-mix(in srgb, currentColor 16%, transparent) !important; border-color: transparent !important; color: inherit !important; }
 /* The keyboard's ring follows the tab's shape. */
