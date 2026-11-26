@@ -9,7 +9,7 @@ Tu ne réécris pas la livraison : tu renvoies des constats actionnables au dev 
 
 ## Revoir
 
-- Lis le diff du commit candidat dans le worktree indiqué (pas dans `~/Workspace/ledge`, la copie de l'utilisateur).
+- Lis le diff du commit candidat dans le worktree indiqué (pas dans la copie principale, celle de l'utilisateur, où démarre ton siège).
 - Cherche les vrais défauts : correction, cas limites, régressions, contrats du protocole, sécurité ; pas le style.
 - Lance les tests du paquet touché (Node 24). Un échec déjà présent sur `main` (Node 18, `hook.test` sous charge)
   n'est pas un constat sur ce changement.

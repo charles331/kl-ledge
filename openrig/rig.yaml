@@ -7,6 +7,8 @@ summary: >
 
 culture_file: CULTURE.md
 
+# Seats start in the checkout the rig is launched from: every member's `cwd: ".."` is the repository root next to this
+# spec. A library copy of the spec has no repository beside it, so it is launched with `rig up ledge-dev --cwd <checkout>`.
 # Claude seats get OpenRig's guidance blocks in CLAUDE.local.md (ignored by git), not in the tracked CLAUDE.md.
 managed_blocks:
   claude-code: CLAUDE.local.md
@@ -25,7 +27,7 @@ pods:
         profile: default
         runtime: claude-code
         model: claude-opus-5-5
-        cwd: "~/Workspace/ledge"
+        cwd: ".."
     edges: []
 
   - id: design
@@ -38,7 +40,7 @@ pods:
         profile: default
         runtime: claude-code
         model: claude-opus-5-5
-        cwd: "~/Workspace/ledge"
+        cwd: ".."
     edges: []
 
   - id: dev
@@ -51,7 +53,7 @@ pods:
         profile: default
         runtime: claude-code
         model: claude-opus-5-5
-        cwd: "~/Workspace/ledge"
+        cwd: ".."
         startup:
           files:
             - path: guidance/scope-front.md
@@ -63,7 +65,7 @@ pods:
         profile: default
         runtime: claude-code
         model: claude-opus-5-5
-        cwd: "~/Workspace/ledge"
+        cwd: ".."
         startup:
           files:
             - path: guidance/scope-back.md
@@ -84,7 +86,7 @@ pods:
         profile: default
         runtime: codex
         model: gpt-6.1-terra
-        cwd: "~/Workspace/ledge"
+        cwd: ".."
     edges: []
 
 edges:
