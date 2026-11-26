@@ -62,7 +62,8 @@ export const mineQuery = (field: string, without: ReadonlySet<string> = new Set(
 export function missingOptional(errors: ReadonlyArray<{ message?: string }>): string[] | null {
   const out: string[] = [];
   for (const e of errors) {
-    const m = /^Field '(\w+)' doesn't exist on type 'MergeRequest'$/.exec((e.message ?? '').trim());
+    // GitLab may add a suggestion: « (Did you mean `…`?) ».
+    const m = /^Field '(\w+)' doesn't exist on type 'MergeRequest'(?:\s*\(Did you mean .*\))?\.?$/.exec((e.message ?? '').trim());
     if (!m || !MINE_OPTIONAL.has(m[1]!)) return null;
     out.push(m[1]!);
   }
@@ -201,16 +202,18 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
         for (;;) {
           const without = mineWithout.get(host) ?? new Set<string>();
           const r = await run('glab', ['api', '--hostname', host, '--method', 'POST', '-H', 'Content-Type: application/json', 'graphql', '--input', '-'], { input: JSON.stringify({ query: mineQuery(field, without), variables: { since } }) });
-          const j = okJson<MineAnswer>(r, 'glab');
-          // An older GitLab without some optional fields: asked again without them, remembered for this host (#11).
-          const missing = j.errors?.length ? missingOptional(j.errors) : null;
+          // An older GitLab without some optional fields: asked again without them, remembered for this host (#11). glab exits 1 on
+          // GraphQL errors, the answer still on stdout (review of 9caacc2a): read there before the run counts as failed.
+          let errs: Array<{ message?: string }> | undefined;
+          try { errs = (JSON.parse(r.stdout) as MineAnswer).errors; } catch { errs = undefined; }
+          const missing = errs?.length ? missingOptional(errs) : null;
           if (missing && missing.some(f => !without.has(f))) {
             const next = new Set([...without, ...missing]);
             mineWithout.set(host, next);
             log(`forge: ${host}: GitLab has no ${missing.join(', ')}; own merge requests read without`);
             continue;
           }
-          return j;
+          return okJson<MineAnswer>(r, 'glab');
         }
       };
       // Every role read, or none: one failed query fails the host's read (its last list is kept), never a list missing a role.
