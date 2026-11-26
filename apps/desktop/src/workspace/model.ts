@@ -141,14 +141,16 @@ export function open(w: Workspace, tab: Tab, where: Where = 'active', opts: Open
   const mains = w.groups.filter(g => g.window === MAIN);
   const right = opts.preview && where === 'right' && base.window === MAIN ? mains[mains.indexOf(base) + 1] : undefined;
   const { w: w1, group } = where === 'active' ? { w, group: base } : right ? { w, group: right } : where === 'right' ? addGroup(w, { after: base }) : addGroup(w, { window: 'new' });
-  const g = groupById(w1, group.id)!;
-  if (!opts.preview) {
-    const tabs = [...g.tabs, tab];
-    return activate(replaceGroup(w1, { ...g, tabs }), g.id, tabs.length - 1);
-  }
+  const { group: g, index } = addTab(groupById(w1, group.id)!, tab, opts);
+  return activate(replaceGroup(w1, g), g.id, index);
+}
+
+/** `tab` (not open) added to `g`: kept, at the end; a preview, in the place of `g`'s preview, else at the end. */
+function addTab(g: Group, tab: Tab, opts: OpenOptions): { group: Group; index: number } {
+  if (!opts.preview) return { group: { ...g, tabs: [...g.tabs, tab] }, index: g.tabs.length };
   const at = g.tabs.findIndex(t => keyOf(t) === g.preview);
   const tabs = at >= 0 ? g.tabs.map((t, i) => (i === at ? tab : t)) : [...g.tabs, tab];
-  return activate(replaceGroup(w1, { ...g, tabs, preview: key }), g.id, at >= 0 ? at : tabs.length - 1);
+  return { group: { ...g, tabs, preview: keyOf(tab) }, index: at >= 0 ? at : tabs.length - 1 };
 }
 
 /** Keeps tab `key`: it stops being its group's preview (a double click on it, or an action in it). Else the same object. */
@@ -354,9 +356,10 @@ export function reopenLast(w: Workspace, stack: readonly Closed[], keep: (t: Tab
 export function split(w: Workspace, groupId: string): Workspace {
   const g = groupById(w, groupId);
   if (!g || g.window !== MAIN) return w;
-  // Splitting with the front tab keeps it, should it be the preview.
+  // Splitting with the front tab keeps it, should it be the preview (addGroup finds `after` by identity: the group as pinned).
   const front = g.tabs[g.active];
-  const { w: w1, group } = addGroup(front ? pin(w, keyOf(front)) : w, { after: g });
+  const base = front ? pin(w, keyOf(front)) : w;
+  const { w: w1, group } = addGroup(base, { after: groupById(base, groupId)! });
   const from = sessionOf(g.tabs[g.active]);
   return { ...replaceGroup(w1, from ? { ...group, from } : group), focus: group.id };
 }
@@ -381,7 +384,7 @@ export function setLink(w: Workspace, groupId: string, link: Link | null): Works
 
 /** « +N −N » of a session tab: its Changes (or its attached terminal) beside it, in a group of the same colour. The
  *  group is linked first if it was not (the colour no other group uses, violet when both are taken). */
-export function beside(w: Workspace, groupId: string, kind: 'changes' | 'terminal', session: string): Workspace {
+export function beside(w: Workspace, groupId: string, kind: 'changes' | 'terminal', session: string, opts: OpenOptions = {}): Workspace {
   let g = groupById(w, groupId);
   if (!g) return w;
   let out = w;
@@ -399,8 +402,9 @@ export function beside(w: Workspace, groupId: string, kind: 'changes' | 'termina
   // one is detached (addGroup).
   let peer = out.groups.find(x => x.id !== g!.id && x.link === g!.link);
   if (!peer) { const r = addGroup(out, { after: g }); out = replaceGroup(r.w, { ...r.group, link: g.link }); peer = groupById(out, r.group.id)!; }
-  const tabs = [...peer.tabs, want];
-  out = replaceGroup(out, { ...peer, tabs, active: tabs.length - 1 });
+  // Asked by a single click (the session bar's « +N −N »), it is the linked group's preview (spec 2026-11-26-preview-tabs §5.4).
+  const { group: added, index } = addTab(peer, want, opts);
+  out = replaceGroup(out, { ...added, active: index });
   return { ...out, focus: g.id };
 }
 

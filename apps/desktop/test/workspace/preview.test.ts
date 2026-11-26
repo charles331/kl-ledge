@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  activate, changesTab, close, closeOthers, closeWindow, deserialize, empty, find, isPreview, keyOf, move, moveActive, moveTo, open, pin, place,
+  activate, beside, changesTab, close, closeOthers, closeWindow, deserialize, empty, find, isPreview, keyOf, move, moveActive, moveTo, open, pin, place,
   reconcile, remember, reopenLast, serialize, setLink, setView, split, windowOf, type Tab, type Workspace
 } from '../../src/workspace/model';
 
@@ -112,10 +112,13 @@ describe('keeping a preview', () => {
     expect(isPreview(place(base, S('b'), { group: 'g2', index: 0 }), 'session:b')).toBe(false);
   });
 
-  it('a split from it keeps it', () => {
-    const w = split(looked(), 'g1');
-    expect(preview(w, 'g1')).toBeNull();
-    expect(w.focus).toBe('g2');
+  it('a split from it keeps it; the new group is right of it', () => {
+    const w = split(open(open(empty(), S('x')), S('y'), 'right'), 'g1');
+    const v = split(open(looked(), S('x'), 'right'), 'g1');
+    expect(preview(v, 'g1')).toBeNull();
+    expect(v.groups.map(g => g.id)).toEqual(w.groups.map(g => g.id));
+    expect(v.groups.map(g => g.id)).toEqual(['g1', 'g3', 'g2']);
+    expect(v.focus).toBe('g3');
   });
 
   it('looking is not acting: activating, switching thread ⇄ terminal, another tab reordered leave it a preview', () => {
@@ -159,6 +162,16 @@ describe('closing, following, coming back', () => {
     w = activate(w, 'g1', 1);
     expect(keys(w, 'g2')).toEqual([keyOf(changesTab('b'))]);
     expect(preview(w, 'g2')).toBe(keyOf(changesTab('b')));
+  });
+
+  it('« +N −N » by a single click: the Changes are the linked group\'s preview, replaced by the next session\'s', () => {
+    let w = open(open(empty(), S('a')), S('b'));
+    w = beside(w, 'g1', 'changes', 'a', P);
+    expect(preview(w, 'g2')).toBe(keyOf(changesTab('a')));
+    w = beside(w, 'g1', 'changes', 'b', P);
+    expect(keys(w, 'g2')).toEqual([keyOf(changesTab('b'))]);
+    // Kept, as before, without the option.
+    expect(preview(beside(open(empty(), S('a')), 'g1', 'changes', 'a'), 'g2')).toBeNull();
   });
 
   it('a detached window closed: its tabs come back kept', () => {

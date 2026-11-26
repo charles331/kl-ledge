@@ -5,7 +5,8 @@ import 'dockview-react/dist/styles/dockview.css';
 import { Icon } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
 import { SHELL_ICONS } from '../shell/icons';
-import { activate, closeGroup, closeWindow, find, focusGroup, keyOf, LINKS, MAIN, move, moveTo, setLink, split, windowOf, type Group, type Link, type Tab, type Workspace } from '../workspace/model';
+import { activate, closeGroup, closeWindow, find, focusGroup, isPreview, keyOf, LINKS, MAIN, move, moveTo, pin, setLink, split, windowOf, type Group, type Link, type Tab, type Workspace } from '../workspace/model';
+import { ACTING_KINDS, acts, noteClick, typing } from '../workspace/intent';
 import { Menu, MenuItem } from '../shell/Menu';
 import type { WorkspaceStore } from '../workspace/store';
 import { TabPlaceContext, type TabPlace } from '../workspace/tabPlace';
@@ -44,7 +45,8 @@ export const GROUP_MIN_WIDTH = 300;
 const Content = createContext<{ tabOf(id: string): Tab | undefined; body: TabBody; title(t: Tab): string; label(t: Tab): ReactNode; alert(t: Tab): 'perm' | 'ask' | null; onTabMenu(t: Tab, at: { x: number; y: number }): void; onNewSession(groupId: string): void; groupOf(id: string): string | undefined; focus: string;
   /** The model group a dockview group draws. */ modelOf(dg: unknown): Group | undefined; emptyGroup(groupId: string): ReactNode; split(groupId: string): void; setLink(groupId: string, link: Link | null): void;
   /** How many other groups of the window carry `link`. */ linkUse(groupId: string, link: Link): number;
-  /** « Fermer le groupe »: an empty group goes; `lone` when it is the window's only group (it stays, without the button). */ closeGroup(groupId: string): void; lone: boolean } | null>(null);
+  /** « Fermer le groupe »: an empty group goes; `lone` when it is the window's only group (it stays, without the button). */ closeGroup(groupId: string): void; lone: boolean;
+  /** The preview tabs (spec 2026-11-26-preview-tabs): whether a tab is its group's preview, and keeping it. */ isPreview(id: string): boolean; pin(id: string): void } | null>(null);
 
 /** One panel = one tab of the model (`id = keyOf(tab)`). dockview draws only the visible one (`onlyWhenVisible`, its default). */
 function Pane({ api }: IDockviewPanelProps): JSX.Element | null {
@@ -60,7 +62,19 @@ function Pane({ api }: IDockviewPanelProps): JSX.Element | null {
   if (!tab) return null;
   const group = c!.groupOf(api.id) ?? '';
   const place: TabPlace = { key: api.id, group, visible, active: visible && group === c!.focus };
-  return <TabPlaceContext.Provider value={place}><div className="ide-pane">{c!.body(tab)}</div></TabPlaceContext.Provider>;
+  // Acting in a preview keeps it (§5.4), before the act itself: typing in one of its fields, pasting, a button of a tab whose
+  // buttons act, a setting or a routine's field changed. A click in it is noted, so a tab it opens is a preview and this one kept.
+  const keep = () => { if (c!.isPreview(api.id)) c!.pin(api.id); };
+  const acting = ACTING_KINDS.has(tab.kind);
+  return (
+    <TabPlaceContext.Provider value={place}>
+      <div className="ide-pane"
+        onClickCapture={e => { noteClick(e.nativeEvent, api.id); if (acting && acts(e.target)) keep(); }}
+        onKeyDownCapture={e => { if (typing(e.nativeEvent)) keep(); }} onPasteCapture={keep} onChangeCapture={() => { if (acting) keep(); }}>
+        {c!.body(tab)}
+      </div>
+    </TabPlaceContext.Provider>
+  );
 }
 
 /** The « × » of a tab and of an empty group's « Fermer le groupe ». */
@@ -79,12 +93,17 @@ function PanelTab({ api }: IDockviewPanelHeaderProps): JSX.Element | null {
   // The whole tab answers a right click, its padding included: a listener on dockview's element, not on our span.
   const menuRef = useRef<(at: { x: number; y: number }) => void>(() => {});
   menuRef.current = at => { if (tab) { api.setActive(); c!.onTabMenu(tab, at); } };
+  const keepRef = useRef<() => void>(() => {});
+  keepRef.current = () => { if (c?.isPreview(api.id)) c.pin(api.id); };
   useLayoutEffect(() => {
     const el = mark.current?.closest<HTMLElement>('.dv-tab');
     if (!el) return;
     const onMenu = (e: MouseEvent) => { e.preventDefault(); menuRef.current({ x: e.clientX, y: e.clientY }); };
+    // A double click on a preview's tab keeps it (§5.4), on dockview's element so the padding answers too.
+    const onKeep = () => keepRef.current();
     el.addEventListener('contextmenu', onMenu);
-    return () => el.removeEventListener('contextmenu', onMenu);
+    el.addEventListener('dblclick', onKeep);
+    return () => { el.removeEventListener('contextmenu', onMenu); el.removeEventListener('dblclick', onKeep); };
   }, []);
   useLayoutEffect(() => {
     const el = mark.current?.closest('.dv-tab');
@@ -95,7 +114,7 @@ function PanelTab({ api }: IDockviewPanelHeaderProps): JSX.Element | null {
   }, [alert]);
   if (!tab) return null;
   return (
-    <span ref={mark} className="ide-tab" onPointerUp={e => { if (e.button === 1) api.close(); }}>
+    <span ref={mark} className={c!.isPreview(api.id) ? 'ide-tab preview' : 'ide-tab'} onPointerUp={e => { if (e.button === 1) api.close(); }}>
       {c!.label(tab)}
       <button type="button" className="dv-default-tab-action" tabIndex={-1} aria-label={t.ide.closeTab(c!.title(tab))}
         onPointerDown={e => e.preventDefault()} onClick={e => { e.preventDefault(); api.close(); }}>
@@ -274,7 +293,8 @@ export function DockHost({ ws, store, title, body, label, alert, onTabMenu, onNe
     modelOf, emptyGroup, split: (id: string) => store.update(w => split(w, id)), setLink: (id: string, link: Link | null) => store.update(w => setLink(w, id, link)),
     // The link holds across windows: every window's groups count.
     linkUse: (id: string, link: Link) => ws.groups.filter(g => g.id !== id && g.link === link).length,
-    closeGroup: (id: string) => store.update(w => closeGroup(w, id)), lone: groups.length === 1 };
+    closeGroup: (id: string) => store.update(w => closeGroup(w, id)), lone: groups.length === 1,
+    isPreview: (id: string) => isPreview(ws, id), pin: (id: string) => store.update(w => pin(w, id)) };
 
   /** Draws each model group, left to right: its dockview group (made where it belongs if it has none) and its panels at
    *  their places. A panel sitting elsewhere is moved there, never remade, so its content keeps its state; what puts its

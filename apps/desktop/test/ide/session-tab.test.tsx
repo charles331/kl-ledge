@@ -70,8 +70,9 @@ const decided = (d: Daemon) => d.received.filter(m => m.type === 'session.decide
 /** Otto and Nova open in tabs, Nova in front. */
 async function twoTabs() {
   const m = await mount();
-  await m.user.click(m.tree.getByRole('button', { name: /^Otto/ }));
-  await m.user.click(m.tree.getByRole('button', { name: /^Nova/ }));
+  // Double clicks: two kept tabs (a single click opens a preview the next one replaces).
+  await m.user.dblClick(m.tree.getByRole('button', { name: /^Otto/ }));
+  await m.user.dblClick(m.tree.getByRole('button', { name: /^Nova/ }));
   await waitFor(() => expect(activeTab()).toHaveAccessibleName('Nova'));
   await waitFor(() => expect(page()?.dataset.session).toMatch(/nova/));
   return m;

@@ -43,6 +43,19 @@ Les rigs ne figurent pas dans la vue Projets. Ils sont réservés à la vue Rigs
 Types d'onglets : **session**, **siège OpenRig**, **modifications** d'une session, **terminal**, **MR ou PR**, **vue Rig** (la topologie et les réglages d'un rig ou du kernel), **page OpenRig**, **page À toi**, **atelier**, **réglages**.
 
 - **Ouvrir.** Un clic dans l'explorateur ouvre selon le réglage « Ouvrir une session » : dans le groupe actif, ou à droite. `Ctrl`+clic ouvre à droite. Le clic droit propose : ouvrir, ouvrir à droite, son terminal (ou sa capture pour un siège), envoyer un message et redémarrer le siège (pour un siège), ouvrir dans l'éditeur. Un onglet déjà ouvert est mis au premier plan, jamais dupliqué.
+- **Aperçu : un clic regarde, un double clic garde** (spec `docs/superpowers/specs/2026-11-26-preview-tabs-design.md`, maquette `docs/mockups/ledge-preview-tabs.html`, validées par l'utilisateur le 2026-11-26).
+  - **Un simple clic** (ou `Entrée`) ouvre un onglet d'**aperçu**, son titre en italique. Le prochain simple clic le **remplace à sa place**. Ce clic est fait dans l'explorateur (Projets, Archives, Rigs, À toi et sa « Page », MR et PR, Routines), sur un agent de l'atelier, sur « Atelier » et « Réglages » de la barre d'activité, sur la prochaine demande de la barre d'état, ou sur « Voir » dans l'île. Un groupe a au plus un aperçu ; chaque groupe a le sien.
+  - **`Ctrl`+clic** met l'aperçu dans le groupe de droite, à la place de son aperçu. Un groupe n'est créé que s'il n'y en a pas à droite.
+  - **Un double clic** sur la ligne ou sur l'onglet **garde** l'onglet : son titre redevient droit, et le prochain clic ouvre un aperçu à côté.
+  - **Ouvrent un onglet gardé :** « Ouvrir » et « Ouvrir à droite » du clic droit (« Ouvrir à droite » crée toujours un groupe), une session qui vient d'être lancée, « Nouvelle routine », la palette (`Ctrl+K`), `Ctrl+Maj+T`, une disposition appliquée, et l'espace de travail relu au démarrage.
+  - **Agir dans un aperçu le garde**, avant l'action, pour que le clic suivant ne fasse jamais perdre un travail :
+    - la première touche tapée dans un champ (le composeur, un formulaire, le terminal), un collage ;
+    - envoyer un message, répondre à une demande (autorisation, question, plan), d'où que ce soit ;
+    - un bouton d'une MR ou PR, d'un rig, de la page OpenRig ou d'une routine ;
+    - un réglage changé ;
+    - un clic dans l'onglet qui en ouvre un autre : celui-ci est gardé, le nouveau est l'aperçu (un agent de l'atelier, un siège de la topologie, la MR ou PR et « +N −N » de la barre de session) ;
+    - le glisser, le déplacer, diviser depuis lui (`Ctrl+\`).
+  - **Ne gardent pas :** faire défiler, sélectionner du texte, basculer fil ⇄ terminal, changer de vue ou de section dans l'onglet, le survoler, lui donner le focus. « Fermer les autres » sur un aperçu le laisse aperçu.
 - **Le bouton + d'un groupe** ouvre directement « Nouvelle session » (voir plus bas), et rien d'autre.
 - **Diviser** (`Ctrl+\`) crée un groupe vide à droite, dans la fenêtre principale seulement. Il propose le terminal de la session qu'on quittait, ainsi que Nouvelle session, OpenRig, Réglages, Atelier et Terminal.
 - **Glisser** un onglet vers un autre groupe l'y déplace. Pendant le glisser, une zone « nouveau groupe » apparaît à droite de la fenêtre principale. Un groupe vidé disparaît, sauf le dernier de la fenêtre.

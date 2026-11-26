@@ -242,6 +242,9 @@ body.ide-resizing-y { cursor: row-resize; user-select: none; }
 .ide-tab .logo { display: inline-flex; }
 .ide-tab .tab-logo { display: inline-flex; }
 .ide-tab .tab-name { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A preview tab (docs/mockups/ledge-preview-tabs.html, option 1): its title in italic. Desktop sets `font-synthesis: none` and
+   loads Geist without an italic, so the browser is asked to slant Geist itself, or the title would stay upright. */
+.ide-tab.preview .tab-name { font-style: italic; font-synthesis-style: auto; }
 .ide-tab .tab-term { font-family: var(--font-mono,'Geist Mono',ui-monospace,monospace); font-size: 11px; color: var(--muted-foreground); }
 .ide-tab .tab-rig { font-size: 11px; color: var(--muted-foreground); }
 /* The state dot (mockup `.dot`): 8 px, a halo round a request, a slow pulse while it works (unless motion is reduced).

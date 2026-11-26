@@ -128,8 +128,8 @@ describe('the status bar’s « Dispositions »', () => {
 
   it('applied with a session gone: that tab only stays out, and a toast counts it', async () => {
     const { d, side, user } = await mount();
-    await user.click(side.getByRole('button', { name: /^Otto/ }));
-    await user.click(side.getByRole('button', { name: /^Nova/ }));
+    await user.dblClick(side.getByRole('button', { name: /^Otto/ }));
+    await user.dblClick(side.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(tabs()).toEqual(expect.arrayContaining(['Otto', 'Nova'])));
     await saveAs(user, 'Deux');
     d.remove('nova');

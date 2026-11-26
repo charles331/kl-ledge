@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { useI18n } from '../i18n/lang';
 import type { LayoutAction } from '../workspace/layout';
+import { noteClick } from '../workspace/intent';
 import '../styles/ide.css';
 
 /** The IDE's sidebar shell: the explorer's content, its resizable right edge (mockup `.resize`); no « Réduire » foot (the user, 2026-11-09): Ctrl + B and the title bar fold it. The reducer clamps the widths. */
@@ -24,7 +25,8 @@ export function IdeExplorer(p: { width: number; onLayout(a: LayoutAction): void;
     window.addEventListener('mouseup', up);
   };
   return (
-    <aside ref={root} className="ide-explorer" style={{ width: p.width }}>
+    // Its lines (Projets, Archives, Rigs, À toi, MR et PR, Routines) open previews (spec 2026-11-26-preview-tabs §5.2).
+    <aside ref={root} className="ide-explorer" style={{ width: p.width }} onClickCapture={e => noteClick(e.nativeEvent)}>
       <div className="ide-explorer-body">{p.children}</div>
       <div className="ide-resize" title={t.ide.resizeEdge} onMouseDown={start} onDoubleClick={() => p.onLayout({ type: 'resetWidth' })} />
     </aside>
