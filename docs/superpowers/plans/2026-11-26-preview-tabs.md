@@ -185,7 +185,7 @@ Update `docs/ide-workspace.md` (« Ouvrir », « Onglets et groupes ») and `doc
    model function, after `follow`, and after a workspace is read back.
 3. **No change for kept tabs.** Every existing `open` call without `preview` behaves exactly as before.
 
-## Readings to confirm (made in the model, not visible)
+## Readings of the spec, confirmed by pilot-lead on 2026-11-26
 
 - `Ctrl`+click opens the preview in the **existing** group on the right, replacing its preview (§5.2's « that group's
   preview »). A new group is made only when there is none. « Ouvrir à droite » from the menu still makes a new group.
