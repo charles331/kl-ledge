@@ -39,7 +39,8 @@ async function boot(page: Page, theme: 'light' | 'dark' = 'dark') {
 async function open(page: Page, name: string): Promise<void> {
   const button = page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Projects', exact: true });
   if (!(await button.getAttribute('class'))?.includes('on')) await button.click();
-  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  // A double click: a kept tab, so the next one opened sits beside it (a single click opens a preview the next one replaces).
+  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().dblclick();
   await expect(tabOf(page, name)).toHaveClass(/dv-active-tab/);
 }
 
