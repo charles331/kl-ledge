@@ -34,10 +34,11 @@ export function noteClick(e: { detail: number; target: EventTarget | null }, fro
 /** The click being handled, if one was noted. */
 export const clickIntent = (): Intent | null => current;
 
-/** Runs `fn` as a single click would: the island's and the notifications' « Voir » open previews (§5.2). */
-export function asPreview<T>(fn: () => T): T {
+/** Runs `fn` as a single click would: the island's « Voir », `Enter` on an agent of the Atelier (§5.2). `from`: the tab the
+ *  key was pressed in, kept when another tab opens from it. */
+export function asPreview<T>(fn: () => T, from?: string): T {
   const was = current;
-  current = { preview: true };
+  current = { preview: true, ...(from ? { from } : {}) };
   try { return fn(); } finally { current = was; }
 }
 

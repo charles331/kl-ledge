@@ -8,6 +8,8 @@ import { activeCount } from '../nav/agents';
 import type { ContextMenuState } from '../manage/useContextMenu';
 import type { SessionActions } from '../manage/useSessionActions';
 import { useScreenKeys } from '../nav/screenKeys';
+import { asPreview } from '../workspace/intent';
+import { useTabPlace } from '../workspace/tabPlace';
 import type { NavAction, NavState } from '../nav/state';
 import { roomTileWidth, sceneOf, walkOrder, type AtelierTable } from './layout';
 import { useGrouping } from '../openrig/grouping';
@@ -108,6 +110,7 @@ export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf,
     ...scene.rooms.map(r => roomTileWidth(r.tables, seats)), ...(scene.empty || scene.unassigned.length > 0 ? [ZONE_TILE] : [])
   ], [scene, seats]);
   const view = useAtelierView(tiles, [nav.helpers, nav.chat, filter, sessions.length]);
+  const tabPlace = useTabPlace();
   useScreenKeys(e => {
     if (view.keys(e)) return true;
     const target = e.target instanceof Element ? e.target : null;
@@ -135,7 +138,8 @@ export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf,
     }
     // A focused button or link keeps its own Entrée.
     if (e.key === 'Enter' && focusedId !== null && !target?.closest('button,a')) {
-      dispatch({ type: 'open', id: focusedId });
+      // As a click on the agent: a preview, the Atelier's tab kept (spec 2026-11-26-preview-tabs §5.2, §5.4).
+      asPreview(() => dispatch({ type: 'open', id: focusedId }), tabPlace?.key);
       return true;
     }
     return false;

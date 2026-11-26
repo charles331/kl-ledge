@@ -46,6 +46,13 @@ describe('noteClick and openAs', () => {
     expect(asPreview(() => isPreview(openAs(empty(), S('a')), 'session:a'))).toBe(true);
     expect(clickIntent()).toBeNull();
   });
+
+  it('asPreview from a tab (Enter on an agent of the Atelier): that tab kept, the agent the preview', () => {
+    const w = open(empty(), { kind: 'atelier', ref: 'main' }, 'active', { preview: true });
+    const r = asPreview(() => openAs(w, S('otto')), 'atelier:main');
+    expect(isPreview(r, 'atelier:main')).toBe(false);
+    expect(isPreview(r, 'session:otto')).toBe(true);
+  });
 });
 
 describe('typing', () => {
