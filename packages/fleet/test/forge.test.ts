@@ -57,6 +57,13 @@ describe('all my requests (issue #3)', () => {
     expect(list[0]).toMatchObject({ machineId: 'wsl', sessions: ['wsl:tom'], roles: ['author', 'assignee', 'reviewer'] });
     expect(list[1]).toBe(once);
   });
+  it('one row for a request two machines read under two ids, their remotes naming its repository in another case (#11)', () => {
+    const a = on('wsl', pr(7, { sessions: ['wsl:a'] }));
+    const b = on('srv', pr(7, { id: 'github.com/O/R#7', repo: 'O/R', url: 'https://github.com/O/R/pull/7/', sessions: ['srv:b'] }));
+    const list = listedPrs([a, b], []);
+    expect(list).toHaveLength(1);
+    expect(list[0]!.sessions).toEqual(['wsl:a', 'srv:b']);
+  });
   it('prefers a fresh read to a stale one, then the latest', () => {
     const stale = on('wsl', pr(3, { roles: ['author'], updatedAt: '2026-11-08T12:00:00.000Z' }), true);
     const fresh = on('srv', pr(3, { roles: ['author'], updatedAt: '2026-11-08T10:00:00.000Z' }));
