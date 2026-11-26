@@ -33,7 +33,8 @@ messages and these files are in English.
 
 ## Hard rules
 
-- One git worktree per task. Never work in `~/Workspace/ledge`: the owner often has uncommitted work there.
+- One git worktree per task. Never work in the owner's main checkout (the one the `ledge-dev` rig is launched from): the
+  owner often has uncommitted work there.
 - No push, PR, merge, release or destructive operation without the owner's explicit go for that very action.
 - No secret in code, logs, commits or messages (`~/.ledge/token`, VAPID keys, OAuth secrets, relay tokens).
 
@@ -72,6 +73,8 @@ Desktop screen is checked with zoomed Playwright screenshots (alignment included
 ## OpenRig in this repository
 
 `openrig/` holds the `ledge-dev` rig (a lead, a UX/UI designer, two developers, a Codex reviewer); its culture is
-`openrig/CULTURE.md`. Its seats start in `~/Workspace/ledge`, where OpenRig writes guidance blocks marked
-`<!-- BEGIN OpenRig MANAGED BLOCK: … -->`: Claude seats get theirs in `CLAUDE.local.md` (ignored by git), the Codex
-reviewer appends its own to this `AGENTS.md`. **Never commit OpenRig's managed blocks.**
+`openrig/CULTURE.md`. Its seats start in the checkout the rig is launched from, wherever it lives: `cwd: ".."` in
+`openrig/rig.yaml` is the repository root next to the spec, so the rig is launched by that path (`rig up
+openrig/rig.yaml`), not from OpenRig's library copy, which has no repository beside it. There OpenRig writes guidance
+blocks marked `<!-- BEGIN OpenRig MANAGED BLOCK: … -->`: Claude seats get theirs in `CLAUDE.local.md` (ignored by
+git), the Codex reviewer appends its own to this `AGENTS.md`. **Never commit OpenRig's managed blocks.**

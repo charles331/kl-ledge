@@ -23,21 +23,27 @@ toi ──objectif──▶ lead ──écran ?──▶ ux ──maquette──
 ```
 
 Règles complètes : [`CULTURE.md`](CULTURE.md). Chaque dev travaille dans son propre worktree
-(`../ledge-worktrees/<siège>-<sujet>`), jamais dans ta copie `~/Workspace/ledge`. Rien n'est poussé sans ton accord.
+(`../ledge-worktrees/<siège>-<sujet>`), jamais dans ta copie principale, celle d'où tu lances l'équipe. Rien n'est
+poussé sans ton accord.
 
 ## Lancer
 
 ```
 rig daemon start             # si le daemon est arrêté
-rig up openrig/rig.yaml      # depuis la racine du dépôt
+rig up openrig/rig.yaml      # par son chemin : les sièges démarrent dans la copie qui contient cette spec
 ```
+
+Ne lance pas l'équipe depuis la bibliothèque OpenRig (`rig up ledge-dev`) : sa copie de la spec n'a pas de dépôt autour
+d'elle, et elle peut être plus ancienne que ce dossier (celle du 3 novembre n'a pas `managed_blocks`).
 
 Puis parle au lead : `rig send pilot-lead@ledge-dev "<ton objectif>"`, ou dans son terminal. Revenir à une équipe
 arrêtée : `rig up ledge-dev --existing`.
 
 ## Fichiers
 
-- `rig.yaml` — topologie (pods, sièges, liens). `cwd: "~/Workspace/ledge"` : les sièges démarrent à la racine du dépôt, que la spec soit lancée depuis le dépôt ou depuis la bibliothèque OpenRig.
+- `rig.yaml` — topologie (pods, sièges, liens). `cwd: ".."` : les sièges démarrent à la racine de la copie qui contient
+  la spec, où qu'elle soit.
+  `managed_blocks` met les blocs d'OpenRig des sièges Claude dans `CLAUDE.local.md`, ignoré par git.
 - `CULTURE.md` — règles communes à toute l'équipe.
 - `agents/<rôle>/` — spec et consignes de rôle de chaque agent ; `agents/developer` sert aux deux devs.
 - `guidance/scope-*.md` — le périmètre propre à chaque dev.

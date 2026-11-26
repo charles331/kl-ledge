@@ -16,11 +16,12 @@ au démarrage.
 
 ## Où travailler
 
-Jamais dans `~/Workspace/ledge` (la copie de l'utilisateur, souvent avec du travail en cours). Un worktree par
-tâche, à côté du dépôt :
+Jamais dans la copie principale, le dossier où démarre ton siège (la copie de l'utilisateur, souvent avec du travail
+en cours). Un worktree par tâche, à côté du dépôt. `-C` le crée par rapport à la copie principale, même si ton shell
+est resté dans un autre worktree :
 
 ```
-git -C ~/Workspace/ledge worktree add ../ledge-worktrees/<siège>-<sujet> -b <type>/<sujet> <base>
+git -C <copie principale> worktree add ../ledge-worktrees/<siège>-<sujet> -b <type>/<sujet> <base>
 ```
 
 puis `pnpm install` **dans** ce worktree (jamais de `node_modules` lié depuis la copie principale : les builds
