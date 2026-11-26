@@ -2,7 +2,7 @@
 // of it. Every write is an operation named by a uuid, sent again with that same uuid after a lost connection.
 import { useSyncExternalStore } from 'react';
 import {
-  PhoneClientMessageSchema, type Assertion, type DeviceKind, type DevicePrefs, type PcAction, type PhoneFolder, type PhoneLaunch, type OperationReason, type ProjectColor, type AttachmentRef, type CapabilitiesByTool, type Credential, type ImageUpload, type PhoneClientMessage, type PhonePending, type PhoneServerMessage,
+  PhoneClientMessageSchema, type PhoneSessionOrder, type Assertion, type DeviceKind, type DevicePrefs, type PcAction, type PhoneFolder, type PhoneLaunch, type OperationReason, type ProjectColor, type AttachmentRef, type CapabilitiesByTool, type Credential, type ImageUpload, type PhoneClientMessage, type PhonePending, type PhoneServerMessage,
   type ModelRefusal, type PhoneChecklist, type PhoneModelChoice, type PhoneProject, type PhoneRigRow, type PhoneSlashCommand, type PhoneSession, type PhoneTask, type PushSubscription, type ThreadItem, type BrainChoice, type PhoneHarnessUsage, type HumanAsk, type HumanAnswer, type HumanChannel, type OpenRigAction, type ForgeAction, type PointAnswer, type PhoneRoutine, type PhoneRoutineDetail
 } from '@ledge/protocol';
 import type { PhoneLink } from '../link/link';
@@ -38,9 +38,11 @@ export interface MobileState {
   /** `id`, `kind`, `name`: this device as the PC knows it (absent from an older PC; `name` absent: none given yet). */
   device: { confirm: boolean; /** Its passkey can bring it back after a reinstall: without it, « Mettre à jour la passkey ». */ recover?: true; push?: 'on' | 'off' | 'stale' | 'unavailable'; chat?: true; contextNear?: number; id?: string; kind?: DeviceKind; name?: string; /** This device's own settings (`daemon.settings`). */ prefs?: DevicePrefs } | null;
   /** `update`: the PC can install a version and restart; `restart`: it can restart (both absent from daemons before 0.27.0). */
-  daemon: { version: string; name: string; boot?: string; models?: true; update?: true; restart?: true; checklist?: true; sessionClose?: true; terminal?: true; terminalInput?: true; commands?: true; /** Takes `session.broadcast` (« Écrire au groupe »). */ broadcast?: true; /** Answers `openrig.row`. */ rigRows?: true; /** Sends `projects` and places sessions in them: the iPad's Atelier. */ atelier?: true; /** Takes `device.prefs` and `context.set` (Réglages). */ settings?: true; /** Takes `project.*` (Réglages › Projets). */ projectEdit?: true; /** Browses its folders and adds them to projects. */ projectFolders?: true; /** Sends `usage.state`. */ usage?: true; /** Answers `openrig.asks` (« À toi »). */ openrig?: true; /** Answers the `rigs.*` reads and takes their actions (M4, the Rigs tab). */ rigs?: true; /** Takes `session.launch` (« Nouvelle session »). */ launch?: true; /** Keeps the device's conversations 7 days (M3 Q33). */ conversations?: true; /** Answers `forge.state` and `forge.detail`, takes `forge.act` (M5, the MR/PR tab). */ forge?: true } | null;
+  daemon: { version: string; name: string; boot?: string; models?: true; update?: true; restart?: true; checklist?: true; sessionClose?: true; terminal?: true; terminalInput?: true; commands?: true; /** Takes `session.broadcast` (« Écrire au groupe »). */ broadcast?: true; /** Answers `openrig.row`. */ rigRows?: true; /** Sends `projects` and places sessions in them: the iPad's Atelier. */ atelier?: true; /** Takes `device.prefs` and `context.set` (Réglages). */ settings?: true; /** Takes `project.*` (Réglages › Projets). */ projectEdit?: true; /** Browses its folders and adds them to projects. */ projectFolders?: true; /** Sends `usage.state`. */ usage?: true; /** Answers `openrig.asks` (« À toi »). */ openrig?: true; /** Answers the `rigs.*` reads and takes their actions (M4, the Rigs tab). */ rigs?: true; /** Takes `session.launch` (« Nouvelle session »). */ launch?: true; /** Keeps the device's conversations 7 days (M3 Q33). */ conversations?: true; /** Answers `forge.state` and `forge.detail`, takes `forge.act` (M5, the MR/PR tab). */ forge?: true; /** Issue #16: sends `sessionOrder`, takes `session.order`. */ sessionOrder?: true } | null;
   /** The user's projects, in their order (`daemon.atelier`): the Atelier's rooms. Kept for an offline start; empty from an older PC. */
   projects: PhoneProject[];
+  /** Issue #16: this PC's sessions in the order the person chose, by project id ('' for « Sans projet »); null from an older PC. */
+  sessionOrder: PhoneSessionOrder | null;
   /** The models each agent offers on the PC, by tool, as `models.listing` said; kept for the link's life, reset when the PC boots again. `error`: the agent could not be asked. */
   models: Record<string, { models: PhoneModelChoice[]; error?: true }>;
   /** The slash commands of each session's agent, by session id, as `session.commands.listing` said; `at` when they came. `error`: they could not be read. */
@@ -208,6 +210,9 @@ export interface MobileStore {
   editProject(id: string, change: { name?: string; color?: ProjectColor }): Promise<ChatAction>;
   /** Puts the projects in this order, every one of them once (`project.order`). Resolves when the PC answers. */
   orderProjects(ids: string[]): Promise<ChatAction>;
+  /** Issue #16: one project's sessions of this PC in a new order (`session.order`; `project` null: « Sans projet »). The other
+   *  machines' sessions keep their places. Resolves when the PC answers. */
+  orderSessions(project: string | null, ids: string[]): Promise<ChatAction>;
   /** Creates an empty project, named by the PC (`project.create`). Resolves when the PC answers. */
   /** Issue #2: with its first folder of this PC (`path`), confirmed by the device's passkey over that name and folder. */
   createProject(name: string, color: ProjectColor, path?: string): Promise<ChatAction>;
@@ -335,6 +340,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     device: null,
     daemon: last?.daemon ?? null,
     projects: last?.projects ?? [],
+    sessionOrder: last?.sessionOrder ?? null,
     models: {},
     commands: {},
     rigRows: {},
@@ -440,7 +446,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   const persist = () => {
     previewsDirty = false;
     saveLastState({
-      sessions: [...state.sessions.values()], previews: Object.fromEntries(state.previews), daemon: state.daemon, syncedAt: state.syncedAt, projects: state.projects
+      sessions: [...state.sessions.values()], previews: Object.fromEntries(state.previews), daemon: state.daemon, syncedAt: state.syncedAt, projects: state.projects, ...(state.sessionOrder ? { sessionOrder: state.sessionOrder } : {})
     }, storage);
   };
   const setOps = (ops: Record<string, Op>) => {
@@ -540,7 +546,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         const pc = pcSnapshot(state.pc, m.daemon);
         if (!pcRunning(pc)) stopPcWatch();
         const checklists = new Map([...state.checklists].filter(([id]) => sessions.has(id)));
-        set({ sessions, previews, threads, checklists, capabilities: m.capabilities, device: m.device ?? null, daemon: m.daemon, projects: m.projects ?? [], fresh: true, syncedAt: now, pc, modelFailures: failuresKept(state.modelFailures, state.sessions, sessions), ...(bootChanged ? { models: {}, commands: {} } : {}) });
+        set({ sessions, previews, threads, checklists, capabilities: m.capabilities, device: m.device ?? null, daemon: m.daemon, projects: m.projects ?? [], sessionOrder: m.sessionOrder ?? null, fresh: true, syncedAt: now, pc, modelFailures: failuresKept(state.modelFailures, state.sessions, sessions), ...(bootChanged ? { models: {}, commands: {} } : {}) });
         persist();
         // OpenRig's asks, once per link: the PC then pushes them whole at each change (the amber badge of « À toi »).
         if (m.daemon.openrig && !asksAsked && ready()) { asksAsked = true; send({ type: 'openrig.asks' }); }
@@ -590,7 +596,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         return;
       }
       case 'projects':
-        set({ projects: m.projects });
+        set({ projects: m.projects, sessionOrder: m.sessionOrder ?? null });
         persist();
         return;
       case 'tasks':
@@ -823,7 +829,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     previewsDirty = false;
     clearLastState(storage);
     clearOps(storage);
-    set({ sessions: new Map(), threads: new Map(), previews: new Map(), capabilities: null, device: null, daemon: null, projects: [], fresh: false, syncedAt: null, ops: {}, tasks: new Map(), checklists: new Map(), pc: null, models: {}, commands: {}, rigRows: {}, modelFailures: {}, folderListing: null, recentFolders: null, projectFolders: {}, usage: null, usageAlert: null, asks: null, asksChannel: null, routines: null, routineDetails: {} });
+    set({ sessions: new Map(), threads: new Map(), previews: new Map(), capabilities: null, device: null, daemon: null, projects: [], sessionOrder: null, fresh: false, syncedAt: null, ops: {}, tasks: new Map(), checklists: new Map(), pc: null, models: {}, commands: {}, rigRows: {}, modelFailures: {}, folderListing: null, recentFolders: null, projectFolders: {}, usage: null, usageAlert: null, asks: null, asksChannel: null, routines: null, routineDetails: {} });
     modelAsks.clear(); commandAsks.clear(); rigAsks.clear();
     stopPcWatch();
   }
@@ -970,6 +976,12 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
 
     orderProjects(ids) {
       return projectOp(o => ({ type: 'project.order', op: o, ids }));
+    },
+
+    orderSessions(project, ids) {
+      if (!state.daemon?.sessionOrder) return Promise.resolve({ status: 'rejected', reason: 'unavailable' });
+      const op = write(o => ({ type: 'session.order', op: o, project, ids }));
+      return op === null ? Promise.resolve({ status: 'failed' }) : finalOf(op);
     },
 
     async createProject(name, color, path) {

@@ -1,6 +1,6 @@
 // What the phone showed last, so a cold start or an offline phone still has something to read. Only what the PC
 // sent about its sessions and the person's read marks: never a key (those live in IndexedDB, see link/keys.ts).
-import { PhoneProjectSchema, PhoneSessionSchema, type PhoneProject, type PhoneSession } from '@ledge/protocol';
+import { PhoneProjectSchema, PhoneSessionOrderSchema, PhoneSessionSchema, type PhoneProject, type PhoneSession, type PhoneSessionOrder } from '@ledge/protocol';
 import { localStore } from './storage';
 
 export const LAST_STATE_KEY = 'ledge.mobile.lastState';
@@ -14,6 +14,8 @@ export interface LastState {
   syncedAt: string | null;
   /** The user's projects as the PC last sent them (the Atelier's rooms); absent from an older cache. */
   projects?: PhoneProject[];
+  /** Issue #16: the order the person chose, as the PC last sent it. */
+  sessionOrder?: PhoneSessionOrder;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -32,7 +34,8 @@ export function loadLastState(storage?: Storage): LastState | null {
     const daemon = isRecord(d) && typeof d.version === 'string' && typeof d.name === 'string' ? { version: d.version, name: d.name, ...(d.atelier === true ? { atelier: true as const } : {}) } : null;
     const syncedAt = typeof v.syncedAt === 'string' ? v.syncedAt : null;
     const projects = Array.isArray(v.projects) ? v.projects.flatMap(x => { const p = PhoneProjectSchema.safeParse(x); return p.success ? [p.data] : []; }) : [];
-    return { sessions, previews, daemon, syncedAt, projects };
+    const order = PhoneSessionOrderSchema.safeParse(v.sessionOrder);
+    return { sessions, previews, daemon, syncedAt, projects, ...(v.sessionOrder !== undefined && order.success ? { sessionOrder: order.data } : {}) };
   } catch { return null; }
 }
 

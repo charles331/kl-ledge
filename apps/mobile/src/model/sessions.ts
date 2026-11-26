@@ -1,4 +1,4 @@
-import type { PhoneSession } from '@ledge/protocol';
+import { sortSessions, type PhoneProject, type PhoneSession, type PhoneSessionOrder } from '@ledge/protocol';
 import { copy } from '../copy';
 import type { DotState } from '../ui/kit/marks';
 import { endedAtLabel } from './sessionEnd';
@@ -39,24 +39,32 @@ export interface SessionGroup {
   /** The project's name, or the rig's. */
   name: string;
   sessions: PhoneSession[];
+  /** Issue #16: a project group's project id (null: « Sans projet »), what `session.order` names; absent for a rig. */
+  project?: string | null;
 }
+
+/** Issue #16: the PC keeps an order (`daemon.sessionOrder`): its projects in their order, and each one's sessions as the person put them. */
+export interface KeptOrder { projects: readonly PhoneProject[]; order: PhoneSessionOrder }
 
 /**
  * The sessions of a filter by project, then OpenRig's seats by rig, as Desktop's side bar groups them. The groups keep the
  * order the PC lists their first session in; inside a group, `rank` then the PC's order.
  */
-export function sessionGroups(sessions: readonly PhoneSession[], f: SessionFilter): SessionGroup[] {
+export function sessionGroups(sessions: readonly PhoneSession[], f: SessionFilter, kept?: KeptOrder | null): SessionGroup[] {
+  // Issue #16 (card 7, design-ux d49d1c6e): with a kept order, a project group is in the person's order, not by state; the
+  // projects in theirs; rigs as before.
+  if (kept) sessions = sortSessions(sessions, { projectIds: kept.projects.map(p => p.id), order: kept.order, projectOf: s => s.projectId ?? null, keyOf: s => s.id });
   const projects = new Map<string, SessionGroup>();
   const rigs = new Map<string, SessionGroup>();
   for (const s of sessions) {
     if (!inFilter(s, f)) continue;
     const [map, kind, name] = s.rig ? [rigs, 'rig' as const, s.rig.name] : [projects, 'project' as const, s.project];
     let g = map.get(name);
-    if (!g) map.set(name, g = { id: `${kind}:${name}`, kind, name, sessions: [] });
+    if (!g) map.set(name, g = { id: `${kind}:${name}`, kind, name, sessions: [], ...(kind === 'project' ? { project: s.projectId ?? null } : {}) });
     g.sessions.push(s);
   }
   const sorted = (g: SessionGroup): SessionGroup => ({ ...g, sessions: g.sessions.map((s, i) => [s, i] as const).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([s]) => s) });
-  return [...projects.values(), ...rigs.values()].map(sorted);
+  return [...[...projects.values()].map(g => (kept ? g : sorted(g))), ...[...rigs.values()].map(sorted)];
 }
 
 /** The phone's Atelier (m2-sessions.html §7): by project (then OpenRig's rigs, as the list), or by rig then « Hors rig ». */

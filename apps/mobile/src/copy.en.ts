@@ -311,6 +311,15 @@ export const en: Copy = {
     }
   },
   sessions: {
+    reorder: {
+      up: 'Move up', down: 'Move down',
+      moved: (n, i, total, p) => `${n} is now ${i} of ${total} in ${p}.`,
+      movedProject: (n, i, total) => `${n} is now ${i} of ${total} projects.`,
+      offline: (n) => `Could not move ${n}: the PC is not reachable.`,
+      outdated: (n) => `Could not move ${n}: update Ledge on the PC.`,
+      stale: (n) => `${n} was not moved: the list changed meanwhile. Try again.`,
+      ordinal: (i) => String(i)
+    },
     filter: { label: 'Filter the sessions', all: 'All', waiting: 'Waiting', working: 'Working' },
     rigGroup: (name: string) => `Rig ${name}`,
     line: {

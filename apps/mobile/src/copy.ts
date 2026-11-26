@@ -323,6 +323,17 @@ const fr = {
   },
   /** « Sessions » (docs/mockups/ledge-mobile-refonte/m2-sessions.html §1, Q24, Q25): the filters, the groups, a row's line. */
   sessions: {
+    /** Issue #16 (docs/mockups/ledge-reorder.html, cards 6 and 7): the same words as Desktop, the failures as design-ux wrote them
+     *  for the phone. `i` is already an ordinal (« 1re », « 2e »). */
+    reorder: {
+      up: 'Monter', down: 'Descendre',
+      moved: (n: string, i: string, total: number, p: string) => `${n} est maintenant ${i} sur ${total} dans ${p}.`,
+      movedProject: (n: string, i: string, total: number) => `${n} est maintenant ${i} sur ${total} projets.`,
+      offline: (n: string) => `Impossible de déplacer ${n} : le PC n'est pas joignable.`,
+      outdated: (n: string) => `Impossible de déplacer ${n} : mets à jour Ledge sur le PC.`,
+      stale: (n: string) => `${n} n'a pas été déplacé : la liste a changé entre-temps. Réessaie.`,
+      ordinal: (i: number, feminine: boolean) => (i === 1 ? (feminine ? '1re' : '1er') : `${i}e`)
+    },
     filter: { label: 'Filtrer les sessions', all: 'Toutes', waiting: 'En attente', working: 'Au travail' } as Record<'label' | 'all' | 'waiting' | 'working', string>,
     rigGroup: (name: string) => `Rig ${name}`,
     line: {

@@ -1,4 +1,4 @@
-import type { DOMAttributes, ReactNode } from 'react';
+import type { CSSProperties, DOMAttributes, ReactNode } from 'react';
 import { Dot, type DotState } from './marks';
 
 /*
@@ -44,7 +44,7 @@ export function Line({ lead, title, sub, subTone, meta, metaWarn = false, select
   lead?: ReactNode; title: ReactNode; sub?: ReactNode; subTone?: 'perm'; meta?: ReactNode; metaWarn?: boolean;
   selected?: boolean; stale?: boolean; href?: string; children?: ReactNode;
   /** A long press's handlers on the row's link (m2-sessions.html §8), and the ring while its actions are open. */
-  press?: DOMAttributes<HTMLAnchorElement>; pressed?: boolean;
+  press?: DOMAttributes<HTMLAnchorElement> & { style?: CSSProperties; 'data-reorder-row'?: string }; pressed?: boolean;
 }) {
   const className = `flex min-h-[52px] items-center gap-2 border-b border-line px-3 py-1.5 text-[13.5px] last:border-b-0 ${stale ? 'opacity-60' : ''} ${selected ? 'bg-secondary shadow-[inset_2px_0_0_var(--color-primary)]' : ''} ${pressed ? 'shadow-[inset_0_0_0_2px_var(--color-ring)]' : ''}`;
   const body = (
