@@ -187,6 +187,8 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
       if (msg.type === 'usage.ack' && usage) { usage = { ...usage, alerts: usage.alerts.filter(a => a.id !== msg.id) }; ws.send(JSON.stringify({ type: 'usage.state', ...usage })); }
       if (msg.type === 'island.set') { island = msg.prefs; ws.send(JSON.stringify({ type: 'island', prefs: island })); }
       if (msg.type === 'projects.set') { projects = msg.projects; ws.send(JSON.stringify({ type: 'projects', projects })); }
+      // Issue #16: the sessions' order, kept as the daemon does.
+      if (msg.type === 'sessions.order' && projects) { const order = { ...projects.order }; if (msg.ids.length) order[msg.project] = msg.ids; else delete order[msg.project]; projects = { ...projects, order }; ws.send(JSON.stringify({ type: 'projects', projects })); }
       if (msg.type === 'session.decide') { const s = sessions.get(msg.id); if (s) { const { pending: _p, ...rest } = s; const next = { ...rest, state: 'working' as const }; sessions.set(s.id, next); ws.send(JSON.stringify({ type: 'session.updated', session: next })); } }
       // The control stream (a daemon whose info says `terminalStream`): a watched agent pane opens on one line naming it.
       if (msg.type === 'term.watch') ws.send(JSON.stringify({ type: 'term.opened', id: msg.id, cols: msg.cols, rows: msg.rows, screen: `${msg.id} $ `, cursor: { x: msg.id.length + 3, y: 0 } }));

@@ -277,9 +277,9 @@ export function Tree(p: {
         style={{ '--d': depth } as CSSProperties}
         {...(!helper && canDrag ? {
           draggable: true,
-          onDragStart: (e: DragEvent<HTMLElement>) => { p.filing.dragProps(s).onDragStart(e); ro.setDragged({ kind: 'session', id: s.id }); },
-          onDragEnd: () => { p.filing.dragProps(s).onDragEnd(); ro.setDragged(null); ro.setMark(null); },
-          onDragOver: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const after = half(e); if (ro.mark?.id !== s.id || ro.mark.after !== after) ro.setMark({ id: s.id, after }); },
+          onDragStart: (e: DragEvent<HTMLElement>) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; ro.setDragged({ kind: 'session', id: s.id }); },
+          onDragEnd: () => { ro.setDragged(null); ro.setMark(null); ro.setFileOver(null); },
+          onDragOver: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id)) { if (ro.mark) ro.setMark(null); return; } e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const after = half(e); if (ro.mark?.id !== s.id || ro.mark.after !== after) ro.setMark({ id: s.id, after }); },
           onDrop: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id) || !ro.mark) return; e.preventDefault(); ro.drop(ro.mark); }
         } : {})}
         onContextMenu={helper ? undefined : e => menuOn({ kind: 'session', id: s.id }, e)}>
@@ -368,7 +368,10 @@ export function Tree(p: {
     const gid = g.id;
     const fileDrop = gid ? p.filing.dropProps(gid) : null;
     const ownSession = ro.dragged?.kind === 'session' && sessions.some(x => x.id === ro.dragged!.id);
-    const filingHere = gid !== null && p.filing.over === gid && !!p.filing.dragging;
+    // A session of the tree over another project (1A), or one dragged from the Atelier (the filing's own drag).
+    const draggedSession = ro.dragged?.kind === 'session' ? p.sessions.find(x => x.id === ro.dragged!.id) ?? null : null;
+    const filingHere = gid !== null && ((draggedSession && ro.fileOver === gid) || (p.filing.over === gid && !!p.filing.dragging));
+    const filedName = draggedSession?.name ?? p.filing.dragging?.name ?? '';
     const dnd = gid ? {
       ...(canDrag ? {
         draggable: true,
@@ -380,12 +383,21 @@ export function Tree(p: {
           if (!ro.accepts('project', gid)) return;
           e.preventDefault(); e.dataTransfer.dropEffect = 'move';
           const after = half(e); if (ro.mark?.id !== gid || ro.mark.after !== after) ro.setMark({ id: gid, after });
-        } else if (!ownSession) fileDrop!.onDragOver(e);
+        } else if (draggedSession) {
+          if (ro.mark) ro.setMark(null);
+          if (ownSession) return;
+          e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+          if (ro.fileOver !== gid) ro.setFileOver(gid);
+        } else fileDrop!.onDragOver(e);
       },
-      onDragLeave: (e: DragEvent<HTMLElement>) => fileDrop!.onDragLeave(e),
+      onDragLeave: (e: DragEvent<HTMLElement>) => {
+        if (draggedSession) { if (!e.currentTarget.contains(e.relatedTarget as Node | null) && ro.fileOver === gid) ro.setFileOver(null); }
+        else fileDrop!.onDragLeave(e);
+      },
       onDrop: (e: DragEvent<HTMLElement>) => {
         if (ro.dragged?.kind === 'project') { if (ro.accepts('project', gid) && ro.mark) { e.preventDefault(); ro.drop(ro.mark); } }
-        else if (!ownSession) { fileDrop!.onDrop(e); ro.setDragged(null); }
+        else if (draggedSession) { if (!ownSession) { e.preventDefault(); p.filing.file(draggedSession, gid); } ro.setDragged(null); ro.setFileOver(null); }
+        else fileDrop!.onDrop(e);
       }
     } : {};
     rows.push(
@@ -395,7 +407,7 @@ export function Tree(p: {
           gid !== null && ro.mark?.id === gid && (ro.mark.after ? 'st-mark-after' : 'st-mark-before'))}
         style={{ '--d': 0 } as CSSProperties} {...dnd} onContextMenu={e => menuOn(target, e)}>
         {gid !== null && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
-        {filingHere && <span className="st-drop-tip" role="status">{t.side.reorder.fileInto(p.filing.dragging!.name, label)}</span>}
+        {filingHere && <span className="st-drop-tip" role="status">{t.side.reorder.fileInto(filedName, label)}</span>}
         {toggle ? <Chevron open={open} label={open ? t.side.fold(label) : t.side.unfold(label)} onClick={toggle} /> : <span className="st-gap" />}
         <ProjectSwatch project={project} />
         <button type="button" className="st-main" data-tree-key={pkey} tabIndex={tabOf(pkey)} title={t.side.filterProject(label)} onClick={() => p.onHome(g.id ?? 'none')}>

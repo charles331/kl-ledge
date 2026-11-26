@@ -48,6 +48,8 @@ export function useReorder(o: {
   const [said, setSaid] = useState('');
   const [dragged, setDragged] = useState<Dragged | null>(null);
   const [mark, setMark] = useState<Mark | null>(null);
+  /** The other project a dragged session is over (1A: dropped there, it is filed there). */
+  const [fileOver, setFileOver] = useState<string | null>(null);
   const latest = useRef(o);
   latest.current = o;
   const lastMoved = useRef('');
@@ -115,7 +117,7 @@ export function useReorder(o: {
   /** The drop of `dragged` before or after row `over` (same group, or another project for a project). */
   const drop = (over: Mark) => {
     const d = dragged;
-    setDragged(null); setMark(null);
+    setDragged(null); setMark(null); setFileOver(null);
     if (!d || d.id === over.id) return;
     if (d.kind === 'project') {
       const list = latest.current.projects?.projects ?? [];
@@ -137,5 +139,5 @@ export function useReorder(o: {
     return !!g && g.sessions.some(s => s.id === id);
   };
 
-  return { controller, said, dragged, setDragged, mark, setMark, drop, accepts };
+  return { controller, said, dragged, setDragged, mark, setMark, drop, accepts, fileOver, setFileOver };
 }
