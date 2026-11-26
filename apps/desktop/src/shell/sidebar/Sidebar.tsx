@@ -170,7 +170,7 @@ export function Sidebar(p: {
             onBroadcast={p.broadcast ? project => p.dispatch({ type: 'modal', modal: { kind: 'broadcast', to: { project } } }) : undefined}
             picked={picked} onPick={p.broadcast ? pick : undefined} onOpenRight={id => p.dispatch({ type: 'open', id, where: 'right' })}
             onMenu={(target, at, opener) => p.menu.openOn(target, at, opener)}
-            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onTerminal={p.onTerminal}
+            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onRename={p.menu.rename} onTerminal={p.onTerminal}
             onToggleHide={() => setPrefs(v => ({ ...v, hideDone: !v.hideDone }))} onToggleDense={() => setPrefs(v => ({ ...v, dense: !v.dense }))}
             onToggleBranches={() => setPrefs(v => ({ ...v, byBranch: !v.byBranch }))}
             onNewProject={() => p.dispatch({ type: 'modal', modal: { kind: 'project' } })} ide {...(p.clock ? { clock: p.clock } : {})} />
