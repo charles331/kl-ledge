@@ -88,12 +88,75 @@ export function folderProblems(before: { projects: readonly Project[] }, after: 
   return out;
 }
 
-export const ProjectsSchema = z.object({ projects: z.array(ProjectSchema).max(100), rules: z.array(RuleSchema).max(1000) }).superRefine((p, ctx) => {
+/**
+ * Issue #16 (docs/mockups/ledge-reorder.html): the sessions' order the user chose, per project (its id; `NO_PROJECT` for « Sans
+ * projet »), as a list of session keys (sessionOrderKey). A session not listed comes after those listed, oldest first: a new one
+ * arrives at the bottom of its project. Kept by the local daemon, the same on every front; written by `sessions.order` only.
+ */
+export const NO_PROJECT = '';
+export const SESSION_ORDER_MAX = 500;
+export const SessionOrderSchema = z.record(z.string().max(64), z.array(z.string().min(1).max(300)).max(SESSION_ORDER_MAX));
+export type SessionOrder = z.infer<typeof SessionOrderSchema>;
+
+export const ProjectsSchema = z.object({ projects: z.array(ProjectSchema).max(100), rules: z.array(RuleSchema).max(1000), order: SessionOrderSchema.optional() }).superRefine((p, ctx) => {
   for (const problem of projectsProblems(p)) ctx.addIssue({ code: 'custom', message: problem.code, path: problem.path });
 });
 export type Projects = z.infer<typeof ProjectsSchema>;
 
 export const DEFAULT_PROJECTS: Projects = { projects: [], rules: [] };
+
+/** The order kept once the projects change (#16): the lists of the projects still there and of « Sans projet »; undefined when none is left. */
+export function sessionOrderFor(next: Pick<Projects, 'projects'>, order: SessionOrder | undefined): SessionOrder | undefined {
+  if (!order) return undefined;
+  const ids = new Set([NO_PROJECT, ...next.projects.map(p => p.id)]);
+  const kept = Object.fromEntries(Object.entries(order).filter(([k, v]) => ids.has(k) && v.length > 0));
+  return Object.keys(kept).length ? kept : undefined;
+}
+
+/** A session's key in the order (#16): its machine and id as the fleet qualifies them (`local:abc`); a session as its own daemon
+ *  gives it (no machineId) is the local machine's. */
+export const sessionOrderKey = (s: Pick<Session, 'id' | 'machineId'>): string => (s.machineId ? s.id : `local:${encodeURIComponent(s.id)}`);
+
+/**
+ * The one order of the sessions (#16), for Desktop, the phone and the TUI: by project in the projects' order, « Sans projet »
+ * last; within a project, the order kept for it, then the sessions it does not list, oldest first, then by id. `projectOf`: the
+ * session's project id or null; `keyOf`: its key in the order (sessionOrderKey by default).
+ */
+export function sortSessions<T extends Pick<Session, 'id' | 'startedAt'>>(sessions: readonly T[], o: {
+  projectIds: readonly string[]; order?: SessionOrder; projectOf: (s: T) => string | null; keyOf?: (s: T) => string;
+}): T[] {
+  const keyOf = o.keyOf ?? ((s: T) => sessionOrderKey(s as unknown as Pick<Session, 'id' | 'machineId'>));
+  const rank = new Map(o.projectIds.map((id, i) => [id, i]));
+  const places = new Map<string, Map<string, number>>();
+  const placeIn = (p: string): Map<string, number> => {
+    let m = places.get(p);
+    if (!m) { m = new Map((o.order?.[p] ?? []).map((k, i) => [k, i])); places.set(p, m); }
+    return m;
+  };
+  const groupOf = (s: T): string => { const p = o.projectOf(s); return p !== null && rank.has(p) ? p : NO_PROJECT; };
+  const rankOf = (g: string): number => (g === NO_PROJECT ? o.projectIds.length : rank.get(g)!);
+  const at = (s: T): number => Date.parse(s.startedAt) || 0;
+  const items = sessions.map(s => { const g = groupOf(s); return { s, g, place: placeIn(g).get(keyOf(s)) ?? Infinity }; });
+  items.sort((x, y) => rankOf(x.g) - rankOf(y.g) || (x.place === y.place ? 0 : x.place < y.place ? -1 : 1) || at(x.s) - at(y.s) || (x.s.id < y.s.id ? -1 : x.s.id > y.s.id ? 1 : 0));
+  return items.map(i => i.s);
+}
+
+/** sortSessions with the local daemon's projects: each session's project as projectOf places it. */
+export const orderedSessions = <T extends Pick<Session, 'id' | 'startedAt' | 'machineId' | 'cwd'>>(sessions: readonly T[], projects: Projects | null): T[] =>
+  projects ? sortSessions(sessions, { projectIds: projects.projects.map(p => p.id), order: projects.order, projectOf: s => projectOf(s, projects) }) : [...sessions];
+
+/**
+ * A project's order once some of its sessions are put in a new order (#16): `current`, the keys of all its sessions in their
+ * shown order; `wanted`, some of them in the new order (one branch's sessions, 2A, or the phone's own). The others keep their
+ * places, and those moved fill the places theirs had. A wanted key not in `current` is dropped. What `sessions.order` sends.
+ */
+export function placeSessions(current: readonly string[], wanted: readonly string[]): string[] {
+  const inCurrent = new Set(current);
+  const moved = [...new Set(wanted)].filter(k => inCurrent.has(k));
+  const set = new Set(moved);
+  let i = 0;
+  return current.map(k => (set.has(k) ? moved[i++]! : k));
+}
 
 const under = (cwd: string, path: string) => path === '/' || cwd === path || cwd.startsWith(`${path}/`);
 
