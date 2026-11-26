@@ -1,6 +1,6 @@
 # Preview tabs: a single click looks, a double click keeps
 
-Date: 2026-11-26. Status: **awaiting the owner's approval**. Desktop only. The visible change (the preview tab's look)
+Date: 2026-11-26. Status: **approved by the owner on 2026-11-26** (including the calls in §6). Desktop only. The visible change (the preview tab's look)
 starts with a mockup in `docs/mockups/` that **the owner** approves before any UI code.
 
 ## 1. Why
