@@ -9,6 +9,7 @@ import { IdeExplorer } from './IdeExplorer';
 import { IdeStatusBar } from './IdeStatusBar';
 import { DispositionsMenu, type DispositionsProps } from './DispositionsMenu';
 import { IdeTitleBar } from './IdeTitleBar';
+import { noteClick } from '../workspace/intent';
 import '../styles/ide.css';
 
 // The chunk's other entries: the editing area and the bottom panel, drawn inside the frame (ide/lazy.tsx).
@@ -85,7 +86,8 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
         </section>
         {right && <div className="ide-right">{p.chat}</div>}
       </div>
-      <div className="ide-status-row" inert={p.blocked}>
+      {/* The next waiting request opens a preview (spec 2026-11-26-preview-tabs §5.2). */}
+      <div className="ide-status-row" inert={p.blocked} onClickCapture={e => noteClick(e.nativeEvent)}>
         <IdeStatusBar footer={p.footer} usage={p.usage} waiting={p.waiting} onNextWaiting={p.onNextWaiting} prs={p.prsStatus} disposition={<DispositionsMenu {...p.dispositions} />} />
       </div>
     </div>

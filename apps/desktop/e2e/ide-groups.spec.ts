@@ -83,7 +83,8 @@ const unwatches = (received: { type: string }[]) => received.filter(m => m.type 
 async function open(page: Page, name: string): Promise<void> {
   const button = page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Projects', exact: true });
   if (!(await button.getAttribute('class'))?.includes('on')) await button.click();
-  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  // A double click: a kept tab, so the sessions opened next sit beside it (a single click opens a preview the next one replaces).
+  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().dblclick();
   await expect(tabOf(page, name)).toHaveClass(/dv-active-tab/);
   await expect(pane(page, name).locator('.session-page')).toBeVisible({ timeout: 20_000 });
 }

@@ -73,19 +73,27 @@ describe('the IDE shell', () => {
     expect(document.querySelector('.ide-pane .atelier-floor')).not.toBeNull();
   });
 
-  it('a session clicked in Projets opens a tab with its name; a second click opens no other', async () => {
+  it('a session clicked in Projets opens a preview tab with its name; a second click opens no other', async () => {
     const { tree, user } = await mount();
+    const preview = (name: string) => tabs().find(t => t.getAttribute('aria-label') === name)?.querySelector('.ide-tab.preview') != null;
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
     expect(tabs()).toHaveLength(2);
+    expect(preview('Otto')).toBe(true);
     // Only the tab in front draws its content: Otto's session page, not the atelier.
     await waitFor(() => expect(document.querySelector('.ide-pane .conversation-workspace')).not.toBeNull());
     expect(document.querySelector('.ide-pane .atelier-floor')).toBeNull();
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     expect(tabs()).toHaveLength(2);
+    // Spec 2026-11-26-preview-tabs: the next single click replaces the preview in place; a double click keeps it.
     await user.click(tree.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Nova'));
-    expect(tabs().map(t => t.getAttribute('aria-label'))).toEqual(['Atelier', 'Otto', 'Nova']);
+    expect(tabs().map(t => t.getAttribute('aria-label'))).toEqual(['Atelier', 'Nova']);
+    await user.dblClick(tree.getByRole('button', { name: /^Nova/ }));
+    await waitFor(() => expect(preview('Nova')).toBe(false));
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toEqual(['Atelier', 'Nova', 'Otto']));
+    expect(preview('Otto')).toBe(true);
   });
 
   it('a tab chosen in dockview becomes the model\'s, a tab closed there leaves it', async () => {
@@ -161,8 +169,8 @@ describe('the IDE tabs follow the fleet (Review Focus 1)', () => {
 
   it('a session deleted while open closes its tab; an archived one keeps it, and it reads', async () => {
     const { d, tree, user } = await mount();
-    await user.click(tree.getByRole('button', { name: /^Otto/ }));
-    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Otto/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(tabs()).toHaveLength(3));
     act(() => d.remove('nova'));
     await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toEqual(['Atelier', 'Otto']));
@@ -262,8 +270,8 @@ describe('the IDE session tab (lot 2)', () => {
 
   it('a session waiting for a permission has the red alert on its tab, one asking a question the amber one', async () => {
     const { d, tree, user } = await mount();
-    await user.click(tree.getByRole('button', { name: /^Otto/ }));
-    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Otto/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Nova'));
     act(() => { d.upsert(fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'waiting_permission' })); d.upsert(fakeSession('nova', { name: 'Nova', cwd: '/w/ledge', state: 'waiting_input' })); });
     await waitFor(() => expect(tabOf('Otto')).toHaveClass('alert'));
@@ -273,8 +281,8 @@ describe('the IDE session tab (lot 2)', () => {
 
   it('right click on a tab: the menu switches the view to the terminal and back, closes the others', async () => {
     const { tree, user } = await mount();
-    await user.click(tree.getByRole('button', { name: /^Otto/ }));
-    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Otto/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(tabs()).toHaveLength(3));
     fireEvent.contextMenu(tabOf('Otto'));
     const menu = await screen.findByRole('menu', { name: /Otto/ });
@@ -517,7 +525,8 @@ describe('tab shortcuts and closing an empty group (lot 3 follow-up)', () => {
   async function withOtto() {
     const m = await mount();
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Atelier'));
-    await m.user.click(m.tree.getByRole('button', { name: /^Otto/ }));
+    // A double click: Otto kept, so the tabs opened next sit beside it.
+    await m.user.dblClick(m.tree.getByRole('button', { name: /^Otto/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
     return m;
   }
@@ -554,7 +563,7 @@ describe('tab shortcuts and closing an empty group (lot 3 follow-up)', () => {
 
   it('Ctrl+Shift+T does not bring back the tab of a session deleted since: the tab closed before it comes back', async () => {
     const { d, tree, user } = await withOtto();
-    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await user.dblClick(tree.getByRole('button', { name: /^Nova/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Nova'));
     ctrl('w');                                                        // Nova
     await waitFor(() => expect(names(groupviews()[0]!)).toEqual(['Atelier', 'Otto']));
@@ -587,5 +596,97 @@ describe('tab shortcuts and closing an empty group (lot 3 follow-up)', () => {
     await waitFor(() => expect(groupviews()[0]).toHaveClass('dv-active-group'));
     fireEvent.keyDown(window, { key: 'é', code: 'Digit2', ctrlKey: true });
     await waitFor(() => expect(groupviews()[1]).toHaveClass('dv-active-group'));
+  });
+});
+
+// Spec 2026-11-26-preview-tabs (§5.2–§5.4), approved mockup docs/mockups/ledge-preview-tabs.html: a single click looks, the
+// next single click replaces the look in place; a double click, or acting in the tab, keeps it.
+describe('preview tabs', () => {
+  const names = () => tabs().map(t => t.getAttribute('aria-label'));
+  const tabOf = (name: string) => tabs().find(t => t.getAttribute('aria-label') === name);
+  const isPreview = (name: string) => tabOf(name)?.querySelector('.ide-tab.preview') != null;
+  const pane = () => document.querySelector<HTMLElement>('.dv-groupview .dv-content-container .ide-pane:not([hidden])')!;
+
+  it('the preview\'s title is in italic, slanted by the browser (Geist has no italic of its own)', async () => {
+    const { tree, user } = await mount();
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    await waitFor(() => expect(isPreview('Otto')).toBe(true));
+    const css = readFileSync(resolve(__dirname, '../../src/styles/ide.css'), 'utf8');
+    expect(css).toMatch(/\.ide-tab\.preview \.tab-name \{ font-style: italic; font-synthesis-style: auto; \}/);
+    expect(tabOf('Otto')!.querySelector('.ide-tab.preview .tab-name')).toHaveTextContent('Otto');
+    expect(tabOf('Atelier')!.querySelector('.ide-tab .tab-name')).toHaveTextContent('Atelier');
+    expect(isPreview('Atelier')).toBe(false);
+  });
+
+  it('a double click on the preview\'s tab keeps it: the next click adds a preview beside it', async () => {
+    const { tree, user } = await mount();
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    await waitFor(() => expect(isPreview('Otto')).toBe(true));
+    await user.dblClick(tabOf('Otto')!.querySelector('.ide-tab')!);
+    await waitFor(() => expect(isPreview('Otto')).toBe(false));
+    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await waitFor(() => expect(names()).toEqual(['Atelier', 'Otto', 'Nova']));
+    expect(isPreview('Nova')).toBe(true);
+  });
+
+  it('typing in a preview\'s composer keeps it: the draft is never replaced by the next click', async () => {
+    const { tree, user } = await mount();
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    const reply = await within(await waitFor(() => { const p = document.querySelector<HTMLElement>('[data-session*="otto"]'); expect(p).not.toBeNull(); return p!; })).findByRole('textbox', { name: 'Répondre à l’agent' });
+    await user.type(reply, 'B');
+    await waitFor(() => expect(isPreview('Otto')).toBe(false));
+    await user.click(tree.getByRole('button', { name: /^Nova/ }));
+    await waitFor(() => expect(names()).toEqual(['Atelier', 'Otto', 'Nova']));
+  });
+
+  it('answering a request (Y) in a preview keeps it', async () => {
+    const { d, tree, user } = await mount();
+    act(() => d.upsert(fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } })));
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    await waitFor(() => expect(tabOf('Otto')).toHaveClass('alert'));
+    expect(isPreview('Otto')).toBe(true);
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard('y');
+    await waitFor(() => expect(d.received.some(m => m.type === 'session.decide')).toBe(true));
+    expect(isPreview('Otto')).toBe(false);
+  });
+
+  it('the context menu\'s « Ouvrir » opens a kept tab', async () => {
+    const { tree, user } = await mount();
+    fireEvent.contextMenu(tree.getByRole('button', { name: /^Otto/ }));
+    await user.click(within(await screen.findByRole('menu', { name: /Otto/ })).getByRole('menuitem', { name: 'Ouvrir' }));
+    await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
+    expect(isPreview('Otto')).toBe(false);
+  });
+
+  it('Réglages from the activity bar is a preview; a setting changed keeps it, a section chosen does not', async () => {
+    const { user } = await mount();
+    await user.click(screen.getByRole('button', { name: 'Réglages (onglet)' }));
+    await waitFor(() => expect(activeTab()).toHaveAccessibleName('Réglages'));
+    expect(isPreview('Réglages')).toBe(true);
+    const nav = await screen.findByRole('navigation', { name: /Réglages|Sections/ });
+    await user.click(within(nav).getAllByRole('button')[1]!);
+    expect(isPreview('Réglages')).toBe(true);
+    // The setting itself changes: keeping the tab must not get in the way of the act.
+    const at = within(pane()).getAllByRole('radio').findIndex(r => !(r as HTMLInputElement).checked && r.getAttribute('aria-checked') !== 'true');
+    await user.click(within(pane()).getAllByRole('radio')[at]!);
+    await waitFor(() => expect(isPreview('Réglages')).toBe(false));
+    await waitFor(() => expect(within(pane()).getAllByRole('radio')[at]).toBeChecked());
+  });
+
+  it('a click in a preview that opens another tab keeps the first; the new one is the preview', async () => {
+    const { user } = await mount();
+    // The Atelier closed, then opened again from the activity bar: a preview.
+    await waitFor(() => expect(activeTab()).toHaveAccessibleName('Atelier'));
+    await user.click(tabOf('Atelier')!.querySelector('.dv-default-tab-action')!);
+    await waitFor(() => expect(names()).toEqual([]));
+    await user.click(screen.getByRole('button', { name: 'Atelier (onglet)' }));
+    await waitFor(() => expect(isPreview('Atelier')).toBe(true));
+    const agent = await waitFor(() => { const a = pane().querySelector<HTMLElement>('[data-agent]'); expect(a).not.toBeNull(); return a!; });
+    await user.click(agent);
+    await waitFor(() => expect(names()).toHaveLength(2));
+    expect(names()[0]).toBe('Atelier');
+    expect(isPreview('Atelier')).toBe(false);
+    expect(isPreview(names()[1]!)).toBe(true);
   });
 });

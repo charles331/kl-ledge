@@ -6,6 +6,7 @@ import { keyOf, type Tab } from '../workspace/model';
 import { ATELIER_TAB, SETTINGS_TAB } from '../workspace/store';
 import { PrIcon } from '../forge/PrIcon';
 import { AlarmIcon } from '../routines/icons';
+import { noteClick } from '../workspace/intent';
 import '../styles/ide.css';
 
 /** The IDE's activity bar (mockup `activity()`): the sidebar views (« MR et PR », lot 8b, with the open requests whose pipeline
@@ -27,7 +28,8 @@ export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFail
   );
   const mark = badge.perm ? <span className="ide-badge">{badge.perm}</span> : badge.ask ? <span className="ide-badge amber">{badge.ask}</span> : null;
   return (
-    <nav className="ide-activity" aria-label={t.ide.activityLabel}>
+    // Its Atelier and Réglages open previews (spec 2026-11-26-preview-tabs §5.2).
+    <nav className="ide-activity" aria-label={t.ide.activityLabel} onClickCapture={e => noteClick(e.nativeEvent)}>
       {view('projects', SHELL_ICONS.files, t.ide.projects)}
       {view('rigs', SHELL_ICONS.rig, t.ide.rigs)}
       {view('atoi', SHELL_ICONS.inbox, t.ide.atoi, mark)}

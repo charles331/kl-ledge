@@ -6,7 +6,7 @@ import { isOmpSeat, type Project, type Projects, type Session } from '@ledge/pro
 import { LangProvider, loadLang, messagesFor, saveLang, useI18n, type Lang } from './i18n/lang';
 import { loadMessages } from './i18n/messages';
 import { useFleet } from './fleet/useFleet';
-import { useDecisions } from './fleet/decisions';
+import { useDecisions, type Decisions } from './fleet/decisions';
 import { useWaits } from './fleet/waits';
 import { useAlerts, usePairingAlerts, useUsageNotify } from './notify/useAlerts';
 import { watchedTab } from './notify/watching';
@@ -86,7 +86,7 @@ import { useWebglMax } from './term/webglPrefs';
 import { ATELIER_TAB, SETTINGS_TAB, createWorkspaceStore, loadWorkspace as loadIdeWorkspace, openrigTab, rigTab, useWorkspace } from './workspace/store';
 import { bootWorkspace, capture, loadBoot, loadDispositions, plan, saveCurrent, saveDispositions, signature, upsert, useCurrentDisposition, useDispositions } from './workspace/dispositions';
 import { layoutFor, loadLayout, saveLayout, type LayoutAction } from './workspace/layout';
-import { agentTerminalTab, beside, changesBeside, close as dropTab, closeGroup, cycleTab, emptyProposals, find as findTab, focusGroup, focusNth, focused, keyOf, MAIN, move as moveTab, moveActive, moveTo as moveTabTo, open as openTab, parseRigRef, rigTabRef, sessionOf, reconcile as reconcileTabs, setView, split as splitGroup, windowOf, type Tab } from './workspace/model';
+import { agentTerminalTab, beside, changesBeside, close as dropTab, closeGroup, cycleTab, emptyProposals, find as findTab, focusGroup, focusNth, focused, keyOf, MAIN, move as moveTab, moveActive, moveTo as moveTabTo, open as openTab, parseRigRef, pin, rigTabRef, sessionOf, reconcile as reconcileTabs, setView, split as splitGroup, windowOf, type Tab } from './workspace/model';
 import { hasTerminal, projectLabel, providerOf, tabAlert, tabView } from './workspace/sessionTab';
 import { ChangesTabLabel, SessionTabLabel } from './ide/SessionTabLabel';
 import { TabMenu } from './ide/TabMenu';
@@ -95,6 +95,7 @@ import { createTabExtras, TabExtrasContext, useTabExtras } from './ide/tabExtras
 import { openSessionTerminal } from './session/terminal';
 import { IdeWelcome, recentSessions, type EmptyPick } from './ide/IdeWelcome';
 import { routeNav, tabNav } from './workspace/route';
+import { asPreview, clickIntent, openAs } from './workspace/intent';
 import { tabTitle, type TabBody } from './ide/tabs';
 import { IdeAtelierBar, IdeAtoi, IdeAtoiRoutineCards, IdeAtoiRoutines, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView, IdeRoutine, IdeRoutines } from './ide/lazy';
 import { useRoutines } from './routines/useRoutines';
@@ -278,7 +279,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       // A new session tab starts on « Vue par défaut d'une session » (#300) when that is the Terminal and the session has a live
       // screen (startViewOf): the tab's view, OMP's rule and « no terminal → Fil » keep their priority, and changing the setting
       // leaves open tabs alone.
-      startView: id => { const s = knownNow.current.find(x => x.id === id); return s && startViewOf(s, getDefaultView(), canShowScreen(s)) === 'terminal' ? 'terminal' : undefined; } });
+      startView: id => { const s = knownNow.current.find(x => x.id === id); return s && startViewOf(s, getDefaultView(), canShowScreen(s)) === 'terminal' ? 'terminal' : undefined; },
+      // A single click in the explorer, the activity bar, the status bar or a tab asks for a preview (spec 2026-11-26-preview-tabs).
+      how: clickIntent() });
     if (r.nav) navDispatch(r.nav);
     // The right panel is `layout.right`, never `nav.chat`: asking for the chat only bumps `chatFocus` (its field takes the
     // focus), and `nav.chat` goes straight back to false, or the single keys, Alt + 1…9 and the screen's Escape would stay off.
@@ -350,22 +353,23 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     if (hasTerminal(tab, s)) wsStore.update(w => setView(w, keyOf(tab), 'terminal'));
   }, [wsStore]);
   // « Open in Ledge » from the island: the shell has already brought the window forward; this shows what was asked.
-  useEffect(() => onOpenTarget(raw => {
+  // Its « Voir » opens a preview, as a single click does (spec 2026-11-26-preview-tabs §5.2).
+  useEffect(() => onOpenTarget(raw => asPreview(() => {
     const target = parseTarget(raw);
     if (target?.kind === 'terminal') showTerminal(target.id);
     else if (target?.kind === 'ask' || target?.kind === 'atoi') {
       // A rig's question from the notch: « À toi » in front, on that question; a decision: « À toi » in front, where it is listed.
       if (target.kind === 'ask') setAskFocus({ id: target.id, n: ++askSeq.current });
       const tab: Tab = { kind: 'atoi', ref: 'main' };
-      wsStore.update(w => openTab(w, tab));
+      wsStore.update(w => openAs(w, tab));
     }
     else if (target?.kind === 'routine') {
       // The island's « Voir » on a routine's item: the sidebar on Routines, the routine's page in front.
       setLayout(l => (l.sideOpen && l.sideView === 'routines' ? l : layoutFor(l, { type: 'view', view: 'routines' }, window.innerWidth)));
-      wsStore.update(w => openTab(w, { kind: 'routine', ref: `${target.machine}:${target.id}` }));
+      wsStore.update(w => openAs(w, { kind: 'routine', ref: `${target.machine}:${target.id}` }));
     }
     else if (target) dispatch(targetAction(target));
-  }), [showTerminal, wsStore]);
+  })), [showTerminal, wsStore]);
   // The Atelier in its own window (#21): what it opens shows here, this window brought forward; its closing gives it back.
   // The tray speaks the app's language and names the way back from do not disturb.
   const [dnd] = useDnd();
@@ -540,7 +544,13 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   resumeNow.current = { actions, notify };
   // The session menu, from the atelier's seats and the session page's header « … » (one at a time).
   const sessionMenu = useContextMenu({ client: fleetClient, sessions, archived: fleetView.archived, projects: projects?.projects ?? NO_PROJECTS, onShowTerminal: showTerminal });
-  const decisions = useDecisions({ client: fleetClient, sessions, errors, notify });
+  const shared = useDecisions({ client: fleetClient, sessions, errors, notify });
+  // Answering a request or sending a message keeps the session's tab, should it be a preview, from wherever it is done (spec
+  // 2026-11-26-preview-tabs §5.4): its tab, « À toi », the status bar.
+  const decisions = useMemo((): Decisions => {
+    const keep = (s: Session) => wsStore.update(w => pin(pin(w, keyOf({ kind: 'session', ref: s.id })), keyOf({ kind: 'seat', ref: s.id })));
+    return { ...shared, decide: (s, ...a) => { keep(s); return shared.decide(s, ...a); }, reply: (s, ...a) => { keep(s); return shared.reply(s, ...a); }, answer: (s, ...a) => { keep(s); return shared.answer(s, ...a); } };
+  }, [shared, wsStore]);
   // The sidebar's Ask Ledge, the same send as the chat panel: nothing goes out while the local daemon is offline (the chat still opens).
   const screenKeys = useRef<ScreenKeys>({ current: null }).current;
   // Drafts, reading positions and the last item seen, per session and subagent: they survive navigation, not a restart.
@@ -846,7 +856,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const homeOf = (m: string) => machines.find(x => x.id === m)?.daemon?.home;
   const routineSession = (r: FleetRoutine) => sessionOfRoutine(r, known, homeOf(r.machineId));
   const routineTab = (ref: string): Tab => ({ kind: 'routine', ref });
-  const openRoutineRef = (ref: string, where?: 'right') => wsStore.update(w => openTab(w, routineTab(ref), where));
+  const openRoutineRef = (ref: string, where?: 'right') => wsStore.update(w => openAs(w, routineTab(ref), where));
   const showRoutinesView = () => { if (!(layout.sideOpen && layout.sideView === 'routines')) onLayout({ type: 'view', view: 'routines' }); };
   const routineActions = useRoutineActions(fleet, t.routines, notify, ref => { showRoutinesView(); openRoutineRef(ref); }, routines, (r, path) => homeLabel(path, homeOf(r.machineId)));
   const runRoutine = (r: FleetRoutine) => { const s = routineSession(r); routineActions.run(r, r.target.name, !!s && !s.offline && s.state !== 'exited'); };
@@ -961,7 +971,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       : tab.kind === 'routine' ? <RoutineTabLabel title={title(tab)} dirty={dirtyRoutines.has(keyOf(tab))} />
       // « À toi 2 » (mockup v27): the requests waiting, the tab's name staying its title.
       : tab.kind === 'atoi' ? <AtoiTabLabel title={title(tab)} waiting={waitingSessions(sessions, waits).length} />
-      : shellTip(tab) ? <span title={shellTip(tab)}>{title(tab)}</span> : title(tab));
+      // The title in `.tab-name`, as every other label: what a preview's italic applies to.
+      : <span className="tab-name" {...(shellTip(tab) ? { title: shellTip(tab) } : {})}>{title(tab)}</span>);
     const alert = (tab: Tab) => (tab.kind === 'session' || tab.kind === 'seat' ? tabAlert(known.find(s => s.id === tab.ref)) : null);
     const body: TabBody = tab => {
       const tnav = tabNav(nav, tab, lastSettings.current);
@@ -977,7 +988,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           onPrUnknown={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }}
           onChanges={path => {
             if (path) setChangesWant(m => ({ ...m, [s.id]: { path, n: (m[s.id]?.n ?? 0) + 1 } }));
-            wsStore.update(w => { const hit = findTab(w, keyOf(tab)); return hit ? beside(w, hit.group.id, 'changes', s.id) : w; });
+            wsStore.update(w => { const hit = findTab(w, keyOf(tab)); const how = clickIntent(); return hit ? beside(how?.from ? pin(w, how.from) : w, hit.group.id, 'changes', s.id, how?.preview ? { preview: true } : {}) : w; });
           }} />;
       }
       // « +N −N »'s tab: an action clicked there brings the session's tab forward (R10).
@@ -1090,7 +1101,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       return <IdeWelcome terminal={s ? title({ kind: 'session', ref: s.id }) : null} seat={s?.rig != null} recent={recentSessions(sessions)} waiting={waiting.length > 0}
         where={where} onPick={pick} onOpen={id => { wsStore.update(w => focusGroup(w, gid)); dispatch({ type: 'open', id, where: 'active' }); }} />;
     };
-    const onTab = (tab: Tab, where?: 'right') => { const a = tabAction(tab); if (a) dispatch(a); else wsStore.update(w => openTab(w, tab, where)); };
+    const onTab = (tab: Tab, where?: 'right') => { const a = tabAction(tab); if (a) dispatch(a); else wsStore.update(w => openAs(w, tab, where)); };
     return (
       <IdePlace layout={layout} onLayout={onLayout} blocked={blocked} readOnly={localDown} dragging={!!filing.dragging}
         onSearch={() => dispatch({ type: 'modal', modal: { kind: 'search' } })}

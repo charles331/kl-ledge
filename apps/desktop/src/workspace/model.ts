@@ -4,7 +4,9 @@
  * - a tab is never duplicated: opening one already open brings it forward, in whichever window;
  * - a group emptied disappears, except the last one of the main window; a secondary window without groups closes;
  * - colour-linked groups follow the session chosen in any group of the same colour, across windows: their Changes
- *   and Terminal tabs switch to that session.
+ *   and Terminal tabs switch to that session;
+ * - a group holds at most one preview tab (docs/superpowers/specs/2026-11-26-preview-tabs-design.md): a single click shows
+ *   a thing in it, the next single click replaces it in place, and acting in it (or moving it) keeps it.
  * Every function returns a new state, or the same object when nothing changed.
  */
 
@@ -16,7 +18,11 @@ export type View = 'thread' | 'terminal' | 'role';
 export interface Tab { kind: TabKind; ref: string; /** session and seat tabs: the view in front. */ view?: View }
 /** The link colours (the user, 2026-11-09: more than two), none of them a state colour nor Ledge's coral. */
 export type Link = 'violet' | 'teal' | 'rose' | 'lime' | 'fuchsia' | 'sand';
-export interface Group { id: string; window: string; tabs: Tab[]; active: number; link: Link | null; /** split from: the session the user left. */ from?: string }
+export interface Group {
+  id: string; window: string; tabs: Tab[]; active: number; link: Link | null; /** split from: the session the user left. */ from?: string;
+  /** The key of the group's preview tab, the one the next preview opened here replaces; absent when every tab is kept. */
+  preview?: string;
+}
 export interface Workspace { version: 1; windows: string[]; groups: Group[]; focus: string; next: number }
 export type Where = 'active' | 'right' | 'window';
 
@@ -48,6 +54,14 @@ export function find(w: Workspace, key: string): { group: Group; index: number }
 }
 
 function replaceGroup(w: Workspace, g: Group): Workspace { return { ...w, groups: w.groups.map(x => (x.id === g.id ? g : x)) }; }
+
+/** The group with tab `key` kept: no longer its preview. The field is removed rather than emptied, so a group without a
+ *  preview serialises as it did before previews existed. */
+function kept(g: Group, key?: string): Group {
+  if (g.preview === undefined || (key !== undefined && g.preview !== key)) return g;
+  const { preview: _, ...rest } = g;
+  return rest;
+}
 
 /** A new empty group right after `after` (same window), or at the end of a new window. A detached window holds one group
  *  (lot 9, option A): a group asked right of one of its groups opens in the main window, after its last (v27). */
@@ -106,21 +120,47 @@ function follow(w: Workspace, source: string, link: Link, session: string): Work
     const want = front.kind === 'changes' ? changesTab(session) : agentTerminalTab(session);
     const at = h.tabs.findIndex(t => keyOf(t) === keyOf(want));
     const tabs = at >= 0 ? h.tabs : h.tabs.map((t, i) => (i === h.active ? want : t));
-    out = replaceGroup(out, { ...h, tabs, active: at >= 0 ? at : h.active });
+    // A preview switched to another session stays the preview, under its new key.
+    const preview = at < 0 && h.preview === keyOf(front) ? { preview: keyOf(want) } : {};
+    out = replaceGroup(out, { ...h, tabs, active: at >= 0 ? at : h.active, ...preview });
   }
   return out;
 }
 
-/** Opens `tab`: brought forward if already open anywhere, else added where asked (the setting « Ouvrir une session »). */
-export function open(w: Workspace, tab: Tab, where: Where = 'active'): Workspace {
-  const hit = find(w, keyOf(tab));
-  if (hit) return activate(w, hit.group.id, hit.index);
+export interface OpenOptions { /** A single click: the tab opens as its group's preview, replacing the one there. */ preview?: boolean }
+
+/** Opens `tab`: brought forward if already open anywhere, else added where asked (the setting « Ouvrir une session »).
+ *  A tab already open keeps its state, except that opening it kept (a double click) keeps a preview. A preview takes the
+ *  place of its group's preview, else it is appended; « à droite », it goes to the group right of the focused one when
+ *  there is one (that group's preview replaced), else to a new group. */
+export function open(w: Workspace, tab: Tab, where: Where = 'active', opts: OpenOptions = {}): Workspace {
+  const key = keyOf(tab);
+  const hit = find(w, key);
+  if (hit) return activate(opts.preview ? w : pin(w, key), hit.group.id, hit.index);
   const base = focused(w);
-  const { w: w1, group } = where === 'active' ? { w, group: base } : where === 'right' ? addGroup(w, { after: base }) : addGroup(w, { window: 'new' });
-  const g = groupById(w1, group.id)!;
-  const tabs = [...g.tabs, tab];
-  return activate(replaceGroup(w1, { ...g, tabs }), g.id, tabs.length - 1);
+  const mains = w.groups.filter(g => g.window === MAIN);
+  const right = opts.preview && where === 'right' && base.window === MAIN ? mains[mains.indexOf(base) + 1] : undefined;
+  const { w: w1, group } = where === 'active' ? { w, group: base } : right ? { w, group: right } : where === 'right' ? addGroup(w, { after: base }) : addGroup(w, { window: 'new' });
+  const { group: g, index } = addTab(groupById(w1, group.id)!, tab, opts);
+  return activate(replaceGroup(w1, g), g.id, index);
 }
+
+/** `tab` (not open) added to `g`: kept, at the end; a preview, in the place of `g`'s preview, else at the end. */
+function addTab(g: Group, tab: Tab, opts: OpenOptions): { group: Group; index: number } {
+  if (!opts.preview) return { group: { ...g, tabs: [...g.tabs, tab] }, index: g.tabs.length };
+  const at = g.tabs.findIndex(t => keyOf(t) === g.preview);
+  const tabs = at >= 0 ? g.tabs.map((t, i) => (i === at ? tab : t)) : [...g.tabs, tab];
+  return { group: { ...g, tabs, preview: keyOf(tab) }, index: at >= 0 ? at : tabs.length - 1 };
+}
+
+/** Keeps tab `key`: it stops being its group's preview (a double click on it, or an action in it). Else the same object. */
+export function pin(w: Workspace, key: string): Workspace {
+  const hit = find(w, key);
+  return hit && hit.group.preview === key ? replaceGroup(w, kept(hit.group)) : w;
+}
+
+/** Whether tab `key` is its group's preview (its title in italic). */
+export function isPreview(w: Workspace, key: string): boolean { return find(w, key)?.group.preview === key; }
 
 export function close(w: Workspace, key: string): Workspace {
   const hit = find(w, key);
@@ -128,7 +168,7 @@ export function close(w: Workspace, key: string): Workspace {
   const g = hit.group;
   const tabs = g.tabs.filter((_, i) => i !== hit.index);
   const active = Math.max(0, Math.min(hit.index <= g.active ? g.active - (hit.index < g.active ? 1 : 0) : g.active, tabs.length - 1));
-  return dropIfEmpty(replaceGroup(w, { ...g, tabs, active }), g.id);
+  return dropIfEmpty(replaceGroup(w, { ...kept(g, key), tabs, active }), g.id);
 }
 
 /** « Fermer les autres »: the other tabs of `key`'s group close, it stays, alone and active; the group itself stays. */
@@ -137,7 +177,9 @@ export function closeOthers(w: Workspace, key: string): Workspace {
   if (!hit) return w;
   const tab = hit.group.tabs[hit.index]!;
   if (hit.group.tabs.length === 1) return w;
-  return replaceGroup(w, { ...hit.group, tabs: [tab], active: 0 });
+  // The preview, if another tab, closes with the others.
+  const g = hit.group.preview === key ? hit.group : kept(hit.group);
+  return replaceGroup(w, { ...g, tabs: [tab], active: 0 });
 }
 
 /** The colour of the linked group whose front tab is the Changes of the session `key` names, null when there is none:
@@ -151,7 +193,8 @@ export function changesBeside(w: Workspace, key: string): Link | null {
   return peer?.link ?? null;
 }
 
-/** Moves tab `key` to a group, to a new group right of one, or to a new window (a tab torn out of the window). */
+/** Moves tab `key` to a group, to a new group right of one, or to a new window (a tab torn out of the window). A preview
+ *  moved is kept (leaving its group goes through `close`). */
 export function move(w: Workspace, key: string, to: { group: string } | { rightOf: string } | { window: 'new' }): Workspace {
   const hit = find(w, key);
   if (!hit) return w;
@@ -180,7 +223,8 @@ export function moveTo(w: Workspace, key: string, to: { group: string; index?: n
       const tabs = here.group.tabs.filter((_, i) => i !== here.index);
       const at = Math.max(0, Math.min(to.index, tabs.length));
       tabs.splice(at, 0, tab);
-      return activate(replaceGroup(w, { ...here.group, tabs }), here.group.id, at);
+      // Dragged within its group: a preview is kept.
+      return activate(replaceGroup(w, { ...kept(here.group, key), tabs }), here.group.id, at);
     }
   }
   const moved = move(w, key, to);
@@ -312,7 +356,10 @@ export function reopenLast(w: Workspace, stack: readonly Closed[], keep: (t: Tab
 export function split(w: Workspace, groupId: string): Workspace {
   const g = groupById(w, groupId);
   if (!g || g.window !== MAIN) return w;
-  const { w: w1, group } = addGroup(w, { after: g });
+  // Splitting with the front tab keeps it, should it be the preview (addGroup finds `after` by identity: the group as pinned).
+  const front = g.tabs[g.active];
+  const base = front ? pin(w, keyOf(front)) : w;
+  const { w: w1, group } = addGroup(base, { after: groupById(base, groupId)! });
   const from = sessionOf(g.tabs[g.active]);
   return { ...replaceGroup(w1, from ? { ...group, from } : group), focus: group.id };
 }
@@ -337,7 +384,7 @@ export function setLink(w: Workspace, groupId: string, link: Link | null): Works
 
 /** « +N −N » of a session tab: its Changes (or its attached terminal) beside it, in a group of the same colour. The
  *  group is linked first if it was not (the colour no other group uses, violet when both are taken). */
-export function beside(w: Workspace, groupId: string, kind: 'changes' | 'terminal', session: string): Workspace {
+export function beside(w: Workspace, groupId: string, kind: 'changes' | 'terminal', session: string, opts: OpenOptions = {}): Workspace {
   let g = groupById(w, groupId);
   if (!g) return w;
   let out = w;
@@ -355,8 +402,9 @@ export function beside(w: Workspace, groupId: string, kind: 'changes' | 'termina
   // one is detached (addGroup).
   let peer = out.groups.find(x => x.id !== g!.id && x.link === g!.link);
   if (!peer) { const r = addGroup(out, { after: g }); out = replaceGroup(r.w, { ...r.group, link: g.link }); peer = groupById(out, r.group.id)!; }
-  const tabs = [...peer.tabs, want];
-  out = replaceGroup(out, { ...peer, tabs, active: tabs.length - 1 });
+  // Asked by a single click (the session bar's « +N −N »), it is the linked group's preview (spec 2026-11-26-preview-tabs §5.4).
+  const { group: added, index } = addTab(peer, want, opts);
+  out = replaceGroup(out, { ...added, active: index });
   return { ...out, focus: g.id };
 }
 
@@ -379,7 +427,8 @@ export function reconcile(w: Workspace, exists: (t: Tab) => boolean): Workspace 
 /** A saved layout (« Dispositions »): the JSON a setting keeps. */
 export function serialize(w: Workspace): string { return JSON.stringify(w); }
 
-/** Reads a saved layout back; anything malformed gives `null` (the caller falls back to `empty()`). */
+/** Reads a saved layout back; anything malformed gives `null` (the caller falls back to `empty()`). Every tab read back is
+ *  kept: a preview is a passing look, not part of a layout restored or applied. */
 export function deserialize(json: string): Workspace | null {
   let v: unknown;
   try { v = JSON.parse(json); } catch { return null; }
@@ -393,7 +442,7 @@ export function deserialize(json: string): Workspace | null {
     if (g.link !== null && !LINKS.includes(g.link)) return null;
     if (!g.tabs.every(t => t && kinds.includes(t.kind) && typeof t.ref === 'string')) return null;
   }
-  return repair(o as Workspace);
+  return repair({ ...(o as Workspace), groups: (o.groups as Group[]).map(g => kept(g)) });
 }
 
 /** A tab's ref: `machine:rig` (machine ids carry no `:`). */

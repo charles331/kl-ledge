@@ -136,7 +136,7 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
   if (p.connecting && !p.routines.length) body = <div className="rtn-empty"><span className="rtn-line"><span className="rtn-spin" aria-hidden="true" />{r.connecting}</span></div>;
   else if (!p.routines.length && !off) body = (
     <div className="rtn-empty"><AlarmIcon size={22} /><b>{r.emptyTitle}</b><span>{r.emptySide}</span>
-      <button type="button" className="fg-btn pri" onClick={p.onNew}><Icon d={ICONS.plus.d} size={12} />{r.add}</button></div>
+      <button type="button" className="fg-btn pri" data-keep onClick={p.onNew}><Icon d={ICONS.plus.d} size={12} />{r.add}</button></div>
   );
   else body = (
     <>
@@ -157,7 +157,7 @@ export function RoutinesView(p: RoutinesViewProps): JSX.Element {
   return (
     <div className="rtn-side" role="region" aria-label={r.view}>
       <div className="rtn-side-h"><span>{r.view}</span>
-        <button type="button" className="rtn-hb" title={r.add} aria-label={r.add} onClick={p.onNew}><Icon d={ICONS.plus.d} size={14} /></button></div>
+        <button type="button" className="rtn-hb" title={r.add} aria-label={r.add} data-keep onClick={p.onNew}><Icon d={ICONS.plus.d} size={14} /></button></div>
       <div className="rtn-side-b">{body}</div>
       <div className="rtn-foot">{r.tzFoot(localZone())}</div>
       {m && (

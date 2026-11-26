@@ -1,7 +1,8 @@
 import type { HomeTab, NavAction, NavState, SectionId } from '../nav/state';
 import type { LayoutAction } from './layout';
 import type { OpenSession } from './openPrefs';
-import { open, type Tab, type Workspace } from './model';
+import type { Tab, Workspace } from './model';
+import { openAs, type Intent } from './intent';
 import { ATELIER_TAB, SETTINGS_TAB, openrigTab } from './store';
 
 /** What an existing screen's NavAction means in the IDE: a nav change, a tab change, a panel change, and the right panel's tab
@@ -14,13 +15,16 @@ const right = (on: boolean): LayoutAction => ({ type: 'show', panel: 'right', on
  *  the tab back there, as the activity bar does, rather than on General. */
 export function routeNav(a: NavAction, ctx: { isSeat(id: string): boolean; modalOpen: boolean; openSession: OpenSession; lastSettings?: SectionId;
   /** The view a session's new tab starts on (#300), when it is not the thread; an open tab keeps its own. */
-  startView?(id: string): 'terminal' | undefined }): Routed {
+  startView?(id: string): 'terminal' | undefined;
+  /** How the click that dispatched `a` asks for its tab (workspace/intent): a preview, a kept tab, from a tab. */
+  how?: Intent | null }): Routed {
+  const how = ctx.how ?? null;
   switch (a.type) {
     case 'open': {
       const view = ctx.startView?.(a.id);
-      return { nav: a, ws: w => open(w, { kind: ctx.isSeat(a.id) ? 'seat' : 'session', ref: a.id, ...(view ? { view } : {}) }, a.where ?? ctx.openSession) };
+      return { nav: a, ws: w => openAs(w, { kind: ctx.isSeat(a.id) ? 'seat' : 'session', ref: a.id, ...(view ? { view } : {}) }, a.where ?? ctx.openSession, how) };
     }
-    case 'home': return { ...(a.project !== undefined ? { nav: { type: 'filter', project: a.project } as NavAction } : {}), ws: w => open(w, ATELIER_TAB) };
+    case 'home': return { ...(a.project !== undefined ? { nav: { type: 'filter', project: a.project } as NavAction } : {}), ws: w => openAs(w, ATELIER_TAB, 'active', how) };
     // Ledge's views are the right panel's tabs: shown, on that tab (Conversation by default, its field asked for), a « Voir » on
     // the task's detail.
     case 'ledge': {
@@ -28,8 +32,8 @@ export function routeNav(a: NavAction, ctx: { isSeat(id: string): boolean; modal
       return { ...(tab === 'conversation' ? { nav: { type: 'chat', open: true } as NavAction } : {}), layout: right(true), chat: { tab, ...(a.task ? { task: a.task } : {}) } };
     }
     case 'chat': return { nav: a, layout: right(a.open !== false) };
-    case 'settings': return { nav: a.section === undefined && ctx.lastSettings ? { ...a, section: ctx.lastSettings } : a, ws: w => open(w, SETTINGS_TAB) };
-    case 'openrig': return { nav: a, ws: w => open(w, openrigTab(a.machine)) };
+    case 'settings': return { nav: a.section === undefined && ctx.lastSettings ? { ...a, section: ctx.lastSettings } : a, ws: w => openAs(w, SETTINGS_TAB, 'active', how) };
+    case 'openrig': return { nav: a, ws: w => openAs(w, openrigTab(a.machine), 'active', how) };
     case 'escape': return ctx.modalOpen ? { nav: { type: 'modal', modal: null } } : {};
     default: return { nav: a };
   }

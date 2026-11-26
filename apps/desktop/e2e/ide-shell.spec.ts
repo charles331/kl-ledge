@@ -67,8 +67,9 @@ test('Ctrl+J shows the bottom panel, 240 px high', async ({ page }) => {
 test('two sessions are two more dockview tabs, named; a click on the first brings its thread back; screenshot', async ({ page }, info) => {
   await boot(page);
   const tree = page.getByRole('tree');
-  await tree.getByRole('button', { name: /^Otto/ }).click();
-  await tree.getByRole('button', { name: /^Nova/ }).click();
+  // Double clicks: kept tabs (a single click opens a preview the next one replaces).
+  await tree.getByRole('button', { name: /^Otto/ }).dblclick();
+  await tree.getByRole('button', { name: /^Nova/ }).dblclick();
   // The workspace opens on its Atelier tab; each session opened adds its own, titled with its name.
   await expect(tabs(page)).toHaveCount(3);
   await expect(tabs(page).nth(0)).toContainText('Atelier');

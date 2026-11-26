@@ -1,0 +1,64 @@
+/* Ledge Desktop's own stylesheets (Tailwind v4, tokens, Geist), dockview's and the IDE's, their sources scanned. */
+@import '../../../apps/desktop/src/styles/app.css';
+@import '../../../apps/desktop/node_modules/dockview-react/dist/styles/dockview.css';
+@import '../../../apps/desktop/src/styles/ide.css';
+@source '../../../apps/desktop/src';
+@source '../../../packages/ui/src';
+@source './';
+
+/* app.css makes the app one fixed window: the mockup page scrolls (full-page captures). */
+html, body, #root { height: auto !important; min-height: 100%; overflow: visible !important; }
+#root { position: static !important; display: block !important; }
+
+/* ---- The preview tab's title in italic (spec §5.5; the owner chose the italic alone, 2026-11-26). ---- */
+/* The label's wrapper takes no box: the tab's own flex layout (.ide-tab, gap 7 px) stays as Desktop draws it. */
+.mk-pv { display: contents; }
+/* Desktop sets `font-synthesis: none` on :root and loads Geist without an italic: a bare `font-style: italic` draws upright
+   there (`.notice-summary` today). The preview's title asks the browser to slant Geist itself. */
+.mk-pv.on .tab-name { font-style: italic; font-synthesis-style: auto; }
+
+/* ---- The mockup's own frame ---- */
+.mk-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--background); border-bottom: 1px solid var(--border); font-size: 13px; }
+.mk-bar b { font-weight: 600; }
+.mk-fill { flex: 1; }
+.mk-mut { color: var(--muted-foreground); }
+.mk-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.mk-seg button { padding: 3px 10px; border-radius: 6px; font-size: 12px; color: var(--muted-foreground); }
+.mk-seg button[aria-checked=true] { background: var(--muted); color: var(--foreground); }
+.mk-main { padding: 18px 24px 48px; display: flex; flex-direction: column; gap: 28px; max-width: 1320px; }
+.mk-lede { margin: 0; max-width: 980px; font-size: 13.5px; line-height: 21px; }
+.mk-lede b, .mk-note b { font-weight: 600; color: var(--foreground); }
+.mk-sect { display: flex; flex-direction: column; gap: 12px; }
+.mk-sect > h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.mk-sect > p { margin: 0; max-width: 980px; font-size: 13px; line-height: 20px; color: var(--muted-foreground); }
+.mk-row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.mk-fig { display: flex; flex-direction: column; gap: 8px; width: min-content; }
+.mk-kicker { margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--muted-foreground); }
+.mk-fig.rec .mk-kicker { color: var(--primary); }
+.mk-note { margin: 0; max-width: 560px; font-size: 12.5px; line-height: 19px; color: var(--muted-foreground); }
+.mk-arrow { align-self: center; font-size: 18px; color: var(--muted-foreground); padding-top: 18px; }
+
+/* One editing area of Desktop: the `.ide` tokens, the dock box sized as the app sizes it (DockHost fills `.ide-dock-area`). */
+.mk-ide { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--background); }
+/* `.ide` is the whole window's grid (title bar, body, status bar): here it only carries the IDE's tokens. */
+.mk-ide .ide { display: block; height: 100%; }
+.mk-ide .ide-editor { height: 100%; }
+.mk-tab-body { height: 100%; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: var(--muted-foreground); }
+.mk-tab-body b { color: var(--foreground); font-weight: 500; }
+.mk-line { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--muted-foreground) 16%, transparent); }
+
+/* The interactive scene: a simplified Projets list on the left of the editing area. */
+.mk-try { display: grid; grid-template-columns: 220px 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 300px; }
+.mk-try .mk-ide { border: 0; border-radius: 0; height: 100%; }
+.mk-list { background: var(--sidebar); border-right: 1px solid var(--border); padding: 8px 6px; display: flex; flex-direction: column; gap: 1px; overflow: auto; user-select: none; }
+.mk-list h3 { margin: 6px 8px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--muted-foreground); }
+.mk-list button { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 6px; font-size: 12.5px; text-align: left; color: var(--foreground); }
+.mk-list button:hover { background: var(--accent); }
+.mk-list button.open { color: var(--foreground); font-weight: 500; }
+.mk-list .mk-ico { width: 14px; display: inline-flex; justify-content: center; color: var(--muted-foreground); font-size: 11px; }
+.mk-help { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted-foreground); }
+.mk-help kbd { font-family: var(--font-mono, 'Geist Mono', monospace); font-size: 11px; padding: 0 4px; border: 1px solid var(--border); border-radius: 4px; }
+.mk-reset { align-self: flex-start; font-size: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted-foreground); }
+.mk-reset:hover { color: var(--foreground); background: var(--muted); }
+
+
