@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
 
 /** How long a finger rests on a seat or a row before its actions open (m2-sessions.html §8). */
 export const LONG_PRESS_MS = 500;
@@ -108,6 +108,8 @@ export function useLiftDrag(o: { onLong(): void; onLift?(y: number): void; onDra
     },
     onPointerUp: () => { if (phase.current === 'pressing') { clear(); phase.current = 'idle'; } },
     onPointerCancel: () => { if (phase.current === 'pressing') { clear(); phase.current = 'idle'; } },
+    // A link or an image would start the browser's own drag, which cancels the pointer: the row is moved by this hook only.
+    onDragStart: (e: DragEvent) => { e.preventDefault(); },
     onContextMenu: (e: MouseEvent) => { e.preventDefault(); if (!fired.current && phase.current !== 'lifted' && phase.current !== 'dragging') { clear(); phase.current = 'idle'; fired.current = true; latest.current.onLong(); } },
     onClickCapture: (e: MouseEvent) => { if (fired.current) { e.preventDefault(); e.stopPropagation(); fired.current = false; } }
   };

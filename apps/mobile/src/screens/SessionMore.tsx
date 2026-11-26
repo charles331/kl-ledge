@@ -161,7 +161,7 @@ export function ProjectOrderSheet({ name, up, down, onClose }: { name: string; u
       <h2 id={titleId} className="flex min-w-0 items-center gap-2"><b className="truncate font-semibold">{name}</b></h2>
       <Menu>
         <Item icon="arrowUp" label={R.up} onClick={up ? () => { up(); onClose(); } : undefined} />
-        <Item icon="down" label={R.down} onClick={down ? () => { down(); onClose(); } : undefined} />
+        <Item icon="arrowDown" label={R.down} onClick={down ? () => { down(); onClose(); } : undefined} />
       </Menu>
     </Sheet>
   );

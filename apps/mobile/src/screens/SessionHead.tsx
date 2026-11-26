@@ -81,7 +81,7 @@ export function SessionActions({ store, session, onDone, order }: { store: Mobil
       onModel={() => setPane('model')} onCloseSession={() => setPane('close')}
       {...(order ? { order: [
         { icon: 'arrowUp' as const, label: copy.sessions.reorder.up, onClick: order.up ? () => { order.up!(); onDone(); } : undefined },
-        { icon: 'down' as const, label: copy.sessions.reorder.down, onClick: order.down ? () => { order.down!(); onDone(); } : undefined }
+        { icon: 'arrowDown' as const, label: copy.sessions.reorder.down, onClick: order.down ? () => { order.down!(); onDone(); } : undefined }
       ] } : {})}
       lead={[
         { icon: 'sessions', label: copy.atoi.openThread, onClick: () => go({ name: 'thread', sessionId: session.id }) },

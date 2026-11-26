@@ -98,6 +98,9 @@ export interface FakeDaemon {
   /** Set (with `projects`): the snapshot says `daemon.projectEdit` and `projectFolders` (Réglages › Projets, issue #2), and the PC
    *  answers this PC's recent folders, a folder's listing and a project's folders from it. */
   projectFolders: { recents: string[]; home: string; listings: Record<string, string[]>; folders: Record<string, { machine: string; path: string; label?: string }[]> } | null;
+  /** Issue #16: set (with `projects`), the snapshot says `daemon.sessionOrder` and `projectEdit` and carries this order; the PC
+   *  takes `session.order` and `project.order` and answers `projects` with the new order. */
+  sessionOrder: Record<string, string[]> | null;
   /** True: the snapshot says `daemon.broadcast`, and the PC takes « Écrire au groupe ». */
   broadcast: boolean;
   /** The broadcasts the PC took: the sessions and the text. */
@@ -131,7 +134,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   let seen = 0;
   let busy = false;
   const d: FakeDaemon = {
-    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
+    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, sessionOrder: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
     finishChat() { d.turns = d.turns.map((t) => (t.answer === undefined ? finished(t) : t)); },
     async update(s) {
       d.sessions = [...d.sessions.filter((x) => x.id !== s.id), s];
@@ -141,8 +144,9 @@ function runDaemon(pc: FakePc): FakeDaemon {
   };
   const snapshot = (): PhoneServerMessage => ({
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: d.sessions,
-    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}) },
+    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}), ...(d.sessionOrder ? { sessionOrder: true as const, projectEdit: true as const } : {}) },
     ...(d.projects ? { projects: d.projects } : {}),
+    ...(d.sessionOrder ? { sessionOrder: d.sessionOrder } : {}),
     ...(d.device || d.push || d.chat ? { device: { confirm: d.device ? d.device.registered : true, ...(d.push ? { push: d.push } : {}), ...(d.chat ? { chat: true as const } : {}) } } : {})
   });
   /** The scripted answer: short on purpose, a card is never cut (TOOL_TEXT_MAX). */
@@ -274,6 +278,17 @@ function runDaemon(pc: FakePc): FakeDaemon {
       return pc.send({ type: 'folder.listing', path, parent: path === '/' ? null : path.split('/').slice(0, -1).join('/') || '/', entries: pf.listings[path] ?? [], repos: [] });
     }
     if (pf && m.type === 'project.folders') return pc.send({ type: 'project.folders', id: m.id, folders: pf.folders[m.id] ?? [] });
+    if (d.sessionOrder && d.projects && m.type === 'session.order') {
+      d.sessionOrder = { ...d.sessionOrder, [m.project ?? '']: m.ids };
+      await pc.send({ type: 'operation.result', op: m.op, status: 'applied' });
+      return pc.send({ type: 'projects', projects: d.projects, sessionOrder: d.sessionOrder });
+    }
+    if (d.sessionOrder && d.projects && m.type === 'project.order') {
+      const byId = new Map(d.projects.map(p => [p.id, p]));
+      d.projects = m.ids.map(id => byId.get(id)!).filter(Boolean);
+      await pc.send({ type: 'operation.result', op: m.op, status: 'applied' });
+      return pc.send({ type: 'projects', projects: d.projects, sessionOrder: d.sessionOrder });
+    }
     if (m.type === 'snapshot.request') {
       await pc.send(snapshot());
       if (d.usage) await pc.send({ type: 'usage.state', harnesses: d.usage, prefs: { alert: 0.8 } });
