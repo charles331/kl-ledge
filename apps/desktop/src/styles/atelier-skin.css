@@ -118,6 +118,8 @@
 /* Chips and tags met on the other screens (the thread's chips, Settings, Routines, MR et PR, Changes, the model picker). */
 :root[data-skin="atelier"] .decision-chip > span, :root[data-skin="atelier"] .act > span, :root[data-skin="atelier"] .helper-card > span,
 :root[data-skin="atelier"] .set-tag, :root[data-skin="atelier"] .change-badge, :root[data-skin="atelier"] .fg-chip, :root[data-skin="atelier"] .unassigned-actions > span { border-radius: 8px; }
+/* The thread's chips are @ledge/ui's Badge, whose radius is an inline style: the mockup's rule above never reached them. */
+:root[data-skin="atelier"] .decision-chip > [data-badge], :root[data-skin="atelier"] .act > [data-badge], :root[data-skin="atelier"] .helper-card > [data-badge] { border-radius: 8px !important; }
 :root[data-skin="atelier"] .model-badge, :root[data-skin="atelier"] .rtn-vars button, :root[data-skin="atelier"] .pe-branch, :root[data-skin="atelier"] .st-wt { border-radius: 7px; }
 :root[data-skin="atelier"] select.set-input, :root[data-skin="atelier"] .rtn-row { border-radius: 8px; }
 :root[data-skin="atelier"] .ide-bar-pill .tab-count { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; }
