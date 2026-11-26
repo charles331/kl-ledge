@@ -1,0 +1,285 @@
+/* « Atelier »: the IDE's skin the owner chose on 2026-11-26 (docs/mockups/ledge-ide-visual-directions.html, direction B),
+   written as an overlay on the app's real stylesheets. Part 1 redraws the tokens of packages/ui/src/styles/tokens.css from one
+   colour, --at-base, the main background; part 2 turns the IDE's panels into cards on a workbench. Nothing moves: every panel
+   keeps its place and its content. All of it applies under :root[data-skin="atelier"] only, so the bar above can switch it off. */
+
+/* ---------- 1 · Tokens, drawn from --at-base ---------- */
+:root[data-skin="atelier"] { --at-base: #221f1b; --at-coral: #f27a63; --at-coral-ink: oklch(from var(--at-coral) .2 .04 h); }
+:root[data-skin="atelier"][data-theme="light"] { --at-base: #fbf7f1; --at-coral: #d6543d; --at-coral-ink: #fff; }
+/* Whatever colour is picked, a surface carries little chroma: past that the screen turns garish and the state colours stop reading. */
+:root[data-skin="atelier"] { --at-b: oklch(from var(--at-base) l min(c, .04) h); }
+:root[data-skin="atelier"][data-theme="light"] { --at-b: oklch(from var(--at-base) l min(c, .028) h); }
+/* Dark: the panes are the base, the bench under them is deeper, cards and hovers rise above. The ink keeps the base's hue. */
+:root[data-skin="atelier"] {
+  --at-pane: var(--at-b);
+  --at-side: oklch(from var(--at-b) calc(l - .018) c h);
+  --at-well: oklch(from var(--at-b) calc(l - .04) c h);
+  --at-bench: oklch(from var(--at-b) calc(l - .068) calc(c * .9) h);
+  --at-card: oklch(from var(--at-b) calc(l + .04) c h);
+  --at-raise: oklch(from var(--at-b) calc(l + .075) c h);
+  --at-field: var(--at-well);
+  --at-ink: oklch(from var(--at-b) .95 calc(c * .9 + .004) h);
+  --at-ink2: oklch(from var(--at-b) .69 calc(c + .004) h);
+  --at-line: oklch(from var(--at-ink) l c h / .09);
+  --at-line2: oklch(from var(--at-ink) l c h / .17);
+}
+/* Light: the same ladder turned over. Fields and cards are the lightest, the bench the darkest. */
+:root[data-skin="atelier"][data-theme="light"] {
+  --at-side: oklch(from var(--at-b) calc(l - .025) c h);
+  --at-well: oklch(from var(--at-b) calc(l - .035) c h);
+  --at-bench: oklch(from var(--at-b) calc(l - .08) calc(c * 1.1) h);
+  --at-card: oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h);
+  --at-raise: oklch(from var(--at-b) calc(l - .055) c h);
+  --at-field: var(--at-card);
+  --at-ink: oklch(from var(--at-b) .24 calc(c + .012) h);
+  --at-ink2: oklch(from var(--at-b) .52 calc(c + .012) h);
+  --at-line: oklch(from var(--at-ink) l c h / .11);
+  --at-line2: oklch(from var(--at-ink) l c h / .2);
+}
+:root[data-skin="atelier"] {
+  --background: var(--at-field); --foreground: var(--at-ink);
+  --card: var(--at-card); --card-foreground: var(--at-ink); --popover: var(--at-card); --popover-foreground: var(--at-ink);
+  --secondary: var(--at-raise); --secondary-foreground: var(--at-ink);
+  --muted: var(--at-raise); --muted-foreground: var(--at-ink2); --accent: var(--at-raise); --accent-foreground: var(--at-ink);
+  --border: var(--at-line); --input: var(--at-line2); --ring: var(--at-ink2);
+  --sidebar: var(--at-pane); --sidebar-foreground: var(--at-ink); --sidebar-accent: var(--at-raise); --sidebar-accent-foreground: var(--at-ink);
+  --sidebar-border: var(--at-line); --sidebar-ring: var(--at-ink2);
+  --well: var(--at-well); --term-bg: var(--at-well); --term-fg: var(--at-ink); --term-cursor: var(--at-ink);
+  /* One coral for the brand and for « c'est à toi »: the primary button, the request's badge, the tab in front. */
+  --primary: var(--at-coral); --primary-foreground: var(--at-coral-ink); --primary-hover: oklch(from var(--at-coral) calc(l - .05) c h);
+  --sidebar-primary: var(--at-coral); --sidebar-primary-foreground: var(--at-coral-ink); --ide-tab-front: var(--at-coral);
+  --radius-sm: 8px; --radius-md: 10px; --radius-lg: 12px; --radius-xl: 16px;
+  --at-gap: 6px;
+}
+
+/* ---------- 2 · The IDE's frame: panels as cards on the bench ---------- */
+:root[data-skin="atelier"] .ide { background: var(--at-bench); grid-template-rows: 38px 1fr 30px; --ide-strip: var(--at-side); --ide-pane: var(--at-pane); }
+:root[data-skin="atelier"] .ide-titlebar, :root[data-skin="atelier"] .ide-activity, :root[data-skin="atelier"] .ide-status { background: transparent; border: 0; }
+:root[data-skin="atelier"] .ide-search { height: 26px; padding: 0 13px; border-radius: 13px; background: var(--at-side); }
+:root[data-skin="atelier"] .ide-body { gap: var(--at-gap); padding-right: var(--at-gap); }
+:root[data-skin="atelier"] .ide-activity button { border-radius: 10px; }
+:root[data-skin="atelier"] .ide-activity button.on { background: color-mix(in srgb, var(--at-coral) 18%, transparent); color: var(--at-coral); }
+
+
+:root[data-skin="atelier"] .ide-explorer { background: var(--at-side); border: 1px solid var(--at-line); border-radius: var(--radius-lg); }
+:root[data-skin="atelier"] .ide-explorer-body { border-radius: inherit; overflow: hidden; }
+:root[data-skin="atelier"] .ide-explorer-body > .sidebar { background: transparent; }
+:root[data-skin="atelier"] .ide-ex-h { padding: 12px 14px 6px; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--at-ink); }
+/* The session one is in (the tab in front of the focused group) stands out in the list when its row is visible there: a neutral
+   raised row and its name in semi-bold. Never coral: the colour belongs to the pill of a session that wants the person. */
+:root[data-skin="atelier"] .st-agent.sel { background: var(--at-raise); color: var(--at-ink); }
+:root[data-skin="atelier"] .st-agent.sel .st-main strong { font-weight: 600; }
+
+:root[data-skin="atelier"] .ide-editor { background: transparent; gap: var(--at-gap); }
+/* dockview lays its groups edge to edge: the gap is taken inside each one after the first. */
+:root[data-skin="atelier"] .ide-dock .dv-split-view-container.dv-horizontal > .dv-view-container > .dv-view:not(:first-child) { box-sizing: border-box; padding-left: var(--at-gap); }
+:root[data-skin="atelier"] .ide-dock .dv-split-view-container.dv-vertical > .dv-view-container > .dv-view:not(:first-child) { box-sizing: border-box; padding-top: var(--at-gap); }
+:root[data-skin="atelier"] .ide-dock .dv-view::before { display: none; }
+/* dockview paints the pane's colour under all its groups: left there, it fills the gaps and squares every rounded corner. */
+:root[data-skin="atelier"] .ide-dock .dv-dockview, :root[data-skin="atelier"] .ide-dock .dv-grid-view, :root[data-skin="atelier"] .ide-dock .dv-view, :root[data-skin="atelier"] .ide-dock .dv-view-container, :root[data-skin="atelier"] .ide-dock .dv-split-view-container { background: transparent; }
+:root[data-skin="atelier"] .ide-dock .dv-groupview { background: var(--at-pane); border: 1px solid var(--at-line); border-radius: var(--radius-lg); overflow: hidden; }
+:root[data-skin="atelier"] .ide-dock {
+  --dv-tabs-and-actions-container-height: 36px; --dv-tabs-and-actions-container-font-size: 12.5px; --dv-tab-font-size: 12.5px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--at-card); --dv-inactivegroup-visiblepanel-tab-background-color: var(--at-card);
+  --dv-tab-divider-color: transparent;
+}
+/* Tabs as rounded tokens on the strip. No line under a tab (the owner, 2026-11-26): neither the coral one of the tab in front
+   (docs/mockups/ledge-ide-tab-front.html) nor a waiting session's; the tab in front is the one on the card's colour, and a session's
+   state is its dot. */
+:root[data-skin="atelier"] .ide-dock .dv-tabs-and-actions-container { border-bottom: 0; padding-right: 2px; }
+:root[data-skin="atelier"] .ide-dock .dv-tabs-container { align-items: center; gap: 3px; }
+:root[data-skin="atelier"] .ide-dock .dv-tab { height: 26px; border-right: 0; border-radius: 8px; }
+:root[data-skin="atelier"] .ide-dock .dv-tab.dv-active-tab { box-shadow: 0 1px 0 var(--at-line2); }
+:root[data-skin="atelier"] .ide-dock .dv-tab.alert, :root[data-skin="atelier"] .ide-dock .dv-tab.alert-a { box-shadow: none; }
+:root[data-skin="atelier"] .ide-dock .dv-groupview .dv-tab.dv-active-tab, :root[data-skin="atelier"] .ide-dock .dv-groupview.dv-active-group .dv-tab.dv-active-tab:not(.alert):not(.alert-a) { box-shadow: 0 1px 0 var(--at-line2); }
+:root[data-skin="atelier"] .ide-bar { height: 32px; padding: 0 14px; border-top: 0; background: transparent; }
+:root[data-skin="atelier"] .ide-reply.session-reply > form { border-radius: var(--radius-lg); }
+:root[data-skin="atelier"] .ide-pane .session-thread { padding-inline: 14px; }
+
+:root[data-skin="atelier"] .ide-bottom { border: 1px solid var(--at-line); border-radius: var(--radius-lg); overflow: hidden; background: var(--at-pane); }
+:root[data-skin="atelier"] .ide-bp-tabs { height: 34px; background: var(--at-side); border-bottom: 0; }
+:root[data-skin="atelier"] .ide-bterms { gap: 0; background: transparent; }
+:root[data-skin="atelier"] .ide-btile + .ide-btile { border-left: 1px solid var(--at-line); }
+:root[data-skin="atelier"] .ide-btile-bar { height: 34px; align-items: center; padding-left: 4px; border-bottom: 0; }
+:root[data-skin="atelier"] .ide-btile-tab { height: 26px; border-right: 0; border-radius: 8px; }
+:root[data-skin="atelier"] .ide-btile-tab.on { background: var(--at-card); box-shadow: 0 1px 0 var(--at-line2); }
+:root[data-skin="atelier"] .ide-btile-tab.on::before { display: none; }
+:root[data-skin="atelier"] .ide-btile-tools .chip-k, :root[data-skin="atelier"] .ide-term-kind .chip-k { border-radius: 9px; }
+
+:root[data-skin="atelier"] .ide-right { border: 1px solid var(--at-line); border-radius: var(--radius-lg); overflow: hidden; }
+:root[data-skin="atelier"] .ide-right > .ledge-chat-panel { background: var(--at-side); border-left: 0; }
+
+/* The status bar: each item a soft pill, the waiting requests in coral. */
+:root[data-skin="atelier"] .ide-status { gap: 8px; font-size: 12px; }
+:root[data-skin="atelier"] .ide-status-wait { height: 20px; border-radius: 10px; background: color-mix(in srgb, var(--at-coral) 22%, transparent); color: var(--at-coral); font-weight: 600; }
+:root[data-skin="atelier"] .ide-lay { border-radius: 10px; background: var(--at-line); }
+
+/* ---------- 3 · Inside the panels ---------- */
+/* A request waiting for the person: the card takes the coral's tint, its primary button the coral itself. */
+:root[data-skin="atelier"] .pending-card { border-radius: var(--radius-lg); }
+:root[data-skin="atelier"] .pending-card.approval { border-color: color-mix(in srgb, var(--at-coral) 45%, transparent); background: color-mix(in srgb, var(--at-coral) 10%, var(--at-pane)); box-shadow: none; }
+:root[data-skin="atelier"] .ide-palette, :root[data-skin="atelier"] .ide-lk-menu, :root[data-skin="atelier"] .ide-lay-menu { border-radius: var(--radius-lg); }
+
+/* The explorer's row: « À toi » on a session that waits (see build.mjs). */
+.at-on { display: none; }
+.at-off { display: contents; }
+:root[data-skin="atelier"] .at-off { display: none; }
+:root[data-skin="atelier"] .at-on { display: inline-flex; }
+:root[data-skin="atelier"] .st-agent .st-time { display: inline-flex; align-items: center; }
+:root[data-skin="atelier"] .at-tag { height: 18px; align-items: center; padding: 0 8px; border-radius: 9px; background: var(--at-coral); color: var(--at-coral-ink); font: 600 11px/1 var(--font-sans, 'Geist', sans-serif); white-space: nowrap; }
+:root[data-skin="atelier"] .st-time.t-question .at-tag { background: var(--warning); color: oklch(from var(--warning) .2 .04 h); }
+:root[data-skin="atelier"] .st-row { border-radius: 8px; }
+:root[data-skin="atelier"] .st-project, :root[data-skin="atelier"] .st-branch { min-height: 30px; }
+
+/* ---------- The projects' tree, reworked so a session keeps its text ---------- */
+/* Today a session's name starts 78 px into a 248 px panel and shares its line with the time: names, branches and topics are cut.
+   Here the tree is flatter (project at 4 px, branch at 12, session at 28, the sub-agents' chevron in the gutter), a branch's name
+   takes its whole line, and the time moves to the session's second line, so the first one is the name's and its chips'. */
+/* One heading, not two: the view's title gives way to the list's own line, which carries the tools. */
+:root[data-skin="atelier"] .sidebar:has(> .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label) > .ide-ex-h { display: none; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { padding-top: 10px; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--at-ink); }
+:root[data-skin="atelier"] .st-tree .st-branch { padding-left: 12px; }
+:root[data-skin="atelier"] .st-tree .st-branch > .st-fill { display: none; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) { padding-left: 28px; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-gap { display: none; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-chev { position: absolute; left: 9px; }
+:root[data-skin="atelier"] .st-tree .st-agent.helper { padding-left: 52px; }
+:root[data-skin="atelier"] .st-tree .st-agent.helper > .st-gap { display: none; }
+/* The time, on the second line's right; « À toi » stays on the first, where it is looked for. */
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-time:not(:has(.at-tag)) { position: absolute; right: 8px; bottom: 6px; margin: 0; }
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-main > span { padding-right: 46px; }
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper):has(.at-tag) > .st-main > span { padding-right: 0; }
+/* « Hors ligne » is wider than a time: its row keeps more room for it. */
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent.off:not(.helper) > .st-main > span { padding-right: 78px; }
+/* A project's name may take the room its counts leave (today it stops at 60 % of it). */
+:root[data-skin="atelier"] .st-project .st-main strong { max-width: 100%; flex: 0 1 auto; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { margin-bottom: 4px; }
+
+/* The thread: what the person wrote in a coral-tinted bubble, a run of actions gathered in one soft block right of the rail. */
+:root[data-skin="atelier"] .prompt-row .prompt-text { display: inline-block; margin-top: 4px; padding: 8px 13px; border-radius: 5px 16px 16px 16px; background: color-mix(in srgb, var(--at-coral) 15%, var(--at-pane)); }
+:root[data-skin="atelier"] .r.action-row { position: relative; padding: 5px 10px 5px 0; }
+:root[data-skin="atelier"] .r.action-row::before { content: ""; position: absolute; inset: 0 0 0 44px; background: var(--at-well); pointer-events: none; }
+:root[data-skin="atelier"] .r.action-row > * { position: relative; }
+:root[data-skin="atelier"] .r:not(.action-row) + .r.action-row { margin-top: 4px; }
+:root[data-skin="atelier"] .r:not(.action-row) + .r.action-row::before, :root[data-skin="atelier"] .r.action-row:first-child::before { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+:root[data-skin="atelier"] .r.action-row:not(:has(+ .action-row))::before { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+:root[data-skin="atelier"] .r.action-row:not(:has(+ .action-row)) { margin-bottom: 4px; }
+
+/* The chat: rounder suggestions, the field as a pill, its send button round. */
+:root[data-skin="atelier"] .ledge-chat-panel .ledge-recent { border-radius: 14px !important; }
+:root[data-skin="atelier"] .ledge-chat-panel .ledge-field { height: 38px !important; padding-inline: 15px !important; border-radius: 19px !important; }
+:root[data-skin="atelier"] .ledge-chat-panel .ledge-field + .ledge-btn { width: 38px !important; height: 38px !important; border-radius: 50% !important; }
+:root[data-skin="atelier"] .ledge-chat-panel [data-question] { border-radius: 16px 16px 5px 16px !important; background: color-mix(in srgb, var(--at-coral) 15%, var(--at-side)) !important; }
+
+/* Every item of the status bar is a soft pill. */
+:root[data-skin="atelier"] .ide-status .footer-status > *, :root[data-skin="atelier"] .ide-status .ugroup, :root[data-skin="atelier"] .ide-status > button:not(.ide-status-wait) { height: 20px; padding: 0 9px; border-radius: 10px; background: var(--at-line); }
+:root[data-skin="atelier"] .ide-status .footer-status { gap: 8px; }
+:root[data-skin="atelier"] .ide-status .usep { display: none; }
+:root[data-skin="atelier"] .ide-status .usage-foot { gap: 8px; }
+
+/* ---------- Count bubbles: one shape wherever a number is shown ---------- */
+/* 16 px high, at least as wide, a full pill, the figure centred in tabular digits. A count of a state wears that state's colour on a
+   tint of it; a plain count is neutral. The dot that stood before the figure goes: the bubble's colour says the same. */
+:root[data-skin="atelier"] .ide-badge, :root[data-skin="atelier"] .st-tally > span, :root[data-skin="atelier"] .st-count,
+:root[data-skin="atelier"] .ide-bp-count, :root[data-skin="atelier"] .rt-tabs .n, :root[data-skin="atelier"] .st-kids {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 3px; flex: none;
+  min-width: 16px; height: 16px; padding: 0 5px; border: 0; border-radius: 8px;
+  font: 600 10px/16px 'Geist', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root[data-skin="atelier"] .st-count, :root[data-skin="atelier"] .ide-bp-count, :root[data-skin="atelier"] .rt-tabs .n, :root[data-skin="atelier"] .st-kids:not(.on) { background: var(--at-line2); color: var(--at-ink2); }
+:root[data-skin="atelier"] .st-tally { gap: 4px; align-items: center; }
+:root[data-skin="atelier"] .st-tally > span { background: color-mix(in srgb, currentColor 18%, transparent); }
+:root[data-skin="atelier"] .st-tally > span > i:not(.st-kids-spin) { display: none; }
+:root[data-skin="atelier"] .st-tally > .t-bg > i { display: block; width: 6px; height: 6px; }
+:root[data-skin="atelier"] .st-kids.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
+:root[data-skin="atelier"] .st-kids { margin-top: 6px; }
+/* On an icon of the activity bar: solid, ringed in the bench's colour so it cuts cleanly out of the icon under it. */
+:root[data-skin="atelier"] .ide-badge { top: 1px; right: 0; background: var(--at-coral); color: var(--at-coral-ink); box-shadow: 0 0 0 2px var(--at-bench); }
+:root[data-skin="atelier"] .ide-badge.amber { background: var(--warning); color: oklch(from var(--warning) .2 .04 h); }
+
+/* ---------- 4 · Small parts: nothing keeps a tight corner ---------- */
+/* Gauges (a session's context, the harnesses' limits in the status bar and in their detail) are full pills. */
+:root[data-skin="atelier"] .ugauge, :root[data-skin="atelier"] .ugauge > i { border-radius: 99px; }
+:root[data-skin="atelier"] .ide-bar-ctx .ugauge, :root[data-skin="atelier"] .umini .ugauge { height: 5px; }
+:root[data-skin="atelier"] .urow .ugauge { height: 6px; }
+/* Keys, tags and chips. */
+:root[data-skin="atelier"] .ide-kbd, :root[data-skin="atelier"] kbd { border-radius: 6px !important; }
+:root[data-skin="atelier"] .st-ctx { border-radius: 9px; padding-inline: 6px; }
+:root[data-skin="atelier"] .tool-tag { border-radius: 7px; }
+:root[data-skin="atelier"] .pending-head > span:first-child { border-radius: 10px !important; }
+:root[data-skin="atelier"] .pending-command { border-radius: 10px; }
+:root[data-skin="atelier"] .side-swatch { border-radius: 50%; }
+:root[data-skin="atelier"] .ide-lk { border-radius: 3px; }
+/* Icon buttons of the title bar, the strips and the session bar. */
+:root[data-skin="atelier"] .ide-toggles button, :root[data-skin="atelier"] .ide-strip-tools button, :root[data-skin="atelier"] .st-icon,
+:root[data-skin="atelier"] .ide-bottom .ide-bp-tabs button, :root[data-skin="atelier"] .ide-ex-btn { border-radius: 8px; }
+:root[data-skin="atelier"] .ide-bar-stop { border-radius: 8px; }
+:root[data-skin="atelier"] .ide-bar-stop i { border-radius: 3px; }
+:root[data-skin="atelier"] .ide-bar .dchip, :root[data-skin="atelier"] .ide-bar-pill { border-radius: 10px; }
+/* Segmented controls: the frame rounds, its segments stay flush inside it. */
+:root[data-skin="atelier"] .ide-abar-seg, :root[data-skin="atelier"] .fg-seg, :root[data-skin="atelier"] .rtn-seg, :root[data-skin="atelier"] .rtn-days,
+:root[data-skin="atelier"] .ide-perm-seg, :root[data-skin="atelier"] .launch-modal-segc { border-radius: 9px; overflow: hidden; }
+/* Chips and tags met on the other screens (the thread's chips, Settings, Routines, MR et PR, Changes, the model picker). */
+:root[data-skin="atelier"] .decision-chip > span, :root[data-skin="atelier"] .act > span, :root[data-skin="atelier"] .helper-card > span,
+:root[data-skin="atelier"] .set-tag, :root[data-skin="atelier"] .change-badge, :root[data-skin="atelier"] .fg-chip, :root[data-skin="atelier"] .unassigned-actions > span { border-radius: 8px; }
+:root[data-skin="atelier"] .model-badge, :root[data-skin="atelier"] .rtn-vars button, :root[data-skin="atelier"] .pe-branch, :root[data-skin="atelier"] .st-wt { border-radius: 7px; }
+:root[data-skin="atelier"] select.set-input, :root[data-skin="atelier"] .rtn-row { border-radius: 8px; }
+:root[data-skin="atelier"] .ide-bar-pill .tab-count { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; }
+/* Buttons and fields of the pages (MR et PR, Rig, OpenRig, À toi, Routines, the right panel's tasks, New session): one radius. */
+:root[data-skin="atelier"] .fg-btn, :root[data-skin="atelier"] .ide-rig-btn, :root[data-skin="atelier"] .rt-btn, :root[data-skin="atelier"] .ask-btn,
+:root[data-skin="atelier"] .ide-rigs-go button, :root[data-skin="atelier"] .ide-orp-launch, :root[data-skin="atelier"] .ide-abar-btn,
+:root[data-skin="atelier"] .launch-modal .launch-modal-inp, :root[data-skin="atelier"] .launch-modal-ta, :root[data-skin="atelier"] .launch-modal .model-trigger,
+:root[data-skin="atelier"] .launch-modal .effort-stepper, :root[data-skin="atelier"] .launch-modal .effort-none, :root[data-skin="atelier"] .launch-modal-go .ledge-btn { border-radius: 8px !important; }
+:root[data-skin="atelier"] .launch-modal .launch-modal-agent { border-radius: 12px; }
+:root[data-skin="atelier"] select.set-input { border: 1px solid var(--at-line2); }
+/* Cards of the pages, as round as the panels they sit in. */
+:root[data-skin="atelier"] .fg-blk, :root[data-skin="atelier"] .ide-orp-card { border-radius: var(--radius-lg); }
+/* Text fields of the pages take the buttons' radius. */
+:root[data-skin="atelier"] .ide input[type="text"], :root[data-skin="atelier"] .ide input[type="search"], :root[data-skin="atelier"] .ide input:not([type]),
+:root[data-skin="atelier"] .ide textarea, :root[data-skin="atelier"] .ide select { border-radius: 8px; }
+/* A long duration (« 9 min 24 s ») widens its column instead of running out of the thread. */
+:root[data-skin="atelier"] .ide-pane .r { grid-template-columns: 40px minmax(0, 1fr) minmax(56px, max-content); }
+/* A key shown inside a coloured button borrows the button's ink, or it is coral on coral. */
+:root[data-skin="atelier"] .ledge-btn kbd, :root[data-skin="atelier"] .fg-btn kbd, :root[data-skin="atelier"] .btn kbd { background: color-mix(in srgb, currentColor 16%, transparent) !important; border-color: transparent !important; color: inherit !important; }
+/* The keyboard's ring follows the tab's shape. */
+:root[data-skin="atelier"] .ide-dock .dv-tab::after { border-radius: 8px; }
+/* A notice's progress line stays inside its rounded corners. */
+:root[data-skin="atelier"] .toast { border-radius: var(--radius-lg); overflow: hidden; }
+/* What opens over the window: menus, the limits' detail, dialogs. */
+:root[data-skin="atelier"] [role="menu"], :root[data-skin="atelier"] .usage-pop { border-radius: 14px; }
+:root[data-skin="atelier"] [role="menuitem"] { border-radius: 8px; }
+:root[data-skin="atelier"] .modal { border-radius: 16px; }
+
+/* ---------- Reference: the exact colours of the hand-drawn mockup (ledge-ide-visual-directions.html, direction B) ---------- */
+/* Not derived: each surface as it was drawn there, to hold the palettes against. */
+:root[data-skin="atelier"][data-at-ref] {
+  --at-bench: #13110f; --at-side: #1d1a17; --at-pane: #221f1b; --at-card: #2b2722; --at-well: #181512; --at-field: #181512; --at-raise: #322d28;
+  --at-ink: #f4eee5; --at-ink2: #93897d; --at-line: #ffeeda12; --at-line2: #ffeeda24; --at-coral: #f27a63;
+}
+:root[data-skin="atelier"][data-at-ref][data-theme="light"] {
+  --at-bench: #e9e2d6; --at-side: #f5efe6; --at-pane: #fdfaf5; --at-card: #ffffff; --at-well: #faf5ec; --at-field: #ffffff; --at-raise: #efe8dc;
+  --at-ink: #2a231c; --at-ink2: #8b7f72; --at-line: #3a2a1a17; --at-line2: #3a2a1a2b; --at-coral: #d6543d;
+}
+
+/* ---------- The mockup's own bar above the window: not part of the screen ---------- */
+#mk-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 14px; background: #0b0b0b; color: #eee; border-bottom: 1px solid #ffffff22; font: 12.5px/18px 'Geist', system-ui, sans-serif; white-space: nowrap; overflow: hidden; }
+#mk-bar b { font-weight: 600; font-size: 13px; }
+#mk-bar small { opacity: .55; overflow: hidden; text-overflow: ellipsis; }
+#mk-bar .mk-sp { flex: 1; }
+#mk-bar .mk-seg { display: inline-flex; border: 1px solid #ffffff2e; border-radius: 7px; overflow: hidden; }
+#mk-bar .mk-seg button { padding: 4px 11px; color: #eee; opacity: .6; }
+#mk-bar .mk-seg button + button { border-left: 1px solid #ffffff2e; }
+#mk-bar .mk-seg button.on { opacity: 1; background: #ffffff24; }
+#mk-bar .mk-pick { display: inline-flex; align-items: center; gap: 7px; }
+#mk-bar .mk-pick.off { opacity: .35; }
+#mk-bar .mk-pick label { display: inline-flex; align-items: center; gap: 7px; }
+#mk-bar .mk-pick input { width: 34px; height: 24px; padding: 0; border: 1px solid #ffffff55; border-radius: 6px; background: none; cursor: pointer; }
+#mk-bar .mk-pick code { width: 62px; font: 11.5px 'Geist Mono', monospace; opacity: .8; }
+#mk-bar .mk-pals { display: inline-flex; align-items: center; gap: 4px; }
+#mk-bar .mk-pals.off { opacity: .35; }
+#mk-bar .mk-pals button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 4px; border: 1px solid #ffffff2e; border-radius: 13px; color: #eee; font-size: 12px; }
+#mk-bar .mk-pals button.on { border-color: #fff; background: #ffffff1c; }
+#mk-bar .mk-pals i { position: relative; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #ffffff55; }
+#mk-bar .mk-pals i::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--a); border: 1.5px solid #0b0b0b; }
+.ide { height: calc(100vh - 44px) !important; margin-top: 44px; }

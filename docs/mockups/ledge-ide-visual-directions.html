@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="fr" data-dir="a" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledge · IDE, trois directions visuelles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Three visual directions for the same IDE screen. The structure is the validated one (docs/mockups/ledge-ide-interactive.html):
+   every panel keeps its place and its content; only colours, type, spacing, states and details change. `?dir=0|a|b|c&theme=dark|light`. */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#050505;color:#eee;font:13px/18px 'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+[data-theme=light] body{background:#dcdcda;color:#111}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block;flex:none}
+
+/* The mockup's own header: not part of the screen. */
+.mk{height:44px;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid #ffffff1a;white-space:nowrap}
+[data-theme=light] .mk{border-color:#0000001f}
+.mk b{font-weight:600}
+.mk .seg{display:inline-flex;border:1px solid #ffffff26;border-radius:7px;overflow:hidden}
+[data-theme=light] .mk .seg{border-color:#00000026}
+.mk .seg button{padding:4px 11px;font-size:12px;opacity:.6}
+.mk .seg button + button{border-left:1px solid #ffffff26}
+[data-theme=light] .mk .seg button + button{border-color:#00000026}
+.mk .seg button.on{opacity:1;background:#ffffff1f}
+[data-theme=light] .mk .seg button.on{background:#00000014}
+.mk .sp{flex:1}
+.mk small{opacity:.55;font-size:12px}
+.why{height:38px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:12px;overflow:hidden;white-space:nowrap}
+.why strong{font-weight:600;font-size:13px}
+.why span{opacity:.7}
+.why i{font-style:normal;border:1px solid #ffffff26;border-radius:20px;padding:1px 9px;opacity:.85}
+[data-theme=light] .why i{border-color:#00000026}
+.stage{height:calc(100vh - 82px);padding:0 14px 14px}
+
+/* ============ The screen: shared structure ============ */
+.win{
+  --font:'Geist',system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;--ui:var(--font);
+  --r:6px;--r-lg:10px;--row:26px;--tab-h:30px;--fs:12.5px;--prose:13px;--prose-lh:19px;
+  height:100%;display:grid;grid-template-rows:34px 1fr 24px;overflow:hidden;border:1px solid var(--border2);border-radius:9px;
+  background:var(--chrome);color:var(--fg);font-family:var(--font);font-size:var(--fs);line-height:18px;
+}
+.mono{font-family:var(--mono)}
+.titlebar{display:flex;align-items:center;gap:14px;padding-left:14px;background:var(--chrome);border-bottom:1px solid var(--border);font-family:var(--ui);user-select:none}
+.brand{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650;letter-spacing:-.01em}
+.search{flex:0 1 460px;margin:0 auto;display:flex;align-items:center;gap:8px;height:24px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--field);color:var(--fg3);font-size:12px}
+.search .sp{flex:1}
+.kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--border2);border-radius:4px;padding:0 4px;color:var(--fg3);line-height:15px}
+.toggles{display:flex;gap:2px}
+.toggles button{width:26px;height:24px;display:grid;place-items:center;border-radius:5px;color:var(--fg3)}
+.toggles button.on{background:var(--muted);color:var(--fg)}
+.caps{display:flex;align-self:stretch}
+.caps span{width:44px;display:grid;place-items:center;color:var(--fg3);font-size:11px}
+
+.body{display:grid;grid-template-columns:48px 248px 1fr 300px;min-height:0}
+.activity{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;background:var(--chrome);border-right:1px solid var(--border)}
+.activity button{position:relative;width:34px;height:34px;display:grid;place-items:center;border-radius:7px;color:var(--fg3)}
+.activity button.on{color:var(--fg);background:var(--muted)}
+.activity .grow{flex:1}
+.badge{position:absolute;top:2px;right:1px;min-width:15px;height:15px;padding:0 3px;display:grid;place-items:center;border-radius:8px;background:var(--perm);color:#fff;font:600 10px/1 var(--font)}
+
+.explorer{display:flex;flex-direction:column;min-width:0;background:var(--side);border-right:1px solid var(--border);font-family:var(--ui)}
+.ex-h{display:flex;align-items:center;justify-content:space-between;padding:9px 12px 6px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3)}
+.tree{padding:0 6px}
+.row{position:relative;display:flex;align-items:center;gap:7px;height:var(--row);padding:0 8px;border-radius:var(--r);white-space:nowrap}
+.row.l2{padding-left:30px}
+.row.l1{padding-left:14px}
+.row.sel{background:var(--muted)}
+.row .chev{width:10px;font-size:9px;color:var(--fg3)}
+.row .nm{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.row b{font-weight:600}
+.row .meta{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:11px;color:var(--fg3)}
+.need-tag{display:none}
+.bot{display:none}
+
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fg3)}
+.dot.perm{background:var(--perm);box-shadow:0 0 0 3px color-mix(in srgb,var(--perm) 20%,transparent)}
+.dot.ask{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 20%,transparent)}
+.dot.work{background:var(--info)}
+.dot.idle{background:var(--ok)}
+
+.editor{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--pane)}
+.groups{flex:1;min-height:0;display:flex}
+.grp{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--pane)}
+.grp + .grp{border-left:1px solid var(--border)}
+.tabs{flex:none;display:flex;align-items:stretch;height:var(--tab-h);background:var(--strip);border-bottom:1px solid var(--border);font-family:var(--ui);font-size:12px}
+.lk{width:24px;display:grid;place-items:center}
+.lk i{width:9px;height:9px;border-radius:2px}
+.lk .violet{background:var(--lk-violet)} .lk .teal{background:var(--lk-teal)}
+.tab{position:relative;display:flex;align-items:center;gap:7px;padding:0 10px;border-right:1px solid var(--border);color:var(--fg3);white-space:nowrap}
+.tab.on{background:var(--pane);color:var(--fg)}
+.grp.focus .tab.on{box-shadow:inset 0 -2px 0 var(--accent)}
+.tab .x{font-size:11px;opacity:.5;margin-left:1px}
+.tabs .tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding-right:10px;color:var(--fg3)}
+
+.thread{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:9px;padding:12px}
+.thread .fill{flex:1}
+.me{align-self:flex-end;max-width:78%;padding:7px 11px;border-radius:12px 12px 3px 12px;background:var(--bubble);font-size:var(--prose);line-height:var(--prose-lh)}
+.p{margin:0;font-size:var(--prose);line-height:var(--prose-lh)}
+.p code{font-family:var(--mono);font-size:.92em}
+.toolset{display:flex;flex-direction:column;gap:5px}
+.tool{display:flex;gap:6px;align-items:baseline;font-family:var(--mono);font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden}
+.tool .ck{color:var(--ok)} .tool .run{color:var(--info)}
+.tool b{font-weight:600;color:var(--fg)}
+.tool .a{color:var(--ok)} .tool .d{color:var(--perm)}
+.working{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--fg3)}
+.req{border:1px solid color-mix(in srgb,var(--perm) 55%,transparent);border-radius:var(--r-lg);background:color-mix(in srgb,var(--perm) 10%,var(--pane));padding:10px}
+.req-h{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.req-h .keys{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--fg3)}
+.req code{display:block;margin:8px 0;padding:6px 9px;border-radius:5px;background:var(--code);font-family:var(--mono);font-size:11.5px;line-height:17px;white-space:pre-wrap;word-break:break-all}
+.req .go{display:flex;gap:6px}
+.btn{height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;white-space:nowrap}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+.btn .kbd{border-color:currentColor;color:inherit;opacity:.65}
+.reply{flex:none;margin:0 12px 8px;min-height:64px;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--r-lg);background:var(--field);color:var(--fg3);font-size:13px}
+.bar{flex:none;display:flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-top:1px solid var(--border);background:var(--strip);font-family:var(--ui);font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden}
+.bar .mdl{display:flex;align-items:center;gap:6px;color:var(--fg)}
+.bar .car{font-size:9px;color:var(--fg3)}
+.bar b{font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+.gauge{width:34px;height:4px;border-radius:2px;background:var(--muted2);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--fg3)}
+.gauge.hot i{background:var(--warn)}
+.bar .sep{width:1px;height:12px;background:var(--border2)}
+.bar .side{margin-left:auto;display:flex;align-items:center;gap:8px}
+.bar .stop{width:26px;height:20px;display:grid;place-items:center;border:1px solid var(--border2);border-radius:var(--r)}
+.bar .stop i{width:8px;height:8px;border-radius:2px;background:var(--fg3)}
+.bar .a{color:var(--ok)} .bar .d{color:var(--perm)}
+
+.bottom{flex:0 0 200px;display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--border)}
+.bp-tabs{flex:none;display:flex;align-items:center;gap:4px;height:30px;padding:0 8px;background:var(--chrome);border-bottom:1px solid var(--border);color:var(--fg3);font-family:var(--ui);font-size:11.5px}
+.bp-tabs button{height:22px;padding:0 9px;display:flex;align-items:center;gap:6px;border-radius:5px}
+.bp-tabs button.on{background:var(--muted);color:var(--fg)}
+.bp-tabs .sp{flex:1}
+.tiles{flex:1;min-height:0;display:flex;gap:1px;background:var(--border)}
+.tile{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--term)}
+.tile .tabs .tab{font-family:var(--mono);font-size:11.5px}
+.tile .tab.on{box-shadow:inset 0 2px 0 var(--accent)}
+.chip-k{font-family:var(--mono);font-size:10.5px;line-height:16px;color:var(--fg3);border:1px solid var(--border);border-radius:5px;padding:0 6px}
+.term{flex:1;min-height:0;margin:0;padding:8px 10px;background:var(--term);color:var(--term-fg);font:11.5px/17px var(--mono);white-space:pre;overflow:hidden}
+.term .dm{color:var(--fg3)} .term .g{color:var(--ok)} .term .b{color:var(--info)} .term .y{color:var(--warn)} .term .r{color:var(--perm)}
+
+.right{display:flex;flex-direction:column;min-width:0;background:var(--side);border-left:1px solid var(--border)}
+.right h4{margin:0;display:flex;align-items:center;gap:8px;padding:10px 12px 6px;font-size:12.5px;font-weight:600}
+.msgs{flex:1;display:flex;flex-direction:column;gap:8px;padding:6px 12px;min-height:0;overflow:hidden}
+.bubble{align-self:flex-start;max-width:92%;padding:7px 10px;border-radius:12px 12px 12px 3px;background:var(--muted);font-size:12.5px;line-height:18px}
+.bubble.mine{align-self:flex-end;border-radius:12px 12px 3px 12px;background:var(--bubble)}
+.composer{margin:8px 12px 12px;height:34px;display:flex;align-items:center;padding:0 11px;border:1px solid var(--border2);border-radius:var(--r-lg);background:var(--field);color:var(--fg3)}
+
+.status{display:flex;align-items:center;gap:14px;padding:0 10px;background:var(--chrome);border-top:1px solid var(--border);font-family:var(--ui);font-size:11.5px;color:var(--fg3);white-space:nowrap}
+.status .it{display:flex;align-items:center;gap:6px}
+.status .it.wait{color:var(--fg)}
+.status .sp{flex:1}
+.status b{font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+.status b.hot{color:var(--warn)}
+
+/* ============ 0 · Aujourd'hui (approché depuis tokens.css et ide.css) ============ */
+[data-dir="0"][data-theme=dark] .win{--chrome:#171717;--side:#171717;--strip:#0a0a0a;--pane:#171717;--term:#0c0c0d;--term-fg:#e5e5e5;--field:#0a0a0a;--code:#00000055;--bubble:#262626;
+  --border:#ffffff1a;--border2:#ffffff26;--fg:#fafafa;--fg3:#a1a1a1;--muted:#262626;--muted2:#ffffff1f;
+  --accent:#ea6a58;--perm:#fb2c36;--primary:#9f0712;--primary-fg:#fef2f2;--warn:#fbbf24;--info:#60a5fa;--ok:#34d399;--lk-violet:#a78bfa;--lk-teal:#2dd4bf}
+[data-dir="0"][data-theme=light] .win{--chrome:#fafafa;--side:#fafafa;--strip:#f7f7f7;--pane:#fafafa;--term:#fcfcfc;--term-fg:#1f1f1f;--field:#fff;--code:#0000000d;--bubble:#f5f5f5;
+  --border:#e5e5e5;--border2:#e5e5e5;--fg:#0a0a0a;--fg3:#737373;--muted:#f5f5f5;--muted2:#00000014;
+  --accent:#cc5241;--perm:#e7000b;--primary:#c10007;--primary-fg:#fef2f2;--warn:#b45309;--info:#2563eb;--ok:#059669;--lk-violet:#6d28d9;--lk-teal:#0f766e}
+
+/* ============ A · Encre : calme, net, hiérarchie par la valeur ============ */
+[data-dir=a][data-theme=dark] .win{--chrome:#0c0d10;--side:#111216;--strip:#0c0d10;--pane:#16181d;--card:#1c1e25;--term:#090a0c;--term-fg:#d9dae0;--field:#101115;--code:#090a0c;--bubble:#22252e;
+  --border:#ffffff0f;--border2:#ffffff1f;--fg:#ececf1;--fg2:#b3b6c2;--fg3:#787b89;--muted:#ffffff0b;--muted2:#ffffff17;
+  --accent:#f0705c;--perm:#f0705c;--primary:#f0705c;--primary-fg:#190805;--warn:#e3b24f;--info:#6aa5f7;--ok:#4dc48d;--lk-violet:#a78bfa;--lk-teal:#2dd4bf}
+[data-dir=a][data-theme=light] .win{--chrome:#f1f1ef;--side:#f7f7f6;--strip:#f1f1ef;--pane:#fff;--card:#fff;--term:#fafaf9;--term-fg:#22232a;--field:#fff;--code:#f3f3f1;--bubble:#f0f0ee;
+  --border:#0000000f;--border2:#0000001f;--fg:#17181c;--fg2:#474a55;--fg3:#7f828d;--muted:#0000000a;--muted2:#00000014;
+  --accent:#d1503c;--perm:#d1503c;--primary:#d1503c;--primary-fg:#fff;--warn:#a26b06;--info:#2c6bd3;--ok:#18875a;--lk-violet:#6d28d9;--lk-teal:#0f766e}
+[data-dir=a] .win{--row:28px;--tab-h:32px;--prose:13.5px;--prose-lh:21px;--r:6px;--r-lg:8px}
+[data-dir=a] .ex-h{padding:12px 14px 6px;font-size:10.5px;font-weight:600;letter-spacing:.09em}
+[data-dir=a] .row{color:var(--fg2)}
+[data-dir=a] .row b{color:var(--fg)}
+[data-dir=a] .row.sel{background:var(--muted2);color:var(--fg);box-shadow:inset 2px 0 0 var(--fg2);border-radius:0 var(--r) var(--r) 0}
+[data-dir=a] .row.sel .nm{font-weight:600}
+[data-dir=a] .row .meta{font-size:10.5px}
+[data-dir=a] .row.arch{color:var(--fg3)}
+[data-dir=a] .need-tag{display:inline;margin-left:auto;font-size:11px;font-weight:500;color:var(--accent)}
+[data-dir=a] .need-tag.ask{color:var(--warn)}
+[data-dir=a] .need-tag + .meta{display:none}
+[data-dir=a] .activity button.on{background:none;box-shadow:inset 2px 0 0 var(--fg);border-radius:0;width:48px}
+[data-dir=a] .tab{padding:0 12px;border-right:0;font-weight:450}
+[data-dir=a] .tab.on{font-weight:550}
+[data-dir=a] .grp:not(.focus) .tab.on{box-shadow:inset 0 -1px 0 var(--border2)}
+[data-dir=a] .thread{gap:12px;padding:16px 18px}
+[data-dir=a] .me{border:1px solid var(--border2);background:var(--card);border-radius:8px;padding:8px 12px}
+[data-dir=a] .toolset{gap:4px;padding:1px 0 1px 12px;border-left:1px solid var(--border2)}
+[data-dir=a] .tool b{font-weight:500;color:var(--fg2)}
+[data-dir=a] .tool .ck{color:var(--fg3)}
+[data-dir=a] .req{border:1px solid var(--border2);background:var(--card);box-shadow:inset 2px 0 0 var(--accent);padding:12px 14px}
+[data-dir=a] .req-h .dot{display:none}
+[data-dir=a] .req code{background:var(--code);border:1px solid var(--border)}
+[data-dir=a] .reply{margin:0 18px 10px}
+[data-dir=a] .bar{padding:0 18px;background:var(--pane)}
+[data-dir=a] .status .it.wait{color:var(--accent);font-weight:500}
+[data-dir=a] .bubble{background:none;border:1px solid var(--border2);border-radius:8px}
+[data-dir=a] .bubble.mine{background:var(--bubble);border-color:transparent}
+[data-dir=a] .right h4{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--fg3);padding:12px 14px 6px}
+
+/* ============ B · Atelier : chaud, matière, les mascottes à l'établi ============ */
+[data-dir=b][data-theme=dark] .win{--chrome:#13110f;--side:#1d1a17;--strip:#1d1a17;--pane:#221f1b;--card:#2b2722;--term:#181512;--term-fg:#e9e1d6;--field:#181512;--code:#14110f;--bubble:#3a2620;
+  --border:#ffeeda12;--border2:#ffeeda24;--fg:#f4eee5;--fg2:#cdc3b6;--fg3:#93897d;--muted:#ffeeda0f;--muted2:#ffeeda1c;
+  --accent:#f27a63;--perm:#f27a63;--primary:#f27a63;--primary-fg:#24100b;--warn:#e9b54f;--info:#82b4e6;--ok:#82c99e;--lk-violet:#b9a2f5;--lk-teal:#5fd0bd;
+  --shell1:#4a4640;--shell2:#35312c;--visor:#14110f}
+[data-dir=b][data-theme=light] .win{--chrome:#e9e2d6;--side:#f5efe6;--strip:#f5efe6;--pane:#fdfaf5;--card:#fff;--term:#faf5ec;--term-fg:#2b241d;--field:#fff;--code:#f3ece0;--bubble:#fbe2da;
+  --border:#3a2a1a17;--border2:#3a2a1a2b;--fg:#2a231c;--fg2:#5a4f44;--fg3:#8b7f72;--muted:#3a2a1a0d;--muted2:#3a2a1a1a;
+  --accent:#d6543d;--perm:#d6543d;--primary:#d6543d;--primary-fg:#fff;--warn:#a9710b;--info:#346fbd;--ok:#2c8a5c;--lk-violet:#6d28d9;--lk-teal:#0f766e;
+  --shell1:#f3efe5;--shell2:#c4bfb3;--visor:#2b2622}
+[data-dir=b] .win{--row:32px;--tab-h:36px;--fs:13px;--prose:13.5px;--prose-lh:21px;--r:8px;--r-lg:12px;grid-template-rows:38px 1fr 30px}
+[data-dir=b] .titlebar,[data-dir=b] .activity,[data-dir=b] .status,[data-dir=b] .bp-tabs{border:0}
+[data-dir=b] .search{height:26px;border-radius:13px;padding:0 13px}
+[data-dir=b] .body{gap:6px;padding-right:6px}
+[data-dir=b] .explorer,[data-dir=b] .right,[data-dir=b] .grp,[data-dir=b] .bottom{border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+[data-dir=b] .editor{background:none;gap:6px}
+[data-dir=b] .groups{gap:6px}
+[data-dir=b] .activity button{border-radius:10px}
+[data-dir=b] .activity button.on{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+[data-dir=b] .ex-h{padding:12px 14px 6px;font-size:12px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--fg2)}
+[data-dir=b] .row .dot{display:none}
+[data-dir=b] .bot{display:block}
+[data-dir=b] .row.l2{padding-left:24px}
+[data-dir=b] .row.sel{background:color-mix(in srgb,var(--accent) 15%,transparent)}
+[data-dir=b] .row.sel .nm{font-weight:600}
+[data-dir=b] .row .meta{font-family:var(--font);font-size:11.5px}
+[data-dir=b] .need-tag{display:inline-flex;margin-left:auto;height:18px;align-items:center;padding:0 8px;border-radius:9px;background:var(--accent);color:var(--primary-fg);font-size:11px;font-weight:600}
+[data-dir=b] .need-tag.ask{background:var(--warn)}
+[data-dir=b] .need-tag + .meta{display:none}
+[data-dir=b] .tabs{align-items:center;gap:3px;padding:0 6px 0 2px;border-bottom:0;font-size:12.5px}
+[data-dir=b] .tab{height:26px;border:0;border-radius:8px;padding:0 10px}
+[data-dir=b] .tab.on{background:var(--card);box-shadow:0 1px 0 var(--border2)}
+[data-dir=b] .grp.focus .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 1px 0 var(--border2)}
+[data-dir=b] .thread{gap:12px;padding:14px 16px}
+[data-dir=b] .me{border-radius:16px 16px 5px 16px;padding:9px 13px}
+[data-dir=b] .toolset{gap:6px;padding:9px 12px;border-radius:var(--r-lg);background:var(--muted)}
+[data-dir=b] .req{border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--pane));padding:12px 14px}
+[data-dir=b] .req-h .dot{display:none}
+[data-dir=b] .req-h .bot{display:block}
+[data-dir=b] .btn{height:28px;padding:0 12px}
+[data-dir=b] .reply{margin:0 14px 10px}
+[data-dir=b] .bar{height:32px;padding:0 14px;border-top:0;background:none}
+[data-dir=b] .tile .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 1px 0 var(--border2)}
+[data-dir=b] .tiles{gap:0;background:none}
+[data-dir=b] .tile + .tile{border-left:1px solid var(--border)}
+[data-dir=b] .bp-tabs{background:var(--strip);height:34px}
+[data-dir=b] .right h4{padding:12px 14px 6px;font-size:13px}
+[data-dir=b] .bubble{border-radius:16px 16px 16px 5px;padding:8px 12px}
+[data-dir=b] .bubble.mine{border-radius:16px 16px 5px 16px}
+[data-dir=b] .composer{height:38px;border-radius:19px;padding:0 15px}
+[data-dir=b] .status{gap:8px;font-size:12px}
+[data-dir=b] .status .it{height:20px;padding:0 9px;border-radius:10px;background:var(--muted)}
+[data-dir=b] .status .it.wait{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent);font-weight:600}
+[data-dir=b] .stop{border-radius:10px}
+
+/* ============ C · Signal : console de régie, l'état en aplats ============ */
+[data-dir=c][data-theme=dark] .win{--chrome:#000;--side:#060606;--strip:#000;--pane:#0b0b0b;--card:#111;--term:#000;--term-fg:#e8e8e8;--field:#000;--code:#000;--bubble:#0b0b0b;
+  --border:#262626;--border2:#454545;--fg:#f4f4f4;--fg2:#c2c2c2;--fg3:#7c7c7c;--muted:#181818;--muted2:#2a2a2a;
+  --accent:#ff6b55;--perm:#ff6b55;--primary:#ff6b55;--primary-fg:#000;--warn:#ffc533;--info:#5aa9ff;--ok:#3ddc84;--lk-violet:#b392ff;--lk-teal:#2fe0c8;--ink:#000}
+[data-dir=c][data-theme=light] .win{--chrome:#fff;--side:#fafafa;--strip:#f0f0f0;--pane:#fff;--card:#fff;--term:#fff;--term-fg:#111;--field:#fff;--code:#f3f3f3;--bubble:#fff;
+  --border:#d4d4d4;--border2:#111;--fg:#0a0a0a;--fg2:#333;--fg3:#757575;--muted:#ededed;--muted2:#dcdcdc;
+  --accent:#df432c;--perm:#df432c;--primary:#df432c;--primary-fg:#fff;--warn:#a86a00;--info:#1c5fd0;--ok:#0b8848;--lk-violet:#6d28d9;--lk-teal:#0f766e;--ink:#fff}
+[data-dir=c] .win{--ui:var(--mono);--r:0px;--r-lg:0px;--row:26px;--fs:12px;--prose:13px;--prose-lh:20px;border-radius:0}
+[data-dir=c] .brand{font-family:var(--mono);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+[data-dir=c] .search,[data-dir=c] .kbd,[data-dir=c] .toggles button,[data-dir=c] .activity button,[data-dir=c] .badge,[data-dir=c] .chip-k,[data-dir=c] .bp-tabs button,[data-dir=c] .gauge,[data-dir=c] .lk i,[data-dir=c] .stop i{border-radius:0}
+[data-dir=c] .dot{border-radius:0;box-shadow:none}
+[data-dir=c] .activity button.on{background:var(--fg);color:var(--ink)}
+[data-dir=c] .ex-h{font-size:11px;letter-spacing:.08em;color:var(--fg2);border-bottom:1px solid var(--border);padding:8px 12px 7px;margin-bottom:4px}
+[data-dir=c] .tree{padding:0}
+[data-dir=c] .row{padding-left:12px;font-size:12px;color:var(--fg2)}
+[data-dir=c] .row.l2{padding-left:30px}
+[data-dir=c] .row b{color:var(--fg)}
+[data-dir=c] .row.sel{background:var(--muted);color:var(--fg);box-shadow:inset 3px 0 0 var(--fg)}
+[data-dir=c] .row.need{box-shadow:inset 3px 0 0 var(--accent)}
+[data-dir=c] .row.sel .nm{font-weight:600}
+[data-dir=c] .need-tag{display:inline;margin-left:auto;padding:0 5px;background:var(--accent);color:var(--primary-fg);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:16px}
+[data-dir=c] .need-tag.ask{background:var(--warn);color:#000}
+[data-dir=c] .row.need:has(.ask){box-shadow:inset 3px 0 0 var(--warn)}
+[data-dir=c] .need-tag + .meta{display:none}
+[data-dir=c] .tab{padding:0 12px}
+[data-dir=c] .grp.focus .tab.on{box-shadow:inset 0 -2px 0 var(--accent),inset 0 1px 0 var(--border2)}
+[data-dir=c] .thread{gap:11px;padding:14px;background-image:radial-gradient(var(--border) 1px,transparent 1px);background-size:16px 16px}
+[data-dir=c] .thread > *{background-color:var(--pane)}
+[data-dir=c] .thread .fill{background:none}
+[data-dir=c] .me{border:1px solid var(--border2);border-radius:0;box-shadow:3px 3px 0 var(--border)}
+[data-dir=c] .toolset{gap:0;border:1px solid var(--border)}
+[data-dir=c] .tool{padding:3px 8px;gap:10px}
+[data-dir=c] .tool + .tool{border-top:1px solid var(--border)}
+[data-dir=c] .tool b{display:inline-block;width:5ch;text-transform:uppercase;font-size:10.5px;letter-spacing:.06em}
+[data-dir=c] .req{padding:0;border:1px solid var(--accent);background:var(--pane)}
+[data-dir=c] .req-h{padding:5px 10px;background:var(--accent);color:var(--primary-fg);font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
+[data-dir=c] .req-h .dot{display:none}
+[data-dir=c] .req-h .keys{color:inherit;opacity:.75}
+[data-dir=c] .req code{margin:10px;border:1px dashed var(--border2)}
+[data-dir=c] .req .go{padding:0 10px 10px}
+[data-dir=c] .btn{font-family:var(--mono);font-size:11.5px;letter-spacing:.03em;text-transform:uppercase}
+[data-dir=c] .working{background:none}
+[data-dir=c] .reply{margin:0 14px 10px}
+[data-dir=c] .bar{letter-spacing:.01em}
+[data-dir=c] .bubble{border:1px solid var(--border);border-radius:0;background:var(--pane)}
+[data-dir=c] .bubble.mine{border-color:var(--border2)}
+[data-dir=c] .right h4{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg2);border-bottom:1px solid var(--border);padding:8px 12px 7px}
+[data-dir=c] .status{gap:0;padding:0;font-size:11px}
+[data-dir=c] .status .it{align-self:stretch;padding:0 11px;border-right:1px solid var(--border)}
+[data-dir=c] .status .it.wait{background:var(--accent);color:var(--primary-fg);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+[data-dir=c] .status .it.wait .dot{background:currentColor}
+[data-dir=c] .status .it.r{border-right:0;border-left:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="mk">
+  <b>Ledge · IDE, trois directions visuelles</b>
+  <div class="seg" id="dirs"></div>
+  <div class="seg" id="themes"><button data-theme="dark">Sombre</button><button data-theme="light">Clair</button></div>
+  <span class="sp"></span>
+  <small>Même écran, même structure (maquette IDE validée) · seul l'habillage change · touches 1 à 4, T pour le thème</small>
+</div>
+<div class="why" id="why"></div>
+<div class="stage"><div class="win" id="win"></div></div>
+
+<script>
+// The four renderings and what each one sets out to do: read by the header above the screen.
+const DIRS = {
+  '0': ['Aujourd\'hui', 'Repère : le rendu actuel, approché depuis tokens.css et ide.css.', ['gris neutres', 'un seul poids de texte', 'rouge pour l\'autorisation']],
+  a: ['A · Encre', 'Calme et net : la hiérarchie vient de la valeur du texte et de trois niveaux de surface ; le corail ne sert qu\'à « c\'est à toi ».', ['3 niveaux de surface', 'texte en 3 valeurs', 'corail = à toi', 'outils en retrait']],
+  b: ['B · Atelier', 'Chaud et habité : des panneaux posés sur un établi, des tons de papier et de bois, les mascottes Ledge disent l\'état.', ['palette chaude', 'panneaux arrondis', 'mascottes d\'état', 'plus d\'air']],
+  c: ['C · Signal', 'Console de régie : chrome en mono, angles vifs, l\'état en aplats de couleur qui se lisent de loin.', ['chrome en mono', 'angles vifs', 'état en aplats', 'contraste fort']],
+};
+const ic = (d, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+  files: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  rig: '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M6 8.2v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3v-2M12 13.2v2.6"/>',
+  inbox: '<path d="M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h4.5l1 2h5l1-2H20"/>',
+  pr: '<circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M6 8.2v7.6M18 15.8V10a3 3 0 0 0-3-3h-3M14 4.5 11.5 7 14 9.5"/>',
+  mach: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>',
+  atelier: '<rect x="5" y="7" width="14" height="9" rx="3"/><path d="M9.5 11.5h.01M14.5 11.5h.01M12 7V4M3 20h18"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+  side: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  bottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/>',
+  rightp: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
+  term: '<path d="M5 8l4 4-4 4M12 16h7"/>',
+  out: '<path d="M4 6h11M4 10h8M4 14h11M4 18h6"/>',
+  lay: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 10v10"/>',
+};
+const logo = (p, s = 13) => p === 'anthropic'
+  ? `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><g stroke="#d97757" stroke-width="2.6" stroke-linecap="round">${[0, 30, 60, 90, 120, 150].map(a => `<line x1="12" y1="3" x2="12" y2="21" transform="rotate(${a} 12 12)"/>`).join('')}</g></svg>`
+  : p === 'openai'
+    ? `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6">${[0, 60, 120].map(a => `<ellipse cx="12" cy="12" rx="9.5" ry="4.4" transform="rotate(${a} 12 12)"/>`).join('')}</g></svg>`
+    : `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><g fill="none" stroke="#a3e635" stroke-width="2.4" stroke-linecap="round"><path d="M4 7.5c2-1.5 4-1.6 6-1.5h10"/><path d="M9 6.5v12"/><path d="M15.5 6.5v9.5c0 1.6.9 2.5 2.5 2.5"/></g></svg>`;
+const mark = '<svg width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="3.5" fill="#0A0A0A"/><rect x="3" y="3" width="3" height="10" rx=".5" fill="#FAFAFA"/><rect x="7" y="10" width="6" height="3" rx=".5" fill="#FAFAFA"/><circle cx="10" cy="6" r="2" fill="#FF6467"/></svg>';
+// A Ledge mascot's head, at a row's size: the shell and visor of the theme's material, the eyes in the state's colour (tokens.css --bot-eye-*).
+const EYE = { perm: '#f2b09c', ask: '#f6d487', work: '#90c7f2', idle: '#a9dfc7', off: '#a3aaa9' };
+const bot = (st, s = 22) => `<svg class="bot" width="${s}" height="${Math.round(s * .85)}" viewBox="0 0 20 17"><defs><linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--shell1)"/><stop offset="1" stop-color="var(--shell2)"/></linearGradient></defs><rect x="1" y="1.5" width="18" height="14" rx="6" fill="url(#sh)"/><rect x="3.5" y="4.5" width="13" height="8" rx="4" fill="var(--visor)"/><circle cx="7.6" cy="8.5" r="1.8" fill="${EYE[st]}"/><circle cx="12.4" cy="8.5" r="1.8" fill="${EYE[st]}"/></svg>`;
+const dot = st => `<i class="dot ${st}"></i>`;
+const NEED = { perm: 'à toi', ask: 'question' };
+const agent = (st, prov, name, meta, sel) => `<div class="row l2 ${sel ? 'sel' : ''} ${NEED[st] ? 'need' : ''}">${dot(st)}${bot(st)}${logo(prov, 12)}<span class="nm">${name}</span>${NEED[st] ? `<span class="need-tag ${st}">${NEED[st]}</span>` : ''}<span class="meta">${meta}</span></div>`;
+const tool = (n, a, extra = '', run) => `<div class="tool"><span class="${run ? 'run' : 'ck'}">${run ? '●' : '✓'}</span><b>${n}</b><span>${a}</span>${extra}</div>`;
+const bar = (prov, model, pct, branch, side) => `<div class="bar"><span class="mdl">${logo(prov, 12)}${model}<span class="car">▾</span></span><span class="gauge ${pct > 80 ? 'hot' : ''}"><i style="width:${pct}%"></i></span><b>${pct} %</b><span class="sep"></span><span class="mono">${branch}</span><span class="mono">ledge</span><span class="side">${side}</span></div>`;
+
+function screen() {
+  return `
+  <div class="titlebar"><span class="brand">${mark}Ledge</span>
+    <div class="search"><span>⌕</span><span>Session, commande, tâche, rig…</span><span class="sp"></span><span class="kbd">Ctrl K</span></div>
+    <div class="toggles"><button class="on">${ic(I.side, 15)}</button><button class="on">${ic(I.bottom, 15)}</button><button class="on">${ic(I.rightp, 15)}</button></div>
+    <div class="caps"><span>─</span><span>□</span><span>✕</span></div></div>
+  <div class="body">
+    <nav class="activity"><button class="on">${ic(I.files)}</button><button>${ic(I.rig)}</button><button>${ic(I.inbox)}<span class="badge">1</span></button><button>${ic(I.pr)}<span class="badge">1</span></button><button>${ic(I.mach)}</button><button>${ic(I.atelier)}</button><span class="grow"></span><button>${ic(I.gear)}</button></nav>
+    <aside class="explorer">
+      <div class="ex-h"><span>Projets</span><span class="kbd">+ N</span></div>
+      <div class="tree">
+        <div class="row"><span class="chev">▾</span><b>ledge</b><span class="meta">3</span></div>
+        ${agent('perm', 'anthropic', 'Pim', 'ide-shell', true)}${agent('work', 'openai', 'Nova', 'term-webgl')}${agent('idle', 'anthropic', 'Ida', 'ide-workspace-mock…')}
+        <div class="row"><span class="chev">▾</span><b>synapse</b><span class="meta">1</span></div>
+        ${agent('ask', 'omp', 'Tom', 'main')}
+        <div class="row"><span class="chev">▸</span><span>pilot</span><span class="meta">0</span></div>
+      </div>
+      <div class="ex-h"><span>▾ Archives</span><span class="mono">3</span></div>
+      <div class="tree">
+        <div class="row l1 arch">${logo('anthropic', 12)}<span class="nm">Rio</span><span class="meta">ledge · hier</span></div>
+        <div class="row l1 arch">${logo('openai', 12)}<span class="nm">Uma</span><span class="meta">synapse · il y a 4 j</span></div>
+        <div class="row l1 arch">${logo('anthropic', 12)}<span class="nm">Sol</span><span class="meta">ledge · il y a 2 sem.</span></div>
+      </div>
+    </aside>
+    <main class="editor">
+      <div class="groups">
+        <section class="grp focus">
+          <div class="tabs"><span class="lk"><i class="violet"></i></span>
+            <span class="tab on">${logo('anthropic')}Pim${dot('perm')}<span class="x">×</span></span>
+            <span class="tab">${logo('anthropic', 12)}Modifications · Pim<span class="x">×</span></span>
+            <span class="tools"><span>+</span>${ic(I.split, 14)}</span></div>
+          <div class="thread">
+            <div class="me">Monte la coque : barre d'activité, zone à onglets, et les écrans actuels dedans tels quels.</div>
+            <p class="p">Je pose <code>WorkspaceShell</code> autour de <code>App.tsx</code> et je migre l'atelier en premier onglet.</p>
+            <div class="toolset">
+              ${tool('Read', 'apps/desktop/src/App.tsx')}
+              ${tool('Write', 'apps/desktop/src/shell/WorkspaceShell.tsx', '<span class="a">+212</span>')}
+              ${tool('Edit', 'apps/desktop/src/App.tsx', '<span class="a">+9</span><span class="d">−31</span>')}
+              ${tool('Bash', 'pnpm --filter desktop typecheck')}
+            </div>
+            <p class="p">Le typecheck passe. Je lance le scénario Playwright de l'espace de travail.</p>
+            <span class="fill"></span>
+            <div class="req"><div class="req-h">${dot('perm')}${bot('perm', 24)}Autoriser une commande<span class="keys">Y / N</span></div>
+              <code>pnpm --filter desktop exec playwright test e2e/workspace.spec.ts</code>
+              <div class="go"><button class="btn pri">Autoriser<span class="kbd">Y</span></button><button class="btn">Refuser<span class="kbd">N</span></button><button class="btn">Toujours dans ce projet</button></div></div>
+          </div>
+          <div class="reply">Répondre à Pim…</div>
+          ${bar('anthropic', 'Opus 5.5', 62, 'feat/ide-shell', '<span class="stop"><i></i></span><span class="mono"><span class="a">+221</span> <span class="d">−31</span></span>')}
+        </section>
+        <section class="grp">
+          <div class="tabs"><span class="lk"><i class="teal"></i></span>
+            <span class="tab on">${logo('openai')}Nova${dot('work')}<span class="x">×</span></span>
+            <span class="tab">${logo('anthropic')}Ida${dot('idle')}<span class="x">×</span></span>
+            <span class="tools"><span>+</span>${ic(I.split, 14)}</span></div>
+          <div class="thread">
+            <div class="me">Les terminaux masqués doivent lâcher leur contexte WebGL.</div>
+            <div class="toolset">
+              ${tool('Grep', 'WebglAddon apps/desktop/src')}
+              ${tool('Edit', 'apps/desktop/src/term/Term.tsx', '<span class="a">+27</span><span class="d">−4</span>')}
+            </div>
+            <p class="p">Un terminal caché passe sur le rendu DOM ; il reprend WebGL quand son onglet redevient visible.</p>
+            <div class="toolset">${tool('Bash', 'pnpm --filter desktop test term', '', true)}</div>
+            <span class="fill"></span>
+            <div class="working">${dot('work')}au travail… 2 min 14 s</div>
+          </div>
+          <div class="reply">Répondre à Nova…</div>
+          ${bar('openai', 'GPT-5.6 Sol', 84, 'fix/term-webgl', '<span class="stop"><i></i></span><span class="mono"><span class="a">+27</span> <span class="d">−4</span></span>')}
+        </section>
+      </div>
+      <section class="bottom">
+        <div class="bp-tabs"><button class="on">${ic(I.term, 14)}<span class="mono">2</span></button><button>${ic(I.out, 14)}<span class="mono">4</span></button><span class="sp"></span><button>+ ▾</button><button>×</button></div>
+        <div class="tiles">
+          <section class="tile"><div class="tabs"><span class="tab on">&gt;_ wsl · ledge<span class="x">×</span></span><span class="tools"><span class="chip-k">libre</span></span></div>
+<pre class="term"><span class="dm">~/Workspace/ledge</span>
+<span class="g">$</span> pnpm --filter desktop test:e2e ide-shell
+<span class="g">  ✓</span> ide-shell.spec.ts <span class="dm">(14 tests) 9.2 s</span>
+<span class="g">$</span> <span class="dm">▌</span></pre></section>
+          <section class="tile"><div class="tabs"><span class="tab on">&gt;_ Nova · tmux<span class="x">×</span></span><span class="tools"><span class="chip-k">attaché</span></span></div>
+<pre class="term"><span class="dm">tmux · ledge-Nova · attaché</span>
+<span class="b">●</span> Edit(apps/desktop/src/term/Term.tsx)
+<span class="b">●</span> Bash(pnpm --filter desktop test term)
+<span class="y">  …</span> <span class="dm">3 fichiers, 41 tests en cours</span></pre></section>
+        </div>
+      </section>
+    </main>
+    <aside class="right">
+      <h4>${ic(I.atelier, 14)}Ledge</h4>
+      <div class="msgs">
+        <div class="bubble mine">Qui m'attend ?</div>
+        <div class="bubble"><b>Pim</b> demande une autorisation (Playwright, projet ledge). <b>Tom</b> a une question sur synapse.</div>
+        <div class="bubble mine">Et les limites ?</div>
+        <div class="bubble">Claude est à 84 % de sa fenêtre de 5 h, réinitialisée à 14:20. Codex à 22 %.</div>
+      </div>
+      <div class="composer">Demander à Ledge…</div>
+    </aside>
+  </div>
+  <footer class="status">
+    <span class="it">${dot('idle')}WSL · daemon</span>
+    <span class="it">${ic(I.rig, 12)}OpenRig · 1 rig en marche</span>
+    <span class="it wait">${dot('perm')}1 autorisation · 1 question</span>
+    <span class="it">${ic(I.pr, 12)}3 MR/PR · 1 pipeline échoué</span>
+    <span class="sp"></span>
+    <span class="it r">${logo('anthropic', 12)}Claude 5 h <span class="gauge hot"><i style="width:84%"></i></span><b class="hot">84 %</b> · sem. <b>41 %</b></span>
+    <span class="it r">${logo('openai', 12)}Codex 5 h <b>22 %</b></span>
+    <span class="it r">${ic(I.lay, 12)}<b>Revue Pim + Nova</b> ▴</span>
+  </footer>`;
+}
+
+const root = document.documentElement, q = new URLSearchParams(location.search);
+function set(dir, theme) {
+  if (dir) root.dataset.dir = dir;
+  if (theme) root.dataset.theme = theme;
+  const [name, text, chips] = DIRS[root.dataset.dir];
+  document.getElementById('why').innerHTML = `<strong>${name}</strong><span>${text}</span>${chips.map(c => `<i>${c}</i>`).join('')}`;
+  document.querySelectorAll('#dirs button').forEach(b => b.classList.toggle('on', b.dataset.dir === root.dataset.dir));
+  document.querySelectorAll('#themes button').forEach(b => b.classList.toggle('on', b.dataset.theme === root.dataset.theme));
+}
+document.getElementById('dirs').innerHTML = Object.keys(DIRS).map(k => `<button data-dir="${k}">${DIRS[k][0]}</button>`).join('');
+document.getElementById('win').innerHTML = screen();
+document.addEventListener('click', e => { const b = e.target.closest('[data-dir],[data-theme]'); if (b && b.tagName === 'BUTTON') set(b.dataset.dir, b.dataset.theme); });
+document.addEventListener('keydown', e => { const k = { 1: '0', 2: 'a', 3: 'b', 4: 'c' }[e.key]; if (k) set(k); if (e.key.toLowerCase() === 't') set(null, root.dataset.theme === 'dark' ? 'light' : 'dark'); });
+set(q.get('dir') || 'a', q.get('theme') || 'dark');
+</script>
+</body>
+</html>
