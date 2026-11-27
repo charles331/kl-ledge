@@ -3,7 +3,7 @@
 Ce document complète la maquette `ledge-thread-cowork.html`, que je reconstruis avec `node docs/mockups/thread-cowork/build.mjs`.
 Les captures `ledge-thread-cowork-cplt-*.png` montrent chaque état en clair et en sombre ; `ida-voix` montre le texte dicté dans
 le champ.
-Tout ce document est **à valider par jde**. Ce qu'il a déjà tranché ne se rediscute pas ici.
+**Validé par jde le 2026-11-27** (10:24, « tout recommandé ») : S1 A, D1 A, et les états de la section 5 tels que recommandés.
 
 **Registre** : je retiens le vouvoiement, comme le fil et le champ de réponse du Desktop d'aujourd'hui (« Vous », « attend
 votre accord », « Répondez librement… ») et comme la maquette. L'île est la seule à tutoyer.

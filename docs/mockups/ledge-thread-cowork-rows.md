@@ -1,6 +1,6 @@
 # Fil « Cowork » : les lignes hors maquette (#41, 2026-11-27)
 
-Ce document est **à valider par jde**. Il complète `ledge-thread-cowork.html` et son complément (`ledge-thread-cowork-complement.md`).
+**Validé par jde le 2026-11-27** (13:36, ligne de queue qitem-20261127133106), avec une retouche : sur la page d'un sous-agent, la note qui remplace le champ montre le logo plat du fournisseur au lieu de la mascotte. Il complète `ledge-thread-cowork.html` et son complément (`ledge-thread-cowork-complement.md`).
 
 jde a choisi A le 2026-11-27 : avant la fusion, aligner sur le nouveau fil ce que la maquette ne dessinait pas. Cela touche :
 - les messages entre agents ;
@@ -26,7 +26,11 @@ Captures : `ledge-thread-cowork-rows-{avant,apres}-{dark,light}.png` (début du 
 
 ## Pour l'implémentation (dev-front-2)
 
-Tout tient dans `rows.css`. C'est du CSS seul, sur les lignes `.r` de l'ancien rail quand elles sont dans le fil Cowork (`.cw-turn`) : `.message-row`, `.message-head-row`, `.notice-row`, `.rig-row`, `.task-row`.
+Tout tient dans `rows.css`. C'est du CSS seul, sur les lignes `.r` de l'ancien rail quand elles sont dans le fil Cowork (`.cw-turn`) : `.message-row`, `.message-head-row`, `.notice-row`, `.rig-row`, `.task-row`, et `.objective-row` (ajoutée à l'implémentation).
+
+**Spécificité** : dans l'app, les règles doivent passer devant `:root[data-skin="atelier"] .ide-pane .r` (0,3,0, et sa variante `@container`). Préfixe-les par `:root[data-skin="atelier"] .ide-pane`. Dans `rows.css`, c'est le préfixe de bascule `:root[data-rows="apres"]` qui les fait passer devant ; sans préfixe, les cartes s'écrasent dans la colonne de 40 px.
+
+Les règles :
 - Une seule colonne : `grid-template-columns: minmax(0, 1fr)`, `row-gap: 4px`, `padding: 0`.
 - `.n` : caché.
 - `.tm` : en deuxième ligne de la grille, 11 px mono, couleur `--at-ink2`, comme `.cw-time`.
