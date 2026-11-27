@@ -71,7 +71,11 @@ describe('Desktop Tauri config', () => {
     expect(notchCaps.permissions).not.toContain('updater:default');
   });
   it('registers the notch\'s commands beside its own', () => {
-    for (const c of ['set_frame', 'set_hot_zone', 'set_outside_watch', 'focus_overlay', 'release_focus', 'list_monitors', 'set_monitor', 'open_in_ledge']) expect(commands).toContain(c);
+    for (const c of ['set_frame', 'focus_overlay', 'release_focus', 'list_monitors', 'set_monitor', 'open_in_ledge']) expect(commands).toContain(c);
+  });
+  it('no longer offers what left the island (#27): the hover wake, the discreet strip, the outside click and the PC\'s music', () => {
+    for (const c of ['set_hot_zone', 'set_outside_watch', 'now_playing', 'media_command']) expect(commands).not.toContain(c);
+    expect(main).not.toContain('mod media;');
   });
   it('no longer declares a detached Atelier window (lot 9: the atelier detaches as an IDE window, open_atelier is gone)', () => {
     expect(conf.app.windows.find((x: { label: string }) => x.label === 'atelier')).toBeUndefined();
