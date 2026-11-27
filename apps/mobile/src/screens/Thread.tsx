@@ -38,6 +38,7 @@ import { closeHeld, endedAtLabel, endingOf, lastEndOp, resumeHeld } from '../mod
 import { buttonClass, iconButtonClass } from '../ui/Button';
 import { Icon } from '../ui/icons';
 import { PrChip } from './prs/forgeMarks';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 
 function AgentReply({ text }: { text: string }) {
@@ -315,7 +316,7 @@ export function Thread({ store, sessionId, storage, onReconnect, panel, forge }:
     <>
       <DetailHeader
         back={panel ? <span className="w-2.5" /> : <BackLink fallback={{ name: 'sessions' }} label={copy.thread.back} />}
-        tool={session.tool} name={session.name} dot={dot} pulse={dot === 'work' && fresh} sub={endedAt ?? where} under={!side && !!endedAt}
+        tool={session.tool} name={<SessionName session={session} nameClassName="font-normal text-muted" />} dot={dot} pulse={dot === 'work' && fresh} sub={endedAt ?? where} under={!side && !!endedAt}
         more={<>
           {panel ? <PanelButtons sessionId={sessionId} panel={panel} /> : <ViewToggle sessionId={sessionId} current="thread" onLeave={() => { if (scroller.current) keptScroll.set(sessionId, scroller.current.scrollTop); }} />}
           <button type="button" aria-haspopup="dialog" aria-label={copy.sessions.moreOf(session.name)} title={copy.sessions.more} onClick={() => setMore(true)} className={iconButtonClass({ className: more ? 'bg-raised text-fg' : 'text-muted' })}>

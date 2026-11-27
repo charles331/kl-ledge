@@ -5,7 +5,7 @@ import { homedir, hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import { NO_PROJECT, sessionOrderFor, type Projects, cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
+import { NO_PROJECT, SESSION_LABEL_MAX, sessionOrderFor, type Projects, cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
 import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
@@ -672,7 +672,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
@@ -1003,13 +1003,15 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         return null;
       }
       const { topic, topicSource, repo, repoPath, branch, worktree, repoId, project, transcriptPath } = s;
-      store.upsert({ ...spawned, agentSessionId: key, ...(model ? { model } : {}), ...(effort ? { effort } : {}), ...(transcriptPath ? { transcriptPath } : {}), ...(topic ? { topic } : {}), ...(topicSource ? { topicSource } : {}), ...(repo ? { repo } : {}), ...(repoPath ? { repoPath } : {}), ...(branch ? { branch } : {}), ...(worktree !== undefined ? { worktree } : {}), ...(repoId ? { repoId } : {}), project });
+      // Its nickname as it is now: one given while it resumed stands.
+      const label = cur.label;
+      store.upsert({ ...spawned, ...(label ? { label } : {}), agentSessionId: key, ...(model ? { model } : {}), ...(effort ? { effort } : {}), ...(transcriptPath ? { transcriptPath } : {}), ...(topic ? { topic } : {}), ...(topicSource ? { topicSource } : {}), ...(repo ? { repo } : {}), ...(repoPath ? { repoPath } : {}), ...(branch ? { branch } : {}), ...(worktree !== undefined ? { worktree } : {}), ...(repoId ? { repoId } : {}), project });
       log(`resumed ${spawned.name} (${spawned.tool}) in ${spawned.cwd} as ${spawned.id}${model || effort ? ` on ${model ?? 'its default model'}${effort ? ` · ${effort}` : ''}` : ''}`);
       return null;
     } catch (e) {
       // Put the old record back only over the interim one: a delete or an archive since then stands.
       const cur = store.get(s.id);
-      if (cur && cur.archivedAt === undefined && cur.state === 'starting') store.upsert(s);
+      if (cur && cur.archivedAt === undefined && cur.state === 'starting') store.upsert(withLabelOf(s, cur));
       return (e as Error).message;
     }
   }
@@ -1022,12 +1024,13 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       const cwd = await resolveFolder(s.cwd, opts.home);
       const spawned = await omp.launch({ id: s.id, name: s.name, cwd, resumeFile: file, ...(model ? { model } : {}), ...(effort ? { effort } : {}), ...(s.approval ? { approval: s.approval } : {}) });
       const { topic, topicSource, repo, repoPath, branch, worktree, repoId, project } = s;
-      store.upsert({ ...spawned, ...(topic ? { topic } : {}), ...(topicSource ? { topicSource } : {}), ...(repo ? { repo } : {}), ...(repoPath ? { repoPath } : {}), ...(branch ? { branch } : {}), ...(worktree !== undefined ? { worktree } : {}), ...(repoId ? { repoId } : {}), project });
+      const label = store.get(s.id)?.label;
+      store.upsert({ ...spawned, ...(label ? { label } : {}), ...(topic ? { topic } : {}), ...(topicSource ? { topicSource } : {}), ...(repo ? { repo } : {}), ...(repoPath ? { repoPath } : {}), ...(branch ? { branch } : {}), ...(worktree !== undefined ? { worktree } : {}), ...(repoId ? { repoId } : {}), project });
       log(`resumed ${spawned.name} (omp) in ${spawned.cwd} as ${spawned.id}`);
       return null;
     } catch (e) {
       const cur = store.get(s.id);
-      if (cur && cur.archivedAt === undefined && cur.state === 'starting') store.upsert(s);
+      if (cur && cur.archivedAt === undefined && cur.state === 'starting') store.upsert(withLabelOf(s, cur));
       return (e as Error).message;
     }
   }
@@ -1349,6 +1352,12 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   /** The names given to launches still under way (#15): taken until their session is recorded. */
   const launchingNames = new Set<string>();
   type LaunchReq = { tool: Tool; cwd: string; name?: string; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string; approval?: OmpApproval };
+  /** The old record put back over an interim one, with the nickname the interim one carries now (given, or removed, meanwhile). */
+  function withLabelOf(old: Session, now: Session): Session {
+    const { label: _l, ...rest } = old;
+    return now.label ? { ...rest, label: now.label } : rest;
+  }
+
   /** Spawns the agent as `ledge <tool>` would and records it; throws the reason (bad folder, tmux). */
   async function launch(req: LaunchReq): Promise<Session> {
     // Issue #15: a name given is the user's choice: taken, it is refused (the front says so before), never changed behind them.
@@ -1725,6 +1734,16 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       case 'session.rename': {
         if (!store.get(msg.id)) return refuse(unknownSession(), msg.id);
         store.apply(msg.id, { name: 'Renamed', at: now(), source: 'daemon', text: msg.topic });
+        return;
+      }
+      case 'session.label': {
+        // A nickname is only shown: no clash to check, its name (its address) and its routines stay as they are.
+        const s = store.get(msg.id);
+        if (!s) return refuse(unknownSession(), msg.id);
+        const label = msg.label.trim().slice(0, SESSION_LABEL_MAX);
+        if ((s.label ?? '') === label) return;
+        const { label: _old, ...rest } = s;
+        store.upsert(label ? { ...rest, label } : rest);
         return;
       }
       case 'session.unregister':

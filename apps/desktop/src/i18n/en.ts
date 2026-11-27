@@ -39,6 +39,10 @@ export const en: Messages = {
     }
   },
   side: {
+    rename: {
+      placeholder: (n) => `Nickname for ${n}`, keep: 'rename', escKey: 'Esc', cancel: 'cancel',
+      outdated: (machine) => `Update Ledge on ${machine} to give this session a nickname.`
+    },
     reorder: {
       grip: 'Drag to move · Alt+↑ / Alt+↓',
       moved: (n, i, total, p) => `${n} is now ${i} of ${total} in ${p}.`,
@@ -861,14 +865,13 @@ export const en: Messages = {
     menu: {
       label: (name) => `Manage ${name}`, more: 'Manage the session (right click)',
       up: 'Move up', down: 'Move down', top: 'To the top of the project', topList: 'To the top of the list', upKey: 'Alt ↑', downKey: 'Alt ↓', topKey: 'Alt Home',
-      open: 'Open session', terminal: 'Terminal', rename: 'Rename…', moveTo: 'Move to…', end: 'End session', resume: 'Resume session',
+      open: 'Open session', terminal: 'Terminal', rename: 'Rename', moveTo: 'Move to…', end: 'End session', resume: 'Resume session',
       archive: 'Archive', endAndArchive: 'End and archive…', delete: 'Delete…',
       kids: (n, name) => `${n} ${pluralEn(n, 'subagent leaves', 'subagents leave')} with ${name}.`,
       cannotEnd: (machine) => `${machine} is unreachable: Ledge cannot stop it.`,
       rigOwned: (rig) => `Seat of the rig ${rig}: stop or restart it from the OpenRig page`, outsideLedge: 'Launched outside Ledge: Ledge cannot stop it.',
       deleteKey: 'Del', archiveFinished: 'Archive finished'
     },
-    rename: { title: (name) => `Rename ${name}`, label: 'Session name', save: 'Rename', cancel: 'Cancel' },
     archivedBanner: {
       pill: 'Archived', title: 'Archived session',
       body: (ago) => `${ago} · the agent is stopped, the conversation is read-only.`,
@@ -1258,8 +1261,7 @@ export const en: Messages = {
       limit: (pct, reset) => `5 h limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitMonth: (pct, reset) => `Monthly limit ${pct}${reset ? ` · resets ${reset}` : ''}`,
       limitWeek: (pct, reset) => `Weekly limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitUnread: 'Limit not read',
       offline: 'offline', launch: 'Launch', launchKeys: 'Ctrl Enter', cancel: 'Cancel',
-      nameToggle: 'Set a name?', name: 'Name', namePlaceholder: (n) => `Leave empty for ${n}`,
-      nameHint: 'It is its address: other sessions write to it under this name (ledge who, SendMessage). Letters, digits, - and _.',
+      name: 'Name', renameTip: 'Rename', editHint: (n) => `Enter keeps the name · Esc goes back to ${n}`,
       cleaned: (n) => `The session will be called ${n}: spaces and punctuation are removed.`,
       nameTaken: (n, p) => `${n} is already the name of a session in ${p}. Choose another name, or leave it empty.`,
       nameTakenBy: (n, o) => `${n} is already taken: ${o} has it.`,

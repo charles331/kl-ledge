@@ -23,6 +23,14 @@ const rows = (region: string) => within(screen.getByRole('region', { name: regio
 const rowLinks = () => screen.getAllByRole('link').filter(a => a.getAttribute('href') !== '#/new');
 
 describe('Sessions (m2-sessions.html §1)', () => {
+  it('a session with a nickname reads « KB Projet 1 (Ida) », the name muted (docs/mockups/ledge-sidebar-names.html, card 2)', () => {
+    const t = setup();
+    t.deliver(snapshot([session('ida', { name: 'Ida', label: 'KB Projet 1', project: 'ledge' })]));
+    render(<Sessions store={t.store} />);
+    const [ida] = rows('ledge');
+    expect(ida).toHaveTextContent('KB Projet 1 (Ida)');
+    expect(within(ida!).getByText('(Ida)', { exact: false })).toHaveClass('text-muted');
+  });
   it('groups by project then by rig, those waiting first and the ended last, each row opening its thread', () => {
     const t = setup();
     t.deliver(fleet());

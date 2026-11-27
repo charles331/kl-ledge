@@ -12,6 +12,7 @@ import { SHELL_ICONS } from '../icons';
 import { Menu, MenuItem } from '../Menu';
 import type { ProjectGroup } from './model';
 import { projectKey } from './Tree';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 export interface SidebarMenuHostProps {
   state: ContextMenuState;
@@ -116,7 +117,7 @@ export function SidebarMenuHost(p: SidebarMenuHostProps): JSX.Element | null {
       if (!s) return null;
       const disabled = !p.actions.allowed(s.id);
       title = s.name;
-      head = <div className="session-menu-head"><strong>{s.name}</strong>{s.topic && <small>{s.topic}</small>}</div>;
+      head = <div className="session-menu-head"><strong><SessionName session={s} /></strong>{s.topic && <small>{s.topic}</small>}</div>;
       items = <>
         {item(c.read, ICONS.external.d, () => go({ type: 'open', id: s.id }))}
         {item(t.manage.archivedBanner.restore, SHELL_ICONS.restore, () => p.actions.restore(s.id), { disabled })}

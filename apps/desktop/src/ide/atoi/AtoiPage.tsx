@@ -18,6 +18,7 @@ import { PrIcon } from '../../forge/PrIcon';
 import { MergeConfirm } from '../../forge/MergeConfirm';
 import '../../styles/forge.css';
 import '../../styles/atoi.css';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** When the page was last opened (ms): « Terminé depuis ton passage » counts from there. */
 export const ATOI_SEEN_KEY = 'ledge.ide.atoi.seen';
@@ -95,7 +96,7 @@ export function AtoiPage(p: AtoiPageProps): JSX.Element {
       <div key={s.id} className={`atoi-row ${r.kind === 'question' ? 'ask' : 'perm'}`}>
         <div className="hd">
           <span className={`fg-dot ${r.kind === 'question' ? 'wait' : 'fail'}`} aria-hidden="true" />
-          <ProviderLogo provider={providerOf(s.tool)} size={13} /><b>{s.name}</b><span className="atoi-where">{p.where(s)}</span>
+          <ProviderLogo provider={providerOf(s.tool)} size={13} /><b><SessionName session={s} /></b><span className="atoi-where">{p.where(s)}</span>
           <button type="button" className="fg-btn" onClick={() => p.onOpen(s.id)}>{a.open}</button>
         </div>
         {r.kind === 'question' ? <span>{r.text}</span> : <><span>{a.allowCommand}</span><code>{r.text}</code></>}
@@ -187,7 +188,7 @@ export function AtoiPage(p: AtoiPageProps): JSX.Element {
         <div className="fg-blk-h"><span className="fg-dot ok" aria-hidden="true" /><b>{a.finished}</b><span className="fg-sub">{done.length + closed.length}</span></div>
         <div className="fg-blk-b">{done.length + closed.length ? <>{done.map(s => (
           <div key={s.id} className="atoi-line">
-            <span className="fg-dot ok" aria-hidden="true" /><ProviderLogo provider={providerOf(s.tool)} size={12} /><b>{s.name}</b>
+            <span className="fg-dot ok" aria-hidden="true" /><ProviderLogo provider={providerOf(s.tool)} size={12} /><b><SessionName session={s} /></b>
             <span className="grow fg-mut">{s.lastReply!.text}</span>
             <button type="button" className="fg-btn" onClick={() => p.onOpen(s.id)}>{a.open}</button>
           </div>

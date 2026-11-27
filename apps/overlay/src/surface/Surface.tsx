@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_ISLAND_PREFS, type IslandPrefs, type Session } from '@ledge/protocol';
+import { DEFAULT_ISLAND_PREFS, labelledName, type IslandPrefs, type Session } from '@ledge/protocol';
 import { providerOf } from '@ledge/ui/logos/ProviderLogo';
 import { useDaemon } from '../daemon/store';
 import type { DaemonClient } from '../daemon/client';
@@ -41,9 +41,10 @@ export interface SurfaceProps {
 const firstWords = (text: string) => { const flat = text.replace(/\s+/g, ' ').trim(); return flat.length > PREVIEW_CHARS ? `${flat.slice(0, PREVIEW_CHARS)}…` : flat; };
 
 /** What the island says of `item`, read from its session; null when there is nothing to draw (yet). */
-function cardOf(item: Item, s: Session | undefined): Card | null {
+export function cardOf(item: Item, s: Session | undefined): Card | null {
   if (!s) return null;
-  const base = { id: s.id, who: s.name, provider: providerOf(s.tool), project: s.project, branch: s.branch };
+  // Its nickname before its name when it has one, « KB Projet 1 (Otto) » (docs/mockups/ledge-sidebar-names.html, card 2).
+  const base = { id: s.id, who: labelledName(s), provider: providerOf(s.tool), project: s.project, branch: s.branch };
   if (item.kind === 'finished') return { ...base, kind: 'finished', text: s.lastReply?.text ? firstWords(s.lastReply.text) : undefined };
   if (item.kind === 'error') return { ...base, kind: 'error', text: s.lastError };
   if (item.kind !== 'ask' || !s.pending) return null;
@@ -174,7 +175,8 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
   const [handoff, setHandoff] = useState<string | null>(null);
   useEffect(() => subscribeOpenInLedge((target, outcome) => {
     if (outcome !== 'opening') { setHandoff(t.handoff[outcome]); return; }
-    setHandoff(target.kind === 'session' ? `${t.handoff.session(byId.get(target.id)?.name ?? target.id)}…` : null);
+    const handed = target.kind === 'session' ? byId.get(target.id) : undefined;
+    setHandoff(target.kind === 'session' ? `${t.handoff.session(handed ? labelledName(handed) : target.id)}…` : null);
   }), [byId, t]);
 
   // Where the island is drawn, in real px: its axis on the top edge, 8 px under it, at its size; the frame follows it.

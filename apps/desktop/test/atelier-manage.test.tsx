@@ -7,7 +7,7 @@ import { boot, closeDaemons, type MockDaemon } from './helpers';
 beforeEach(() => localStorage.clear());
 afterEach(async () => { cleanup(); await closeDaemons(); });
 
-const CAN: DaemonInfo = { version: '0.7.0', install: 'npm', systemd: true, archive: true };
+const CAN: DaemonInfo = { version: '0.7.0', install: 'npm', systemd: true, archive: true, sessionLabel: true };
 const OLD: DaemonInfo = { version: '0.6.0', install: 'npm', systemd: true };
 
 const otto = fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working', topic: 'Wire the list', helpers: [{ id: 'h1', kind: 'Explore', task: 'Read the code', state: 'working' }] });
@@ -35,7 +35,7 @@ describe('the session menu in the atelier', () => {
     const menu = await screen.findByRole('menu', { name: 'Manage Bix' });
     expect(menu).toHaveStyle({ position: 'fixed' });
     expect(within(menu).getAllByRole('menuitem').map(i => i.getAttribute('aria-label'))).toEqual([
-      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Resume session', 'Archive', 'Delete…'
+      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Resume session', 'Archive', 'Delete…'
     ]);
     await user.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
     await waitFor(() => expect(sent(d)).toContainEqual({ type: 'session.archive', id: 'bix' }));
@@ -47,7 +47,7 @@ describe('the session menu in the atelier', () => {
     fireEvent.contextMenu(seat('Otto'));
     const menu = await screen.findByRole('menu', { name: 'Manage Otto' });
     expect(within(menu).getAllByRole('menuitem').map(i => i.getAttribute('aria-label'))).toEqual([
-      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Hand over', 'End session', 'End and archive…', 'Delete…'
+      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Hand over', 'End session', 'End and archive…', 'Delete…'
     ]);
     expect(within(menu).getByText('1 subagent leaves with Otto.')).toBeVisible();
     await user.click(within(menu).getByRole('menuitem', { name: /^End and archive/ }));
@@ -80,16 +80,14 @@ describe('the session menu in the atelier', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(sent(d).some(m => m.type === 'session.delete')).toBe(false);
 
-    // F2 on a live agent: a small dialog, whose answer is session.rename.
+    // F2 on a live agent: its nickname becomes a field in the sidebar's tree (docs/mockups/ledge-sidebar-names.html, card 2), whose
+    // answer is session.label; the focus goes back to the atelier.
     await walkTo(user, 'Otto');
     await user.keyboard('{F2}');
-    const dialog = await screen.findByRole('dialog', { name: /Rename/ });
-    const field = within(dialog).getByRole('textbox');
-    expect(field).toHaveValue(otto.topic);
-    await user.clear(field);
-    await user.type(field, 'Wire the atelier{Enter}');
-    await waitFor(() => expect(sent(d)).toContainEqual({ type: 'session.rename', id: 'otto', topic: 'Wire the atelier' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => screen.getByRole('textbox', { name: 'Nickname for Otto' }));
+    await user.keyboard('Atelier{Enter}');
+    await waitFor(() => expect(sent(d)).toContainEqual({ type: 'session.label', id: 'otto', label: 'Atelier' }));
+    expect(screen.queryByRole('textbox', { name: /^Nickname for/ })).toBeNull();
 
     // A sub-agent seat opens no menu.
     const helper = screen.getByRole('button', { name: /^Explore, subagent of Otto/ });
@@ -120,10 +118,10 @@ describe('the session menu in the atelier', () => {
     expect(screen.getByRole('button', { name: /Undo/ })).toBeInTheDocument();
   });
 
-  it('Rename… is disabled for a finished session', async () => {
+  it('Rename is disabled for a finished session', async () => {
     await boot({ sessions: SESSIONS, daemon: CAN });
     fireEvent.contextMenu(seat('Bix'));
-    expect(await screen.findByRole('menuitem', { name: 'Rename…' })).toBeDisabled();
+    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeDisabled();
   });
 
   it('the table menu archives every finished principal of that table', async () => {
@@ -163,13 +161,13 @@ describe('the session menu in the atelier', () => {
     expect(sent(d)).toEqual([]);
   });
 
-  it('an offline session: Rename… is disabled and F2 does nothing, but Terminal and T show its pane', async () => {
+  it('an offline session: Rename is disabled and F2 does nothing, but Terminal and T show its pane', async () => {
     const lost = fakeSession('lost', { name: 'Lost', cwd: '/w/ledge', state: 'working', offline: true });
     const { d, user } = await boot({ sessions: [...SESSIONS, lost], daemon: CAN });
     fireEvent.contextMenu(seat('Lost'));
     const menu = await screen.findByRole('menu', { name: 'Manage Lost' });
     expect(within(menu).getByRole('menuitem', { name: 'Its terminal' })).toBeEnabled();
-    expect(within(menu).getByRole('menuitem', { name: 'Rename…' })).toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Rename' })).toBeDisabled();
     expect(within(menu).getByRole('menuitem', { name: 'Delete…' })).toHaveTextContent('Del');
     await user.keyboard('{Escape}');
     // The menu hands the focus back without choosing the seat: J chooses it.

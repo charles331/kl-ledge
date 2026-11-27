@@ -949,6 +949,24 @@ describe('server', () => {
       expect((await c.next('routine.previewed', 3000)).nextRuns).toHaveLength(1);
       c.close();
     });
+    it('session.label gives a session a nickname: trimmed and cut at 40, empty removes it; its name and its routines stay (sidebar rename, v2)', async () => {
+      store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', title: 'Pim · relais' }));
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      c.send({ type: 'session.label', id: 'a', label: '  KB Projet 1  ' });
+      expect((await c.next('session.updated')).session).toMatchObject({ id: 'a', name: 'Otto', label: 'KB Projet 1', title: 'Otto · harness-assistant' });
+      // The same nickname again changes nothing; another session may carry it too (no clash: the names tell them apart).
+      c.send({ type: 'session.label', id: 'b', label: 'KB Projet 1' });
+      expect((await c.next('session.updated')).session).toMatchObject({ id: 'b', name: 'Pim', label: 'KB Projet 1' });
+      c.send({ type: 'session.label', id: 'a', label: 'x'.repeat(60) });
+      expect((await c.next('session.updated')).session.label).toBe('x'.repeat(40));
+      c.send({ type: 'session.label', id: 'a', label: '   ' });
+      const cleared = (await c.next('session.updated')).session;
+      expect(cleared).toMatchObject({ id: 'a', name: 'Otto' });
+      expect(cleared).not.toHaveProperty('label');
+      c.send({ type: 'session.label', id: 'zz', label: 'Revue' });
+      expect(await c.next('error')).toMatchObject({ id: 'zz', request: 'session.label' });
+      c.close();
+    });
     it('a task given between two sessions reaches the fronts with its transmission, and Ledge lists it (#92)', async () => {
       store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
@@ -1582,6 +1600,12 @@ describe('server', () => {
       expect(tmux.created[0]!.command).not.toContain('--session-id');
       expect(m.session).toMatchObject({ id: 'ab12', name: 'Otto', state: 'starting', source: 'launcher', topic: 'Fix the bug' });
       expect(m.session.archivedAt).toBeUndefined(); expect(m.session.exitedAt).toBeUndefined(); expect(m.session.exitCode).toBeUndefined();
+      c.close();
+    });
+    it('a resumed session keeps its nickname (sidebar rename, v2)', async () => {
+      store.upsert(ended('lb1', { agentSessionId: 'u-7', label: 'KB Projet 1' }));
+      const c = await resume('lb1'); await until(() => !!store.get('lb1')?.tmuxSession);
+      expect(store.get('lb1')).toMatchObject({ name: 'Otto', label: 'KB Projet 1' });
       c.close();
     });
     it('resumes Codex with resume <id> and Cursor with --resume <id>', async () => {
@@ -2377,7 +2401,7 @@ describe('update.daemon', () => {
       updater: { running: () => false, update: async (v, send) => { seen.push(v); send({ type: 'update.progress', version: v, step: 'installing' }); }, restart: async () => {} } });
     const c = await connect({ port: srv.port });
     const snap = await c.next('snapshot');
-    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true });
+    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true });
     c.send({ type: 'update.daemon', version: '0.3.0' });
     expect(await c.next('update.progress')).toMatchObject({ step: 'installing' });
     expect(seen).toEqual(['0.3.0']);

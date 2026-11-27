@@ -31,6 +31,10 @@
 :root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-gap { display: none; }
 :root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-chev { position: absolute; left: 9px; }
 :root[data-skin="atelier"] .st-tree .st-agent.helper { padding-left: 52px; }
+/* The drag grip (docs/mockups/ledge-sidebar-names.html, card 1) in the 28 px gutter: 4 px left of the logo, or left of the
+   sub-agents' chevron when there is one. */
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-grip { left: 17px; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper):has(> .st-chev) > .st-grip { left: 1px; }
 :root[data-skin="atelier"] .st-tree .st-agent.helper > .st-gap { display: none; }
 /* The time, on the second line's right; « À toi » stays on the first, where it is looked for. */
 :root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-time:not(:has(.at-tag)) { position: absolute; right: 8px; bottom: 6px; margin: 0; }
