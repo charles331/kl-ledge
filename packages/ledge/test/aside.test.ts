@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Aside, Session } from '@ledge/protocol';
-import { createAsides, footOf, osc52Text, type AsideDeps } from '../src/daemon/aside.js';
+import { createAsides, footOf, osc52Text, typingPieces, type AsideDeps } from '../src/daemon/aside.js';
 import { claudeDraft, withoutFaint } from '../src/adapters/claude.js';
 import type { ControlProcess } from '../src/mobile/terminal.js';
 
@@ -18,7 +18,7 @@ type Stage = 'prompt' | 'streaming' | 'ready' | 'copied';
  * the answer is whole (`readyAfter` screen reads later), `c` writes the answer as OSC 52 (bare, then wrapped for tmux) and makes a
  * paste buffer, Esc closes the panel. `copy: false`: `c` writes nothing.
  */
-function fakeClaude(o: { answer?: string; draft?: string; panel?: boolean; readyAfter?: number; copy?: boolean; onRead?: (stage: Stage, reads: number) => void } = {}) {
+function fakeClaude(o: { answer?: string; draft?: string; panel?: boolean; stuck?: boolean; paste?: boolean; readyAfter?: number; copy?: boolean; onRead?: (stage: Stage, reads: number) => void } = {}) {
   const answer = o.answer ?? 'The capital of Belgium is Brussels.\n\n1. alpha\n2. beta';
   let stage: Stage = 'prompt'; let reads = 0; let typed = o.draft ?? '';
   const keys: string[] = [];
@@ -29,7 +29,7 @@ function fakeClaude(o: { answer?: string; draft?: string; panel?: boolean; ready
     o.onRead?.(stage, reads);
     if (stage === 'streaming' && reads >= (o.readyAfter ?? 2)) stage = 'ready';
     const asked = '  /btw what is the capital of Belgium?';
-    if (stage === 'prompt') return promptScreen(typed || '\x1b[2mTry\x1b[0m \x1b[2m"refactor <filepath>"\x1b[0m');
+    if (stage === 'prompt') return promptScreen(typed && o.paste ? '[Pasted text #1 +2 lines]' : typed || '\x1b[2mTry\x1b[0m \x1b[2m"refactor <filepath>"\x1b[0m');
     const body = ['❯ /btw what is the capital of Belgium?', asked, '    The capital of Belgium is'];
     if (stage === 'streaming') return [...body, '  ⇧←/→ to browse · x to clear history · Esc to', '  close', ''];
     if (stage === 'ready') return [...body, '    Brussels.', '  c to', '  copy · f to fork · Esc to close', ''];
@@ -66,7 +66,8 @@ function fakeClaude(o: { answer?: string; draft?: string; panel?: boolean; ready
     async sendKeys(_n, k) {
       keys.push(...k);
       for (const key of k) {
-        if (key === 'Enter' && stage === 'prompt' && typed.startsWith('/btw ')) { typed = ''; if (o.panel !== false) { stage = 'streaming'; reads = 0; } }
+        if (key === 'Enter' && stage === 'prompt' && typed.startsWith('/btw ') && !o.stuck) { typed = ''; if (o.panel !== false) { stage = 'streaming'; reads = 0; } }
+        else if (key === 'C-u' && stage === 'prompt') typed = '';
         else if (key === 'c' && stage === 'ready') {
           stage = 'copied';
           if (o.copy !== false) {
@@ -93,7 +94,7 @@ function setup(fake: ReturnType<typeof fakeClaude>, session: () => Session | und
   const typing = new Set<string>();
   const asides = createAsides({
     tmux: fake.tmux, spawn: fake.spawn, typing, session: () => session(), log: () => {}, now: () => T0,
-    emit: (_id, a) => seen.push(a), timings: { pollMs: 1, enterDelayMs: 0, panelMs: 200, answerMs: 300, copyMs: 100 }
+    emit: (_id, a) => seen.push(a), timings: { pollMs: 1, enterDelayMs: 0, typeGapMs: 0, panelMs: 200, answerMs: 300, copyMs: 100 }
   });
   const last = () => seen.at(-1)!;
   const settled = () => vi.waitFor(() => expect(last().state).not.toBe('asking'), { timeout: 3000 });
@@ -107,12 +108,23 @@ describe('osc52Text, footOf, claudeDraft', () => {
     expect(osc52Text(`\x1bPtmux;\x1b\x1b]52;c;${b64}\x1b\\`)).toBe('é **md**');
     expect(osc52Text('\x1b]52;c;abc')).toBeNull(); // not ended yet: more is coming
   });
+  it('cuts a long question into pieces without splitting a character (an emoji at the 48th place stays whole)', () => {
+    const text = `/btw ${'a'.repeat(42)}😀 fin`;
+    const pieces = typingPieces(text);
+    expect(pieces.join('')).toBe(text);
+    expect(pieces[0]!.endsWith('😀')).toBe(true);
+    expect(pieces.every(p => !/[\uD800-\uDBFF]$/.test(p) && !/^[\uDC00-\uDFFF]/.test(p))).toBe(true);
+    expect(typingPieces('é'.repeat(100)).map(p => Array.from(p).length)).toEqual([48, 48, 4]);
+  });
   it('joins a foot a narrow pane wrapped', () => {
     expect(footOf('  answer\n  c to\n  copy · f to fork · Esc to\n  close\n\n')).toContain('c to copy · f to fork · Esc to close');
   });
   it('tells an empty prompt from a draft: the faint « Try … » suggestion is no draft', () => {
     expect(claudeDraft(promptScreen('\x1b[2mTry\x1b[0m \x1b[2m"refactor"\x1b[0m').join('\n'))).toBe('');
     expect(claudeDraft(promptScreen('').join('\n'))).toBe('');
+    // A faint run that ends on the next line (seen on 2.1.332, « Try "how do I log an error?" »): the line end stays.
+    const carried = ['', `\x1b[38;5;244m${RULE}`, '\x1b[39m❯\u00a0\x1b[2mTry\x1b[0m \x1b[2m"log an error?"', `\x1b[0m\x1b[38;5;244m${RULE}`, '\x1b[39m  ⏸ manual mode on'].join('\n');
+    expect(claudeDraft(carried)).toBe('');
     expect(claudeDraft(promptScreen('draft text').join('\n'))).toBe('draft text');
     expect(claudeDraft('  1. Yes\n  2. No\n  Esc to cancel')).toBeNull();
   });
@@ -133,6 +145,27 @@ describe('an aside (#41, Claude Code 2.1.332 /btw)', () => {
     expect(typing.size).toBe(0);
     // Kept and replayed: the last state of each aside.
     expect(asides.all()).toEqual([['s1', [last()]]]);
+  });
+
+  it('a long question is typed in pieces (a long burst is a paste, and a pasted /btw goes to the agent); the whole text arrives', async () => {
+    const fake = fakeClaude();
+    const { asides, settled } = setup(fake);
+    const question = 'x'.repeat(3_990);
+    asides.ask('s1', 'r1', question);
+    await settled();
+    const typed = fake.keys.slice(0, fake.keys.indexOf('Enter'));
+    expect(typed.length).toBe(Math.ceil((question.length + 5) / 48));
+    expect(typed.every(k => k.length <= 48)).toBe(true);
+    expect(typed.join('')).toBe(`/btw ${question}`);
+  });
+
+  it('a question Claude Code folded as a paste anyway: cleared, never sent, no_panel', async () => {
+    const fake = fakeClaude({ paste: true });
+    const { asides, last, settled } = setup(fake);
+    asides.ask('s1', 'r1', 'q');
+    await settled();
+    expect(last()).toMatchObject({ state: 'failed', cause: 'no_panel' });
+    expect(fake.keys).toEqual(['/btw q', 'C-u']);
   });
 
   it('a question over several lines is typed on one line', async () => {
@@ -161,14 +194,67 @@ describe('an aside (#41, Claude Code 2.1.332 /btw)', () => {
     expect(fake.keys).toEqual(['/btw q', 'Enter']);
   });
 
-  it('a request that comes up while the answer is written: no c, no Esc, interrupted', async () => {
+  it('no panel and its own `/btw …` left in the input (Enter read as a paste): it is cleared, nothing else', async () => {
+    const fake = fakeClaude({ stuck: true });
+    const { asides, last, settled } = setup(fake);
+    asides.ask('s1', 'r1', 'q');
+    await settled();
+    expect(last()).toMatchObject({ state: 'failed', cause: 'no_panel' });
+    expect(fake.keys).toEqual(['/btw q', 'Enter', 'C-u']);
+  });
+
+  it('cancel (the person stops the agent): the aside closes its panel, fails interrupted, and lets the pane go before resolving', async () => {
+    const fake = fakeClaude({ readyAfter: 1_000_000 });
+    const { asides, last, typing } = setup(fake);
+    await asides.cancel('s1'); // nothing under way: resolves at once
+    asides.ask('s1', 'r1', 'q');
+    expect(asides.running('s1')).toBe(true);
+    await vi.waitFor(() => expect(fake.stageOf()).toBe('streaming'), { timeout: 3000 });
+    await asides.cancel('s1');
+    expect(asides.running('s1')).toBe(false);
+    expect(typing.size).toBe(0);
+    expect(last()).toMatchObject({ state: 'failed', cause: 'interrupted' });
+    // One Esc, its own, to the panel: the person's Esc that follows reaches the turn.
+    expect(fake.keys).toEqual(['/btw q', 'Enter', 'Escape']);
+    expect(fake.stageOf()).toBe('prompt');
+  });
+
+  it('stopped while typing (before Enter): its partial `/btw …` is cleared; a session being closed takes no aside', async () => {
+    const fake = fakeClaude();
+    let typedSoFar = 0;
+    const orig = fake.tmux.sendText;
+    const { asides, last, settled } = setup(fake);
+    fake.tmux.sendText = async (n, t) => { typedSoFar++; await orig(n, t); if (typedSoFar === 2) void asides.cancel('s1'); };
+    asides.ask('s1', 'r1', 'x'.repeat(200));
+    await settled();
+    expect(last()).toMatchObject({ state: 'failed', cause: 'interrupted' });
+    expect(fake.keys.at(-1)).toBe('C-u');
+    expect(fake.keys).not.toContain('Enter');
+    const closing = fakeClaude();
+    const seen: Aside[] = [];
+    createAsides({ tmux: closing.tmux, spawn: closing.spawn, typing: new Set(), session: () => claude, closing: () => true, log: () => {}, now: () => T0, emit: (_i, a) => seen.push(a) }).ask('s1', 'r2', 'q');
+    expect(seen.at(-1)).toMatchObject({ state: 'failed', cause: 'interrupted' });
+    expect(closing.keys).toEqual([]);
+  });
+
+  it('a session removed while its aside runs leaves nothing to replay', async () => {
+    let gone = false;
+    const fake = fakeClaude({ readyAfter: 5, onRead: (_s, reads) => { if (reads === 3) gone = true; } });
+    const { asides, seen } = setup(fake, () => (gone ? undefined : claude));
+    asides.ask('s1', 'r1', 'q');
+    asides.drop('s1');
+    await vi.waitFor(() => expect(seen.at(-1)!.state).not.toBe('asking'), { timeout: 3000 });
+    expect(asides.all()).toEqual([]);
+  });
+
+  it('a request that comes up while the answer is written: no c; one Esc closes the panel that hides its dialog; interrupted', async () => {
     let pending = false;
     const fake = fakeClaude({ readyAfter: 50, onRead: (stage, reads) => { if (stage === 'streaming' && reads === 3) pending = true; } });
     const { asides, last, settled } = setup(fake, () => (pending ? { ...claude, pending: request } : claude));
     asides.ask('s1', 'r1', 'q');
     await settled();
     expect(last()).toMatchObject({ state: 'failed', cause: 'interrupted' });
-    expect(fake.keys).toEqual(['/btw q', 'Enter']);
+    expect(fake.keys).toEqual(['/btw q', 'Enter', 'Escape']);
   });
 
   it('an answer that never finishes: Esc to the panel, timeout', async () => {

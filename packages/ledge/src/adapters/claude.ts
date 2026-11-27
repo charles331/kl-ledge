@@ -326,13 +326,15 @@ function inputBox(lines: string[]): { top: number; bottom: number } | null {
   return null;
 }
 
-/** Drops what a pane captured with its styles (`capture-pane -e`) draws faint (SGR 2), then every escape sequence. */
+/** Drops what a pane captured with its styles (`capture-pane -e`) draws faint (SGR 2), then every escape sequence. Line ends
+ *  always stay: a faint run may end on the next line (Claude Code 2.1.332 closes its « Try … » suggestion there). */
 export function withoutFaint(styled: string): string {
   let out = '', faint = false;
   const re = /\x1b\[([0-9;:]*)m|\x1b\[[0-9;:?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b./g;
   let at = 0, m: RegExpExecArray | null;
+  const keep = (text: string) => { out += faint ? text.replace(/[^\n]/g, '') : text; };
   while ((m = re.exec(styled))) {
-    if (!faint) out += styled.slice(at, m.index);
+    keep(styled.slice(at, m.index));
     at = re.lastIndex;
     if (m[1] === undefined) continue;
     for (const p of (m[1] === '' ? ['0'] : m[1].split(/[;:]/))) {
@@ -340,7 +342,7 @@ export function withoutFaint(styled: string): string {
       else if (p === '0' || p === '' || p === '22') faint = false;
     }
   }
-  if (!faint) out += styled.slice(at);
+  keep(styled.slice(at));
   return out;
 }
 
