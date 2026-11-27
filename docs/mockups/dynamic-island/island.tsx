@@ -200,33 +200,31 @@ function Island(p: IslandProps) {
 
 /* ------------------------------------------------------------------ Ledge's own notices (complement, 2026-11-27) */
 
-/* What Ledge says for itself, not for an agent: a point, a rig's question, a decision put to the user, a routine, a machine
- * that dropped. The content and the sentences are today's notch's (apps/overlay/src/i18n/messages.ts: bubble.point, rigAsk,
+/* What Ledge says for itself, not for an agent: a rig's question, a decision put to the user, a routine, a machine
+ * that dropped. The content and the sentences are today's notch's (apps/overlay/src/i18n/messages.ts: rigAsk,
  * decision, atoi.routine, offline); only the badges are new. Ledge's mark stands where an agent's provider logo would. */
 
-type LKind = 'point' | 'rig' | 'decision' | 'routineAsk' | 'routineGroup' | 'routineEdit' | 'routineFailed' | 'offline';
+type LKind = 'rig' | 'decision' | 'routineAsk' | 'routineGroup' | 'routineEdit' | 'routineFailed' | 'offline';
 type LTone = 'ask' | 'bad' | 'off';
 const LTONE: Record<LTone, string> = { ask: 'var(--warning)', bad: 'var(--danger-text)', off: 'var(--muted-foreground)' };
 
 const LCOPY = {
   fr: {
     /** New: the badge of each Ledge notice. */
-    badge: { point: 'Le point', rig: 'Question d’un rig', decision: 'Décision', routine: 'Routine', offline: 'Hors ligne' },
-    // Today's words (bubble.point, rigAsk, decision, atoi.routine, offlineSub, later, openSession).
-    see: 'Voir', seePoint: 'Voir le point', later: 'Plus tard', answerIn: 'Répondre dans Ledge', activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer',
+    badge: { rig: 'Question d’un rig', decision: 'Décision', routine: 'Routine', offline: 'Hors ligne' },
+    // Today's words (rigAsk, decision, atoi.routine, offlineSub, later, openSession).
+    see: 'Voir', later: 'Plus tard', answerIn: 'Répondre dans Ledge', activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer',
     decisionAsks: ' te demande une décision', offlineSub: 'Reconnexion automatique', offline: 'Une machine est hors ligne'
   },
   en: {
-    badge: { point: 'The point', rig: 'Rig question', decision: 'Decision', routine: 'Routine', offline: 'Offline' },
-    see: 'View', seePoint: 'See the point', later: 'Later', answerIn: 'Answer in Ledge', activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Retry',
+    badge: { rig: 'Rig question', decision: 'Decision', routine: 'Routine', offline: 'Offline' },
+    see: 'View', later: 'Later', answerIn: 'Answer in Ledge', activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Retry',
     decisionAsks: ' asks you for a decision', offlineSub: 'Reconnecting on its own', offline: 'A machine is offline'
   }
 };
 
 /** Real-looking content, as the daemon sends it today. */
 const LN: Record<LKind, { tone: LTone; badge: keyof typeof LCOPY.fr.badge; sentence: Record<Lang, ReactNode>; meta?: Two; options?: Record<Lang, string[]> }> = {
-  point: { tone: 'ask', badge: 'point', meta: { fr: '14:02', en: '14:02' },
-    sentence: { fr: '6 choses depuis 13:50 · 2 t’attendent', en: '6 things since 13:50 · 2 waiting for you' } },
   rig: { tone: 'ask', badge: 'rig', meta: { fr: 'ledge-dev · 09:12', en: 'ledge-dev · 09:12' },
     sentence: { fr: <><b>pilot-lead</b> : « On publie la 0.62 ce soir ou on attend la revue de Codex ? »</>, en: <><b>pilot-lead</b>: “Do we ship 0.62 tonight or wait for Codex’s review?”</> },
     options: { fr: ['Ce soir', 'Après la revue'], en: ['Tonight', 'After the review'] } },
@@ -249,7 +247,6 @@ const LN: Record<LKind, { tone: LTone; badge: keyof typeof LCOPY.fr.badge; sente
 function LGlyph({ kind, size = 14 }: { kind: LKind; size?: number }) {
   const c = LTONE[LN[kind].tone];
   const common = { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: c, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
-  if (kind === 'point') return <svg {...common}><path d="M5.5 4.5h7M5.5 8h7M5.5 11.5h7" /><circle cx="3" cy="4.5" r=".4" fill={c} /><circle cx="3" cy="8" r=".4" fill={c} /><circle cx="3" cy="11.5" r=".4" fill={c} /></svg>;
   if (kind === 'routineFailed') return <svg {...common}><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>;
   if (kind.startsWith('routine')) return <svg {...common}><circle cx="8" cy="8.5" r="5" /><path d="M8 6v2.7l1.8 1.2M3.5 3 5 1.8M12.5 3 11 1.8" /></svg>;
   if (kind === 'offline') return <svg {...common}><path d="M2.5 6.5a8 8 0 0 1 11 0M4.8 9a4.6 4.6 0 0 1 6.4 0M2.5 2.5l11 11" /><circle cx="8" cy="12" r=".5" fill={c} /></svg>;
@@ -282,7 +279,6 @@ function LedgeIsland({ kind, lang, phase = 'open', timer = 'ring', noOptions }: 
         </div>
       </div>
       {!notice && <div className="di-actions">
-        {kind === 'point' && <><Button variant="primary" size="sm">{t.seePoint}<Kbd accent>O</Kbd></Button>{foot()}</>}
         {kind === 'rig' && (opts ? <>{opts.map((o, i) => <Button key={o} variant={i === 0 ? 'primary' : 'outline'} size="sm">{o}</Button>)}{foot(t.answerIn)}</>
           : <><Button variant="primary" size="sm">{t.answerIn}<Kbd accent>O</Kbd></Button>{foot()}</>)}
         {kind === 'decision' && <><Button variant="primary" size="sm">{t.see}<Kbd accent>O</Kbd></Button>{foot()}</>}
@@ -304,7 +300,6 @@ function LPair({ kind, lang, tag, title, children, noOptions }: { kind: LKind; l
 
 /** The texts this complement adds or changes, for the owner's validation. */
 const LTEXTS: [status: string, where: string, fr: string, en: string][] = [
-  ['nouveau', 'Pastille du point', 'Le point', 'The point'],
   ['nouveau', 'Pastille d’une question de rig', 'Question d’un rig', 'Rig question'],
   ['nouveau', 'Pastille d’une décision', 'Décision', 'Decision'],
   ['nouveau', 'Pastille d’une routine (demande, groupe, modification, échec)', 'Routine', 'Routine'],
@@ -315,14 +310,13 @@ const LTEXTS: [status: string, where: string, fr: string, en: string][] = [
 ];
 
 function LedgeSection({ lang }: { lang: Lang }) {
-  return <Section id="ledge" title="Les avis de Ledge (complément)" lead={<>Ce que Ledge dit pour lui-même, et non pour un agent : le point, la question d’un rig, une décision, une routine, une machine hors ligne. Même cadre que les notifications d’agent ; le <b>logo de Ledge</b> prend la place de celui du provider, dans la pastille comme dans la carte. Contenu, phrases et boutons sont ceux de l’encoche d’aujourd’hui ; seules les pastilles d’état sont nouvelles. Tout est au tutoiement.</>}>
+  return <Section id="ledge" title="Les avis de Ledge (complément)" lead={<>Ce que Ledge dit pour lui-même, et non pour un agent : la question d’un rig, une décision, une routine, une machine hors ligne. Même cadre que les notifications d’agent ; le <b>logo de Ledge</b> prend la place de celui du provider, dans la pastille comme dans la carte. Contenu, phrases et boutons sont ceux de l’encoche d’aujourd’hui ; seules les pastilles d’état sont nouvelles. Tout est au tutoiement.</>}>
     <div className="di-grid">
       <figure className="di-pair">
-        <Desk theme="light"><div style={{ display: 'flex', gap: 10 }}>{(['point', 'rig', 'routineAsk', 'routineFailed', 'offline'] as LKind[]).map(k => <LedgeIsland key={k} kind={k} lang={lang} phase="seed" />)}</div></Desk>
-        <Desk theme="dark"><div style={{ display: 'flex', gap: 10 }}>{(['point', 'rig', 'routineAsk', 'routineFailed', 'offline'] as LKind[]).map(k => <LedgeIsland key={k} kind={k} lang={lang} phase="seed" />)}</div></Desk>
-        <figcaption><span className="di-tag">pastille</span><strong>Sortie du bord</strong><span>Le logo de Ledge, puis le signe de l’avis : le point (liste, ambre), une question ou une décision (?, ambre), une routine (réveil, ambre ; croix rouge si elle n’a pas pu partir), une machine hors ligne (réseau barré, gris).</span></figcaption>
+        <Desk theme="light"><div style={{ display: 'flex', gap: 10 }}>{(['rig', 'routineAsk', 'routineFailed', 'offline'] as LKind[]).map(k => <LedgeIsland key={k} kind={k} lang={lang} phase="seed" />)}</div></Desk>
+        <Desk theme="dark"><div style={{ display: 'flex', gap: 10 }}>{(['rig', 'routineAsk', 'routineFailed', 'offline'] as LKind[]).map(k => <LedgeIsland key={k} kind={k} lang={lang} phase="seed" />)}</div></Desk>
+        <figcaption><span className="di-tag">pastille</span><strong>Sortie du bord</strong><span>Le logo de Ledge, puis le signe de l’avis : une question ou une décision (?, ambre), une routine (réveil, ambre ; croix rouge si elle n’a pas pu partir), une machine hors ligne (réseau barré, gris).</span></figcaption>
       </figure>
-      <LPair kind="point" lang={lang} tag="demande" title="Le point">La phrase de tête du point, telle que Ledge l’écrit. Voir le point (O) ouvre le point dans Ledge Desktop ; Plus tard (Esc) le remet à plus tard, comme aujourd’hui. Reste ouverte jusqu’à l’un des deux.</LPair>
       <LPair kind="rig" lang={lang} tag="demande" title="La question d’un rig">Qui demande et son rig, la question entre guillemets, les réponses proposées (3 au plus) : la réponse suggérée en premier, en corail, comme Autoriser. Répondre dans Ledge (O) ouvre la question ; Plus tard (Esc).</LPair>
       <LPair kind="rig" lang={lang} noOptions tag="demande" title="Question d’un rig sans réponses proposées">Un seul bouton, Répondre dans Ledge (O), comme aujourd’hui.</LPair>
       <LPair kind="decision" lang={lang} tag="demande" title="Une décision demandée par une session">Voir (O) ouvre « À toi » dans Ledge Desktop ; Plus tard (Esc).</LPair>
@@ -333,17 +327,16 @@ function LedgeSection({ lang }: { lang: Lang }) {
       <LPair kind="offline" lang={lang} tag="avis · 6 s" title="Une machine est hors ligne">Un avis, comme un tour terminé : 6 s, l’anneau gris autour du logo, le survol retient. Le nom de la machine, « Reconnexion automatique » dessous. Un clic ouvre les machines dans Ledge Desktop. Sans nom connu : « Une machine est hors ligne ».</LPair>
     </div>
     <dl className="di-list">
-      <div><dt>Avis de tir d’une routine</dt><dd>Il ne passe pas par l’encoche aujourd’hui : il rejoint le point (« a terminé » remplacé par la ligne de la routine). Il reste dans le point ; l’île n’en montre pas.</dd></div>
+      <div><dt>Avis de tir d’une routine</dt><dd>Il ne passe pas par l’encoche aujourd’hui ; l’île n’en montre pas.</dd></div>
       <div><dt>Ordre</dt><dd>Les avis de Ledge qui attendent une réponse sont des demandes : ils passent avant les avis, dans leur ordre d’arrivée, avec « +2 autres » comme les autres.</dd></div>
-      <div><dt>Ne pas déranger</dt><dd>Rien ne s’ouvre, comme pour les agents. Tout reste dans « À toi » et dans le point.</dd></div>
+      <div><dt>Ne pas déranger</dt><dd>Rien ne s’ouvre, comme pour les agents. Tout reste dans « À toi ».</dd></div>
       <div><dt>Après la réponse</dt><dd>« Reçu » 900 ms, puis l’île se referme. Un refus du daemon (routine changée entre-temps, daemon trop ancien) s’affiche sous la phrase, avec les textes déjà validés des routines (cartes 32 et 33).</dd></div>
     </dl>
     <div className="di-decisions">
       <article><span className="di-tag">L1</span><h3>Le logo d’un avis de Ledge</h3><p><b>A (recommandé, maquetté).</b> Le logo de Ledge (le L blanc et le point rouge), à la place du provider.</p><p><b>B.</b> Pas de logo, seulement le signe de l’avis.</p></article>
-      <article><span className="di-tag">L2</span><h3>Le point : demande ou avis ?</h3><p><b>A (recommandé, maquetté).</b> Demande, comme aujourd’hui : il reste jusqu’à Voir le point ou Plus tard, et Plus tard est enregistré dans le point.</p><p><b>B.</b> Avis de 6 s, un clic ouvre le point.</p></article>
       <article><span className="di-tag">L3</span><h3>Une machine hors ligne</h3><p><b>A (recommandé, maquetté).</b> Avis de 6 s sans bouton ; un clic ouvre les machines, comme un tour terminé ouvre sa session.</p><p><b>B.</b> Garder OK et Ouvrir dans Ledge, comme aujourd’hui.</p></article>
       <article><span className="di-tag">L4</span><h3>« Plus tard » sur la question d’un rig, une décision, une routine</h3><p><b>A (recommandé, maquetté).</b> Ajouté (texte existant) : sans lui, l’île resterait ouverte tant que tu ne réponds pas, puisqu’une demande ne se referme pas seule (décision 1).</p><p><b>B.</b> Pas de Plus tard, comme aujourd’hui.</p></article>
-      <article><span className="di-tag">L5</span><h3>Le clavier</h3><p><b>A (recommandé, maquetté).</b> O pour Voir / Voir le point / Répondre dans Ledge, Esc pour Plus tard. Pas de Y, N ni de chiffres : activer une routine ou répondre à un rig se fait au clic, après lecture.</p><p><b>B.</b> Y / N pour Activer / Refuser une routine, 1-3 pour les réponses d’un rig.</p></article>
+      <article><span className="di-tag">L5</span><h3>Le clavier</h3><p><b>A (recommandé, maquetté).</b> O pour Voir / Répondre dans Ledge, Esc pour Plus tard. Pas de Y, N ni de chiffres : activer une routine ou répondre à un rig se fait au clic, après lecture.</p><p><b>B.</b> Y / N pour Activer / Refuser une routine, 1-3 pour les réponses d’un rig.</p></article>
       <article><span className="di-tag">L6</span><h3>L’ordre des réponses d’un rig</h3><p><b>A (recommandé, maquetté).</b> La réponse suggérée en premier, à gauche, en corail, comme Autoriser sur les cartes d’agent.</p><p><b>B.</b> À droite, comme aujourd’hui.</p></article>
     </div>
     <table className="di-texts">
@@ -599,7 +592,7 @@ const GONE: [string, string][] = [
 ];
 
 const RULES: [string, ReactNode][] = [
-  ['Ce qui ouvre l’île', <>Un tour terminé, une erreur, une demande d’accord, une question, un plan ou un diff à relire. Les avis de Ledge (un point, la question d’un rig, une routine) et « une machine est hors ligne » gardent leur contenu actuel, dans cette forme.</>],
+  ['Ce qui ouvre l’île', <>Un tour terminé, une erreur, une demande d’accord, une question, un plan ou un diff à relire. Les avis de Ledge (la question d’un rig, une routine) et « une machine est hors ligne » gardent leur contenu actuel, dans cette forme.</>],
   ['Un avis', <>Tour terminé ou erreur : 6 s, puis l’île se referme seule. Le temps restant se lit sur l’île, et le survol retient le compte. Un clic ouvre la session dans Ledge Desktop et ferme l’île.</>],
   ['Une demande', <>Accord, question, plan, diff : mêmes boutons qu’aujourd’hui. Après la réponse, « Reçu » pendant 900 ms, puis l’île se referme.</>],
   ['Plusieurs à la suite', <>Une seule à la fois. Les demandes passent avant les avis. « +2 autres » le dit sous la phrase, et l’île repasse par la pastille entre deux.</>],
