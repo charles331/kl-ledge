@@ -4,10 +4,16 @@
  * it leaves. Pure: no timers, no clock. The controller runs the effects; delayed events stamped with a stale `rev` drop.
  */
 
-/** What the island can show. `ask`: a session's request (permission, question, plan, diff), which waits for the person.
- *  `finished` and `error`: a session's notice, on a 6 s clock. `operator` (a Ledge notice: a point, a rig's question, a
- *  routine) and `offline` (a machine dropped) keep their place here; the island draws them once their design is approved. */
-export type ItemKind = 'ask' | 'finished' | 'error' | 'operator' | 'offline';
+/** What the island can show. `ask`: a session's request (permission, question, plan, diff); `ledge`: one of Ledge's own
+ *  (a rig's question, a decision, a routine), its id prefixed `ledge:`. Both wait for the person. `finished`, `error` (a
+ *  session's) and `offline` (a machine dropped) are notices, on a 6 s clock. */
+export type ItemKind = 'ask' | 'ledge' | 'finished' | 'error' | 'offline';
+/** The prefix of a Ledge request's id in the queue. */
+export const LEDGE_PREFIX = 'ledge:';
+/** A request's kind, read from its id: Ledge's own, or a session's. */
+const requestOf = (id: string): Item => ({ id, kind: id.startsWith(LEDGE_PREFIX) ? 'ledge' : 'ask' });
+/** A request waits for the person; a notice runs on its clock. */
+export const isRequestKind = (kind: ItemKind) => kind === 'ask' || kind === 'ledge';
 export interface Item { id: string; kind: ItemKind }
 /** Where the island is: nothing on screen, the small pill it passes through on the way in and out, or open. */
 export type Phase = 'gone' | 'seed' | 'open';
@@ -21,14 +27,12 @@ export interface SurfaceState {
   current: Item | null;
   /** On the way back: the pill is closing (or, from it, leaving), not coming out. */
   closing: boolean;
-  /** Every request waiting, oldest first, the one shown included until the daemon clears it. */
+  /** Every request waiting (a session's or Ledge's), oldest first, the one shown included until it is cleared. */
   queue: string[];
   /** Requests set aside with « Plus tard », or that came in while quiet: they open again only through Ctrl+Alt+L. */
   deferred: string[];
   /** Notices waiting their turn, oldest first. Requests always pass before them. */
   notices: Item[];
-  /** The Ledge notice to say now (the front's key for it), or null. */
-  operator: string | null;
   /** Do not disturb: nothing opens; requests wait set aside, notices are dropped. */
   quiet: boolean;
   /** Hidden from Ledge Desktop: nothing on screen and nothing opens; the requests wait and open once it is shown again. */
@@ -56,7 +60,7 @@ export type Effect =
 type Elapsed<T extends string> = { type: T; rev?: number };
 export type SurfaceEvent =
   | { type: 'ask'; id: string } | { type: 'askCleared'; id: string } | { type: 'askReplaced'; id: string } | { type: 'removed'; id: string }
-  | { type: 'notice'; id: string; kind: 'finished' | 'error' | 'offline' } | { type: 'operator'; id: string | null }
+  | { type: 'notice'; id: string; kind: 'finished' | 'error' | 'offline' }
   | Elapsed<'appearElapsed'> | Elapsed<'noticeElapsed'> | Elapsed<'holdElapsed'> | Elapsed<'closeElapsed'> | Elapsed<'leaveElapsed'>
   | { type: 'surfaceEnter' } | { type: 'surfaceLeave' } | { type: 'focusWithin'; on: boolean } | { type: 'visibility'; hidden: boolean }
   | { type: 'decided' } | { type: 'decisionFailed'; id: string } | { type: 'defer' } | { type: 'dismiss' }
@@ -71,7 +75,7 @@ export const ELAPSED: Record<TimerName, 'appearElapsed' | 'noticeElapsed' | 'hol
   { appear: 'appearElapsed', notice: 'noticeElapsed', hold: 'holdElapsed', close: 'closeElapsed', leave: 'leaveElapsed' };
 
 export const initialSurface = (): SurfaceState => ({
-  phase: 'gone', current: null, closing: false, queue: [], deferred: [], notices: [], operator: null, quiet: false, off: false, reduced: false,
+  phase: 'gone', current: null, closing: false, queue: [], deferred: [], notices: [], quiet: false, off: false, reduced: false,
   hovering: false, focusWithin: false, hidden: false, ack: null, failed: null, openedBy: null, forced: null, rev: 0
 });
 
@@ -81,26 +85,24 @@ const cancel = (name: TimerName): Effect => ({ type: 'cancelTimer', name });
 const ALL: TimerName[] = ['appear', 'notice', 'hold', 'close', 'leave'];
 const same = (s: SurfaceState): Result => ({ state: s, effects: [] });
 const held = (s: SurfaceState) => s.hovering || s.focusWithin || s.hidden;
-/** A notice runs on a clock; a request and a Ledge notice wait for the person. */
-export const timed = (kind: ItemKind) => kind === 'finished' || kind === 'error' || kind === 'offline';
+/** A notice runs on a clock; a request waits for the person. */
+export const timed = (kind: ItemKind) => !isRequestKind(kind);
 const without = (list: string[], id: string) => list.filter(x => x !== id);
 
-/** The next thing to show: the oldest request not set aside, then a Ledge notice, then the oldest notice. Never during quiet. */
+/** The next thing to show: the oldest request not set aside, then the oldest notice. Never during quiet. */
 function nextItem(s: SurfaceState): Item | null {
   if (s.off) return null;
-  if (s.forced !== null && s.queue.includes(s.forced)) return { id: s.forced, kind: 'ask' };
+  if (s.forced !== null && s.queue.includes(s.forced)) return requestOf(s.forced);
   if (s.quiet) return null;
   const ask = s.queue.find(id => !s.deferred.includes(id) && id !== s.current?.id);
-  if (ask !== undefined) return { id: ask, kind: 'ask' };
-  if (s.operator !== null && s.current?.id !== s.operator) return { id: s.operator, kind: 'operator' };
+  if (ask !== undefined) return requestOf(ask);
   return s.notices[0] ?? null;
 }
 
 /** What waits behind the item shown: « +2 autres », and « Plus tard » turning into « Plus tard, suivante ». */
 export function waitingCount(s: SurfaceState): number {
   if (s.quiet) return 0;
-  const asks = s.queue.filter(id => !s.deferred.includes(id) && id !== s.current?.id).length;
-  return asks + (s.operator !== null && s.current?.id !== s.operator ? 1 : 0) + s.notices.length;
+  return s.queue.filter(id => !s.deferred.includes(id) && id !== s.current?.id).length + s.notices.length;
 }
 
 /** A notice's clock once its card is open: paused at once when something already holds it. */
@@ -156,21 +158,15 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
       const notices = s.notices.some(n => n.id === e.id) ? s.notices.map(n => (n.id === e.id ? item : n)) : [...s.notices, item];
       return pump(same({ ...s, notices }));
     }
-    case 'operator': {
-      const next = { ...s, operator: e.id };
-      // The notice shown was settled elsewhere, or replaced: the island closes on it (and reopens on the new one).
-      if (s.current?.kind === 'operator' && s.current.id !== e.id) return close(next);
-      return pump(same(next));
-    }
     case 'askCleared': {
       const next = { ...s, queue: without(s.queue, e.id), deferred: without(s.deferred, e.id) };
-      if (s.current?.kind === 'ask' && s.current.id === e.id && !s.closing) return s.ack?.id === e.id ? confirm(next) : close(next);
+      if (s.current && isRequestKind(s.current.kind) && s.current.id === e.id && !s.closing) return s.ack?.id === e.id ? confirm(next) : close(next);
       return same(next);
     }
     /* The session's request was replaced in place. A decision in progress is confirmed (the old request is gone) and the new
        one comes next; without one, the card shows the new request where it is. */
     case 'askReplaced': {
-      if (s.current?.kind !== 'ask' || s.current.id !== e.id || s.closing) return same(s);
+      if (!s.current || !isRequestKind(s.current.kind) || s.current.id !== e.id || s.closing) return same(s);
       const queue = s.queue.includes(e.id) ? s.queue : [e.id, ...s.queue];
       const deferred = without(s.deferred, e.id);
       if (s.ack?.id === e.id) return confirm({ ...s, queue, deferred });
@@ -205,31 +201,31 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
     case 'focusWithin': { const next = { ...s, focusWithin: e.on }; return { state: next, effects: holdEffects(s, next) }; }
     case 'visibility': { const next = { ...s, hidden: e.hidden }; return { state: next, effects: holdEffects(s, next) }; }
     case 'decided': {
-      if (s.phase !== 'open' || s.closing || s.current?.kind !== 'ask' || s.ack) return same(s);
+      if (s.phase !== 'open' || s.closing || !s.current || !isRequestKind(s.current.kind) || s.ack) return same(s);
       return same({ ...s, ack: { id: s.current.id, confirmed: false }, failed: null });
     }
     /* A terminal error for the decision: the actions unlock again, never a success. */
     case 'decisionFailed': {
-      if (s.current?.kind !== 'ask' || s.current.id !== e.id || s.closing) return same(s);
+      if (!s.current || !isRequestKind(s.current.kind) || s.current.id !== e.id || s.closing) return same(s);
       return { state: { ...s, ack: null, failed: e.id }, effects: [cancel('hold')] };
     }
     // « Plus tard » (or Esc) on a request: set aside, the island moves on.
     case 'defer': {
-      if (s.current?.kind !== 'ask' || s.closing || s.ack) return same(s);
+      if (!s.current || !isRequestKind(s.current.kind) || s.closing || s.ack) return same(s);
       const id = s.current.id;
       return close({ ...s, deferred: s.deferred.includes(id) ? s.deferred : [...s.deferred, id] });
     }
     // A notice clicked (opened in Ledge) or dismissed with Esc; a request opened in Ledge (it stays waiting there).
     case 'dismiss': {
-      if (s.current?.kind === 'ask' && !s.closing && !s.ack) return close({ ...s, deferred: s.deferred.includes(s.current.id) ? s.deferred : [...s.deferred, s.current.id] });
+      if (s.current && isRequestKind(s.current.kind) && !s.closing && !s.ack) return close({ ...s, deferred: s.deferred.includes(s.current.id) ? s.deferred : [...s.deferred, s.current.id] });
       return close(s);
     }
-    /* Ctrl+Alt+L: the oldest request still waiting, set aside or not. Without one it does nothing. */
+    /* Ctrl+Alt+L: the oldest request still waiting (a session's or Ledge's), set aside or not. Without one it does nothing. */
     case 'shortcut': {
       const oldest = s.queue[0];
       if (s.off || oldest === undefined || (s.current?.id === oldest && !s.closing)) return same(s);
       const next = { ...s, deferred: without(s.deferred, oldest), forced: oldest, openedBy: 'keyboard' as const };
-      if (s.current === null && s.phase === 'gone') return show(next, { id: oldest, kind: 'ask' });
+      if (s.current === null && s.phase === 'gone') return show(next, requestOf(oldest));
       // Something else shows: it closes, and the pill reopens on the request.
       return s.closing ? same(next) : close(next);
     }

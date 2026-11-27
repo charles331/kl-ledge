@@ -22,18 +22,16 @@ export const test = base.extend<{ errors: string[]; lang: 'en' | 'fr' | null }>(
 export { expect };
 
 export const surface = (page: Page) => page.locator('[data-surface]');
-export const layer = (page: Page, name: string) => page.locator(`[data-layer="${name}"]`);
-/** Waits until the surface is in `mode` (the machine's state, mirrored on the element). */
-export const expectMode = (page: Page, mode: string) => expect(surface(page)).toHaveAttribute('data-mode', mode);
+export const island = (page: Page) => page.locator('.di-island');
+export const card = (page: Page) => page.locator('.di-card');
 /** Waits until the fake daemon received a message matching `pred`, and returns it. */
 export async function received<T extends ClientMessage['type']>(list: ClientMessage[], type: T, pred: (m: Extract<ClientMessage, { type: T }>) => boolean = () => true) {
   let found: Extract<ClientMessage, { type: T }> | undefined;
   await expect.poll(() => (found = list.find((m): m is Extract<ClientMessage, { type: T }> => m.type === type && pred(m as Extract<ClientMessage, { type: T }>)))).toBeTruthy();
   return found!;
 }
-/** The app is up and showing the daemon's sessions on the handle. */
-/** The page is up with `sessions` sessions known (Ledge is the notch's only mascot: the layer carries the count). */
-export async function ready(page: Page, sessions: number) {
+/** The page is up, the daemon connected, the island at rest. */
+export async function ready(page: Page) {
   await page.goto('/');
-  await expect(layer(page, 'handle')).toHaveAttribute('data-sessions', String(sessions));
+  await expect(surface(page)).toHaveAttribute('data-phase', 'gone');
 }

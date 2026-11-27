@@ -10,6 +10,7 @@ import { islandAxis, type IslandPosition } from './geometry';
 import { frameOf } from './frame';
 import { useMeasuredHeight } from './useMeasuredHeight';
 import { useDaemonAsks } from './useDaemonAsks';
+import { useLedgeNotices } from './useLedgeNotices';
 import { openInLedge, subscribeOpenInLedge } from '../desktop/openInLedge';
 import { useSounds } from '../sounds/useSounds';
 import { createSilentPlayer, type SoundPlayer } from '../sounds/player';
@@ -86,6 +87,8 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
     // A failed decision keeps its request (the card says why): only a turn that stopped on its own is an error notice.
     if (c.kind === 'failed' && !byId.get(c.id)?.pending) dispatch({ type: 'notice', id: c.id, kind: 'error' });
   } });
+  // Ledge's own notices: a rig's question, a decision, a routine (requests), a machine offline (a notice).
+  const ledge = useLedgeNotices({ client, dispatch, byId, status, lastError, t, dnd, visible, onAnswered: cue => sounds.user(cue) });
 
   // Ctrl+Alt+L reopens the oldest request still waiting, and takes the focus so its keys arrive; without one it does nothing.
   useEffect(() => onShortcut(() => {
@@ -104,7 +107,8 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
 
   // The card stays drawn from its last known session while it closes, even once the daemon has dropped it.
   const lastCard = useRef<Card | null>(null);
-  const found = st.current ? cardOf(st.current, byId.get(st.current.id)) : null;
+  const ledgeItem = !!st.current && (st.current.kind === 'ledge' || st.current.kind === 'offline');
+  const found = st.current ? (ledgeItem ? ledge.card(st.current) : cardOf(st.current, byId.get(st.current.id))) : null;
   if (found) lastCard.current = found;
   const card = st.current ? found ?? (lastCard.current?.id === st.current.id ? lastCard.current : null) : null;
   // An item with nothing to draw (its session gone before it opened) is closed at once.
@@ -137,7 +141,12 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
     client.send({ type: 'session.reply', id, text }); sounds.user('accept');
     dispatch({ type: 'decided' });
   };
-  const open = () => { const c = ctl.state().current; if (!c) return; openInLedge({ kind: 'session', id: c.id }); dispatch({ type: 'dismiss' }); };
+  /** The item in Ledge Desktop: a session, or what a Ledge notice points to (« À toi », a routine's page, the machines). */
+  const open = () => {
+    const c = ctl.state().current; if (!c) return;
+    if (c.kind === 'ledge' || c.kind === 'offline') ledge.open(c); else openInLedge({ kind: 'session', id: c.id });
+    dispatch({ type: 'dismiss' });
+  };
 
   // The open island's keys: Y, N, 1-9, O, Esc. Letters never fire inside the field; Enter on a focused button keeps its click.
   const cardEl = useRef<HTMLDivElement | null>(null);
@@ -184,7 +193,7 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
   const maxH = Math.max(160, screenH / s - ISLAND.top - 32);
 
   const ack = st.ack && st.current && st.ack.id === st.current.id;
-  const failure = st.current && st.failed === st.current.id ? asks.failures[st.current.id] ?? t.lost : null;
+  const failure = !st.current ? null : ledgeItem ? ledge.failure(st.current.id) : st.failed === st.current.id ? asks.failures[st.current.id] ?? t.lost : null;
   const remaining = ctl.noticeRemaining() ?? undefined;
   const held = st.hovering || st.focusWithin || st.hidden;
   if (!visible) return null;
@@ -194,12 +203,13 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
         <div className="di-anchor" style={{ left: anchorX / s }}
           onFocus={() => { if (!ctl.state().focusWithin) dispatch({ type: 'focusWithin', on: true }); }}
           onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) dispatch({ type: 'focusWithin', on: false }); }}>
-          {card && <Island card={card} phase={st.phase} entering={entering} more={waitingCount(st)} ack={ack ? (st.ack!.confirmed ? 'received' : 'sent') : null} deciding={asks.inFlight.has(card.id) && !ack}
-            blocked={st.current?.kind === 'ask' ? blockedFor(byId.get(card.id)) : null} failure={failure} quick={quick}
+          {card && <Island card={card} phase={st.phase} entering={entering} more={waitingCount(st)} ack={ack ? (st.ack!.confirmed ? 'received' : 'sent') : null} deciding={(ledgeItem ? ledge.busy(card.id) : asks.inFlight.has(card.id)) && !ack}
+            blocked={st.current?.kind === 'ask' ? blockedFor(byId.get(card.id)) : st.current?.kind === 'ledge' ? ledge.blocked(card.id) : null} failure={failure} quick={quick}
             leftMs={remaining} held={held} reduced={reduced} maxH={maxH} cardRef={cardEl}
             onEnter={() => dispatch({ type: 'surfaceEnter' })} onLeave={() => dispatch({ type: 'surfaceLeave' })}
             onDecide={d => { if (st.current) decide(st.current.id, d); }} onReply={text => { if (st.current) reply(st.current.id, text); }}
-            onLater={() => dispatch({ type: 'defer' })} onOpen={open} />}
+            onLater={() => dispatch({ type: 'defer' })} onOpen={open}
+            onChoice={id => { if (st.current) ledge.choose(st.current.id, id); }} onRoutine={a => { if (st.current) ledge.routine(st.current.id, a); }} />}
         </div>
       </div>
       <div aria-live="polite" role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{handoff}</div>

@@ -58,7 +58,8 @@
 .di-island[data-phase="open"] { border-radius: var(--radius-xl); }
 /* A request waiting for the person: the card takes the coral's tint. A question, a plan or a diff: an amber rim. */
 .di-island[data-phase="open"][data-kind="permission"] { --di-surface: color-mix(in srgb, var(--at-coral) 11%, var(--at-card)); --di-rim: color-mix(in srgb, var(--at-coral) 50%, transparent); }
-.di-island[data-phase="open"]:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"]) { --di-rim: color-mix(in srgb, var(--warning) 45%, var(--at-line2)); }
+.di-island[data-phase="open"]:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"], [data-ledge="ask"]) { --di-rim: color-mix(in srgb, var(--warning) 45%, var(--at-line2)); }
+.di-island[data-phase="open"][data-ledge="bad"] { --di-rim: color-mix(in srgb, var(--danger-text) 45%, var(--at-line2)); }
 /* Reduced motion: no trip and no bounce, a fade in and out. */
 .di-island[data-reduced] { transition: opacity .18s ease, background-color .2s ease, box-shadow .2s ease; }
 .di-island[data-reduced][data-phase="gone"] { transform: none; }
@@ -84,7 +85,9 @@
 .di-badge[data-kind="finished"] { --tone: var(--success); }
 .di-badge[data-kind="error"] { --tone: var(--danger-text); }
 .di-badge[data-kind="permission"] { --tone: var(--at-coral); }
-.di-badge:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"]) { --tone: var(--warning); }
+.di-badge:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"], [data-kind="rig"], [data-kind="decision"], [data-kind="routine"]) { --tone: var(--warning); }
+.di-badge[data-kind="routineFailed"] { --tone: var(--danger-text); }
+.di-badge[data-kind="offline"] { --tone: var(--muted-foreground); }
 .di-sentence { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
 .di-sentence b { font-weight: 600; }
 .di-meta { font: 12px/16px 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -94,7 +97,7 @@
 .di-question { margin: 0; font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
 .di-command { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--at-line); border-radius: 10px; background: var(--at-well); }
 .di-command code { min-width: 0; font: 12px/17px 'Geist Mono', ui-monospace, monospace; overflow-wrap: anywhere; }
-.di-chip-k { flex: none; display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px !important; box-sizing: border-box; height: 18px; padding: 0 7px; border: 1px solid var(--at-line2); border-radius: 9px; font: 10.5px/1 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); }
+.di-chip-k { flex: none; display: inline-block; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px !important; box-sizing: border-box; height: 18px; padding: 0 7px; border: 1px solid var(--at-line2); border-radius: 9px; font: 10.5px/1 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); }
 
 /* The middle (command, question, answers, field) scrolls when the card would pass the height available; the head and the
    actions stay in view, with a hairline above and below the part that scrolls (design-ux, states of an agent's card, 7). */
@@ -108,6 +111,7 @@
 .di-reply:focus { outline: none; border-color: var(--ring); }
 .di-note { flex: none; font-size: 12px; line-height: 16px; color: var(--muted-foreground); overflow-wrap: anywhere; }
 .di-note[data-tone="bad"] { color: var(--danger-text); }
+.di-note[data-tone="warn"] { color: var(--warning); }
 .di-actions { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; }
 .di-actions .ledge-btn { gap: 7px !important; }
 .di-actions .ledge-btn kbd { margin-right: -4px; }

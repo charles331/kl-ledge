@@ -166,10 +166,14 @@ describe('the island’s movement (issue #27)', () => {
     expect(transition(later.s, { type: 'closeElapsed', rev: staleRev }).state).toBe(later.s);
   });
 
-  it('a Ledge notice waits for the person, after the requests and before the notices', () => {
-    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'operator', id: 'local|p1' }]);
+  it('Ledge’s own requests wait in the same line as the sessions’, in their order, before the notices; « Plus tard » and Ctrl+Alt+L work alike', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'ask', id: 'ledge:local|rig.ask:q1' }]);
     expect(waitingCount(r.s)).toBe(2);
     r = run([{ type: 'defer' }, { type: 'closeElapsed' }, { type: 'appearElapsed' }], r.s);
-    expect(r.s.current).toEqual({ id: 'local|p1', kind: 'operator' }); expect(started(r.effects)).toEqual([]);
+    expect(r.s.current).toEqual({ id: 'ledge:local|rig.ask:q1', kind: 'ledge' }); expect(started(r.effects)).toEqual([]);
+    r = run([{ type: 'decided' }, { type: 'askCleared', id: 'ledge:local|rig.ask:q1' }], r.s);
+    expect(r.s.ack?.confirmed).toBe(true);
+    r = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'otto', kind: 'finished' });
   });
 });
