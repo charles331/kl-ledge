@@ -576,7 +576,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   }) : null;
   /** A Claude Code session's `/btw` (#41), held under the same typing lock; absent when this tmux has no control client. */
   const asides: Asides | null = opts.asides ?? (opts.tmux.controlArgs ? createAsides({
-    tmux: opts.tmux, typing, session: id => store.get(id), log,
+    tmux: opts.tmux, typing, session: id => store.get(id), closing: id => closing.has(id), log,
     emit: (id, aside) => broadcast({ type: 'session.aside', id, aside })
   }) : null);
   /** Sessions being closed: neither the relay nor the mailbox delivers to them, even free; their queues fail once they exit. */
@@ -874,6 +874,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (closing.has(id)) throw new Refusal('a close is already in progress', 'busy');
     closing.add(id);
     try {
+      // An aside under way closes its panel and lets the pane go first (#41): the close's Esc would only close the panel.
+      await asides?.cancel(id);
       if (backendOf(cur) === 'omp-rpc') {
         await omp.close(id).catch(e => log(`close of omp ${id} failed: ${(e as Error).message}`));
         store.apply(id, { name: 'PaneGone', at: now(), source: 'daemon' });

@@ -114,4 +114,22 @@ describe('session.aside on the daemon (#41)', () => {
     expect(order[0]).toBe('cancel');
     expect(order).toContain('capture');
   });
+
+  it('closing a session during an aside cancels the aside before the close\'s interrupt', async () => {
+    const store = new Store();
+    store.upsert({ ...codex, id: 'k1', tool: 'claude', tmuxSession: 'ledge-k1', state: 'working' });
+    const order: string[] = [];
+    let running = true;
+    const asides: Asides = {
+      ask() {}, all: () => [], drop() {}, running: () => running,
+      cancel: async () => { order.push('cancel'); await new Promise(r => setTimeout(r, 20)); running = false; order.push('cancelled'); }
+    };
+    const tmux = fakeTmux(true);
+    tmux.sendKeys = async (_n, k) => { order.push(`keys ${k.join(' ')}`); };
+    const srv = await startServer({ store, tmux, port: 0, daemon: DAEMON, asides, close: { freeMs: 50, exitMs: 50 } });
+    close.push(() => srv.close());
+    void srv.closeSession('k1').catch(() => undefined);
+    await until(() => order.some(o => o.startsWith('keys')));
+    expect(order.slice(0, 3)).toEqual(['cancel', 'cancelled', order.find(o => o.startsWith('keys'))]);
+  });
 });

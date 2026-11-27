@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Aside, Session } from '@ledge/protocol';
-import { createAsides, footOf, osc52Text, type AsideDeps } from '../src/daemon/aside.js';
+import { createAsides, footOf, osc52Text, typingPieces, type AsideDeps } from '../src/daemon/aside.js';
 import { claudeDraft, withoutFaint } from '../src/adapters/claude.js';
 import type { ControlProcess } from '../src/mobile/terminal.js';
 
@@ -108,6 +108,14 @@ describe('osc52Text, footOf, claudeDraft', () => {
     expect(osc52Text(`\x1bPtmux;\x1b\x1b]52;c;${b64}\x1b\\`)).toBe('é **md**');
     expect(osc52Text('\x1b]52;c;abc')).toBeNull(); // not ended yet: more is coming
   });
+  it('cuts a long question into pieces without splitting a character (an emoji at the 48th place stays whole)', () => {
+    const text = `/btw ${'a'.repeat(42)}😀 fin`;
+    const pieces = typingPieces(text);
+    expect(pieces.join('')).toBe(text);
+    expect(pieces[0]!.endsWith('😀')).toBe(true);
+    expect(pieces.every(p => !/[\uD800-\uDBFF]$/.test(p) && !/^[\uDC00-\uDFFF]/.test(p))).toBe(true);
+    expect(typingPieces('é'.repeat(100)).map(p => Array.from(p).length)).toEqual([48, 48, 4]);
+  });
   it('joins a foot a narrow pane wrapped', () => {
     expect(footOf('  answer\n  c to\n  copy · f to fork · Esc to\n  close\n\n')).toContain('c to copy · f to fork · Esc to close');
   });
@@ -209,6 +217,24 @@ describe('an aside (#41, Claude Code 2.1.332 /btw)', () => {
     // One Esc, its own, to the panel: the person's Esc that follows reaches the turn.
     expect(fake.keys).toEqual(['/btw q', 'Enter', 'Escape']);
     expect(fake.stageOf()).toBe('prompt');
+  });
+
+  it('stopped while typing (before Enter): its partial `/btw …` is cleared; a session being closed takes no aside', async () => {
+    const fake = fakeClaude();
+    let typedSoFar = 0;
+    const orig = fake.tmux.sendText;
+    const { asides, last, settled } = setup(fake);
+    fake.tmux.sendText = async (n, t) => { typedSoFar++; await orig(n, t); if (typedSoFar === 2) void asides.cancel('s1'); };
+    asides.ask('s1', 'r1', 'x'.repeat(200));
+    await settled();
+    expect(last()).toMatchObject({ state: 'failed', cause: 'interrupted' });
+    expect(fake.keys.at(-1)).toBe('C-u');
+    expect(fake.keys).not.toContain('Enter');
+    const closing = fakeClaude();
+    const seen: Aside[] = [];
+    createAsides({ tmux: closing.tmux, spawn: closing.spawn, typing: new Set(), session: () => claude, closing: () => true, log: () => {}, now: () => T0, emit: (_i, a) => seen.push(a) }).ask('s1', 'r2', 'q');
+    expect(seen.at(-1)).toMatchObject({ state: 'failed', cause: 'interrupted' });
+    expect(closing.keys).toEqual([]);
   });
 
   it('a session removed while its aside runs leaves nothing to replay', async () => {

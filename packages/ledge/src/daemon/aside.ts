@@ -41,6 +41,15 @@ const LOCK_MS = 5_000;
 /** The output kept while the copy is awaited: the longest answer in base64, with room for the screen drawn meanwhile. */
 const OUTPUT_MAX = 1_000_000;
 
+/** `text` in pieces of at most TYPE_CHUNK characters, never splitting one (an emoji is two UTF-16 units: half of one would
+ *  reach tmux as U+FFFD). */
+export function typingPieces(text: string): string[] {
+  const chars = Array.from(text);
+  const out: string[] = [];
+  for (let i = 0; i < chars.length; i += TYPE_CHUNK) out.push(chars.slice(i, i + TYPE_CHUNK).join(''));
+  return out;
+}
+
 /** The answer an OSC 52 sequence of `output` carries (the first one), or null. Claude Code writes it bare and wrapped for tmux. */
 export function osc52Text(output: string): string | null {
   const m = /\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)(?:\x07|\x1b\\)/.exec(output);
@@ -67,6 +76,8 @@ export interface AsideDeps {
   typing: Set<string>;
   /** The session as it is now: its pending request or its end interrupt the aside. */
   session(id: string): Session | undefined;
+  /** The session is being closed: no aside starts in it. */
+  closing?(id: string): boolean;
   log(line: string): void;
   now?: () => string;
   spawn?: SpawnControl;
@@ -116,6 +127,8 @@ export function createAsides(deps: AsideDeps): Asides {
     if (!argv) throw new Failed('read_only');
     let out = '';
     let pane: string | null = null;
+    /** `/btw …` is (partly) in the input, Enter not sent yet: stopped now, it is Ledge's own text to clear. */
+    let typed = false;
     const client: ControlClient = openControl(argv, deps.spawn ?? spawnControl, (e: Exclude<ControlEvent, { kind: 'reply' }>) => {
       if (e.kind === 'output' && (pane === null || e.pane === pane)) out = (out + e.data.toString('latin1')).slice(-OUTPUT_MAX);
     });
@@ -148,16 +161,18 @@ export function createAsides(deps: AsideDeps): Asides {
       if (draft === null) throw new Failed('busy');
       if (draft !== '') throw new Failed('not_empty');
       still();
-      const text = `/btw ${base.question.replace(/[\r\n]+/g, ' ')}`;
-      for (let i = 0; i < text.length; i += TYPE_CHUNK) {
+      const pieces = typingPieces(`/btw ${base.question.replace(/[\r\n]+/g, ' ')}`);
+      typed = true;
+      for (const [i, piece] of pieces.entries()) {
         if (i > 0) { await sleep(t.typeGapMs); still(); }
-        await deps.tmux.sendText(name, text.slice(i, i + TYPE_CHUNK));
+        await deps.tmux.sendText(name, piece);
       }
       await sleep(t.enterDelayMs);
       // Taken as a paste after all, Enter would send it to the agent: it is cleared instead.
-      if (PASTED.test(await screen())) { await deps.tmux.sendKeys(name, ['C-u']); throw new Failed('no_panel'); }
+      if (PASTED.test(await screen())) { await deps.tmux.sendKeys(name, ['C-u']); typed = false; throw new Failed('no_panel'); }
       still();
       await deps.tmux.sendKeys(name, ['Enter']);
+      typed = false;
       // The panel comes up, then its answer is whole.
       let seen = false;
       const upBy = clock() + t.panelMs;
@@ -200,7 +215,9 @@ export function createAsides(deps: AsideDeps): Asides {
       // Stopped by `cancel` (the person stops the agent): the panel goes first, so that their Esc reaches the turn. Stopped
       // by a request: the panel goes, so that the dialog it hides shows. A session that ended gets no key.
       const cur = deps.session(s.id);
-      if (job.cancelled || (cur && cur.state !== 'exited' && cur.pending)) await closePanel().catch(() => undefined);
+      // Stopped while typing (before Enter): the partial `/btw …` goes, unless a request came up (no key over a dialog).
+      if (typed && cur && cur.state !== 'exited' && !cur.pending) await deps.tmux.sendKeys(name, ['C-u']).catch(() => undefined);
+      else if (job.cancelled || (cur && cur.state !== 'exited' && cur.pending)) await closePanel().catch(() => undefined);
       throw e;
     } finally {
       client.kill();
@@ -215,6 +232,7 @@ export function createAsides(deps: AsideDeps): Asides {
       if (!s) return fail('interrupted');
       if (s.tool !== 'claude') return fail('unsupported');
       if (!s.tmuxSession || s.source === 'hook_only') return fail('read_only');
+      if (deps.closing?.(id)) return fail('interrupted');
       if (running.has(id)) return fail('busy');
       if (s.state === 'exited') return fail('interrupted');
       if (s.pending) return fail('busy');
