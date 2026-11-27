@@ -125,7 +125,7 @@ La fenêtre principale est un espace de travail à la manière de VS Code : des 
 - **La barre latérale :** la vue choisie dans la barre d'activité. Elle se redimensionne en glissant son bord ; un double-clic lui rend sa largeur.
 - **La zone d'édition :** des groupes d'onglets côte à côte. Un groupe vide propose « Nouvelle session », « Aller à une session », « Demander à Ledge », « Prochaine demande », OpenRig, l'atelier, un terminal, les réglages et les sessions récentes.
 - **Le panneau du bas** (`Ctrl+J`) : les terminaux et la sortie (les commandes `rig` lancées par Ledge).
-- **Le panneau de droite** (`Ctrl+/`) : le chat de Ledge, avec ses onglets « Conversation », « Tâches » et « Historique ».
+- **Le panneau de droite** (son bouton dans la barre de titre) : le chat de Ledge, avec ses onglets « Conversation » et « Historique ».
 - **La barre d'état :** le daemon, OpenRig, les demandes en attente (un clic mène à la suivante), les MR et PR, les limites d'usage des comptes et la disposition en cours.
 
 **Ouvrir.** Un clic sur une session, dans l'explorateur, l'atelier, la palette ou l'encoche, l'ouvre selon Réglages › Espace de travail : dans le groupe actif ou à droite. `Ctrl`+clic l'ouvre toujours à droite. Un onglet déjà ouvert est mis au premier plan, jamais dupliqué.
@@ -142,8 +142,8 @@ Raccourcis principaux :
 - `Ctrl+K` ouvre la palette : `@` pour les sessions et les sièges, `>` pour les commandes ;
 - `N` ouvre « Nouvelle session » (sur une autorisation en attente, `N` la refuse) ;
 - `Y` / `N` autorisent ou refusent la demande de la session active ;
-- `/` ou `Ctrl+/` ouvre le chat de Ledge dans le panneau de droite ;
-- `Ctrl+B`, `Ctrl+J` et `Ctrl+/` affichent ou masquent la barre latérale, le panneau du bas et le panneau de droite ; `Ctrl+/` met le curseur dans le champ du chat, et le rend à l'onglet actif en masquant le panneau ;
+- `Ctrl+/` ouvre la vue Tâches, et la deuxième fois revient à la vue d'avant ; `/` ne fait rien ;
+- `Ctrl+B` et `Ctrl+J` affichent ou masquent la barre latérale et le panneau du bas ;
 - `Alt+1…9` ouvre la Nième session de la liste, `Alt+←/→` la session précédente ou suivante ;
 - `Ctrl+\` divise le groupe à droite, `Ctrl+1…9` va au groupe N ;
 - `Ctrl+W` ferme l'onglet, `Ctrl+Maj+T` rouvre le dernier fermé, `Ctrl+Tab` passe à l'onglet suivant du groupe, `Ctrl+Alt+←/→` envoie l'onglet dans le groupe voisin ;
@@ -164,7 +164,7 @@ Y renvoyer l'utilisateur pour retrouver une session, ou une session archivée.
 
 #### Rigs (`rigs`)
 
-OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). De haut en bas : le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. Un siège disponible avec du travail en arrière-plan (sous-agents, commande) a un cercle creux bleu ; son rig en donne le nombre, avant celui de ses sièges. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
+OpenRig sur la machine affichée (le menu `● WSL ▾` de l'en-tête en change ; « + Lancer » ouvre « Lancer un rig »). En tête, le bloc **Demandes** : ce qu'OpenRig demande à l'utilisateur (les rigs, Max, l'opérateur), chaque demande en carte entière (choix, « Répondre autrement… », « Vu »), les plus urgentes d'abord ; il se replie et se rouvre à l'arrivée d'une demande, et la pastille ambre de l'icône Rigs compte celles qui attendent une réponse. Puis le **kernel** et ses sièges (l'operator, qui aide à composer une équipe ; l'advisor ; le queue worker), puis chaque **rig** avec ses sièges, puis la ligne du **daemon** OpenRig, collée en bas. Le kernel, chaque rig et le daemon ont sur leur ligne leurs boutons démarrer, redémarrer et arrêter ; un arrêt ou un redémarrage demande confirmation sous la ligne. Un clic sur un siège ouvre son fil, un clic sur un rig ouvre sa vue Rig, un clic sur « Daemon » ouvre la page OpenRig. Un siège disponible avec du travail en arrière-plan (sous-agents, commande) a un cercle creux bleu ; son rig en donne le nombre, avant celui de ses sièges. OpenRig arrêté, la vue propose « Démarrer OpenRig ».
 
 Y renvoyer l'utilisateur pour suivre ses rigs et leurs sièges, ou démarrer et arrêter OpenRig, son kernel ou un rig.
 
@@ -181,6 +181,17 @@ Toutes les MR GitLab et les PR GitHub de l'utilisateur, lues par `gh` et `glab` 
 L'icône réveil de la barre d'activité, après « MR et PR » ; sa pastille rouge compte les routines à activer et celles dont le dernier tir a échoué. Les routines y sont rangées en groupes repliables : **Récurrentes**, **Uniques**, **En pause** et **Passées** (ces deux-là repliées ; une unique passée y reste 30 jours). Dans chaque groupe : celles à activer, puis celles en échec, puis par prochain tir. Une ligne donne le nom et le prochain tir (l'heure seule si c'est aujourd'hui), puis la session réveillée, les heures et les jours (« 1 sem. sur 2 » pour une routine toutes les deux semaines, « unique » pour une unique), et au besoin « Attend ton accord », la raison d'un échec ou « en retard ». Les uniques qu'une session propose ensemble restent groupées sous « Proposées ensemble par … ». Au survol, « Lancer maintenant » et « Pause » / « Reprendre » ; au clic droit, aussi « Ouvrir la session » et « Supprimer… ». Le « + » ouvre « Nouvelle routine ». En pied, le fuseau des heures. Daemon local hors ligne : la vue le dit et rien ne part. Dans l'explorateur des projets, une petite horloge suit le nom d'une session qu'une routine réveille ; un clic ouvre la routine.
 
 Y renvoyer l'utilisateur pour voir ce qui est programmé, lancer une routine tout de suite, la mettre en pause ou en créer une.
+
+#### Tâches (`tasks`)
+
+L'icône ☑ de la barre d'activité, après Routines, ou `Ctrl+/` (une deuxième fois, retour à la vue d'avant) ; sa pastille ambre compte les décisions qui attendent l'utilisateur. Toutes les tâches données entre sessions et par Ledge, les plus récentes d'abord, avec le nombre des ouvertes en tête.
+- Filtres : « Toutes / Ouvertes / Closes », et le donneur (« Tous », « Ledge », « Les sessions », « Décisions »).
+- Un clic ouvre une tâche à la place de la liste : son résultat, sa raison et son historique. « ‹ Tâches » ou Échap revient à la liste.
+- Une décision se tranche ici : « Répondre », puis « Envoyer la réponse », puis « Confirmer l'envoi ».
+- Un signalement d'agent (`ledge report`) y est une décision marquée « signalement » : son détail propose « Créer l'issue », « Modifier avant » ou « Ignorer ».
+- « Voir dans Tâches », depuis une session, son fil, l'atelier ou l'île, ouvre cette vue sur la tâche.
+
+Y renvoyer l'utilisateur pour suivre une tâche, trancher une décision qui l'attend ou traiter un signalement.
 
 ### Onglets
 
@@ -352,22 +363,13 @@ Les versions de Ledge Desktop et de chaque daemon, la dernière version publiée
 
 ### Le chat de Ledge, panneau de droite
 
-`/` ou `Ctrl+/` l'ouvre, à droite de tout ce qui est affiché. Il a trois onglets. « Nouvelle conversation » repart de zéro ; les conversations sont quotidiennes.
+Le bouton « Panneau de droite » de la barre de titre l'ouvre, à droite de tout ce qui est affiché. Il a deux onglets (les tâches ont leur propre vue, « Tâches »). « Nouvelle conversation » repart de zéro ; les conversations sont quotidiennes.
 
 #### Conversation (`conversation`)
 
 On y pose des questions à Ledge, on mentionne une session, on valide les cartes que Ledge propose. Survoler un agent nommé dans une réponse l'allume dans l'atelier.
 
 Y renvoyer l'utilisateur pour une discussion avec Ledge.
-
-#### Tâches (`tasks`)
-
-Toutes les tâches données entre sessions et par Ledge, les plus récentes d'abord, avec le nombre des ouvertes sur l'onglet.
-- Filtres : « Toutes / Ouvertes / Closes », et le donneur (« Tous », « Ledge », « Les sessions », « Décisions »).
-- Un clic ouvre une tâche à la place de la liste : son résultat, sa raison et son historique. « ‹ Tâches » ou Échap revient à la liste.
-- Une décision se tranche ici : « Répondre », puis « Envoyer la réponse », puis « Confirmer l'envoi ».
-
-Y renvoyer l'utilisateur pour suivre une tâche ou trancher une décision qui l'attend.
 
 #### Historique (`history`)
 
