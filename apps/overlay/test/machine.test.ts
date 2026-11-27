@@ -150,13 +150,22 @@ describe('the island’s movement (issue #27)', () => {
     expect(run([...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'dismiss' }]).s.closing).toBe(true);
   });
 
-  it('Do not disturb: the island closes, requests wait set aside, notices are dropped; nothing opens; off reopens nothing; Ctrl+Alt+L still does', () => {
-    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'dnd', on: true }]);
-    expect(r.s.closing).toBe(true); expect(r.s.notices).toEqual([]); expect(r.s.deferred).toEqual(['pim']);
+  it('Do not disturb: the island closes, notices are dropped, nothing opens; off, the oldest request comes out, one at a time; « Plus tard » stays aside (owner’s choice A)', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'ask', id: 'old' }, { type: 'defer' }, { type: 'closeElapsed' }, { type: 'appearElapsed' }]);
+    expect(r.s.current?.id).toBe('old'); expect(r.s.deferred).toEqual(['pim']);
+    r = run([{ type: 'notice', id: 'otto', kind: 'finished' }, { type: 'dnd', on: true }], r.s);
+    expect(r.s.closing).toBe(true); expect(r.s.notices).toEqual([]);
     r = run([{ type: 'closeElapsed' }, { type: 'leaveElapsed' }, { type: 'ask', id: 'bix' }, { type: 'notice', id: 'iris', kind: 'error' }], r.s);
-    expect(r.s.current).toBeNull(); expect(r.s.deferred).toEqual(['pim', 'bix']); expect(r.s.notices).toEqual([]);
+    expect(r.s.current).toBeNull(); expect(r.s.notices).toEqual([]); expect(waitingCount(r.s)).toBe(0);
+    // Off: the oldest still waiting (« old », whose card the mode closed), then « bix »; « pim » stays set aside; no notice.
     r = run([{ type: 'dnd', on: false }], r.s);
-    expect(r.s.current).toBeNull();
+    expect(r.s.current).toEqual({ id: 'old', kind: 'ask' }); expect(r.s.phase).toBe('seed');
+    expect(waitingCount(r.s)).toBe(1);
+    r = run([{ type: 'appearElapsed' }, { type: 'askCleared', id: 'old' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'bix', kind: 'ask' });
+    r = run([{ type: 'appearElapsed' }, { type: 'askCleared', id: 'bix' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.queue).toEqual(['pim']);
+    // Ctrl+Alt+L still opens a request during the mode.
     r = run([{ type: 'dnd', on: true }, { type: 'shortcut' }], r.s);
     expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.quiet).toBe(true);
   });

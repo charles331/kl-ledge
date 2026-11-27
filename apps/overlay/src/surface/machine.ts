@@ -29,11 +29,11 @@ export interface SurfaceState {
   closing: boolean;
   /** Every request waiting (a session's or Ledge's), oldest first, the one shown included until it is cleared. */
   queue: string[];
-  /** Requests set aside with « Plus tard », or that came in while quiet: they open again only through Ctrl+Alt+L. */
+  /** Requests set aside with « Plus tard »: they open again only through Ctrl+Alt+L. */
   deferred: string[];
   /** Notices waiting their turn, oldest first. Requests always pass before them. */
   notices: Item[];
-  /** Do not disturb: nothing opens; requests wait set aside, notices are dropped. */
+  /** Do not disturb: nothing opens and the notices are dropped; the requests wait in line, and the oldest opens when it ends. */
   quiet: boolean;
   /** Hidden from Ledge Desktop: nothing on screen and nothing opens; the requests wait and open once it is shown again. */
   off: boolean;
@@ -147,10 +147,9 @@ function confirm(s: SurfaceState): Result {
 function step(s: SurfaceState, e: SurfaceEvent): Result {
   switch (e.type) {
     case 'ask': {
+      // During Do not disturb a request waits in line (nothing opens until the mode ends, but Ctrl+Alt+L).
       const queue = e.first ? [e.id, ...without(s.queue, e.id)] : s.queue.includes(e.id) ? s.queue : [...s.queue, e.id];
-      // During Do not disturb a request waits set aside: Ctrl+Alt+L opens it, nothing else does.
-      const deferred = s.quiet && !s.deferred.includes(e.id) ? [...s.deferred, e.id] : s.deferred;
-      return pump(same({ ...s, queue, deferred }));
+      return pump(same({ ...s, queue }));
     }
     case 'notice': {
       // The same notice already open is not shown twice; a session's notice after its own request (a turn that ends right
@@ -233,11 +232,12 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
       // Something else shows: it closes, and the pill reopens on the request.
       return s.closing ? same(next) : close(next);
     }
-    /* Do not disturb on: the island closes, the requests wait set aside, the notices are dropped. Off reopens nothing. */
+    /* Do not disturb on: the island closes, the notices are dropped, the requests wait in line (the one shown too). Off (the
+       owner's choice A, 2026-11-27): the island comes out on the oldest request still waiting, one at a time, as if it had just
+       come; a request set aside with « Plus tard » stays aside, and no notice from the quiet time comes back. */
     case 'dnd': {
-      if (!e.on) return same({ ...s, quiet: false });
-      const deferred = [...s.deferred, ...s.queue.filter(id => !s.deferred.includes(id))];
-      return close({ ...s, quiet: true, deferred, notices: [] });
+      if (!e.on) return s.quiet ? pump(same({ ...s, quiet: false })) : same(s);
+      return close({ ...s, quiet: true, notices: [] });
     }
     case 'reduced': return same({ ...s, reduced: e.on });
     /* Hidden from Desktop: nothing on screen at once, the notices are dropped, the requests wait. Shown again, the oldest

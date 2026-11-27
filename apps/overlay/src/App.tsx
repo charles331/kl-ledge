@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_ISLAND_PREFS } from '@ledge/protocol';
+import { applyAccent, loadAccent } from '@ledge/ui/accent';
+import { applySkin } from '@ledge/ui/skin';
 import { createDaemonClient } from './daemon/client';
 import { createFleetClient } from './daemon/fleet';
 import { fleetOptions } from './surface/fleetOptions';
@@ -38,6 +40,9 @@ export function App() {
   const [dnd, setDnd] = useState(loadDnd);
   useEffect(() => onStorageKey(DND_KEY, v => setDnd(v === '1')), []);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => { try { return (localStorage.getItem('ledge.theme') as 'dark' | 'light') || 'dark'; } catch { return 'dark'; } });
+  // The island wears Desktop's « Atelier » skin (@ledge/ui/skin, issue #28) with Desktop's accent, so its coral is Desktop's.
+  const [accent, setAccent] = useState<string | null>(() => loadAccent('desktop'));
+  useEffect(() => onStorageKey('desktop.accent', () => setAccent(loadAccent('desktop'))), []);
   const [player] = useState(() => createWebAudioPlayer());
   const tauri = isTauri();
   const islandScale = resolveScale(scale, workH, 'handle');
@@ -76,6 +81,7 @@ export function App() {
   useEffect(() => { saveScale('handle', scale); }, [scale]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem('ledge.theme', theme); } catch { /* ignore */ } }, [theme]);
+  useEffect(() => { applyAccent(accent, theme); applySkin({ theme, accent }); }, [theme, accent]);
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 't') setTheme(t => (t === 'dark' ? 'light' : 'dark')); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, []);
   return (
     <LangProvider lang={lang}>

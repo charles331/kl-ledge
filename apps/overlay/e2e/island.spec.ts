@@ -112,6 +112,25 @@ test('two at once: « +1 more », « Later, next », and the pill reopens on the
   await expect(island(page)).toHaveAttribute('data-phase', 'open');
 });
 
+test('Do not disturb: nothing opens, a finish is dropped; leaving it, the island comes out on the oldest request, then the next (owner’s choice A)', async ({ page }) => {
+  await page.addInitScript(() => { try { if (!sessionStorage.getItem('dnd.set')) { localStorage.setItem('desktop.dnd', '1'); sessionStorage.setItem('dnd.set', '1'); } } catch { /* ignore */ } });
+  const bix = (extra: Partial<Session> = {}) => session('c', { name: 'Bix', tool: 'cursor', project: 'boutique', branch: 'feat/migration', ...extra });
+  const d = await fakeDaemon(page, [pim(), bix(), session('o', { name: 'Otto' })]);
+  await ready(page);
+  d.upsert(asks());
+  d.upsert(bix({ state: 'waiting_input', pending: { kind: 'question', text: 'Gradual migration?', source: 'hook' } }));
+  d.upsert(session('o', { name: 'Otto', state: 'idle' }));
+  await page.waitForTimeout(500);
+  await expect(island(page)).toHaveCount(0);
+  // Desktop turns Do not disturb off (its key, heard as a `storage` event).
+  await page.evaluate(() => { localStorage.setItem('desktop.dnd', '0'); window.dispatchEvent(new StorageEvent('storage', { key: 'desktop.dnd', newValue: '0' })); });
+  await expect(card(page)).toContainText('Pim wants to run a command');
+  await expect(card(page).locator('.di-meta')).toHaveText('speos-api · chore/deps · +1 more');
+  await page.keyboard.press('Escape');
+  await expect(card(page)).toContainText('Bix asks you a question');
+  await expect(card(page).locator('.di-meta')).toHaveText('boutique · feat/migration');
+});
+
 test('reduced motion: the island fades in already open, without the pill', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install({ time: T0 });

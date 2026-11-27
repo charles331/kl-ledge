@@ -1,49 +1,8 @@
 /* The island (issue #27, docs/mockups/ledge-dynamic-island.html, sources docs/mockups/dynamic-island/island.css): an
-   « Atelier » card that floats under the top edge. Atelier draws every surface from one colour, --at-base, with one coral for
-   what waits on the person; the island takes its default palette (« Établi »). The window shows nothing else, so the ladder
-   is declared on the root, in the theme the app sets. */
-:root[data-theme="dark"] {
-  --at-base: #221f1b; --at-coral: #f27a63; --at-coral-ink: oklch(from var(--at-coral) .2 .04 h);
-  --at-b: oklch(from var(--at-base) l min(c, .04) h);
-  --at-well: oklch(from var(--at-b) calc(l - .04) c h);
-  --at-card: oklch(from var(--at-b) calc(l + .04) c h);
-  --at-raise: oklch(from var(--at-b) calc(l + .075) c h);
-  --at-field: var(--at-well);
-  --at-ink: oklch(from var(--at-b) .95 calc(c * .9 + .004) h);
-  --at-ink2: oklch(from var(--at-b) .69 calc(c + .004) h);
-  --at-line: oklch(from var(--at-ink) l c h / .09);
-  --at-line2: oklch(from var(--at-ink) l c h / .17);
-  --success: #34d399; --warning: #fbbf24; --danger-text: oklch(0.704 0.191 22.216);
-  --di-shadow: 0 14px 34px -12px rgba(0, 0, 0, .75);
-  color-scheme: dark;
-}
-:root[data-theme="light"] {
-  --at-base: #fbf7f1; --at-coral: #d6543d; --at-coral-ink: #fff;
-  --at-b: oklch(from var(--at-base) l min(c, .028) h);
-  --at-well: oklch(from var(--at-b) calc(l - .035) c h);
-  --at-card: oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h);
-  --at-raise: oklch(from var(--at-b) calc(l - .055) c h);
-  --at-field: var(--at-card);
-  --at-ink: oklch(from var(--at-b) .24 calc(c + .012) h);
-  --at-ink2: oklch(from var(--at-b) .52 calc(c + .012) h);
-  --at-line: oklch(from var(--at-ink) l c h / .11);
-  --at-line2: oklch(from var(--at-ink) l c h / .2);
-  --success: #059669; --warning: #b45309; --danger-text: oklch(0.505 0.213 27.518);
-  --di-shadow: 0 14px 30px -12px rgba(60, 40, 20, .32);
-  color-scheme: light;
-}
-:root[data-theme] {
-  --background: var(--at-field); --foreground: var(--at-ink);
-  --card: var(--at-card); --card-foreground: var(--at-ink);
-  --secondary: var(--at-raise); --secondary-foreground: var(--at-ink);
-  --muted: var(--at-raise); --muted-foreground: var(--at-ink2); --accent: var(--at-raise); --accent-foreground: var(--at-ink);
-  --border: var(--at-line); --input: var(--at-line2); --ring: var(--at-ink2);
-  --sidebar-foreground: var(--at-ink); --sidebar-accent: var(--at-raise); --sidebar-accent-foreground: var(--at-ink); --sidebar-border: var(--at-line);
-  --well: var(--at-well);
-  --primary: var(--at-coral); --primary-foreground: var(--at-coral-ink); --primary-hover: oklch(from var(--at-coral) calc(l - .05) c h);
-  --sidebar-primary: var(--at-coral);
-  --radius-sm: 8px; --radius-md: 10px; --radius-lg: 12px; --radius-xl: 16px;
-}
+   « Atelier » card that floats under the top edge. The skin's tokens (--at-*, the coral, the shared names) are painted on the
+   root by @ledge/ui/skin (App's `applySkin`), as on Desktop; the state colours are tokens.css's. Only the shadow is the island's. */
+:root[data-theme="dark"] { --di-shadow: 0 14px 34px -12px rgba(0, 0, 0, .75); }
+:root[data-theme="light"] { --di-shadow: 0 14px 30px -12px rgba(60, 40, 20, .32); }
 
 /* Where the island hangs: its axis on the top edge, 8 px under it. The layer is scaled by the island's size setting. */
 .di-anchor { position: absolute; top: 0; display: flex; justify-content: center; width: 0; }
