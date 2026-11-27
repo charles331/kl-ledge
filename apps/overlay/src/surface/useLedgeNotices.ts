@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ClientMessage, OperatorNotice, Session } from '@ledge/protocol';
+import type { ClientMessage, OpenRigAnswered, OperatorNotice, Session } from '@ledge/protocol';
 import type { DaemonClient, DaemonStatus } from '../daemon/client';
 import type { DaemonError } from '../daemon/store';
 import { LOCAL_MACHINE, useMachines, useOperatorNotices, useTasks } from '../daemon/machines';
@@ -13,6 +13,13 @@ import type { Card } from './Island';
 /** One of Ledge's notices as the island holds it: its key in the queue, the machine that sent it, the notice itself. */
 interface LedgeNotice { key: string; machine: string; notice: OperatorNotice }
 
+/** How long a rig answer waits for its end before it is told `uncertain` (the fleet's « À toi » waits as long). */
+export const OPENRIG_ANSWER_WAIT_MS = 45_000;
+let nextAnswer = 0;
+/** A rig's question the island answers with its buttons: through OpenRig (`questionId`, #40) or, from a daemon before #40, the point
+ *  holding it (`qid`). */
+const answerable = (n: OperatorNotice): boolean => !!n.qitem && !!n.options?.length && (!!n.questionId || !!n.qid);
+
 /** The id under which a machine that dropped waits as a notice. */
 export const offlineId = (machine: string) => `machine:${machine}`;
 
@@ -20,8 +27,9 @@ export const offlineId = (machine: string) => `machine:${machine}`;
  * Ledge's own notices on the island (dynamic-island complement, cards #ledge): a rig's question, a decision a session put to
  * the person, a routine to activate or that could not run (requests, in the island's queue under `ledge:<machine>|<id>`), and
  * a machine that dropped (a 6 s notice). « Le point » stays in Ledge Desktop's chat: it never reaches the island.
- * The words, the buttons and the daemon commands are the notch's of before (rig answers through `point.act`, routines through
- * `routine.cmd`, an approval bound to the key it was shown with).
+ * The words, the buttons and the daemon commands are the notch's of before (routines through `routine.cmd`, an approval bound to the
+ * key it was shown with). A rig's question is answered through OpenRig's own `openrig.answer` (#40 D1), not through the point: a
+ * daemon from before #40 (a notice without `questionId`) is still answered through the point holding it (`point.act`).
  */
 export function useLedgeNotices(o: {
   client: DaemonClient; dispatch: (e: SurfaceEvent) => void; byId: Map<string, Session>; status: DaemonStatus; lastError: DaemonError | null;
@@ -90,7 +98,7 @@ export function useLedgeNotices(o: {
     const who = n.notice.who ?? 'Ledge';
     if (n.notice.kind === 'rig.ask') return {
       id: item.id, kind: 'rig', who, sentence: `${who}${L.colon}${L.rigQuote(n.notice.text)}`, bold: who,
-      meta: [n.notice.rig, clock(n.notice.at)].filter(Boolean).join(' · '), choices: n.notice.qid && n.notice.qitem ? n.notice.options : undefined
+      meta: [n.notice.rig, clock(n.notice.at)].filter(Boolean).join(' · '), choices: answerable(n.notice) ? n.notice.options : undefined
     };
     const { task, routine } = routineOf(n);
     if (routine) return {
@@ -112,15 +120,42 @@ export function useLedgeNotices(o: {
   }
 
   const sendOn = (machine: string, m: ClientMessage): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
-  /** A rig answer sent from the island: its refusal is read from the next `point.act` error. */
+  /** A rig answer sent from the island through the point (a daemon from before #40): its refusal is read from the next `point.act` error. */
   const acting = useRef<{ key: string; qid: string; seq: number } | null>(null);
-  /** One of a rig question's proposed answers, answered through the point holding it. */
+  /** The rig answers sent through `openrig.answer`, by requestId: each ends with its `openrig.answered`, or `uncertain` after
+   *  OPENRIG_ANSWER_WAIT_MS or when the connection drops (sending it again is safe: OpenRig records an answer once). */
+  const answers = useRef(new Map<string, { key: string; timer: ReturnType<typeof setTimeout> }>());
+  /** A refused rig answer: the question comes back where it was, with the reason. */
+  const refused = (key: string, message: string) => { back.current.add(key); setFailure({ key, message }); setAside(key, false); dispatch({ type: 'decisionFailed', id: key }); };
+  const ended = (m: OpenRigAnswered) => {
+    const w = answers.current.get(m.requestId); if (!w) return;
+    answers.current.delete(m.requestId); clearTimeout(w.timer);
+    // Taken, the row already closed (nothing left to answer), or no end heard (it may have gone: as through the point, which never
+    // said a success): the question stays aside until the daemon's notices drop it. A refusal is said with the daemon's reason.
+    if (m.ok || m.error === 'closed' || m.error === 'uncertain') return;
+    refused(w.key, m.message ?? (m.error === 'offline' ? t.offline : m.error ?? ''));
+  };
+  const lost = () => { for (const [requestId] of [...answers.current]) ended({ type: 'openrig.answered', requestId, qitemId: '', ok: false, error: 'uncertain' }); };
+  useEffect(() => {
+    const off = client.onMessage(m => { if (m.type === 'openrig.answered') ended(m); });
+    const offStatus = client.onStatus(s => { if (s !== 'open') lost(); });
+    return () => { off(); offStatus(); for (const w of answers.current.values()) clearTimeout(w.timer); answers.current.clear(); };
+  }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** One of a rig question's proposed answers: through OpenRig's `openrig.answer` on its machine, or the point holding it on a
+   *  daemon from before #40. */
   function choose(key: string, option: string): void {
-    const n = find(key); if (!n?.notice.qid || !n.notice.qitem) return;
-    if (!sendOn(n.machine, { type: 'point.act', qid: n.notice.qid, item: `rig.ask:${n.notice.qitem}`, answer: { id: option } })) return;
-    acting.current = { key, qid: n.notice.qid, seq: o.lastError?.seq ?? 0 };
-    // Set aside at once, as the notch did: a successful `point.act` gets no answer, and the notice leaves the daemon's list only once
-    // the rig settles the question, so nothing else could confirm it. « Reçu », then the island closes; a refusal brings it back.
+    const n = find(key); if (!n || !answerable(n.notice)) return;
+    const { qitem, questionId, qid } = n.notice;
+    if (questionId) {
+      const requestId = `island-answer-${++nextAnswer}`;
+      answers.current.set(requestId, { key, timer: setTimeout(() => ended({ type: 'openrig.answered', requestId, qitemId: qitem!, ok: false, error: 'uncertain' }), OPENRIG_ANSWER_WAIT_MS) });
+      client.send({ type: 'openrig.answer', requestId, machineId: n.machine, qitemId: qitem!, answer: { kind: 'choice', questionId, optionId: option } });
+    } else {
+      if (!sendOn(n.machine, { type: 'point.act', qid: qid!, item: `rig.ask:${qitem}`, answer: { id: option } })) return;
+      acting.current = { key, qid: qid!, seq: o.lastError?.seq ?? 0 };
+    }
+    // Set aside at once, as the notch did: the notice leaves the daemon's list only once the rig settles the question.
+    // « Reçu », then the island closes; a refusal brings it back.
     setFailure(null); dispatch({ type: 'decided' }); setAside(key, true); o.onAnswered('accept');
   }
   // A refused rig answer: a launch to confirm goes to the point in Desktop's chat (never confirmed from the island); any other
@@ -130,7 +165,7 @@ export function useLedgeNotices(o: {
     if (!a || !e || e.seq <= a.seq || e.request !== 'point.act') return;
     acting.current = null;
     if (e.code === 'confirm_required') { openInLedge({ kind: 'point', qid: a.qid }); return; }
-    back.current.add(a.key); setFailure({ key: a.key, message: e.message }); setAside(a.key, false); dispatch({ type: 'decisionFailed', id: a.key });
+    refused(a.key, e.message);
   }, [o.lastError?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** A routine item's button, answered on its machine: a grouped request in one command, all or nothing (`others`), only to a
