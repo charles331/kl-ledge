@@ -27,6 +27,10 @@ await shot('timer', 'section:has(#timer)');
 await shot('gone', 'section:has(#gone)');
 await shot('rules', 'section:has(#rules)');
 await shot('decide', 'section:has(#decide)');
+// The complement of 2026-11-27: Ledge's own notices, an agent card's other states, the settings page.
+await shot('ledge', 'section:has(#ledge)');
+await shot('states', 'section:has(#states)');
+await shot('settings', 'section:has(#settings)');
 // The live demo: at rest, the pill on its way in (slow motion), then open on a request and on a notice.
 await shot('live-rest', '.di-live');
 await page.getByRole('button', { name: 'Ralenti ×4' }).click();
@@ -50,6 +54,8 @@ await page.getByRole('button', { name: 'EN', exact: true }).click();
 await page.getByRole('button', { name: /^Page/ }).click();
 await page.waitForTimeout(300);
 await shot('kinds-en-light', 'section:has(#kinds)');
+await shot('ledge-en-light', 'section:has(#ledge)');
+await shot('states-en-light', 'section:has(#states)');
 // Phone width: the page must not scroll sideways.
 await page.setViewportSize({ width: 390, height: 900 });
 await page.waitForTimeout(300);
