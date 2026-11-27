@@ -85,6 +85,10 @@ const cancel = (name: TimerName): Effect => ({ type: 'cancelTimer', name });
 const ALL: TimerName[] = ['appear', 'notice', 'hold', 'close', 'leave'];
 const same = (s: SurfaceState): Result => ({ state: s, effects: [] });
 const held = (s: SurfaceState) => s.hovering || s.focusWithin || s.hidden;
+/** Nothing is on screen any more, so neither the pointer nor the focus can be inside the island. Its card is removed with
+ *  them still there (a button clicked, a reply typed), so it never hears them leave: kept, they would hold the next notice's
+ *  clock from its first frame and the island would never leave on its own. */
+const letGo = { hovering: false, focusWithin: false } as const;
 /** A notice runs on a clock; a request waits for the person. */
 export const timed = (kind: ItemKind) => !isRequestKind(kind);
 const without = (list: string[], id: string) => list.filter(x => x !== id);
@@ -195,7 +199,7 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
     // Gone: nothing on screen. Something that came meanwhile starts the movement again.
     case 'leaveElapsed': {
       if (!s.closing) return same(s);
-      return pump(same({ ...s, phase: 'gone', current: null, closing: false, ack: null, failed: null, openedBy: s.forced !== null ? s.openedBy : null }));
+      return pump(same({ ...s, ...letGo, phase: 'gone', current: null, closing: false, ack: null, failed: null, openedBy: s.forced !== null ? s.openedBy : null }));
     }
     case 'surfaceEnter': { const next = { ...s, hovering: true }; return { state: next, effects: holdEffects(s, next) }; }
     case 'surfaceLeave': { const next = { ...s, hovering: false }; return { state: next, effects: holdEffects(s, next) }; }
@@ -244,7 +248,7 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
        request opens. */
     case 'visible': {
       if (e.on) return s.off ? pump(same({ ...s, off: false })) : same(s);
-      return { state: { ...s, off: true, phase: 'gone', current: null, closing: false, notices: [], ack: null, failed: null, openedBy: null, forced: null }, effects: ALL.map(cancel) };
+      return { state: { ...s, ...letGo, off: true, phase: 'gone', current: null, closing: false, notices: [], ack: null, failed: null, openedBy: null, forced: null }, effects: ALL.map(cancel) };
     }
   }
 }

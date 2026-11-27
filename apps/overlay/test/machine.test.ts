@@ -49,6 +49,20 @@ describe('the island’s movement (issue #27)', () => {
     expect(has(r.effects, 'startTimer', 'notice') && has(r.effects, 'pauseTimer', 'notice')).toBe(true);
   });
 
+  it('the island gone, nothing holds the next notice’s clock: its card left under the pointer and the focus, which never said so', () => {
+    // A request answered with a click: the pointer and the focus are inside, and the card is removed before either leaves.
+    let s = run([...opened({ type: 'ask', id: 'pim' }), { type: 'surfaceEnter' }, { type: 'focusWithin', on: true }, { type: 'decided' }, { type: 'askCleared', id: 'pim' }]).s;
+    s = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }], s).s;
+    expect(s.phase).toBe('gone'); expect(s.current).toBeNull();
+    expect(s.hovering).toBe(false); expect(s.focusWithin).toBe(false);
+    const r = run([{ type: 'notice', id: 'pim', kind: 'finished' }, { type: 'appearElapsed' }], s);
+    expect(has(r.effects, 'startTimer', 'notice')).toBe(true);
+    expect(has(r.effects, 'pauseTimer', 'notice')).toBe(false);
+    // Hidden from Desktop takes the island off at once: the same holds go with it.
+    const off = run([...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'surfaceEnter' }, { type: 'focusWithin', on: true }, { type: 'visible', on: false }]).s;
+    expect(off.hovering).toBe(false); expect(off.focusWithin).toBe(false);
+  });
+
   it('one at a time, requests before notices: back on the pill it reopens at once on the next, without leaving', () => {
     let s = run(opened({ type: 'notice', id: 'otto', kind: 'finished' })).s;
     s = run([{ type: 'notice', id: 'iris', kind: 'error' }, { type: 'ask', id: 'pim' }], s).s;
