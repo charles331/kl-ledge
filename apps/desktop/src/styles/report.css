@@ -1,4 +1,4 @@
-/* Issue #9 (docs/mockups/ledge-report.html): « Signaler », its form, and an agent's report in « À toi ». */
+/* Issue #9 (docs/mockups/ledge-report.html): « Signaler », its form, and an agent's report in the Tasks view (#40 D5). */
 .report-modal { width: min(640px, calc(100vw - 32px)); }
 .report-modal .modal-title h2 { display: flex; align-items: center; gap: 10px; }
 .rp { display: flex; flex-direction: column; min-height: 0; }

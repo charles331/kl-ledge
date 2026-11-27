@@ -12,7 +12,7 @@ export function useNow(ms = 30_000): number {
 
 export interface UsageView { groups: UsageGroup[]; threshold: number; alerts: UsageAlert[]; now: number; label(machine: string): string }
 
-/** Every machine's harness limits as the footer, « À toi » and the settings show them. */
+/** Every machine's harness limits as the footer and the settings show them. */
 export function useUsageView(client: DaemonClient, machines: readonly MachineState[]): UsageView {
   const states = useUsage(client);
   const now = useNow();

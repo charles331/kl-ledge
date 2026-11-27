@@ -4,7 +4,7 @@ import { useI18n } from '../i18n/lang';
 import { ANSWER_SILENT, type TasksApi } from './useTasksApi';
 
 /**
- * A proposal about the user's notes in « À toi » (docs/mockups/ledge-brain-notes.html, part 1): the fact as it will be written and
+ * A proposal about the user's notes, in the Tasks view (docs/mockups/ledge-brain-notes.html, part 1): the fact as it will be written and
  * where the session has it from, then « Ajouter », « Modifier », « Refuser » (a flag: « Marquer à revoir », « Ignorer »; a new note:
  * its title and « quand la lire », correctable, then « Créer la note »). Nothing is written before a « yes » button.
  */

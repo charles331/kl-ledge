@@ -1,9 +1,9 @@
 import { isRecord, readJson, writeJson } from '../state/storage';
 
 /** The IDE shell's panel layout: pure state, plus its persisted form (`ledge.ide.layout`). */
-export type SideView = 'projects' | 'rigs' | 'atoi' | 'prs' | 'routines' | 'tasks';
+export type SideView = 'projects' | 'rigs' | 'prs' | 'routines' | 'tasks';
 /** Every sidebar view, as the Ledge guide (docs/ledge-guide.md) describes them: a Record, so a new view fails to compile until it is listed. */
-const SIDE_VIEW: Record<SideView, true> = { projects: true, rigs: true, atoi: true, prs: true, routines: true, tasks: true };
+const SIDE_VIEW: Record<SideView, true> = { projects: true, rigs: true, prs: true, routines: true, tasks: true };
 export const SIDE_VIEWS = Object.keys(SIDE_VIEW) as SideView[];
 export interface IdeLayout { sideOpen: boolean; sideWidth: number; sideView: SideView; bottom: boolean; bottomHeight: number; right: boolean }
 
@@ -11,7 +11,7 @@ export const SIDE_DEFAULT = 248, SIDE_MIN = 120, SIDE_MAX = 440, SIDE_FOLD = 150
 export const BOTTOM_DEFAULT = 240, BOTTOM_MIN = 120, BOTTOM_MAX = 640;
 const ACTIVITY_BAR = 48;
 export const LAYOUT_KEY = 'ledge.ide.layout';
-const VIEWS: readonly SideView[] = ['projects', 'rigs', 'atoi', 'prs', 'routines', 'tasks'];
+const VIEWS: readonly SideView[] = ['projects', 'rigs', 'prs', 'routines', 'tasks'];
 
 export type LayoutAction =
   | { type: 'toggle'; panel: 'side' | 'bottom' | 'right' }

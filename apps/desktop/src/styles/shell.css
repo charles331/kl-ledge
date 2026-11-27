@@ -165,7 +165,7 @@ button.lp-row:hover, .lp-row.sel { background: var(--sidebar-accent); }
 .lp-mark.lp-near-mark { color: var(--warning, #d97706); }
 .lp-mark.lp-asked { color: var(--sidebar-primary); font-weight: 700; }
 
-/* « Répondre » to a decision (tasks/DecisionAnswer), in « Le point », « Tâches » and the sidebar's « À toi ». */
+/* « Répondre » to a decision (tasks/DecisionAnswer), in « Le point » and the Tasks view. */
 .decision-answer { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
 .decision-options { display: flex; flex-wrap: wrap; gap: 4px; }
 .decision-options .st-qa { height: auto; min-height: 22px; max-width: 100%; white-space: normal; text-align: left; }
@@ -175,7 +175,7 @@ button.lp-row:hover, .lp-row.sel { background: var(--sidebar-accent); }
 .decision-text { margin: 0; padding: 6px 10px; border-left: 3px solid var(--sidebar-primary); background: var(--well); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
 .decision-error { margin: 0; color: var(--destructive, #dc2626); font-size: 12px; }
 
-/* A proposal about the notes in « À toi » (docs/mockups/ledge-brain-notes.html, part 1). */
+/* A proposal about the notes in the Tasks view (docs/mockups/ledge-brain-notes.html, part 1). */
 .note-decision { display: flex; flex-direction: column; gap: 6px; }
 .note-decision .nd-flag { color: var(--warning, #d97706); font-weight: 700; }
 .note-decision .nd-quote { margin: 0 0 0 14px; padding: 6px 9px; border-radius: var(--radius-sm); background: var(--well); font-size: 12.5px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }

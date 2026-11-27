@@ -50,36 +50,15 @@ describe('IdeExplorer', () => {
   });
 });
 
-describe('Sidebar section', () => {
+describe('Sidebar', () => {
   const waiting: Session = fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } });
-  const sidebar = (section: 'projects' | 'atoi') => render(<LangProvider lang="en">
-    <Sidebar nav={initialNav({ helpers: [], paused: false } as never)} dispatch={vi.fn()} sessions={[waiting]} archived={[]} projects={null} order={[waiting]} projectIdOf={() => null}
-      filing={{ dragging: null } as unknown as Filing} actions={{ pending: null, allowed: () => true } as unknown as SessionActions} decisions={{ decide: vi.fn() } as unknown as Decisions}
-      waits={new Map()} menu={{ menu: null } as unknown as ContextMenuState} notify={vi.fn()} onTerminal={vi.fn()} revealArchives={0} revealCurrent={0} section={section} /></LangProvider>);
-
-  it('atoi: the waiting session shows, neither the tree nor the Archives, nor the chrome', () => {
-    sidebar('atoi');
-    expect(screen.getByRole('region', { name: 'Your turn' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Archives' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Projects' })).toBeNull();
-    expect(document.querySelector('.st-ledge, .st-views, .st-foot')).toBeNull();
-  });
-
-  it('atoi with nothing waiting: one line, « Rien ne t’attend. », in the middle (the user, 2026-11-09)', () => {
-    render(<LangProvider lang="fr">
-      <Sidebar section="atoi" nav={initialNav({ helpers: [], paused: false } as never)} dispatch={vi.fn()} sessions={[]} archived={[]} projects={null} order={[]} projectIdOf={() => null}
+  it('projects (the only view it draws since #40 PR 3): the tree and Archives, without Ledge\'s entry nor « À toi »', () => {
+    render(<LangProvider lang="en">
+      <Sidebar nav={initialNav({ helpers: [], paused: false } as never)} dispatch={vi.fn()} sessions={[waiting]} archived={[]} projects={null} order={[waiting]} projectIdOf={() => null}
         filing={{ dragging: null } as unknown as Filing} actions={{ pending: null, allowed: () => true } as unknown as SessionActions} decisions={{ decide: vi.fn() } as unknown as Decisions}
         waits={new Map()} menu={{ menu: null } as unknown as ContextMenuState} notify={vi.fn()} onTerminal={vi.fn()} revealArchives={0} revealCurrent={0} /></LangProvider>);
-    const line = screen.getByText('Rien ne t’attend.');
-    expect(line).toHaveClass('st-attn-none');
-    expect(line.parentElement).toHaveClass('st-scroll-atoi');
-  });
-
-  it('projects: Archives, without Ledge\'s entry', () => {
-    sidebar('projects');
     expect(screen.getByRole('region', { name: 'Archives' })).toBeVisible();
-    expect(document.querySelector('.st-ledge, .st-views, .st-grouping, .st-foot')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Your turn' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Projects' })).toBeVisible();
+    expect(document.querySelector('.st-ledge, .st-views, .st-grouping, .st-foot, .st-attn')).toBeNull();
   });
-
 });

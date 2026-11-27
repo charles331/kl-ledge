@@ -9,51 +9,30 @@ const T0 = new Date().toISOString();
 /** A decision Otto put to the user (`ledge task give ledge …`): giver the session, owner Ledge. */
 const decision = (extra: Partial<Task> = {}): Task => ({ id: 't00000d', title: 'Fusionner feat/roles ?', text: '- Oui, fusionne\n- Non, attends la revue', giver: 'otto', giverName: 'Otto', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: T0, updatedAt: T0, log: [{ at: T0, by: 'Otto', what: 'confiée à Ledge' }], ...extra });
 const given = (id: string, extra: Partial<Task> = {}): Task => ({ id, title: `Tâche ${id}`, giver: 'ledge', giverName: 'Ledge', owner: 'otto', ownerName: 'Otto', state: 'open', at: T0, updatedAt: T0, log: [], ...extra });
-/** The page « À toi » (lot 12: what « Le point » showed), its Decisions block. */
-const page = () => within(screen.getByRole('tabpanel', { name: /^For you/ }));
-const decisions = () => within(document.querySelector<HTMLElement>('[data-block="decisions"]')!);
-/** The IDE's « À toi » sidebar view (the Attention cards). */
-const side = () => within(screen.getByRole('complementary', { name: 'Sidebar' }));
-const chat = () => within(screen.getByRole('complementary', { name: 'Chat Ledge' }));
+/** The Tasks view (#40 D3): where a decision is answered on Desktop since « À toi » left (#40 PR 3). */
+const view = () => within(screen.getByRole('complementary', { name: 'Tasks' }));
 /** What « Répondre » may send: the registry action, never a task command. */
 const answers = (received: readonly ClientMessage[]) => received.filter(m => m.type === 'action.run' || (m.type === 'task.cmd' && m.op !== 'list'));
 
 beforeEach(() => localStorage.clear());
 afterEach(async () => { cleanup(); await closeDaemons(); });
 
-/** The IDE with Otto's decision: the « À toi » view in the sidebar, and its page in a tab. */
-async function openAtoi() {
+/** The IDE with Otto's decision, the Tasks view open on it. */
+async function openDecision() {
   const env = await boot({ machines: [{ id: 'local', label: 'Local' }], projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working' })] });
   env.d.push({ type: 'task.updated', task: decision() });
-  await env.user.click(within(screen.getByRole('navigation', { name: 'Activity bar' })).getByRole('button', { name: /^For you/ }));
-  await side().findByText('Fusionner feat/roles ?');
-  await env.user.click(side().getByRole('button', { name: 'Page' }));
-  await page().findByText('Fusionner feat/roles ?');
+  await env.user.click(within(screen.getByRole('navigation', { name: 'Activity bar' })).getByRole('button', { name: 'Tasks (Ctrl+/)' }));
+  await env.user.click(await view().findByText('Fusionner feat/roles ?'));
   return env;
 }
 
 describe('a decision a session puts to the user', () => {
-  it('is in « À toi », the page and the sidebar: who asks, its title and options, and counts there', async () => {
-    await openAtoi();
-    const row = decisions().getByText('Fusionner feat/roles ?').closest('.atoi-dec') as HTMLElement;
-    expect(within(row).getByText('Otto')).toBeVisible();
-    expect(within(row).getByRole('button', { name: 'Answer' })).toBeVisible();
-    expect(document.querySelector('[data-block="decisions"] .fg-blk-h')).toHaveTextContent('1 · what sessions ask you through Ledge');
-    const bar = within(side().getByRole('region', { name: 'Your turn' }));
-    const card = bar.getByText('Fusionner feat/roles ?').closest('.st-card') as HTMLElement;
-    expect(within(card).getByText('Otto')).toBeVisible();
-    expect(card.querySelector('.st-where')?.textContent).toBe('- Oui, fusionne\n- Non, attends la revue');
-    expect(within(card).getByRole('button', { name: 'Answer' })).toBeVisible();
-    expect(bar.getByText('1')).toBeVisible();
-    // Not a task Ledge gave: nothing in « Finished since your last visit ».
-    expect(page().getByText('Finished since your last visit').closest('.fg-blk')).not.toHaveTextContent('Fusionner feat/roles ?');
-  });
-
   it('« Answer » shows the answer whole, asks for a confirmation, then sends task.answer and nothing else', async () => {
-    const { d, user } = await openAtoi();
-    const row = decisions().getByText('Fusionner feat/roles ?').closest('.atoi-dec') as HTMLElement;
-    await user.click(within(row).getByRole('button', { name: 'Answer' }));
-    const form = within(within(row).getByRole('form', { name: 'Answer to “Fusionner feat/roles ?”' }));
+    const { d, user } = await openDecision();
+    const detail = within(view().getByRole('region', { name: 'Fusionner feat/roles ?' }));
+    expect(detail.getByText('Otto needs your decision')).toBeVisible();
+    await user.click(detail.getByRole('button', { name: 'Answer' }));
+    const form = within(detail.getByRole('form', { name: 'Answer to “Fusionner feat/roles ?”' }));
     const field = form.getByRole('textbox', { name: 'Your answer' });
     expect(field).toHaveValue('');
     expect(form.getByRole('button', { name: 'Send the answer' })).toBeDisabled();
@@ -71,24 +50,18 @@ describe('a decision a session puts to the user', () => {
     expect(answers(d.received)).toEqual([{ type: 'action.run', rid: expect.any(String), action: 'task.answer', args: { task: 't00000d', answer: 'Oui, fusionne après la CI' }, confirmed: true }]);
   });
 
-  it('the sidebar answers in place; once done, the form closes', async () => {
-    const { d, user } = await openAtoi();
-    const card = side().getByText('Fusionner feat/roles ?').closest('.st-card') as HTMLElement;
-    await user.click(within(card).getByRole('button', { name: 'Answer' }));
-    await user.type(within(card).getByRole('textbox', { name: 'Your answer' }), 'Non');
-    await user.click(within(card).getByRole('button', { name: 'Send the answer' }));
-    d.onMessage(m => { if (m.type === 'action.run') d.push({ type: 'action.result', rid: m.rid, action: m.action }); });
-    await user.click(within(card).getByRole('button', { name: 'Confirm and send' }));
-    await waitFor(() => expect(within(card).queryByRole('form')).toBeNull());
-    expect(answers(d.received)).toEqual([{ type: 'action.run', rid: expect.any(String), action: 'task.answer', args: { task: 't00000d', answer: 'Non' }, confirmed: true }]);
-    // Answered, the daemon closes it: it leaves « À toi », the sidebar and the page.
+  it('answered and closed by the daemon: it leaves the Tasks view\'s badge and turns done', async () => {
+    const { d } = await openDecision();
+    const icon = screen.getByRole('button', { name: 'Tasks (Ctrl+/)' });
+    await waitFor(() => expect(icon.querySelector('.ide-badge.amber')).toHaveTextContent('1'));
     d.push({ type: 'task.updated', task: decision({ state: 'done', result: 'Non' }) });
-    await waitFor(() => expect(side().queryByText('Fusionner feat/roles ?')).toBeNull());
-    expect(document.querySelector('[data-block="decisions"]')).toBeNull();
+    await waitFor(() => expect(icon.querySelector('.ide-badge')).toBeNull());
+    expect(view().queryByRole('button', { name: 'Answer' })).toBeNull();
   });
 
   it('the Tasks view (#40 D3): « Decisions » keeps the decisions alone, « The sessions » no longer has them; an open one offers « Answer »; its icon counts it', async () => {
-    const { d, user } = await openAtoi();
+    const { d, user } = await boot({ machines: [{ id: 'local', label: 'Local' }], projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working' })] });
+    d.push({ type: 'task.updated', task: decision() });
     d.push({ type: 'task.updated', task: given('t000001') });
     d.push({ type: 'task.updated', task: given('t000002', { giver: 'pim', giverName: 'Pim' }) });
     const icon = screen.getByRole('button', { name: 'Tasks (Ctrl+/)' });

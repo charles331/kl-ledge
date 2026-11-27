@@ -5,13 +5,13 @@ import type { OpenRigAsksView } from '@ledge/fleet/openrigAsks';
 import { fakeSession } from '@ledge/fleet/test/mockDaemon';
 import type { HumanAsk, HumanChannel, OpenRigAnswered, Session } from '@ledge/protocol';
 import { LangProvider } from '../src/i18n/lang';
-import { AsksColumn } from '../src/asks/AsksColumn';
-import { bySection, endOf, markOf, sectionOf } from '../src/asks/model';
-import { Attention } from '../src/shell/sidebar/Attention';
+import { RigRequests } from '../src/ide/rigs/RigRequests';
+import { endOf } from '../src/asks/model';
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-/** docs/mockups/ledge-human-operator-ab-lot1.html: « À toi » receives what OpenRig's rigs ask the person, and answers. */
+/** docs/mockups/ledge-human-operator-ab-lot1.html: what OpenRig's rigs ask the person, answered on its card; since #40 the cards live
+ *  in the Rigs view's « Demandes » (ide/rigs/RigRequests.tsx). */
 const NOW = new Date().toISOString();
 const ask = (o: Partial<HumanAsk> = {}): HumanAsk => ({
   id: 'qitem-1', kind: 'decision', alert: false, priority: 'routine',
@@ -27,20 +27,12 @@ const answered = (o: Partial<OpenRigAnswered> = {}): OpenRigAnswered => ({ type:
 function mount(asks: HumanAsk[], o: { partial?: boolean; channel?: HumanChannel | null; answer?: OpenRigAsksView['answer']; sessions?: Session[]; lang?: 'fr' | 'en'; onSource?: (a: HumanAsk, p: string) => void } = {}) {
   const answer = o.answer ?? vi.fn(async () => answered());
   const view: OpenRigAsksView = { channel: o.channel === undefined ? ready : o.channel, asks, truncated: false, partial: o.partial ?? false, answer, refresh: vi.fn() };
-  const r = render(<LangProvider lang={o.lang ?? 'fr'}><AsksColumn view={view} sessions={o.sessions ?? [BIX]} machineLabel="WSL" {...(o.onSource ? { sourceOf: (x: HumanAsk) => (p: string) => o.onSource!(x, p) } : {})} /></LangProvider>);
-  const rerender = (next: HumanAsk[]) => r.rerender(<LangProvider lang={o.lang ?? 'fr'}><AsksColumn view={{ ...view, asks: next }} sessions={o.sessions ?? [BIX]} machineLabel="WSL" /></LangProvider>);
+  const r = render(<LangProvider lang={o.lang ?? 'fr'}><RigRequests view={view} focus={null} sessions={o.sessions ?? [BIX]} machineLabel="WSL" {...(o.onSource ? { sourceOf: (x: HumanAsk) => (p: string) => o.onSource!(x, p) } : {})} /></LangProvider>);
+  const rerender = (next: HumanAsk[]) => r.rerender(<LangProvider lang={o.lang ?? 'fr'}><RigRequests view={{ ...view, asks: next }} focus={null} sessions={o.sessions ?? [BIX]} machineLabel="WSL" /></LangProvider>);
   return { answer, rerender };
 }
 
-describe('the sections', () => {
-  it('a decision with buttons → Décisions; without, or parked → Questions; news → Nouvelles', () => {
-    expect(sectionOf(ask())).toBe('decisions');
-    expect(sectionOf(ask({ questions: [] }))).toBe('questions');
-    expect(sectionOf(ask({ kind: 'parked', questions: [] }))).toBe('questions');
-    expect(sectionOf(ask({ kind: 'update', questions: [] }))).toBe('updates');
-    const s = bySection([ask({ id: 'a' }), ask({ id: 'b', kind: 'update', questions: [] }), ask({ id: 'c', priority: 'urgent' })]);
-    expect(s.decisions.map(x => x.id)).toEqual(['a', 'c']); // the daemon's order is kept
-  });
+describe('the answers', () => {
   it('an answer’s end: closed or vanished is settled elsewhere, not an error', () => {
     expect(endOf(answered({ ok: false, error: 'closed' }))).toEqual({ kind: 'already' });
     expect(endOf(answered({ ok: false, error: 'not_found' }))).toEqual({ kind: 'already' });
@@ -57,7 +49,7 @@ describe('a decision card', () => {
     const answer = vi.fn(() => new Promise<OpenRigAnswered>(r => { resolve = r; }));
     mount([ask()], { answer });
     const card = screen.getByRole('article', { name: 'Écran de réglage : un modèle pour tout ?' });
-    expect(within(screen.getByRole('region', { name: 'Décisions' })).getByRole('article')).toBe(card);
+    expect(within(screen.getByRole('region', { name: 'Demandes' })).getByRole('article')).toBe(card);
     expect(card).toHaveTextContent('ledge-dev· Bixpilotdécision');
     expect(card).toHaveTextContent('Lu prépare Réglages › Ledge.');
     const rec = within(card).getByRole('button', { name: 'Un seul modèle · recommandé' });
@@ -146,7 +138,7 @@ describe('a decision card', () => {
 
   it('priority: « urgent », « critique », nothing for routine', () => {
     mount([ask({ id: 'a', priority: 'critical' }), ask({ id: 'b', priority: 'urgent' }), ask({ id: 'c' })]);
-    const pills = [...document.querySelectorAll('[data-ask]')].map(c => c.querySelector('.ask-pill-urgent')?.textContent ?? null);
+    const pills = [...document.querySelectorAll('.ide-rigs-req-card')].map(c => c.querySelector('.ask-pill-urgent')?.textContent ?? null);
     expect(pills).toEqual(['critique', 'urgent', null]);
   });
 });
@@ -154,7 +146,7 @@ describe('a decision card', () => {
 describe('questions and news', () => {
   it('a row parked on the person: « en attente de vous » (#40: « vous » on Desktop), « Répondre… » asks what the seat should do, and sends resolve', async () => {
     const { answer } = mount([ask({ kind: 'parked', questions: [] })]);
-    const card = within(screen.getByRole('region', { name: 'Questions' })).getByRole('article');
+    const card = within(screen.getByRole('region', { name: 'Demandes' })).getByRole('article');
     expect(card).toHaveTextContent('en attente de vous');
     await userEvent.click(within(card).getByRole('button', { name: 'Répondre…' }));
     await userEvent.type(screen.getByRole('textbox', { name: 'Ce que Bix doit faire…' }), 'Garde la carte');
@@ -173,7 +165,7 @@ describe('questions and news', () => {
 
   it('a piece of news: Nouvelles, compact, « Vu » sends seen', async () => {
     const { answer } = mount([ask({ kind: 'update', questions: [], summary: 'Maquette rendue' })]);
-    const card = within(screen.getByRole('region', { name: 'Nouvelles' })).getByRole('article', { name: 'Maquette rendue' });
+    const card = within(screen.getByRole('region', { name: 'Demandes' })).getByRole('article', { name: 'Maquette rendue' });
     expect(card).toHaveTextContent('nouvelle');
     await userEvent.click(within(card).getByRole('button', { name: 'Vu' }));
     expect(answer).toHaveBeenCalledWith('qitem-1', { kind: 'seen' });
@@ -181,7 +173,7 @@ describe('questions and news', () => {
 
   it('English', () => {
     mount([ask({ kind: 'update', questions: [] }), ask({ id: 'b' })], { lang: 'en' });
-    expect(screen.getByRole('region', { name: 'Updates' })).toHaveTextContent('update');
+    expect(screen.getByRole('region', { name: 'Requests' })).toHaveTextContent('update');
     expect(screen.getByRole('button', { name: 'Un seul modèle · recommended' })).toHaveAttribute('title', 'Recommended by Bix');
     expect(screen.getByRole('button', { name: 'Answer another way…' })).toBeInTheDocument();
   });
@@ -207,48 +199,17 @@ describe('the channel’s banners (no button at lot 1)', () => {
   });
 });
 
-describe('a partial read and the counts (design-ux)', () => {
-  it('a failed read: one grey line atop the column; none under a banner', () => {
+describe('a partial read (design-ux)', () => {
+  it('a failed read: one grey line atop the cards; none under a banner', () => {
     mount([ask()], { partial: true });
-    const line = document.querySelector('.ask-partial')!;
+    const line = document.querySelector('.ide-rigs-req-partial')!;
     expect(line).toHaveTextContent('Liste peut-être incomplète : OpenRig n’a pas répondu à la dernière lecture.');
-    expect(line.nextElementSibling).toHaveClass('ask-sec');
-    expect(document.querySelectorAll('.ask-partial')).toHaveLength(1);
+    expect(line.nextElementSibling).toHaveClass('ide-rigs-req-card');
+    expect(document.querySelectorAll('.ide-rigs-req-partial')).toHaveLength(1);
     cleanup();
     mount([], { partial: true, channel: { state: 'openrig_stopped', person: null, slack: false } });
-    expect(document.querySelector('.ask-partial')).toBeNull();
+    expect(document.querySelector('.ide-rigs-req-partial')).toBeNull();
   });
-  it('Nouvelles counts in grey; Décisions and Questions in red', () => {
-    mount([ask(), ask({ id: 'b', kind: 'update', questions: [] })]);
-    expect(screen.getByRole('region', { name: 'Nouvelles' }).querySelector('.ask-n')).toHaveClass('neutral');
-    expect(screen.getByRole('region', { name: 'Décisions' }).querySelector('.ask-n')).not.toHaveClass('neutral');
-  });
-});
-
-describe('the sidebar', () => {
-  it('« À toi »: one compact line per ask, the seat’s mascot or the rig’s hexagon, « Voir » opens the card; no answer here', () => {
-    const onSeeAsk = vi.fn();
-    render(<LangProvider lang="fr"><aside className="st"><Attention items={[]} current={null} projectOf={() => null} onOpen={vi.fn()} onDecide={vi.fn()} onMenu={vi.fn()} paused
-      rigAsks={[ask({ priority: 'urgent' }), ask({ id: 'qitem-2', from: { seat: 'qa-review@other', rig: 'other', role: 'qa.review' } })]} sessions={[BIX]} onSeeAsk={onSeeAsk} /></aside></LangProvider>);
-    const rows = [...document.querySelectorAll('.st-rig-ask')] as HTMLElement[];
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent('Bix · ledge-dev');
-    expect(rows[0]).toHaveTextContent('urgent');
-    expect(rows[0]).toHaveTextContent('Écran de réglage : un modèle pour tout ?');
-    expect(rows[1]!.querySelector('.st-rig-hex')).not.toBeNull();
-    expect(rows[1]).toHaveTextContent('qa.review · other');
-    expect(within(rows[0]!).getAllByRole('button').map(b => b.textContent)).toEqual(['Voir']);
-    fireEvent.click(within(rows[0]!).getByRole('button', { name: 'Voir' }));
-    expect(onSeeAsk).toHaveBeenCalledWith('qitem-1');
-    expect(screen.getByRole('region', { name: 'À toi' })).toHaveTextContent('2');
-  });
-
-  it('the seat’s mark: only what waits on an answer, the most pressing first; news marks nothing', () => {
-    expect(markOf([ask({ kind: 'update', questions: [] })])).toBeNull();
-    expect(markOf([ask({ questions: [] }), ask({ kind: 'parked', questions: [] })])).toBe('parked');
-    expect(markOf([ask({ kind: 'parked', questions: [] }), ask()])).toBe('decision');
-  });
-
 });
 
 describe('Markdown bodies (the lead: folded = words without syntax, unfolded = rendered)', () => {
@@ -343,22 +304,22 @@ describe('review of 2f4cacdb (qitem-20261102211602-6b4204ae)', () => {
 
   it('P2: an HTML source, or one no session can open, is shown inert with its path as tooltip; a Markdown anchor opens the file', async () => {
     const opened = vi.fn();
-    const r1 = render(<LangProvider lang="fr"><AsksColumn view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/mockups/x.html' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
+    const r1 = render(<LangProvider lang="fr"><RigRequests focus={null} view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/mockups/x.html' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
     expect(screen.queryByRole('button', { name: 'docs/mockups/x.html' })).toBeNull();
     expect(screen.getByText('docs/mockups/x.html').closest('.ask-src-inert')).toHaveAttribute('title', 'docs/mockups/x.html');
     r1.unmount();
-    const r2 = render(<LangProvider lang="fr"><AsksColumn view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/vision/note.md#regles' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
+    const r2 = render(<LangProvider lang="fr"><RigRequests focus={null} view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/vision/note.md#regles' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
     await userEvent.click(screen.getByRole('button', { name: 'docs/vision/note.md#regles' }));
     expect(opened).toHaveBeenCalledWith('docs/vision/note.md');
     r2.unmount();
     // No session follows the seat: nothing can open it.
-    render(<LangProvider lang="fr"><AsksColumn view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/vision/note.md' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[]} machineLabel="WSL" sourceOf={() => null} /></LangProvider>);
+    render(<LangProvider lang="fr"><RigRequests focus={null} view={{ channel: ready, asks: [ask({ evidenceRef: 'docs/vision/note.md' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[]} machineLabel="WSL" sourceOf={() => null} /></LangProvider>);
     expect(screen.queryByRole('button', { name: 'docs/vision/note.md' })).toBeNull();
   });
 
   it('P2: a Markdown link to a file in the body opens like the source', async () => {
     const opened = vi.fn();
-    render(<LangProvider lang="fr"><AsksColumn view={{ channel: ready, asks: [ask({ body: 'Voir [la note](docs/vision/note.md).' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
+    render(<LangProvider lang="fr"><RigRequests focus={null} view={{ channel: ready, asks: [ask({ body: 'Voir [la note](docs/vision/note.md).' })], truncated: false, partial: false, answer: vi.fn(), refresh: vi.fn() }} sessions={[BIX]} machineLabel="WSL" sourceOf={() => opened} /></LangProvider>);
     await userEvent.click(screen.getByText('la note'));
     expect(opened).toHaveBeenCalledWith('docs/vision/note.md');
   });

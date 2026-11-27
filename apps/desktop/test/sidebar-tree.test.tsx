@@ -172,14 +172,14 @@ describe('the sidebar tree', () => {
   });
 
   // Issue #28, the « Atelier » skin (spec 2026-11-26-ide-atelier-skin §5): a principal that waits says « À toi » in place of its time.
-  it('under the skin, a waiting principal says Your turn in place of its time; the others keep their time or offline', async () => {
+  it('under the skin, a waiting principal says what it waits for (#40 PR 3, design-ux: « Approval », « Question ») in place of its time; the others keep their time or offline', async () => {
     const { side, user } = await boot({ projects: PROJECTS, sessions: listSessions() });
     const tree = within(side.getByRole('tree', { name: 'Projects, branches and sessions' }));
     const time = (name: RegExp) => tree.getByRole('treeitem', { name }).querySelector(':scope > .st-time')!;
     // Otto waits for an authorisation (coral), Kit for an answer (amber, by the question's class).
-    expect(time(/^Otto/).querySelector('.at-tag')).toHaveTextContent('Your turn');
+    expect(time(/^Otto/).querySelector('.at-tag')).toHaveTextContent('Approval');
     expect(time(/^Otto/)).toHaveClass('t-approval');
-    expect(time(/^Kit/).querySelector('.at-tag')).toHaveTextContent('Your turn');
+    expect(time(/^Kit/).querySelector('.at-tag')).toHaveTextContent('Question');
     expect(time(/^Kit/)).toHaveClass('t-question');
     // A session at work keeps its time; an offline one says so, even though its state was a wait's.
     expect(time(/^Nova/).querySelector('.at-tag')).toBeNull();
@@ -204,12 +204,12 @@ describe('the sidebar tree', () => {
     expect(tree.getByRole('treeitem', { name: /^Otto/ }).querySelector('.at-tag')).toBeNull();
   });
 
-  it('under the skin, a session in error says Your turn too, with the error class (the outlined pill, the owner\'s choice A)', async () => {
+  it('under the skin, a session in error says « Error », with the error class (the outlined pill, the owner\'s choice A)', async () => {
     const zed = fakeSession('zed', { name: 'Zed', cwd: '/w/ledge', state: 'error', branch: 'desktop', topic: 'Corriger le build' });
     const { side } = await boot({ projects: PROJECTS, sessions: [...listSessions(), zed] });
     const time = within(side.getByRole('tree', { name: 'Projects, branches and sessions' })).getByRole('treeitem', { name: /^Zed/ }).querySelector(':scope > .st-time')!;
     expect(time).toHaveClass('t-error');
-    expect(time.querySelector('.at-tag')).toHaveTextContent('Your turn');
+    expect(time.querySelector('.at-tag')).toHaveTextContent('Error');
   });
 
   // Issues #31 and #32: the name in its own span (it gives way with « … »), the branch tag's name in its own (it gives way first).

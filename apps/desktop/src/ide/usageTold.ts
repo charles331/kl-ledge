@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { UsageAlert } from '@ledge/protocol';
 import { readJson, writeJson } from '../state/storage';
 
-/** The usage alerts the IDE has told, kept across restarts: each one is said once (the user, 2026-11-09), never as a card in « À toi ». */
+/** The usage alerts the IDE has told, kept across restarts: each one is said once (the user, 2026-11-09). */
 export const USAGE_TOLD_KEY = 'ledge.ide.usageTold';
 const MAX = 200;
 

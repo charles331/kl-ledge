@@ -3,7 +3,7 @@ import type { ClientMessage, Task } from '@ledge/protocol';
 import { test, expect, seedAtelier } from './fixtures';
 import { fakeDaemon, session, twoProjects } from './daemon';
 
-// Issue #9 (docs/mockups/ledge-report.html): the flag of the title bar opens « Signaler »; an agent's report waits in « À toi ».
+// Issue #9 (docs/mockups/ledge-report.html): the flag of the title bar opens « Signaler »; an agent's report waits in the Tasks view (#40).
 // The fake daemon answers: no real issue is created.
 test.use({ viewport: { width: 1600, height: 1000 } });
 test.setTimeout(90_000);
@@ -20,10 +20,10 @@ const REPORT: Task = {
 const W = {
   fr: { flag: 'Signaler un bug ou proposer une idée', dialog: 'Signaler', title: 'Titre', happened: 'Ce qui s’est passé', expected: 'Ce qui était attendu', repro: /^Comment le reproduire/,
     log: /Ajouter un extrait du journal du daemon/, create: /^Créer l’issue/, created: 'Issue #14 créée sur kl-ledge/ledge.', titleEmpty: 'Donnez un titre au signalement.', openGh: /^Ouvrir sur GitHub/,
-    nav: /activité/, atoi: 'À toi', page: 'Page', agent: 'Otto signale un bug', idea: /^Idée/ },
+    nav: /activité/, tasks: 'Tâches (Ctrl+/)', agent: 'Otto signale un bug', idea: /^Idée/ },
   en: { flag: 'Report a bug or suggest an idea', dialog: 'Report', title: 'Title', happened: 'What happened', expected: 'What was expected', repro: /^How to reproduce it/,
     log: /Add an excerpt of the daemon log/, create: /^Create the issue/, created: 'Issue #14 created on kl-ledge/ledge.', titleEmpty: 'Give the report a title.', openGh: /^Open on GitHub/,
-    nav: /Activity bar/, atoi: 'For you', page: 'Page', agent: 'Otto reports a bug', idea: /^Idea/ }
+    nav: /Activity bar/, tasks: 'Tasks (Ctrl+/)', agent: 'Otto reports a bug', idea: /^Idea/ }
 } as const;
 
 async function boot(page: Page, theme: 'dark' | 'light', lang: 'fr' | 'en', created: { ok: boolean; number?: number; url?: string; code?: string } = { ok: true, number: 14, url: 'https://github.com/kl-ledge/ledge/issues/14' }) {
@@ -39,7 +39,7 @@ async function boot(page: Page, theme: 'dark' | 'light', lang: 'fr' | 'en', crea
 const creates = (received: ClientMessage[]) => received.filter(m => m.type === 'report.create');
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'fr'], ['dark', 'en'], ['light', 'en']] as const) {
-  test(`« Signaler » (${theme}, ${lang}): the flag, a bug with its log, the toast; an idea; an agent's report in « À toi »`, async ({ page }) => {
+  test(`« Signaler » (${theme}, ${lang}): the flag, a bug with its log, the toast; an idea; an agent's report in the Tasks view`, async ({ page }) => {
     const w = W[lang];
     const daemon = await boot(page, theme, lang);
     const flag = page.getByRole('button', { name: w.flag });
@@ -72,9 +72,9 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'fr'], ['dark', 'en'], ['
     expect(creates(daemon.received)).toHaveLength(1);
     await page.keyboard.press('Escape');
 
-    // An agent's report, in « À toi » › Decisions.
-    await page.getByRole('navigation', { name: w.nav }).getByRole('button', { name: w.atoi, exact: true }).click();
-    await page.getByRole('button', { name: w.page, exact: true }).click();
+    // An agent's report, in the Tasks view (#40 D5): its row, then its card in the detail.
+    await page.getByRole('navigation', { name: w.nav }).getByRole('button', { name: w.tasks, exact: true }).click();
+    await page.locator('[data-task="t-15"]').click();
     const card = page.locator('[data-report="t-15"]');
     await expect(card).toContainText(w.agent);
     await expect(card.locator('[data-item="tool"]')).toBeVisible();

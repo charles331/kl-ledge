@@ -38,7 +38,7 @@ export function useAccent(): string | null { return useSyncExternalStore(subscri
 /** Issue #28: the « Atelier » skin replaces the IDE's former look (the owner's choice pending: on by default, one palette,
  *  « Établi »). `false` gives back today's look, tokens.css alone. */
 export const SKIN_ON = true;
-/** Whether the IDE wears the « Atelier » skin (a few components draw differently under it, the explorer's « À toi »). */
+/** Whether the IDE wears the « Atelier » skin (a few components draw differently under it, the explorer's waiting tag). */
 export function useSkin(): boolean { return SKIN_ON; }
 /** Mounted once by the App: mirrors the theme on the root element for the shared tokens and paints the accent for it, then the
  *  skin's tokens (@ledge/ui/skin), which fold the accent in. */

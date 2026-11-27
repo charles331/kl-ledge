@@ -24,27 +24,25 @@ const fr = {
     answerIn: 'Répondre dans Ledge', decisionAsks: ' te demande une décision', see: 'Voir',
     offline: 'Une machine est hors ligne', offlineSub: 'Reconnexion automatique', openMachines: 'Ouvrir les machines dans Ledge'
   },
-  atoi: {
-    routine: {
-      ask: (who: string, name: string, when: string, dir: string) => `${who} veut programmer « ${name} » : ${when}, dans ${dir}`,
-      groupAsk: (who: string, n: number, list: string) => `${who} veut programmer ${n} routines uniques : ${list}`,
-      /** A session's change to a routine (card 29): the settings it asks for. */
-      editAsk: (who: string, name: string, when: string) => `${who} veut modifier « ${name} » : ${when}`,
-      failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
-      activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer',
-      days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' }, daily: 'tous les jours', every2: '1 sem. sur 2',
-      /** Why a run did not leave, as cards 8, 13-16 and 29 draw it, by the field the daemon names; any other reason is the daemon's own. */
-      why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
-      /** An approval refused because the routine changed since the island showed it (card 32): nothing activated. */
-      stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
-      /** Before the routine is read: never the daemon's French task title (card 30). */
-      fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
-      /** Past three moments in a request (card 28). */
-      more: (list: string, n: number) => `${list} et ${n} autres`,
-      /** A daemon too old for a grouped answer, or for any routine command (card 33): nothing was sent, nothing changed. */
-      groupTooOld: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
-      tooOld: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'
-    }
+  routine: {
+    ask: (who: string, name: string, when: string, dir: string) => `${who} veut programmer « ${name} » : ${when}, dans ${dir}`,
+    groupAsk: (who: string, n: number, list: string) => `${who} veut programmer ${n} routines uniques : ${list}`,
+    /** A session's change to a routine (card 29): the settings it asks for. */
+    editAsk: (who: string, name: string, when: string) => `${who} veut modifier « ${name} » : ${when}`,
+    failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
+    activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer',
+    days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' }, daily: 'tous les jours', every2: '1 sem. sur 2',
+    /** Why a run did not leave, as cards 8, 13-16 and 29 draw it, by the field the daemon names; any other reason is the daemon's own. */
+    why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
+    /** An approval refused because the routine changed since the island showed it (card 32): nothing activated. */
+    stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
+    /** Before the routine is read: never the daemon's French task title (card 30). */
+    fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
+    /** Past three moments in a request (card 28). */
+    more: (list: string, n: number) => `${list} et ${n} autres`,
+    /** A daemon too old for a grouped answer, or for any routine command (card 33): nothing was sent, nothing changed. */
+    groupTooOld: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
+    tooOld: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'
   },
   island: {
     badge: { finished: 'Terminé', error: 'Erreur', permission: 'Ton accord', question: 'Une question', plan: 'Plan à approuver', diff: 'À relire' } as Record<AgentKind, string>,
@@ -77,21 +75,19 @@ const en: Messages = {
     answerIn: 'Answer in Ledge', decisionAsks: ' asks you for a decision', see: 'View',
     offline: 'A machine is offline', offlineSub: 'Reconnecting on its own', openMachines: 'Open the machines in Ledge'
   },
-  atoi: {
-    routine: {
-      ask: (who: string, name: string, when: string, dir: string) => `${who} wants to schedule “${name}”: ${when}, in ${dir}`,
-      groupAsk: (who: string, n: number, list: string) => `${who} wants to schedule ${n} one-shot routines: ${list}`,
-      editAsk: (who: string, name: string, when: string) => `${who} wants to change “${name}”: ${when}`,
-      failed: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
-      activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Retry',
-      days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }, daily: 'every day', every2: 'every 2 wks',
-      why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
-      stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
-      fallbackAsk: (name: string) => `“${name}” awaits your approval`, fallbackFailed: (name: string, why: string) => `The routine ${name} could not run: ${why}`,
-      more: (list: string, n: number) => `${list} and ${n} more`,
-      groupTooOld: 'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
-      tooOld: 'This machine’s Ledge is too old for this action: update it. Nothing changed.'
-    }
+  routine: {
+    ask: (who: string, name: string, when: string, dir: string) => `${who} wants to schedule “${name}”: ${when}, in ${dir}`,
+    groupAsk: (who: string, n: number, list: string) => `${who} wants to schedule ${n} one-shot routines: ${list}`,
+    editAsk: (who: string, name: string, when: string) => `${who} wants to change “${name}”: ${when}`,
+    failed: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
+    activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Retry',
+    days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }, daily: 'every day', every2: 'every 2 wks',
+    why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
+    stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
+    fallbackAsk: (name: string) => `“${name}” awaits your approval`, fallbackFailed: (name: string, why: string) => `The routine ${name} could not run: ${why}`,
+    more: (list: string, n: number) => `${list} and ${n} more`,
+    groupTooOld: 'This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.',
+    tooOld: 'This machine’s Ledge is too old for this action: update it. Nothing changed.'
   },
   island: {
     badge: { finished: 'Done', error: 'Error', permission: 'Approval', question: 'Question', plan: 'Plan to approve', diff: 'To review' },

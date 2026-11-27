@@ -181,13 +181,6 @@ describe('the pinned request and the reply', () => {
     expect(field()).toHaveValue('à moitié');
   });
 
-  it('Reply from the sidebar lands in the reply field', async () => {
-    const { user } = await boot({ sessions: listSessions() });
-    // The IDE's « For you » view has the requests.
-    await user.click(screen.getByRole('button', { name: /^For you/ }));
-    await user.click(await screen.findByRole('button', { name: 'Reply' }));
-    expect(await screen.findByRole('textbox', { name: 'Reply to the agent' })).toHaveFocus();
-  });
 });
 
 describe('the reply, beyond the brief (carried items)', () => {

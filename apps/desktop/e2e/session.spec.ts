@@ -62,17 +62,6 @@ test('at the end of the thread, a new item stays in view', async ({ page }) => {
   daemon.item('nova', { kind: 'reply', id: 'reply-live', at: new Date().toISOString(), turn: 120, text: 'Terminé.' });
   await expect(thread(page).getByText('Terminé.')).toBeInViewport();
 });
-test('Reply from « For you » lands in the field; Enter sends the reply', async ({ page }) => {
-  const daemon = await fakeDaemon(page, fleet, { projects: twoProjects });
-  await page.goto('/'); await ideReady(page);
-  // The old sidebar's waiting block is the IDE's « For you » view.
-  await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'For you' }).click();
-  await page.getByRole('region', { name: 'Your turn' }).getByRole('button', { name: 'Reply' }).click();
-  await expect(page.getByRole('textbox', { name: 'Reply to the agent' })).toBeFocused();
-  await page.keyboard.type('Port 3000');
-  await page.keyboard.press('Enter');
-  await expect.poll(() => daemon.received.filter(m => m.type === 'session.reply')).toEqual([{ type: 'session.reply', id: 'luna', text: 'Port 3000' }]);
-});
 test('each tab keeps its own view: Otto on Terminal, Nova on its thread, and Otto\'s Terminal survives a reload', async ({ page }) => {
   // The old interface's Terminal view followed from agent to agent (Alt+← / →); the IDE gives each tab its own (v26), Alt+← / → moves tabs.
   await fakeDaemon(page, fleet, { projects: twoProjects });

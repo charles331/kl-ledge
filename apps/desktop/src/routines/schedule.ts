@@ -3,7 +3,7 @@ import type { Lang, Messages } from '../i18n/messages';
 
 /**
  * How a routine's schedule reads on Desktop (docs/mockups/ledge-routines.html): the one module that reads a schedule's `times`,
- * `days`, `every` and `at`, for the sidebar, the page, « À toi » and the explorer's clock, and that turns the form's draft back
+ * `days`, `every` and `at`, for the sidebar, the page and the explorer's clock, and that turns the form's draft back
  * into a schedule. Instants (`nextRuns`, a run's `at`) are shown in this PC's zone; nothing here computes a firing: the daemon does.
  */
 
@@ -89,24 +89,6 @@ export const momentDate = (at: string): Date => new Date(`${at}:00`);
 
 /** A one-shot's chip (card 19): « jeu. 3 déc. · 16:00 ». */
 export const momentLabel = (at: string, lang: Lang): string => `${dateLong(momentDate(at), lang)} · ${at.slice(11, 16)}`;
-
-/** An activation request's text after its author (« À toi », card 13, and the owner's two texts of 2026-11-23): « veut programmer
- *  « point-hebdo » : 17:00 (ven), dans ~/assistant », every other week « 16:00 (jeu, 1 sem. sur 2) », a one-shot « jeu. 3 déc. 16:00 ».
- *  A session's change (`change`, its proposal's schedule) reads « veut modifier « briefing » : 07:30, 13:30, 16:30 (lun–ven) » (card 29). */
-export function askLine(s: RoutineSchedule, name: string, dir: string, lang: Lang, r: R, change = false): string {
-  const parts = whenParts(s, lang, r);
-  if (change) return s.kind === 'once' ? r.atoi.editAskOnce(name, parts.moments) : r.atoi.editAsk(name, parts.times, parts.days);
-  return s.kind === 'once' ? r.atoi.askOnce(name, parts.moments, dir) : r.atoi.ask(name, parts.times, parts.days, dir);
-}
-
-/** A schedule's words in a request: a one-shot's moments (beyond three, « … et N autres », card 28), else its times and days. */
-function whenParts(s: RoutineSchedule, lang: Lang, r: R): { times: string; days: string; moments: string } {
-  if (s.kind === 'once') {
-    const all = [...s.at].sort().map(a => `${dateLong(momentDate(a), lang)} ${a.slice(11, 16)}`);
-    return { times: '', days: '', moments: all.slice(0, 3).join(', ') + (all.length > 3 ? r.atoi.more(all.length - 3) : '') };
-  }
-  return { times: s.times.join(', '), days: s.every?.weeks === 2 ? `${daysLabel(s.days, r)}, ${r.every2}` : daysLabel(s.days, r), moments: '' };
-}
 
 /** A one-shot's earliest moment, for a grouped request's short line (card 23); none for a recurring schedule. */
 export const firstMoment = (s: RoutineSchedule): string | null => (s.kind === 'once' ? [...s.at].sort()[0] ?? null : null);

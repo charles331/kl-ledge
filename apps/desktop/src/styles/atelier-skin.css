@@ -108,7 +108,7 @@
 :root[data-skin="atelier"] .ide-lk { border-radius: 3px; }
 /* Icon buttons of the title bar, the strips and the session bar. */
 :root[data-skin="atelier"] .ide-toggles button, :root[data-skin="atelier"] .ide-strip-tools button, :root[data-skin="atelier"] .st-icon,
-:root[data-skin="atelier"] .ide-bottom .ide-bp-tabs button, :root[data-skin="atelier"] .ide-ex-btn { border-radius: 8px; }
+:root[data-skin="atelier"] .ide-bottom .ide-bp-tabs button { border-radius: 8px; }
 :root[data-skin="atelier"] .ide-bar-stop { border-radius: 8px; }
 :root[data-skin="atelier"] .ide-bar-stop i { border-radius: 3px; }
 :root[data-skin="atelier"] .ide-bar .dchip, :root[data-skin="atelier"] .ide-bar-pill { border-radius: 10px; }
@@ -123,7 +123,7 @@
 :root[data-skin="atelier"] .model-badge, :root[data-skin="atelier"] .rtn-vars button, :root[data-skin="atelier"] .pe-branch, :root[data-skin="atelier"] .st-wt { border-radius: 7px; }
 :root[data-skin="atelier"] select.set-input, :root[data-skin="atelier"] .rtn-row { border-radius: 8px; }
 :root[data-skin="atelier"] .ide-bar-pill .tab-count { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; }
-/* Buttons and fields of the pages (MR et PR, Rig, OpenRig, À toi, Routines, the right panel's tasks, New session): one radius. */
+/* Buttons and fields of the pages (MR et PR, Rig, OpenRig, Routines, the Tasks view, New session): one radius. */
 :root[data-skin="atelier"] .fg-btn, :root[data-skin="atelier"] .ide-rig-btn, :root[data-skin="atelier"] .rt-btn, :root[data-skin="atelier"] .ask-btn,
 :root[data-skin="atelier"] .ide-rigs-go button, :root[data-skin="atelier"] .ide-orp-launch, :root[data-skin="atelier"] .ide-abar-btn,
 :root[data-skin="atelier"] .launch-modal .launch-modal-inp, :root[data-skin="atelier"] .launch-modal-ta, :root[data-skin="atelier"] .launch-modal .model-trigger,

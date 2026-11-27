@@ -1,4 +1,4 @@
-/* The sidebar as the IDE's explorer for « Projets » and « À toi » (docs/mockups/session-management/sidebar-tree.css): the
+/* The sidebar as the IDE's explorer for « Projets » (docs/mockups/session-management/sidebar-tree.css): the
    project › branch › session tree and what waits for the user. `.side-swatch` and `.machine-dot` are used across the app. */
 .sidebar.st{position:relative;width:288px;display:flex;flex-direction:column;padding:0;gap:0;background:var(--sidebar);border-right:1px solid var(--sidebar-border)}
 .st button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
@@ -14,24 +14,10 @@
 .st-badge{min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:grid;place-items:center;font:600 10px 'Geist Mono',monospace;background:var(--sidebar-primary);color:var(--sidebar-primary-foreground,var(--primary-foreground))}
 .st .st-icon{width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--muted-foreground)}
 .st .st-icon:hover,.st .st-icon.on{background:var(--sidebar-accent);color:var(--sidebar-foreground)}
-/* « À toi » */
-.st-card{display:flex;gap:8px;padding:6px 6px 6px 8px;border-radius:var(--radius-md)}
-.st-card:hover,.st-card.sel{background:var(--sidebar-accent)}
-.st-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.st-l1{display:flex;align-items:center;gap:6px;font-size:13px}
-.st .st-name{font-weight:500;color:var(--sidebar-foreground)}
-.st .st-name:hover{text-decoration:underline}
-.st-where{flex:1;min-width:0;display:flex;align-items:center;gap:2px;font:11px 'Geist Mono',monospace;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st-task .st-where{display:block}
-.st-where .side-swatch{width:7px;height:7px;margin:0 3px 0 0}
-.st-l2{display:flex;align-items:center;gap:5px}
-.st-req{flex:1;min-width:0;font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st .st-qa{height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:11px;font-weight:500;border:1px solid var(--input);color:var(--sidebar-foreground)}
 .st .st-qa:hover{background:var(--sidebar-accent)}
 .st .st-qa.pri{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
 .st .st-qa.pri:hover{background:var(--primary-hover)}
-.st .st-showall{margin:2px 0 0 34px;font-size:12px;color:var(--muted-foreground)}
-.st .st-showall:hover{color:var(--sidebar-foreground)}
 /* The tree */
 .st-tree{display:flex;flex-direction:column;gap:1px}
 .st-row{--d:0;position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0 6px 0 calc(4px + var(--d) * 14px);border-radius:var(--radius-sm);font-size:13px;color:var(--muted-foreground)}
@@ -81,11 +67,10 @@
 .st-agent{align-items:flex-start;min-height:40px}
 .st-agent>.st-chev,.st-agent>.st-gap{margin-top:7px}
 .st-bot{width:18px;height:18px;flex:none;display:grid;place-items:center;margin-top:5px}
-.st-card .st-bot{margin-top:1px}
 .st-agent.helper{min-height:28px;align-items:center}
 .st-agent.helper .st-main{flex-direction:row;gap:6px;align-items:baseline}
 .st-agent.helper .st-main strong{flex:none}
-/* Compact (#31): on its one line the topic gives way first, then the name, never the time or « À toi ». */
+/* Compact (#31): on its one line the topic gives way first, then the name, never the time or the waiting tag. */
 .st-dense .st-agent:not(.helper) .st-main strong{flex:0 1 auto}
 .st-dense .st-agent:not(.helper) .st-main>span{flex:1 1 0;min-width:0}
 .st-agent.helper>.st-chev,.st-agent.helper>.st-gap,.st-agent.helper .st-bot,.st-agent.helper .st-time,.st-agent.helper .st-kids{margin-top:0}
@@ -149,16 +134,13 @@
  .sidebar.st{width:64px}
  .st kbd{display:none!important}
  .st-ask{margin:10px 8px 0;padding:0;justify-content:center;border:0;background:none}.st-ask kbd{display:none}
- .st-attn,.st-label,.st-help,.st-empty,.st-agent,.st-branch,.st-more,.st-archives{display:none}
+ .st-label,.st-help,.st-empty,.st-agent,.st-branch,.st-more,.st-archives{display:none}
  .st-project{justify-content:center;padding:0;min-height:36px}.st-project>.st-chev,.st-project>.st-gap,.st-project .st-main,.st-project .st-acts{display:none}
  .st-project .side-swatch{width:16px;height:16px;border-radius:5px}
  .st-tally{position:absolute;top:2px;right:6px}.st-tally span:not(.t-need){display:none}
  
 }
 
-.st-card.st-task .st-task-mark{display:grid;place-items:center;width:18px;height:18px;font-size:12px;color:var(--success,#16a34a)}
-.st-card.st-near .st-task-mark{color:var(--warning,#e5b85c)}
-.st-card.st-decision .st-task-mark{color:var(--sidebar-primary);font-weight:700}
 
 /* OpenRig's groups (docs/mockups/ledge-openrig-groups.html): a rig's hexagon, the kernel's. */
 .st-rig-hex{display:inline-grid;place-items:center;color:var(--info);flex:none}
@@ -179,13 +161,6 @@
 .st-btag{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:0 5px 0 4px;border-radius:4px;border:1px solid color-mix(in oklab,var(--info) 45%,transparent);background:color-mix(in oklab,var(--info) 10%,transparent);color:var(--info);font:500 10px/15px 'Geist Mono',monospace;vertical-align:middle;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;flex:none}
 .st-btag.default{border-color:var(--input);background:none;color:var(--muted-foreground)}
 .st-btag i{font-style:normal;opacity:.7;margin-left:2px}
-/* A harness's usage window past the threshold (amber) or reached (red), first in « À toi » (docs/mockups/ledge-harness-usage.html). */
-.st-gico{width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
-.st-gico.amber{color:var(--warning);background:var(--status-warning-soft, color-mix(in srgb, var(--warning) 12%, transparent))}
-.st-gico.red{color:var(--danger-text);background:var(--status-danger-soft, color-mix(in srgb, var(--destructive) 12%, transparent))}
-.st-usage .st-l1 strong{font-weight:500;font-size:13px;white-space:nowrap}
-.st-usage .st-time.amber{color:var(--warning)}
-.st-usage .st-time.red{color:var(--danger-text)}
 /* A session past « Contexte max », compact on its row (docs/mockups/ledge-harness-usage.html). */
 .st-ctx.failed{color:var(--danger-text);background:color-mix(in srgb, var(--danger-text) 12%, transparent)}
 .st-ctx{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:0 5px;border-radius:5px;font:10.5px 'Geist Mono',monospace;font-weight:400;color:var(--warning);background:var(--status-warning-soft, color-mix(in srgb, var(--warning) 12%, transparent));white-space:nowrap}

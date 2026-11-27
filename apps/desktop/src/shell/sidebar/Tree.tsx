@@ -237,7 +237,7 @@ export function Tree(p: {
   reorder?: { write?: OrderWriter; all(project: string | null): readonly Session[]; notify(text: string): void };
 }): JSX.Element {
   const { t } = useI18n();
-  // Issue #28: under the « Atelier » skin a session that waits says « À toi » in place of its time.
+  // Issue #28: under the « Atelier » skin a session that waits says what it waits for (« Accord », « Question », « Erreur », #40 PR 3) in place of its time.
   const skin = useSkin();
   // What the eye shows of a group (its finished sessions may be hidden, unless « +N finished » showed them): a move steps over the rest.
   const shownIn = (s: Session, g: { project: string | null; branch?: string }) => {
@@ -407,7 +407,7 @@ export function Tree(p: {
         </button>}
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
           {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
-        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.yours}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
+        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.waitTag[s.state === 'waiting_permission' ? 'approval' : s.state === 'waiting_input' ? 'question' : 'error']}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
         <span className="st-acts">
           <button type="button" tabIndex={-1} aria-label={t.side.terminalOne(name)} title="Terminal · T" onClick={() => p.onTerminal(s)}><Icon d={SHELL_ICONS.terminal} size={13} /></button>
           {!helper && <button type="button" tabIndex={-1} aria-label={t.side.archiveOne(s.name)} title={`${t.manage.menu.archive} · E`} onClick={() => p.onArchive([s.id])}><Icon d={SHELL_ICONS.archive} size={13} /></button>}
