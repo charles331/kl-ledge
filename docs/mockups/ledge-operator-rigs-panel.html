@@ -1,0 +1,513 @@
+<title>Rigs dans le fil de Max</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Maquette à trier, 27/11 : dans le fil de Max (operator-agent@kernel), un onglet « Rigs » du volet droit qui répond à
+   « quelles sont les communications et les tâches en cours dans les rigs ». Habillage Atelier, palette « Établi » (celle des
+   maquettes #40). Mise en page : une scène complète (fil + volet), puis les autres vues du volet côte à côte, puis la liste de tri. */
+:root{ --at-base:#221f1b; --at-coral:#f27a63; --at-b:oklch(from var(--at-base) l min(c, .04) h);
+  --at-pane:var(--at-b); --at-side:oklch(from var(--at-b) calc(l - .018) c h); --at-well:oklch(from var(--at-b) calc(l - .04) c h);
+  --at-bench:oklch(from var(--at-b) calc(l - .068) calc(c * .9) h); --at-card:oklch(from var(--at-b) calc(l + .04) c h); --at-raise:oklch(from var(--at-b) calc(l + .075) c h);
+  --at-ink:oklch(from var(--at-b) .95 calc(c * .9 + .004) h); --at-ink2:oklch(from var(--at-b) .69 calc(c + .004) h);
+  --at-line:oklch(from var(--at-ink) l c h / .09); --at-line2:oklch(from var(--at-ink) l c h / .17);
+  --note:#a78bfa; --amber:#e0b04f; --ok:#5fb98b; --blue:#6aa7e8; --red:#f08a7a; --on-accent:#1a1a1a;
+  --sans:'Geist','Segoe UI',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,Consolas,monospace; color-scheme:dark }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --at-base:#fbf7f1; --at-coral:#d6543d; --at-b:oklch(from var(--at-base) l min(c, .028) h);
+  --at-side:oklch(from var(--at-b) calc(l - .025) c h); --at-well:oklch(from var(--at-b) calc(l - .035) c h); --at-bench:oklch(from var(--at-b) calc(l - .08) calc(c * 1.1) h);
+  --at-card:oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h); --at-raise:oklch(from var(--at-b) calc(l - .055) c h);
+  --at-ink:oklch(from var(--at-b) .24 calc(c + .012) h); --at-ink2:oklch(from var(--at-b) .47 calc(c + .012) h);
+  --at-line:oklch(from var(--at-ink) l c h / .11); --at-line2:oklch(from var(--at-ink) l c h / .2);
+  --note:#7c3aed; --amber:#946408; --ok:#267a50; --blue:#2f6fb8; --red:#b9382a; --on-accent:#fff; color-scheme:light } }
+:root[data-theme="light"]{ --at-base:#fbf7f1; --at-coral:#d6543d; --at-b:oklch(from var(--at-base) l min(c, .028) h);
+  --at-side:oklch(from var(--at-b) calc(l - .025) c h); --at-well:oklch(from var(--at-b) calc(l - .035) c h); --at-bench:oklch(from var(--at-b) calc(l - .08) calc(c * 1.1) h);
+  --at-card:oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h); --at-raise:oklch(from var(--at-b) calc(l - .055) c h);
+  --at-ink:oklch(from var(--at-b) .24 calc(c + .012) h); --at-ink2:oklch(from var(--at-b) .47 calc(c + .012) h);
+  --at-line:oklch(from var(--at-ink) l c h / .11); --at-line2:oklch(from var(--at-ink) l c h / .2);
+  --note:#7c3aed; --amber:#946408; --ok:#267a50; --blue:#2f6fb8; --red:#b9382a; --on-accent:#fff; color-scheme:light }
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);background:var(--at-bench);color:var(--at-ink);font-size:13px;line-height:18px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 48px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--at-coral);outline-offset:2px}
+.page{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.intro h1{font-size:22px;line-height:28px;font-weight:650;margin:0 0 6px;text-wrap:balance}
+.intro p{margin:0;color:var(--at-ink2);max-width:68ch;font-size:14px;line-height:21px}
+.intro p b{color:var(--at-ink);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--at-ink2);align-items:center}
+h2{font-size:15px;font-weight:650;margin:0}
+.sec-h{display:flex;flex-direction:column;gap:2px}
+.sec-h p{margin:0;color:var(--at-ink2);max-width:72ch}
+.scroll{overflow-x:auto;border:1px solid var(--at-line);border-radius:14px;background:var(--at-well);padding:14px}
+/* Numéros de tri. */
+.nb{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--at-coral);color:var(--on-accent);
+  font:600 10.5px var(--mono);flex:none}
+.src{font:10.5px var(--mono);border-radius:6px;padding:1px 6px;border:1px solid var(--at-line2);color:var(--at-ink2);white-space:nowrap}
+.src.new{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 50%,transparent)}
+.src.have{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+/* Fenêtre Desktop. */
+.ide{width:1080px;height:640px;display:flex;gap:6px;padding:6px;background:var(--at-bench);border:1px solid var(--at-line);border-radius:12px}
+.act{width:38px;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:4px;flex:none}
+.act i{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:var(--at-ink2)}
+.act i.on{background:color-mix(in srgb,var(--at-coral) 18%,transparent);color:var(--at-coral)}
+.act svg,.gl{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ed{flex:1;min-width:0;background:var(--at-pane);border:1px solid var(--at-line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.tabs{height:32px;background:var(--at-side);display:flex;align-items:flex-end;gap:2px;padding:0 6px;flex:none}
+.tab{height:26px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px 8px 0 0;font-size:11.5px;color:var(--at-ink2);white-space:nowrap}
+.tab.on{background:var(--at-pane);color:var(--at-ink)}
+.tab .ct{font:10px var(--mono);color:var(--at-ink2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block;background:var(--at-ink2)}
+.dot.ok{background:var(--ok)}.dot.am{background:var(--amber)}.dot.rd{background:var(--red)}.dot.bl{background:var(--blue)}.dot.off{background:none;box-shadow:inset 0 0 0 1.5px var(--at-ink2)}
+/* Le fil de Max. */
+.head{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--at-line);font-size:12px;flex:none}
+.head b{font-weight:600}.head .seat{font:11px var(--mono);color:var(--at-ink2)}
+.head .sp{flex:1}
+.thread{flex:1;overflow:hidden;padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12.5px}
+.you{align-self:flex-end;max-width:78%;background:var(--at-raise);border-radius:12px 12px 3px 12px;padding:7px 10px}
+.say{max-width:62ch}
+.say .who{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--at-ink2);margin-bottom:2px}
+.say .who b{color:var(--at-ink);font-weight:600}
+.tool{font:11px var(--mono);color:var(--at-ink2);display:flex;gap:6px;align-items:center}
+.tool .v{color:var(--ok)}
+.tcard{border:1px solid color-mix(in srgb,var(--note) 40%,var(--at-line));background:color-mix(in srgb,var(--note) 8%,var(--at-pane));border-radius:10px;padding:8px 10px;
+  display:flex;flex-direction:column;gap:3px;max-width:430px;font-size:12px;position:relative}
+.tcard.lit{box-shadow:0 0 0 2px var(--note)}
+.tcard .k{display:flex;gap:6px;align-items:center;color:var(--at-ink2);font-size:11px}
+.tcard .k b{color:var(--at-ink);font-weight:500}
+.tcard .t{font-weight:600}
+.bub{border:1px solid var(--at-line2);background:var(--at-card);border-radius:10px;padding:7px 10px;max-width:400px;font-size:12px}
+.bub.sent{align-self:flex-end}
+.bub .k{display:flex;gap:6px;color:var(--at-ink2);font-size:11px;margin-bottom:2px;align-items:center}
+.bub .k b{color:var(--at-ink);font-weight:500}
+.comp{margin:0 14px 12px;border:1px solid var(--at-line2);border-radius:10px;background:var(--at-well);padding:9px 11px;color:var(--at-ink2);font-size:12px;flex:none;display:flex}
+.comp .sp{flex:1}
+/* Le volet. */
+.pane{width:404px;flex:none;background:var(--at-pane);border:1px solid var(--at-line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.pane.alone{height:560px}
+.pbody{flex:1;overflow:hidden;padding:10px;display:flex;flex-direction:column;gap:9px}
+.sum{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--at-ink2)}
+.sum b{color:var(--at-ink);font-weight:600;font-variant-numeric:tabular-nums}
+.sum .w{color:var(--amber)}.sum .w b{color:var(--amber)}
+.sum .sep{opacity:.5}
+.seg{display:inline-flex;border:1px solid var(--at-line2);border-radius:7px;overflow:hidden;align-self:flex-start}
+.seg span{padding:2px 10px;font-size:11.5px;color:var(--at-ink2)}
+.seg span.on{background:var(--at-raise);color:var(--at-ink)}
+.rowf{display:flex;gap:6px;align-items:center}
+.chip{height:21px;padding:0 8px;border-radius:11px;border:1px solid var(--at-line2);font-size:11px;display:inline-flex;align-items:center;gap:4px;color:var(--at-ink2);white-space:nowrap}
+.chip.on{background:var(--at-raise);color:var(--at-ink);border-color:transparent}
+.rig{display:flex;flex-direction:column;gap:2px}
+.rig>.rh{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--at-ink2);font-weight:500;padding:2px 2px 3px}
+.rig>.rh .n{margin-left:auto;font:10.5px var(--mono);letter-spacing:0;text-transform:none}
+.mem{display:grid;grid-template-columns:auto 1fr auto;gap:1px 7px;align-items:center;padding:5px 7px;border-radius:8px}
+.mem.sel{background:var(--at-card);box-shadow:inset 0 0 0 1px var(--at-line2)}
+.mem .nm{display:flex;gap:6px;align-items:baseline;min-width:0}
+.mem .nm b{font-weight:600;font-size:12.5px}
+.mem .nm .seat{font:10.5px var(--mono);color:var(--at-ink2)}
+.mem .st{font-size:10.5px;color:var(--at-ink2);white-space:nowrap}
+.mem .ln{grid-column:2 / 4;font-size:11.5px;color:var(--at-ink2);display:flex;gap:6px;align-items:center;min-width:0}
+.mem .ln .t{color:var(--at-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mem .ln .age{margin-left:auto;font:10.5px var(--mono);white-space:nowrap}
+.mem .more{grid-column:2 / 4;font-size:11px;color:var(--at-ink2)}
+.pill{font-size:10px;border-radius:7px;padding:0 5px;border:1px solid var(--at-line2);color:var(--at-ink2);white-space:nowrap;line-height:15px}
+.pill.run{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+.pill.wait{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 50%,transparent)}
+.pill.blk{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 50%,transparent)}
+.pill.late{color:var(--red);border-color:color-mix(in srgb,var(--red) 50%,transparent)}
+.pill.done{color:var(--at-ink2)}
+.sech{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--at-ink2);font-weight:500;display:flex;gap:6px;align-items:center;padding:4px 2px 0;border-top:1px solid var(--at-line)}
+.sech .n{margin-left:auto;font:10.5px var(--mono);letter-spacing:0;text-transform:none}
+.cl{display:flex;gap:7px;align-items:center;font-size:11.5px;color:var(--at-ink2);padding:2px 7px;min-width:0}
+.cl .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.cl .tm,.ev .tm{font:10.5px var(--mono);white-space:nowrap}
+/* Échanges. */
+.day{font-size:10.5px;color:var(--at-ink2);text-align:center;letter-spacing:.04em}
+.ev{display:grid;grid-template-columns:16px 1fr auto;gap:1px 7px;align-items:start;padding:5px 6px;border-radius:8px;font-size:11.5px}
+.ev .gl{margin-top:2px;color:var(--at-ink2)}
+.ev.hand .gl{color:var(--note)}.ev.warn .gl{color:var(--amber)}
+.ev .w{color:var(--at-ink2);min-width:0}
+.ev .w b{color:var(--at-ink);font-weight:500}
+.ev .x{grid-column:2 / 4;color:var(--at-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .x.q{color:var(--at-ink2)}
+.rt{font:10px var(--mono);color:var(--at-ink2);border:1px solid var(--at-line2);border-radius:5px;padding:0 4px}
+/* Missions. */
+.mis{border:1px solid var(--at-line2);background:var(--at-card);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+.mis .mt{font-weight:600;font-size:12.5px;line-height:17px}
+.mis .mm{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--at-ink2);flex-wrap:wrap}
+.bar{height:5px;border-radius:3px;background:var(--at-well);display:flex;overflow:hidden;gap:2px}
+.bar i{flex:1;border-radius:3px;background:var(--at-raise)}
+.bar i.d{background:var(--ok)}.bar i.r{background:var(--blue)}.bar i.b{background:var(--amber)}
+.steps{display:flex;flex-direction:column;gap:0;font-size:11.5px}
+.stp{display:grid;grid-template-columns:14px 1fr auto;gap:0 8px;align-items:start;position:relative;padding-bottom:6px}
+.stp::before{content:"";position:absolute;left:6px;top:13px;bottom:-1px;width:1.5px;background:var(--at-line2)}
+.stp:last-child::before{display:none}.stp:last-child{padding-bottom:0}
+.stp .m{width:13px;height:13px;border-radius:50%;margin-top:2px;background:var(--at-pane);box-shadow:inset 0 0 0 1.5px var(--at-ink2);display:grid;place-items:center;font-size:8px;color:var(--on-accent)}
+.stp.d .m{background:var(--ok);box-shadow:none}
+.stp.r .m{background:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 25%,transparent)}
+.stp.b .m{background:var(--amber);box-shadow:none}
+.stp .s{color:var(--at-ink2)}.stp .s b{color:var(--at-ink);font-weight:500}
+.stp .tm{font:10.5px var(--mono);color:var(--at-ink2)}
+.chain{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--at-ink2)}
+.chain b{color:var(--at-ink);font-weight:500;background:var(--at-raise);border-radius:6px;padding:0 6px}
+/* Détail d'une ligne. */
+.back{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--at-ink2)}
+.dt{font-weight:600;font-size:13.5px;line-height:18px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11.5px}
+.kv dt{color:var(--at-ink2)}.kv dd{margin:0}
+.body{border:1px solid var(--at-line);background:var(--at-well);border-radius:8px;padding:7px 9px;font-size:11.5px;color:var(--at-ink2);line-height:16px}
+.acts{display:flex;gap:5px;flex-wrap:wrap}
+.b{height:23px;padding:0 9px;border-radius:6px;border:1px solid var(--at-line2);font-size:11px;display:inline-flex;align-items:center;gap:5px;background:var(--at-card);white-space:nowrap}
+.b.pri{background:var(--at-coral);color:var(--on-accent);border-color:transparent}
+.mark{position:absolute;left:-9px;top:-9px}
+.rel{position:relative}
+.four{display:flex;gap:16px;align-items:flex-start}
+.four figure{margin:0;display:flex;flex-direction:column;gap:6px}
+.four figcaption{font-size:12px;color:var(--at-ink2);max-width:404px}
+.four figcaption b{color:var(--at-ink);font-weight:600}
+/* La fenêtre réelle : barre latérale, fil centré, colonne « Résumé de la session ». */
+.ide{width:1180px;height:auto;align-items:stretch}
+.sb{width:170px;flex:none;background:var(--at-side);border:1px solid var(--at-line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:2px}
+.sbh{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--at-ink2);padding:6px 4px 2px}
+.sbr{display:flex;gap:6px;align-items:center;font-size:11.5px;padding:3px 5px;border-radius:6px;white-space:nowrap;overflow:hidden}
+.sbr.in{padding-left:16px}.sbr.on{background:var(--at-raise)}
+.sbr b{font-weight:500}.sbr span:last-child:not(.dot){font:10px var(--mono);color:var(--at-ink2)}
+.cols{flex:1;display:flex;gap:18px;padding:14px 14px 14px 28px;min-height:0}
+.cols .thread{padding:0;overflow:visible}
+.cols .comp{margin:auto 0 0}
+.sumcol{width:292px;flex:none;display:flex;flex-direction:column;gap:9px}
+.sc{width:292px;border:1px solid var(--at-line2);background:var(--at-card);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+.sch{display:flex;gap:6px;align-items:center;font-size:12px;font-weight:600}
+.sch .ct{font:10px var(--mono);color:var(--at-ink2);background:var(--at-raise);border-radius:8px;padding:0 5px;font-weight:400}
+.sch .cv{margin-left:auto;color:var(--at-ink2);font-weight:400}
+.sc .mem{padding:4px 5px}.sc .mem.sel{background:var(--at-raise)}
+.sc .mem .st{font:10.5px var(--mono)}
+.sc .mis{background:var(--at-pane);padding:8px}
+.sc .ev{padding:3px 0}
+.sc .cl{padding:1px 5px}
+.open{border:1px solid var(--at-line2);background:var(--at-pane);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:7px}
+.four figcaption{max-width:292px}
+/* L'agent travaille : remplaçants du spinner. */
+.works{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.wk{border:1px solid var(--at-line);background:var(--at-pane);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.wk h3{margin:0;font-size:13px;font-weight:600;display:flex;gap:7px;align-items:center}
+.wk p{margin:0;color:var(--at-ink2);font-size:12.5px}
+.wrow{display:flex;align-items:center;gap:9px;background:var(--at-well);border-radius:8px;padding:8px 10px;font-size:12.5px;min-height:36px}
+.wrow .ph{color:var(--at-ink2);min-width:0;flex:1}
+.wrow .ph code{font:11px var(--mono);color:var(--at-ink)}
+.wrow .tm{font:10.5px var(--mono);color:var(--at-ink2)}
+.wn{width:20px;height:20px;display:grid;place-items:center;flex:none;color:var(--at-coral)}
+.wn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.ring{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--at-ink2);border-right-color:transparent;animation:turn .9s linear infinite}
+@keyframes turn{to{transform:rotate(360deg)}}
+.watch{width:20px;height:15px;border-radius:6px 6px 5px 5px;background:var(--at-coral);position:relative;animation:bob 2.4s ease-in-out infinite}
+.watch::before,.watch::after{content:"";position:absolute;top:5px;width:3px;height:5px;border-radius:2px;background:var(--on-accent);animation:look 4.8s ease-in-out infinite}
+.watch::before{left:5px}.watch::after{left:12px}
+@keyframes bob{50%{transform:translateY(-1.5px)}}
+@keyframes look{0%,18%{transform:translateX(0) scaleY(1)}22%{transform:translateX(0) scaleY(.1)}26%,44%{transform:translateX(-2px) scaleY(1)}52%,74%{transform:translateX(2px) scaleY(1)}78%{transform:translateX(2px) scaleY(.1)}84%,100%{transform:translateX(0) scaleY(1)}}
+.draw path{stroke-dasharray:34;stroke-dashoffset:34;animation:draw 2.2s ease-in-out infinite}
+@keyframes draw{55%{stroke-dashoffset:0;opacity:1}85%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+.ember{width:8px;height:8px;border-radius:50%;background:var(--at-coral);position:relative}
+.ember::after{content:"";position:absolute;inset:-5px;border-radius:50%;background:var(--at-coral);opacity:.35;animation:glow 1.8s ease-out infinite}
+@keyframes glow{from{transform:scale(.5);opacity:.5}to{transform:scale(1.5);opacity:0}}
+.scan{animation:scan 1.6s ease-in-out infinite}
+@keyframes scan{0%{transform:translateY(0)}50%{transform:translateY(6px)}100%{transform:translateY(0)}}
+.wr path{stroke-dasharray:8;stroke-dashoffset:8;animation:wr 1.8s steps(4) infinite}
+.wr path:nth-child(2){animation-delay:.45s}.wr path:nth-child(3){animation-delay:.9s}
+@keyframes wr{40%,100%{stroke-dashoffset:0}}
+.seek{animation:seek 2.4s ease-in-out infinite}
+@keyframes seek{25%{transform:translate(2.5px,-1.5px)}50%{transform:translate(0,2px)}75%{transform:translate(-2.5px,-1px)}}
+.caret{animation:caret 1s steps(1) infinite}
+@keyframes caret{50%{opacity:0}}
+@media (prefers-reduced-motion: reduce){ .ring,.watch,.watch::before,.watch::after,.draw path,.ember::after,.scan,.wr path,.seek,.caret{animation:none} .draw path,.wr path{stroke-dashoffset:0} }
+/* Liste de tri. */
+.tri{display:flex;flex-direction:column;border:1px solid var(--at-line);border-radius:14px;background:var(--at-pane);overflow:hidden}
+.it{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;padding:11px 14px;border-top:1px solid var(--at-line);align-items:center}
+.it:first-child{border-top:0}
+.it .tx{min-width:0}
+.it .tx b{font-weight:600}
+.it .tx p{margin:1px 0 0;color:var(--at-ink2);font-size:12.5px}
+.it .tx .src{margin-left:6px}
+.ch{display:inline-flex;border:1px solid var(--at-line2);border-radius:8px;overflow:hidden}
+.ch button{padding:4px 10px;font-size:12px;color:var(--at-ink2);border-left:1px solid var(--at-line2)}
+.ch button:first-child{border-left:0}
+.ch button[aria-pressed="true"]{color:var(--at-ink);background:var(--at-raise);font-weight:500}
+.ch button[aria-pressed="true"][data-v="garder"]{background:color-mix(in srgb,var(--ok) 28%,transparent)}
+.ch button[aria-pressed="true"][data-v="évoluer"]{background:color-mix(in srgb,var(--amber) 28%,transparent)}
+.ch button[aria-pressed="true"][data-v="retirer"]{background:color-mix(in srgb,var(--red) 28%,transparent)}
+.it input{grid-column:2 / 4;border:1px solid var(--at-line2);border-radius:7px;background:var(--at-well);color:var(--at-ink);font:inherit;font-size:12.5px;padding:5px 8px;min-width:0;width:100%}
+.it input::placeholder{color:var(--at-ink2)}
+.out{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.out .b{height:30px;padding:0 14px;font-size:13px}
+.out span{color:var(--at-ink2)}
+pre#txt{margin:0;white-space:pre-wrap;font:12px/17px var(--mono);border:1px solid var(--at-line);border-radius:10px;background:var(--at-well);padding:10px 12px;color:var(--at-ink2);user-select:all}
+@media (max-width:640px){ .it{grid-template-columns:auto minmax(0,1fr)} .it .ch{grid-column:2} .it input{grid-column:1 / 3} }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <h1>Les rigs dans le fil de Max</h1>
+    <p>Ta question de départ : <b>quelles sont les communications et les tâches en cours dans les rigs ?</b> Version après ton tri : deux cartes dans la colonne de droite du fil, « Échanges » et « Missions ». Sont retirés la chaîne de mains, les missions terminées, la ligne ouverte avec ses états et ses actions, le lien entre le fil et les cartes, la braise et le guetteur. Il reste cinq points numérotés à trancher, en bas.</p>
+    <div class="legend">
+      <span><span class="nb">3</span> numéro d'un point à trancher</span>
+      <span><span class="src have">déjà lu</span> Ledge a la donnée aujourd'hui</span>
+      <span><span class="src new">lot daemon</span> il faut d'abord la lire dans OpenRig</span>
+    </div>
+  </header>
+
+  <section class="sec-h">
+    <h2>Vue d'ensemble : la colonne « Résumé de la session » du fil de Max</h2>
+    <p>À droite du fil, sous « Fichiers modifiés » et « Sous-agents ». Deux cartes de plus, présentes seulement chez Max : « Missions », puis « Échanges ». Qui tient quoi en ce moment reste dans la barre latérale. Chacune se replie comme les cartes actuelles.</p>
+  </section>
+  <div class="scroll">
+    <div class="ide">
+      <div class="sb">
+        <div class="sbh">Kernel</div>
+        <div class="sbr on"><span class="dot ok"></span><b>Max</b><span>operator-agent</span></div>
+        <div class="sbr"><span class="dot ok"></span><b>Nova</b><span>advisor-lead</span></div>
+        <div class="sbh">Rigs</div>
+        <div class="sbr"><span class="dot ok"></span><b>ledge-dev</b></div>
+        <div class="sbr in"><span class="dot ok"></span><b>Bix</b><span>pilot-lead</span></div>
+        <div class="sbr in"><span class="dot ok"></span><b>Ida</b><span>dev-back</span></div>
+        <div class="sbr in"><span class="dot am"></span><b>Noé</b><span>dev-front</span></div>
+        <div class="sbr in"><span class="dot rd"></span><b>Sam</b><span>review-qa</span></div>
+        <div class="sbr in"><span class="dot off"></span><b>Lou</b><span>design-ux</span></div>
+        <div class="sbr"><span class="dot ok"></span><b>kl-site</b></div>
+      </div>
+      <div class="ed">
+        <div class="tabs"><span class="tab on"><span class="dot ok"></span>Max</span><span class="tab"><span class="dot ok"></span>Bix</span></div>
+        <div class="cols">
+          <div class="thread">
+            <div class="you">Lance la PR 2 de #40, et dis-moi où en est la correction de l'île.</div>
+            <div class="say"><div class="who"><span class="dot ok"></span><b>Max</b><span>17:02</span></div>Je confie la PR 2 à ledge-dev. La correction de l'île est chez Noé, en relecture.</div>
+            <div class="tool"><span class="v">✓</span> rig queue handoff …6c7a --to pilot-lead@ledge-dev</div>
+            <div class="tcard">
+              <div class="k"><svg class="gl" viewBox="0 0 16 16"><rect x="3" y="2.5" width="10" height="11" rx="1.6"/><path d="M5.5 6h5M5.5 9h3.5"/></svg>Ligne passée à <b>Bix</b><span class="pill run">en cours</span><span style="margin-left:auto;font:10.5px var(--mono)">…6c7a</span></div>
+              <div class="t">#40 PR 2 : Demandes dans Rigs, vue Tâches</div>
+            </div>
+            <div class="bub sent"><div class="k">À <b>Noé</b><span>dev-front</span><span style="margin-left:auto">✓ remis</span></div>Où en est fix/island-dnd-escape ? Le propriétaire demande.</div>
+            <div class="bub"><div class="k">De <b>Noé</b><span>dev-front</span></div>Tests verts, Sam relit. PR #48 ouverte.</div>
+            <div class="say"><div class="who"><span class="dot ok"></span><b>Max</b><span>17:06</span></div>La correction de l'île est prête : PR #48, relecture de Sam en cours.</div>
+            <div class="wrow" style="background:none;padding:0"><span class="ph">Il pèse à qui confier la PR 3…</span><span class="tm">5 s</span></div>
+            <div class="comp"><span>Écrire à Max…</span><span class="sp"></span><span>Sonnet 5.5</span></div>
+          </div>
+
+          <div class="sumcol rel">
+            <div class="sc"><div class="sch">Sous-agents <span class="ct">1</span><span class="cv">⌄</span></div>
+              <div class="cl" style="padding:2px 0"><span class="t">Sous-agent</span><span class="pill done">Terminée</span></div></div>
+
+            <div class="sc"><div class="sch">Missions <span class="ct">2</span><span class="cv">⌄</span></div>
+<div class="mis">
+  <div class="mm"><span class="pill blk">en attente</span><span>depuis 16:33</span><span class="rt">ledge-dev</span></div>
+  <div class="mt">Commencer #40 : supprimer le chat Ledge et « À toi »</div>
+  <div class="mm"><span><b style="color:var(--at-ink);font-weight:500">Max</b> → <b style="color:var(--at-ink);font-weight:500">Bix</b> · attend la PR 2b de Léa</span></div>
+  <div class="mm" style="border-left:2px solid var(--at-line2);padding-left:8px"><span>18:37 · « 2a acceptée, envoyée à Max ; 2c = PR #52 ; PR 1 = #51. Attend la 2b. »</span></div>
+  <div class="steps">
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 2b, téléphone</b> · Léa</span><span class="tm">1 h 31</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 3, Desktop + île</b> · Noé</span><span class="tm">34 min</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 4, back</b> · Ida</span><span class="tm">12 min</span></div>
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>9 lignes fermées</b> · inventaires, PR 1, 2a, 2c</span><span class="tm"></span></div>
+  </div>
+</div>
+<div class="mis">
+  <div class="mm"><span class="pill run">en cours</span><span>depuis 16:28</span><span class="rt">kl-site</span></div>
+  <div class="mt">Page des nouveautés 0.68</div>
+  <div class="mm"><span><b style="color:var(--at-ink);font-weight:500">Max</b> → <b style="color:var(--at-ink);font-weight:500">Tom</b> · au travail</span></div>
+  <div class="mm" style="border-left:2px solid var(--at-line2);padding-left:8px"><span>16:39 · « Captures demandées à Eve. »</span></div>
+</div>
+</div>
+            <div class="sc"><div class="sch">Échanges <span class="ct">8</span><span class="cv">⌄</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5 8 9l5.5-4.5"/></svg><span class="w"><b>Noé</b> → <b>Max</b></span><span class="tm">17:05</span><span class="x">Tests verts, Sam relit. PR #48 ouverte.</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5 8 9l5.5-4.5"/></svg><span class="w"><b>Max</b> → <b>Noé</b></span><span class="tm">17:03</span><span class="x">Où en est fix/island-dnd-escape ?</span></div>
+<div class="ev hand"><svg class="gl" viewBox="0 0 16 16"><rect x="3" y="2.5" width="10" height="11" rx="1.6"/><path d="M5.5 6h5M5.5 9h3.5"/></svg><span class="w"><b>Max</b> confie à <b>Bix</b></span><span class="tm">17:02</span><span class="x">#40 PR 2 : Demandes dans Rigs</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></svg><span class="w"><b>Sam</b> termine</span><span class="tm">16:48</span><span class="x q">Inventaire #40, téléphone</span></div>
+<div class="ev warn"><svg class="gl" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3"/></svg><span class="w"><b>Noé</b> se bloque sur <b>Sam</b></span><span class="tm">16:45</span><span class="x">#44 : attend la relecture</span></div>
+<div class="cl" style="justify-content:center">Voir plus ancien</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="sec-h">
+    <h2>Les cartes, une par une</h2>
+    <p>À leur taille réelle, après ton tri. « Missions » passe au-dessus d'« Échanges ». Trois versions selon ce qui compte comme une mission ; la C, lue telle quelle dans OpenRig, est celle de la vue d'ensemble.</p>
+  </section>
+  <div class="scroll">
+    <div class="four">
+      <figure>
+        <div class="sc">
+          <div class="sch"><span class="nb">3</span>Missions <span class="ct">2</span><span class="cv">⌄</span></div>
+<div class="mis">
+  <div class="mm"><span class="pill blk">en attente</span><span>depuis 16:33</span><span class="rt">ledge-dev</span></div>
+  <div class="mt">Commencer #40 : supprimer le chat Ledge et « À toi »</div>
+  <div class="mm"><span><b style="color:var(--at-ink);font-weight:500">Max</b> → <b style="color:var(--at-ink);font-weight:500">Bix</b> · attend la PR 2b de Léa</span></div>
+  <div class="mm" style="border-left:2px solid var(--at-line2);padding-left:8px"><span>18:37 · « 2a acceptée, envoyée à Max ; 2c = PR #52 ; PR 1 = #51. Attend la 2b. »</span></div>
+  <div class="steps">
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 2b, téléphone</b> · Léa</span><span class="tm">1 h 31</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 3, Desktop + île</b> · Noé</span><span class="tm">34 min</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 4, back</b> · Ida</span><span class="tm">12 min</span></div>
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>9 lignes fermées</b> · inventaires, PR 1, 2a, 2c</span><span class="tm"></span></div>
+  </div>
+</div>
+<div class="mis">
+  <div class="mm"><span class="pill run">en cours</span><span>depuis 16:28</span><span class="rt">kl-site</span></div>
+  <div class="mt">Page des nouveautés 0.68</div>
+  <div class="mm"><span><b style="color:var(--at-ink);font-weight:500">Max</b> → <b style="color:var(--at-ink);font-weight:500">Tom</b> · au travail</span></div>
+  <div class="mm" style="border-left:2px solid var(--at-line2);padding-left:8px"><span>16:39 · « Captures demandées à Eve. »</span></div>
+</div>
+        </div>
+        <figcaption><b>Version C, les lignes telles qu'OpenRig les tient.</b> Une mission = la ligne que Max confie à un rig. Son état, qui elle attend, la dernière note de son porteur, et les lignes qu'il a créées depuis. <span class="src new">lot daemon</span></figcaption>
+      </figure>
+      <figure>
+        <div class="sc">
+          <div class="sch"><span class="nb">1</span>Missions <span class="ct">3</span><span class="cv">⌄</span></div>
+<div class="mis">
+  <div class="mm"><span class="pill run">en cours</span><span>depuis 16:33</span><span class="rt">ledge-dev</span></div>
+  <div class="mt">Supprimer le chat Ledge partout (#40)</div>
+  <div class="bar" role="img" aria-label="2 lignes terminées, 2 en cours, 1 bloquée, 1 à venir"><i class="d"></i><i class="d"></i><i class="r"></i><i class="r"></i><i class="b"></i><i></i></div>
+  <div class="steps">
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>Équipe confirmée</b> par toi</span><span class="tm">16:37</span></div>
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>Inventaire</b> · Ida, Noé, Sam</span><span class="tm">16:48</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 1, back</b> · Ida</span><span class="tm">38 min</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>PR 2, vues</b> · Bix</span><span class="tm">4 min</span></div>
+    <div class="stp"><span class="m"></span><span class="s"><b>PR 3, téléphone</b> · à confier</span><span class="tm"></span></div>
+  </div>
+</div>
+<div class="mis">
+  <div class="mm"><span class="pill blk">bloquée</span><span>depuis 16:20</span><span class="rt">ledge-dev</span></div>
+  <div class="mt">Champ de réponse fermé (#44)</div>
+  <div class="bar" role="img" aria-label="1 ligne terminée, 1 bloquée"><i class="d"></i><i class="b"></i></div>
+  <div class="mm"><span>Noé attend la relecture de Sam depuis 21 min</span></div>
+</div>
+<div class="mis">
+  <div class="mm"><span class="pill run">en cours</span><span>depuis 16:28</span><span class="rt">kl-site</span></div>
+  <div class="mt">Page des nouveautés 0.68</div>
+  <div class="bar" role="img" aria-label="1 ligne en cours, 1 à venir"><i class="r"></i><i></i></div>
+</div>
+        </div>
+        <figcaption><b>Version A, mission étiquetée par Max.</b> La barre compte toutes les lignes de la mission ; chaque étape dit qui la tient et depuis quand. <span class="src new">lot daemon</span></figcaption>
+      </figure>
+      <figure>
+        <div class="sc">
+          <div class="sch"><span class="nb">2</span>Missions <span class="ct">1</span><span class="cv">⌄</span></div>
+<div class="mis">
+  <div class="mm"><span class="pill run">en cours</span><span>depuis 16:33</span><span class="rt">ledge-dev</span></div>
+  <div class="mt">Supprimer le chat Ledge partout (#40)</div>
+  <div class="mm"><span>Chez <b style="color:var(--at-ink);font-weight:500">Bix</b> depuis 4 min</span></div>
+  <div class="steps">
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>Envoyée</b> à Max</span><span class="tm">16:33</span></div>
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>Équipe confirmée</b> par toi</span><span class="tm">16:37</span></div>
+    <div class="stp d"><span class="m">✓</span><span class="s"><b>Passée</b> à Bix</span><span class="tm">17:02</span></div>
+    <div class="stp r"><span class="m"></span><span class="s"><b>Prise</b> par Bix</span><span class="tm">4 min</span></div>
+  </div>
+</div>
+        </div>
+        <figcaption><b>Version B, objectifs Ledge seulement.</b> Pas de barre : seule la branche principale est suivie. #44 et la page 0.68, demandées dans le fil, n'apparaissent pas. <span class="src have">déjà lu</span></figcaption>
+      </figure>
+      <figure>
+        <div class="sc">
+          <div class="sch"><span class="nb">4</span>Échanges <span class="ct">8</span><span class="cv">⌄</span></div>
+          <div class="rowf"><span class="chip on">Tout</span><span class="chip">Messages</span><span class="chip">Passages</span><span class="chip">Rig ▾</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5 8 9l5.5-4.5"/></svg><span class="w"><b>Noé</b> → <b>Max</b></span><span class="tm">17:05</span><span class="x">Tests verts, Sam relit. PR #48 ouverte.</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5 8 9l5.5-4.5"/></svg><span class="w"><b>Max</b> → <b>Noé</b></span><span class="tm">17:03</span><span class="x">Où en est fix/island-dnd-escape ?</span></div>
+<div class="ev hand"><svg class="gl" viewBox="0 0 16 16"><rect x="3" y="2.5" width="10" height="11" rx="1.6"/><path d="M5.5 6h5M5.5 9h3.5"/></svg><span class="w"><b>Max</b> confie à <b>Bix</b></span><span class="tm">17:02</span><span class="x">#40 PR 2 : Demandes dans Rigs</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></svg><span class="w"><b>Sam</b> termine</span><span class="tm">16:48</span><span class="x q">Inventaire #40, téléphone</span></div>
+<div class="ev warn"><svg class="gl" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3"/></svg><span class="w"><b>Noé</b> se bloque sur <b>Sam</b></span><span class="tm">16:45</span><span class="x">#44 : attend la relecture</span></div>
+<div class="ev hand"><svg class="gl" viewBox="0 0 16 16"><rect x="3" y="2.5" width="10" height="11" rx="1.6"/><path d="M5.5 6h5M5.5 9h3.5"/></svg><span class="w"><b>Lou</b> passe à <b>Noé</b></span><span class="tm">16:41</span><span class="x">Maquette #44, choix A</span></div>
+<div class="ev"><svg class="gl" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5 8 9l5.5-4.5"/></svg><span class="w"><b>Tom</b> → <b>Eve</b> <span class="rt">kl-site</span></span><span class="tm">16:39</span><span class="x">Prends les captures sur la 0.68.</span></div>
+<div class="ev hand"><svg class="gl" viewBox="0 0 16 16"><rect x="3" y="2.5" width="10" height="11" rx="1.6"/><path d="M5.5 6h5M5.5 9h3.5"/></svg><span class="w"><b>Max</b> confie à <b>Tom</b> <span class="rt">kl-site</span></span><span class="tm">16:30</span><span class="x">Page des nouveautés 0.68</span></div>
+<div class="cl" style="justify-content:center">Voir plus ancien</div>
+        </div>
+        <figcaption><b>Échanges.</b> Messages, lignes confiées, blocages et fins, du plus récent au plus ancien. Filtres : tout, messages, passages, par rig.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <section class="sec-h">
+    <h2>Quand l'agent travaille : le dessin suit l'action <span class="src have">choisi</span></h2>
+    <p>« Selon ce qu'il fait » remplace l'anneau. La braise et le guetteur sont retirés ; il reste à confirmer ce qui s'affiche quand l'agent réfléchit.</p>
+  </section>
+  <div class="works">
+    <div class="wk">
+      <h3>Avant</h3>
+      <div class="wrow"><span class="wn"><span class="ring"></span></span><span class="ph">Il relit <code>island.spec.ts</code>…</span><span class="tm">12 s</span></div>
+      <p>L'anneau neutre, remplacé.</p>
+    </div>
+    <div class="wk">
+      <h3>Les quatre verbes</h3>
+      <div class="wrow"><span class="wn"><svg viewBox="0 0 18 18"><rect x="4" y="2.5" width="10" height="13" rx="1.8"/><path class="scan" d="M6.5 6h5"/></svg></span><span class="ph">Il lit <code>Thread.tsx</code>…</span><span class="tm">3 s</span></div>
+      <div class="wrow"><span class="wn"><svg class="wr" viewBox="0 0 18 18"><path d="M3 5h8"/><path d="M3 9h8"/><path d="M3 13h8"/></svg></span><span class="ph">Il écrit <code>RigsCard.tsx</code>…</span><span class="tm">8 s</span></div>
+      <div class="wrow"><span class="wn"><svg viewBox="0 0 18 18"><g class="seek"><circle cx="8" cy="8" r="4"/><path d="m11 11 3.5 3.5"/></g></svg></span><span class="ph">Il cherche <code>useRigRow</code>…</span><span class="tm">5 s</span></div>
+      <div class="wrow"><span class="wn"><svg viewBox="0 0 18 18"><path d="m3 5.5 4 3.5-4 3.5"/><path class="caret" d="M9.5 13h5.5"/></svg></span><span class="ph">Il lance <code>pnpm test</code>…</span><span class="tm">41 s</span></div>
+    </div>
+    <div class="wk">
+      <h3><span class="nb">5</span>Quand il réfléchit : la phrase seule</h3>
+      <div class="wrow"><span class="ph">Il pèse les options…</span><span class="tm">6 s</span></div>
+      <p>Aucun outil ne tourne, donc aucun dessin : la phrase d'attente et sa durée.</p>
+    </div>
+  </div>
+
+  <section class="sec-h">
+    <h2>Ce qu'il reste à trancher</h2>
+    <p>Cinq points. Pour les missions, garde une version et retire les deux autres. Le bouton en bas copie le tout, à coller dans la conversation.</p>
+  </section>
+  <div class="tri" id="tri"></div>
+  <div class="out"><button class="b pri" id="copy" type="button">Copier mon tri</button><span id="state" role="status"></span></div>
+  <pre id="txt" aria-label="Ton tri en texte"></pre>
+</div>
+
+<script>
+const ITEMS = [
+  [1, "Missions, version A : mission étiquetée par Max", "Max étiquette chaque mission qu'il distribue ; la carte compte toutes ses lignes. Demande une consigne à Max et un lot daemon.", "new"],
+  [2, "Missions, version B : objectifs Ledge seulement", "État, porteur et étapes d'un objectif donné par Ledge. 18 lignes sur 670 de ta file sont rattachées à un objectif.", "have"],
+  [3, "Missions, version C : les lignes d'OpenRig", "La ligne que Max confie à un rig, son état, qui elle attend, la dernière note de son porteur et les lignes qu'il a créées. Aucune consigne à Max. Le journal de notes demande une lecture de plus ; le rattachement des sous-lignes est déduit, pas garanti.", "new"],
+  [4, "Carte « Échanges », sous « Missions »", "Journal avec ses filtres. Les passages de main sont lus (20 derniers) ; un journal complet des messages demande un lot daemon.", "new"],
+  [5, "Réflexion : la phrase seule", "Quand aucun outil ne tourne, la phrase d'attente s'affiche sans dessin.", "have"]
+];
+const KEY = "ledge-rigs-panel-tri-v6";
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+const root = document.getElementById("tri"), txt = document.getElementById("txt"), state = document.getElementById("state");
+function store() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} }
+function text() {
+  return ITEMS.map(([n, name]) => {
+    const s = saved[n] || {};
+    return `${n}. ${name} : ${s.v || "pas encore trié"}${s.note ? " (" + s.note + ")" : ""}`;
+  }).join("\n");
+}
+function refresh() {
+  txt.textContent = text();
+  const done = ITEMS.filter(([n]) => saved[n] && saved[n].v).length;
+  state.textContent = `${done} sur ${ITEMS.length} triées`;
+}
+for (const [n, name, desc, src] of ITEMS) {
+  const it = document.createElement("div"); it.className = "it";
+  const nb = document.createElement("span"); nb.className = "nb"; nb.textContent = n;
+  const tx = document.createElement("div"); tx.className = "tx";
+  const b = document.createElement("b"); b.textContent = name;
+  const tag = document.createElement("span"); tag.className = "src " + src; tag.textContent = src === "have" ? "déjà lu" : "lot daemon";
+  const p = document.createElement("p"); p.textContent = desc;
+  tx.append(b, tag, p);
+  const ch = document.createElement("div"); ch.className = "ch"; ch.setAttribute("role", "group"); ch.setAttribute("aria-label", "Tri de la partie " + n);
+  for (const [v, label] of [["garder", "Garder"], ["évoluer", "Faire évoluer"], ["retirer", "Retirer"]]) {
+    const bt = document.createElement("button"); bt.type = "button"; bt.textContent = label; bt.dataset.v = v;
+    bt.setAttribute("aria-pressed", String((saved[n] || {}).v === v));
+    bt.addEventListener("click", () => {
+      const cur = saved[n] || (saved[n] = {});
+      cur.v = cur.v === v ? "" : v;
+      for (const o of ch.children) o.setAttribute("aria-pressed", String(o.dataset.v === cur.v));
+      store(); refresh();
+    });
+    ch.append(bt);
+  }
+  const inp = document.createElement("input"); inp.id = "note-" + n; inp.placeholder = "Note (facultatif) : ce que tu veux changer";
+  inp.setAttribute("aria-label", "Note pour la partie " + n); inp.value = (saved[n] || {}).note || "";
+  inp.addEventListener("input", () => { (saved[n] || (saved[n] = {})).note = inp.value.trim(); store(); refresh(); });
+  it.append(nb, tx, ch, inp); root.append(it);
+}
+document.getElementById("copy").addEventListener("click", () => {
+  const done = () => { state.textContent = "Copié. Colle-le dans la conversation."; };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents(txt); const s = getSelection(); s.removeAllRanges(); s.addRange(r); state.textContent = "Texte sélectionné : copie-le avec Ctrl+C."; };
+  try { navigator.clipboard.writeText(text()).then(done, fallback); } catch (e) { fallback(); }
+});
+refresh();
+</script>

@@ -36,6 +36,23 @@ describe('the waiting line', () => {
     expect(within(line).getByText('npm test').tagName).toBe('CODE');
   });
 
+  it('draws what the agent does: the ring while it reads its message, then the drawing of its last action\'s verb', async () => {
+    const { d } = await openNova();
+    const line = await thread().findByRole('status', { name: 'The agent is working' });
+    // Reading the prompt: no action behind the wait, the ring stays (the owner has not chosen yet).
+    expect(line.querySelector('.spin')).not.toBeNull();
+    expect(line.querySelector('[data-drawing]')).toBeNull();
+    const done = (id: string, tool: string, label: string): ThreadItem => ({ kind: 'tool', id, at: ago(1), turn: 1, tool, label, status: 'success', durationMs: 200, files: [] });
+    for (const [id, tool, drawing] of [['t1', 'Read', 'read'], ['t2', 'Edit', 'write'], ['t3', 'Grep', 'search'], ['t4', 'Bash', 'run']] as const) {
+      d.threadItem('nova', done(id, tool, `${tool.toLowerCase()} x`));
+      await expect.poll(() => thread().getByRole('status', { name: 'The agent is working' }).querySelector('[data-drawing]')?.getAttribute('data-drawing')).toBe(drawing);
+    }
+    expect(thread().getByRole('status', { name: 'The agent is working' }).querySelector('.spin')).toBeNull();
+    // A failed action keeps the ring.
+    d.threadItem('nova', { ...done('t5', 'Bash', 'npm test'), status: 'failed' } as ThreadItem);
+    await expect.poll(() => thread().getByRole('status', { name: 'The agent is working' }).querySelector('.spin')).not.toBeNull();
+  });
+
   it('goes once the agent stops working', async () => {
     const { d } = await openNova();
     await thread().findByRole('status', { name: 'The agent is working' });
