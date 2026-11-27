@@ -91,20 +91,22 @@ function IslandBox({ island, rigs, helpers, pressed, onPress }: { island: Island
  * The Atelier on a phone (docs/mockups/ledge-mobile-refonte/m2-sessions.html §7, QUESTIONS.md « M2b · L'Atelier sur téléphone »):
  * the agents in islands, by project or by rig, without the rooms' drawing; Ledge's desk at the bottom.
  */
-export function SessionsAtelier({ sessions, by, onBy, helpers, onHelpers, rigs, pressed, onPress }: {
+export function SessionsAtelier({ sessions, by, onBy, helpers, onHelpers, rigs, pressed, onPress, requests = 0 }: {
   sessions: readonly PhoneSession[]; by: Grouping; onBy: (g: Grouping) => void; helpers: boolean; onHelpers: () => void;
   /** The PC sends its rigs (`daemon.rigs`): « 5 sièges » leads to them, the kernel says « OpenRig ». */ rigs: boolean;
   pressed: string | null; onPress: (s: PhoneSession) => void;
+  /** OpenRig's requests still open: the desk says how many and opens Rigs on them (#40, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 11). */
+  requests?: number;
 }) {
   const theme = useTheme();
   const live = sessions.filter(s => s.state !== 'exited').length;
-  // « Bureau de Ledge » opens the Ledge tab (§7).
+  // « Bureau de Ledge »: Rigs while requests wait; else only what Ledge watches over.
   const desk = (
     <>
       <span className="grid size-[30px] flex-none place-items-center overflow-hidden"><ResidentMascot size={30} theme={theme} frozen /></span>
       <span className="flex min-w-0 flex-1 flex-col">
         <b className="font-semibold">{copy.sessions.deskTitle}</b>
-        <small className="text-[12px] text-muted">{copy.atelier.desk} · {copy.atelier.watching(live)}</small>
+        <small className="text-[12px] text-muted">{requests > 0 ? copy.atelier.ledgeRequests(requests) : copy.atelier.watching(live)}</small>
       </span>
     </>
   );
@@ -113,7 +115,9 @@ export function SessionsAtelier({ sessions, by, onBy, helpers, onHelpers, rigs, 
     <>
       <GroupBar by={by} onBy={onBy} helpers={helpers} onHelpers={onHelpers} />
       {islands(sessions, by).map(i => <IslandBox key={i.id} island={i} rigs={rigs} helpers={helpers} pressed={pressed} onPress={onPress} />)}
-      <a href={href({ name: 'chat' })} className={row}>{desk}<Icon name="chevron" className="size-4 text-muted" /></a>
+      {requests > 0
+        ? <a href={href({ name: 'rigs' })} className={row}>{desk}<Icon name="chevron" className="size-4 text-muted" /></a>
+        : <div className={row}>{desk}</div>}
     </>
   );
 }

@@ -60,8 +60,8 @@ export const rigsEn: RigsCopy = {
     truncated: 'Older open rows are not shown.',
     prompt: 'a prompt waits on the seat',
     from: 'From → to', blockedOn: 'Blocked on', created: 'Created', claimed: (t: string) => `claimed ${t}`,
-    readOnly: 'The phone shows the queue; it does not move its rows. A row that waits on you is answered in For you.',
-    seeAtoi: 'See in For you',
+    readOnly: 'The phone shows the queue; it does not move its rows. A row that waits on you is answered in the Requests, at the top of Rigs.',
+    seeAsk: 'See the request',
     unavailable: 'The queue could not be read.'
   },
   actions: { seats: 'Seats', restart: 'Restart', stop: 'Stop', start: 'Start', snapshot: 'Take a snapshot', snapshots: 'Snapshots', permissions: 'Permissions', refresh: 'Refresh', restartRig: 'Restart the rig' },
@@ -246,16 +246,16 @@ export const rigsEn: RigsCopy = {
     state: { sent: 'sent', taken: 'taken', asking: 'question', proposed: 'team proposed', running: 'running', done: 'done', closed: 'closed' },
     statePill: { sent: 'sent', taken: 'taken', asking: 'question', proposed: 'proposed', running: 'running', done: 'done', closed: 'closed' },
     since: (t: string) => `since ${t}`,
-    atoiNote: 'Max\'s proposals and questions also wait in For you, where they are answered.',
+    atoiNote: 'Max\'s proposals and questions also wait in the Requests, at the top of Rigs, where they are answered.',
     trail: {
       sent: 'You gave it', taken: 'Max took it', note: (text: string) => `You wrote: “${text}”`, handed: (to: string) => `handed off to ${to}`, closed: 'closed'
     },
     taken: 'taken',
     proposal: 'Team proposed',
-    proposalBody: 'Answer in For you: the same card, the same buttons.',
+    proposalBody: 'Answer in the Requests, at the top of Rigs: the same card, the same buttons.',
     question: 'Max asks you a question',
-    questionBody: 'Answer in For you.',
-    seeAtoi: 'See in For you',
+    questionBody: 'Answer in the Requests, at the top of Rigs.',
+    seeAsk: 'See the request',
     partial: 'Older goals are not shown.',
     errors: {
       no_operator: { title: 'The kernel has no operator to receive the request.', body: 'Start the kernel, then send again.' },

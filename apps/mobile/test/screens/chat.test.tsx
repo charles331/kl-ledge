@@ -20,35 +20,6 @@ function chatSetup(sessions = [session('a', { name: 'Bix', repo: 'ledge' }), ses
 const type = (text: string) => fireEvent.change(screen.getByLabelText('Question pour Ledge'), { target: { value: text } });
 const send = () => fireEvent.click(screen.getByRole('button', { name: 'Envoyer la question' }));
 
-describe('the tab bar', () => {
-  it('has the same five tabs whether the PC offers the chat or not, Ledge last', () => {
-    const tabs = () => within(nav()).getAllByRole('link').map(a => a.textContent?.replace(/\d+$/, ''));
-    const five = [copy.nav.atoi, copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.chat];
-    const a = app('ready', { hash: '#/' });
-    act(() => a.deliver(snapshot([session('a')])));
-    expect(tabs()).toEqual(five);
-    act(() => a.deliver(snapshot([session('a')], 'Atelier', undefined, ON)));
-    expect(tabs()).toEqual(five);
-    expect(within(nav()).getByRole('link', { name: copy.nav.chat })).toHaveAttribute('href', '#/chat');
-  });
-
-  it('#/chat without device.chat says the PC does not offer it, with no field, and stays there', () => {
-    const a = app('ready', { hash: '#/chat' });
-    act(() => a.deliver(snapshot([session('a')], 'WSL')));
-    expect(screen.getByRole('heading', { name: copy.chat.unavailable.title('WSL') })).toBeInTheDocument();
-    expect(screen.getByText(copy.chat.unavailable.body)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: copy.chat.unavailable.seeAtoi })).toHaveAttribute('href', '#/');
-    expect(screen.queryByLabelText('Question pour Ledge')).toBeNull();
-    expect(globalThis.location.hash).toBe('#/chat');
-  });
-
-  it('opens the chat at #/chat with device.chat', () => {
-    const a = app('ready', { hash: '#/chat' });
-    act(() => a.deliver(snapshot([session('a')], 'Atelier', undefined, ON)));
-    expect(screen.getByLabelText('Question pour Ledge')).toBeInTheDocument();
-  });
-});
-
 describe('the chat screen', () => {
   // m3-chat.html §1, Q32 (design-ux 355eade2): who waits, « Résumer la nuit » before noon, one name from the snapshot (the first
   // rig's, else the first session's), and « Nouvelle session » with a PC that launches.

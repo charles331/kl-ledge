@@ -11,7 +11,7 @@ import { BackLink } from '../ui/Header';
 import { OUTLINE } from '../ui/Board';
 import { Segmented } from '../ui/Segmented';
 import { setTheme, useThemeChoice, type ThemeChoice } from '../theme';
-import { ProtectRow, UpdateRow } from './Enroll';
+import { ProtectRow, UpdateCard, UpdateRow, useEnroll, usePasskeyDot } from './Enroll';
 import { NotificationsRow } from './Notifications';
 import { PcSection } from './PcSection';
 import { LedgePrefs, ManagedOnPc, MotionRow, NotificationPrefs } from './Settings';
@@ -41,6 +41,9 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
   onSignOut: () => void;
 }) {
   const state = useMobile(store);
+  // One passkey update for the card at the top and the row of « Connexion »: one challenge prepared (#40 D8).
+  const update = useEnroll(store, 'update');
+  const cardUp = usePasskeyDot(store);
   const theme = useThemeChoice();
   const lang = useLang();
   useEffect(() => { if (section === 'link') document.getElementById('link-title')?.scrollIntoView({ block: 'start' }); }, [section]);
@@ -61,10 +64,12 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
     <>
       {/* Pushed over the tab it was opened from (m0-socle.html, §5): back, « Réglages ». */}
       <header className="bleed flex h-14 flex-none items-center gap-2 border-b border-line pr-1.5 pl-2.5">
-        <BackLink fallback={{ name: 'atoi' }} label={N.back} />
+        <BackLink fallback={{ name: 'sessions' }} label={N.back} />
         <h1 className="text-base font-semibold">{N.title}</h1>
       </header>
       <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pt-5 pb-[34px]">
+        {/* The passkey to update, at the top of Réglages (#40 D8, docs/mockups/ledge-remove-chat-p2.html, card 7). */}
+        <div className="flex flex-col empty:hidden"><UpdateCard store={store} enroll={update} /></div>
         <ThisDevice store={store} pinned={pinned} />
         <section aria-labelledby="appearance-title" className="flex flex-col gap-2.5">
           <h2 id="appearance-title" className="text-small font-medium text-muted">{S.appearance}</h2>
@@ -101,7 +106,7 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
               </div>
             ))}
             <ProtectRow store={store} />
-            <UpdateRow store={store} />
+            <UpdateRow store={store} enroll={update} quiet={cardUp} />
           </dl>
         </section>
         <ManagedOnPc store={store} />

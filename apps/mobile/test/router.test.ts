@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { href, parseRoute, type Route } from '../src/router';
 
 const routes: Route[] = [
-  { name: 'atoi' },
   { name: 'sessions' },
   { name: 'sessions', filter: 'working' },
   { name: 'sessions', filter: 'waiting' },
@@ -10,7 +9,7 @@ const routes: Route[] = [
   { name: 'routines', routine: 'r81c0d4' },
   { name: 'prs' },
   { name: 'rigs' },
-  { name: 'chat' },
+  { name: 'ask', id: 'qitem-1' },
   { name: 'thread', sessionId: 's1' },
   { name: 'terminal', sessionId: 's1' },
   { name: 'request', sessionId: 's1', key: 'k1' },
@@ -28,10 +27,13 @@ describe('router', () => {
     expect(parseRoute(href(r))).toEqual(r);
   });
 
-  it('sends #/pair and unknown hashes to À toi', () => {
-    expect(parseRoute('#/pair')).toEqual({ name: 'atoi' });
-    expect(parseRoute('#/nimporte')).toEqual({ name: 'atoi' });
-    expect(parseRoute('')).toEqual({ name: 'atoi' });
+  it('opens Sessions at #/, on unknown hashes and on the old #/atoi and #/chat (#40 D6, card 8)', () => {
+    expect(parseRoute('#/pair')).toEqual({ name: 'sessions' });
+    expect(parseRoute('#/nimporte')).toEqual({ name: 'sessions' });
+    expect(parseRoute('')).toEqual({ name: 'sessions' });
+    expect(parseRoute('#/')).toEqual({ name: 'sessions' });
+    expect(parseRoute('#/atoi')).toEqual({ name: 'sessions' });
+    expect(parseRoute('#/chat')).toEqual({ name: 'sessions' });
   });
 
   it('reads #/agents, the old address of Sessions', () => {
@@ -45,7 +47,7 @@ describe('router', () => {
     expect(parseRoute(href(r))).toEqual(r);
   });
 
-  it('falls back to À toi on a malformed escape', () => {
-    expect(parseRoute('#/thread/%E0%A4%A')).toEqual({ name: 'atoi' });
+  it('falls back to Sessions on a malformed escape', () => {
+    expect(parseRoute('#/thread/%E0%A4%A')).toEqual({ name: 'sessions' });
   });
 });

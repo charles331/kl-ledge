@@ -76,12 +76,6 @@ describe('a list with nothing to choose, in two panes (Q94 B)', () => {
     expect(listState()).toBeTruthy();
   });
 
-  it('marks À toi with nothing to decide and nobody at work', () => {
-    open('#/').ready();
-    expect(screen.getByText(copy.atoi.noRequest, { selector: 'h2' })).toBeTruthy();
-    expect(listState()).toBeTruthy();
-    expect(emptyDetail()).toBeTruthy();
-  });
 });
 
 describe('a PC that does not answer, in two panes (Q95 A)', () => {
@@ -98,13 +92,12 @@ describe('a PC that does not answer, in two panes (Q95 A)', () => {
     expect(head().querySelector('[data-host="offline"]')).toBeTruthy();
   });
 
-  it('on À toi, a request beside its list: the head without the host pill, the request without a lost-link card (§6)', () => {
+  it('a request beside the Sessions list (#40 D6): one banner, the request without a lost-link card (§6)', () => {
     const t = open('#/request/a/ka', [session('a', { name: 'Pim', state: 'waiting_permission', pending: pending({ key: 'ka', text: 'pnpm test' }) })]);
     t.ready();
     act(() => t.set('pc_offline'));
-    expect(within(head()).getByRole('heading', { level: 1 }).textContent).toBe(copy.inbox.title);
+    expect(within(head()).getByRole('heading', { level: 1 }).textContent).toBe(copy.nav.sessions);
     expect(within(head()).getByText(/^Dernier état connu · \d\d:\d\d$/)).toBeTruthy();
-    expect(head().querySelector('[data-host]')).toBeNull();
     expect(document.querySelectorAll('[data-strip]')).toHaveLength(1);
     expect(screen.queryByText(copy.link.lostTitle)).toBeNull();
     expect(screen.getByRole('button', { name: copy.decide.allow })).toHaveProperty('disabled', true);

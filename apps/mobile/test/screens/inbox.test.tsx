@@ -305,19 +305,3 @@ describe('« À toi » on a tablet (§12)', () => {
   });
 });
 
-describe('« Mettre à jour ta passkey » stays at the top of « À toi »', () => {
-  const pc: PinnedPc = { publicKey: 'K', fingerprint: 'abcdEFGHijklMNOPqrstuv', name: 'WSL', pinnedAt: '2026-10-16T08:00:00.000Z' };
-  const withDevice = (sessions: PhoneSession[]) => ({ ...snapshot(sessions, 'WSL'), device: { id: 'dev1', confirm: true } }) as never;
-
-  it.each([['a phone', false], ['a tablet', true]])('on %s, above the requests', async (_, isWide) => {
-    wide(isWide);
-    vi.mocked(platformAvailable).mockResolvedValue(true);
-    const t = app('ready', { hash: '#/' });
-    const real = { ...pc, publicKey: (await generateIdentity()).publicKey };
-    act(() => t.setPinned(real));
-    act(() => t.deliver(withDevice([perm('a', 'Kai')])));
-    const card = await screen.findByRole('heading', { name: 'Mettre à jour ta passkey' });
-    const first = isWide ? screen.getByRole('region', { name: 'Demandes' }) : screen.getByRole('article', { name: /Autorisation de Kai/ });
-    expect(card.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-});

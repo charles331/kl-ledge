@@ -219,6 +219,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
         <SessionsAtelier
           sessions={sessions} by={by} onBy={setBy} helpers={helpers === 'shown'} onHelpers={() => setHelpers(helpers === 'shown' ? 'hidden' : 'shown')}
           rigs={!!state.daemon?.rigs} pressed={pressed} onPress={s => setPressed(s.id)}
+          requests={(state.asks ?? []).filter(a => a.kind !== 'update').length}
         />
       ) : (
         <>

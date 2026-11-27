@@ -28,8 +28,8 @@ export function Gone({ store, stale = false, item, panel }: { store: MobileStore
   const recorded = !!item && !!last && last.key === item.key;
   // An older PC says it only in the thread, for a permission: asked when it is not here yet.
   useEffect(() => { if (!stale && !recorded && sessionId !== undefined && !known) store.openThread(sessionId); }, [stale, recorded, sessionId, known, store]);
-  const back = href({ name: 'atoi' });
-  const backRoute = { name: 'atoi' } as const;
+  const back = href({ name: 'sessions' });
+  const backRoute = { name: 'sessions' } as const;
   if (stale) {
     return (
       <>

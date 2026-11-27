@@ -131,7 +131,8 @@ function RowDetail({ row, mine }: { row: QueueData['rows'][number]; mine: boolea
         {kv.map(([k, v]) => <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="m-0 [overflow-wrap:anywhere]">{v}</dd></div>)}
       </dl>
       <span className="text-[12px] leading-4 text-muted">{C.queue.readOnly}</span>
-      {mine && <a href={href({ name: 'atoi' })} className={rigButtonClass({ size: 'sm', className: 'self-start' })}>{C.queue.seeAtoi}</a>}
+      {/* A row that waits on the person is one of the Rigs tab's « Demandes » (#40 D1): « Voir la demande » opens it. */}
+      {mine && <a href={href({ name: 'ask', id: row.id })} className={rigButtonClass({ size: 'sm', className: 'self-start' })}>{C.queue.seeAsk}</a>}
     </div>
   );
 }
@@ -204,7 +205,7 @@ function Waits({ rig, sessions, asks }: { rig: string; sessions: PhoneSession[];
   const seat = s ? (s.rig?.role ? seatName(s.rig.role) : s.name) : ask ? who(ask.from.seat) : '';
   const perm = item?.filter === 'permission';
   const [pre, name, post] = perm ? C.waits.permission(seat) : C.waits.question(seat);
-  const to = item ? href({ name: 'request', sessionId: item.sessionId, key: item.key }) : href({ name: 'atoi' });
+  const to = item ? href({ name: 'request', sessionId: item.sessionId, key: item.key }) : href({ name: 'sessions' });
   return (
     <Strip warn={!perm} danger={perm} compact lead={<Dot state={perm ? 'perm' : 'ask'} />} action={<a href={to} className={rigButtonClass({ size: 'xs' })}>{C.waits.see}</a>}>
       <span>{pre}<b className="font-semibold">{name}</b>{post}</span>

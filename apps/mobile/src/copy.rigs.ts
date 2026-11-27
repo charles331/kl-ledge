@@ -63,8 +63,8 @@ export const rigsFr = {
     truncated: 'Les plus anciennes ne sont pas montrées.',
     prompt: 'une invite attend sur le siège',
     from: 'De → à', blockedOn: 'Bloquée sur', created: 'Créée', claimed: (t: string) => `prise ${t}`,
-    readOnly: 'Le téléphone montre la file ; il n\'en déplace pas les lignes. Une ligne qui t\'attend se répond dans À toi.',
-    seeAtoi: 'Voir dans À toi',
+    readOnly: 'Le téléphone montre la file ; il n\'en déplace pas les lignes. Une ligne qui t\'attend se répond dans les Demandes, en tête de Rigs.',
+    seeAsk: 'Voir la demande',
     unavailable: 'La file n\'a pas pu être lue.'
   },
   actions: { seats: 'Sièges', restart: 'Redémarrer', stop: 'Arrêter', start: 'Démarrer', snapshot: 'Prendre un snapshot', snapshots: 'Snapshots', permissions: 'Permissions', refresh: 'Actualiser', restartRig: 'Redémarrer le rig' },
@@ -263,16 +263,16 @@ export const rigsFr = {
     state: { sent: 'envoyé', taken: 'pris', asking: 'question', proposed: 'équipe proposée', running: 'en cours', done: 'fini', closed: 'clos' },
     statePill: { sent: 'envoyé', taken: 'pris', asking: 'question', proposed: 'proposée', running: 'en cours', done: 'fini', closed: 'clos' },
     since: (t: string) => `depuis ${t}`,
-    atoiNote: 'Les propositions et questions de Max attendent aussi dans À toi, où elles se répondent.',
+    atoiNote: 'Les propositions et questions de Max attendent aussi dans les Demandes, en tête de Rigs, où elles se répondent.',
     trail: {
       sent: 'Tu l\'as donné', taken: 'Max l\'a pris', note: (text: string) => `Tu as écrit : « ${text} »`, handed: (to: string) => `passé à ${to}`, closed: 'clos'
     },
     taken: 'pris',
     proposal: 'Équipe proposée',
-    proposalBody: 'Réponds dans À toi : la même carte, les mêmes boutons.',
+    proposalBody: 'Réponds dans les Demandes, en tête de Rigs : la même carte, les mêmes boutons.',
     question: 'Max te pose une question',
-    questionBody: 'Réponds dans À toi.',
-    seeAtoi: 'Voir dans À toi',
+    questionBody: 'Réponds dans les Demandes, en tête de Rigs.',
+    seeAsk: 'Voir la demande',
     partial: 'Les plus anciens ne sont pas montrés.',
     errors: {
       no_operator: { title: 'Le kernel n\'a pas d\'operator pour recevoir la demande.', body: 'Démarre le kernel, puis renvoie.' },

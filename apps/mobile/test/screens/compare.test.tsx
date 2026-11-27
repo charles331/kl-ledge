@@ -31,7 +31,7 @@ describe('comparing the code', () => {
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Les codes sont identiques', 'Ils sont différents']);
   });
 
-  it('same → « Confirme sur le PC » while pair_ok is missing, then « <appareil> lié à <nom> » until « Voir ce qui attend »', () => {
+  it('same → « Confirme sur le PC » while pair_ok is missing, then « <appareil> lié à <nom> » until « Voir les sessions »', () => {
     const t = app('pairing');
     act(() => t.setPairing(compare()));
     fireEvent.click(screen.getByRole('button', { name: 'Les codes sont identiques' }));
@@ -50,8 +50,8 @@ describe('comparing the code', () => {
     act(() => t.setPinned({ ...pc, name: 'PC-Desan' }));
     expect(screen.getByRole('heading', { name: 'Appareil lié à PC-Desan' })).toBeInTheDocument();
     expect(screen.getByText('Tu peux lire, approuver et écrire. Retire cet appareil à tout moment depuis Ledge sur le PC.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('link', { name: 'Voir ce qui attend' }));
-    expect(screen.getByRole('heading', { name: 'À toi' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Voir les sessions' }));
+    expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
   });
 
   it('the PC confirmed first: the code stays until the phone says it is the same', () => {

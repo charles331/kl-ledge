@@ -326,12 +326,12 @@ describe('the live terminal screen', () => {
     expect(screen.getByRole('status').parentElement).not.toHaveTextContent('billing-api');
   });
 
-  it('says in the read-only bar that a waiting request is also in the thread and in « À toi »', async () => {
+  it('says in the read-only bar that a waiting request is also in the thread', async () => {
     const t = page({ terminal: true, terminalInput: true }, { confirm: true }, 'waiting_permission');
     const { TerminalLive } = await import('../../src/screens/TerminalLive');
     render(<TerminalLive store={t.store} link={t.link} session={t.store.getState().sessions.get('a')!} storage={t.storage} makeScreen={t.xt.make} />);
     act(() => t.deliver(opened(t.of('term.open')[0]!.op)));
-    expect(screen.getByText('La demande est aussi dans le fil et dans « À toi ».')).toBeInTheDocument();
+    expect(screen.getByText('La demande est aussi dans le fil.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Prendre la main/ })).toBeEnabled();
   });
 

@@ -144,7 +144,7 @@ export function Recover({ state, login, reach, onRetry, onCode, onCancel, onSign
         </div>
         <p role="status" className="flex items-center gap-2 self-center text-small text-ok"><Icon name="check" className="size-4" />{R.done.told(pc)}</p>
         <Fill />
-        {actions ?? <a href={href({ name: 'atoi' })} onClick={onDone} className={PRIMARY}>{copy.compare.seePending}</a>}
+        {actions ?? <a href={href({ name: 'sessions' })} onClick={onDone} className={PRIMARY}>{copy.compare.seePending}</a>}
       </Board>
     );
   }

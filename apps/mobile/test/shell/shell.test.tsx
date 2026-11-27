@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { copy } from '../../src/copy';
 import type { InboxItem } from '../../src/model/requests';
 import { LinkStrip, Rail, ShellProvider, TabBar, TabPage, hostName, lookOf, type ShellLink } from '../../src/shell/Shell';
-import { atoiBadge, forgetTabs, remember, tabHref, tabOf } from '../../src/shell/tabs';
+import { forgetTabs, remember, rigsBadge, sessionsBadge, tabHref, tabOf } from '../../src/shell/tabs';
 
 const link = (over: Partial<ShellLink> = {}): ShellLink => ({ pc: 'WSL', look: 'online', reach: 'pc_online', since: '14:02', retry: () => {}, ...over });
 const items = (perm: number, ask: number) => [
@@ -29,20 +29,24 @@ describe('the shell (m0-socle.html)', () => {
     expect(hostName(null)).toBe(copy.host.unknown);
   });
 
-  it('badges À toi as Desktop: permissions in red, else questions in amber, 99+ past 99', () => {
-    expect(atoiBadge([])).toBeNull();
-    expect(atoiBadge(items(2, 3))).toEqual({ text: '2', tone: 'red' });
-    expect(atoiBadge(items(0, 3))).toEqual({ text: '3', tone: 'amber' });
-    expect(atoiBadge(items(120, 0))).toEqual({ text: '99+', tone: 'red' });
+  it('badges Sessions with its permissions in red, else its questions and decisions in amber; Rigs with its open asks (#40 D7, card 6)', () => {
+    expect(sessionsBadge([])).toBeNull();
+    expect(sessionsBadge(items(2, 3), 4)).toEqual({ text: '2', tone: 'red' });
+    expect(sessionsBadge(items(0, 3), 2)).toEqual({ text: '5', tone: 'amber' });
+    expect(sessionsBadge([], 1)).toEqual({ text: '1', tone: 'amber' });
+    expect(sessionsBadge(items(120, 0))).toEqual({ text: '99+', tone: 'red' });
+    expect(rigsBadge([])).toBeNull();
+    expect(rigsBadge([{ kind: 'decision' }, { kind: 'parked' }, { kind: 'update' }])).toEqual({ text: '2', tone: 'amber' });
   });
 
-  it('shows the five tabs in order, the one given lit, with its badge', () => {
-    render(<TabBar route={{ name: 'atoi' }} active="atoi" badges={{ atoi: { text: '2', tone: 'red' } }} />);
+  it('shows the three tabs in order, the one given lit, with its badge (#40 D6, card 7)', () => {
+    render(<TabBar route={{ name: 'sessions' }} active="sessions" badges={{ sessions: { text: '2', tone: 'red' }, rigs: { text: '1', tone: 'amber' } }} />);
     const nav = screen.getByRole('navigation', { name: copy.nav.label });
     const tabs = within(nav).getAllByRole('link');
-    expect(tabs.map(t => t.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.atoi, copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.chat]);
+    expect(tabs.map(t => t.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs]);
     expect(tabs[0]).toHaveAttribute('aria-current', 'page');
     expect(within(tabs[0]!).getByText('2')).toHaveAttribute('data-badge', 'red');
+    expect(within(tabs[2]!).getByText('1')).toHaveAttribute('data-badge', 'amber');
     expect(tabs[1]).not.toHaveAttribute('aria-current');
   });
 
@@ -51,32 +55,21 @@ describe('the shell (m0-socle.html)', () => {
     remember({ name: 'thread', sessionId: 's1' });
     expect(tabOf({ name: 'thread', sessionId: 's1' })).toBe('sessions');
     expect(tabHref('sessions')).toBe('#/thread/s1');
-    expect(tabHref('atoi')).toBe('#/');
+    expect(tabOf({ name: 'request', sessionId: 's1', key: 'k' })).toBe('sessions');
+    expect(tabOf({ name: 'ask', id: 'q1' })).toBe('rigs');
+    expect(tabHref('rigs')).toBe('#/rigs');
   });
 
-  it('puts the Atelier in the rail only when the PC sends its projects, Ledge and Réglages at the bottom', () => {
-    const closed = { open: false, onToggle: () => {} };
-    const { rerender } = render(<Rail route={{ name: 'rigs' }} active="rigs" badges={{}} atelier={false} ledge={closed} />);
-    const names = () => [...within(screen.getByRole('navigation')).getAllByRole('link'), screen.getByRole('button', { name: copy.nav.chat })]
-      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)).map(a => a.textContent);
-    expect(names()).toEqual([copy.nav.atoi, copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.chat, copy.nav.settings]);
-    rerender(<Rail route={{ name: 'rigs' }} active="rigs" badges={{}} atelier ledge={closed} />);
-    expect(names()).toEqual([copy.nav.atoi, copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.chat, copy.nav.settings]);
+  it('puts the Atelier in the rail only when the PC sends its projects, Réglages alone at the bottom (#40 D6, card 10)', () => {
+    const { rerender } = render(<Rail route={{ name: 'rigs' }} active="rigs" badges={{}} atelier={false} />);
+    const names = () => within(screen.getByRole('navigation')).getAllByRole('link').map(a => a.textContent);
+    expect(names()).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.settings]);
+    rerender(<Rail route={{ name: 'rigs' }} active="rigs" badges={{}} atelier />);
+    expect(names()).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.settings]);
     expect(screen.getByRole('link', { name: copy.nav.rigs })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('button', { name: copy.nav.chat })).toBeNull();
   });
 
-  it('makes Ledge a button in the rail that opens and closes its pane, pressed while open, the tab still lit (m3-chat.html §7)', () => {
-    let toggled = 0;
-    const { rerender } = render(<Rail route={{ name: 'sessions' }} active="sessions" badges={{}} atelier={false} ledge={{ open: false, onToggle: () => { toggled++; } }} />);
-    const ledge = screen.getByRole('button', { name: copy.nav.chat });
-    expect(ledge).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('link', { name: copy.nav.chat })).toBeNull();
-    fireEvent.click(ledge);
-    expect(toggled).toBe(1);
-    rerender(<Rail route={{ name: 'sessions' }} active="sessions" badges={{}} atelier={false} ledge={{ open: true, onToggle: () => {} }} />);
-    expect(ledge).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('link', { name: copy.nav.sessions })).toHaveAttribute('aria-current', 'page');
-  });
 
   it('shows no banner while the PC answers', () => {
     render(<ShellProvider value={link()}><LinkStrip /></ShellProvider>);

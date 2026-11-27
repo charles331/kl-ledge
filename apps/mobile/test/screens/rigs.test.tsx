@@ -274,11 +274,12 @@ describe('Max', () => {
     expect(screen.getByRole('link', { name: C.backKernel })).toBeTruthy();
   });
 
-  it('opens a goal as a thread: the proposal waits in « À toi », the field writes to Max about it', async () => {
+  it('opens a goal as a thread: the proposal waits in the Rigs tab\'s requests, the field writes to Max about it', async () => {
     const t = open('#/max/goal-0001-abcd');
     act(() => t.deliver({ type: 'rigs.goals', goals: [goal()] }));
     expect(screen.getByText(C.max.proposal)).toBeTruthy();
-    expect(screen.getByRole('link', { name: C.max.seeAtoi }).getAttribute('href')).toBe('#/');
+    // Not among OpenRig's requests the phone knows: « Voir la demande » leads to Rigs (design-ux, #40 PR 2b).
+    expect(screen.getByRole('link', { name: C.max.seeAsk }).getAttribute('href')).toBe('#/rigs');
     expect(screen.getByText(C.max.trail.taken)).toBeTruthy();
     fireEvent.change(screen.getByLabelText(C.max.replyPlaceholder), { target: { value: 'Garde les tokens de M0.' } });
     fireEvent.click(screen.getByRole('button', { name: C.max.send }));

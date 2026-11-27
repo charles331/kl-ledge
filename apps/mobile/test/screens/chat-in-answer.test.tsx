@@ -52,7 +52,7 @@ describe('a request in the answer (Q30)', () => {
     thread(names.map((n, i) => asking(String(i), n)),
       [Q1, { answer: 'Ils attendent.', answeredAt: '2026-11-11T10:00:05.000Z', steps: read(...names) }]);
     expect(screen.getAllByText(/^En attente dans la session de/)).toHaveLength(3);
-    expect(screen.getByRole('link', { name: copy.chat.inAnswer.more(2) })).toHaveAttribute('href', '#/');
+    expect(screen.getByRole('link', { name: copy.chat.inAnswer.more(2) })).toHaveAttribute('href', '#/sessions');
   });
 
   it('one other: « Voir l’autre dans À toi » (Q87)', () => {
@@ -60,7 +60,7 @@ describe('a request in the answer (Q30)', () => {
     thread(names.map((n, i) => asking(String(i), n)),
       [Q1, { answer: 'Ils attendent.', answeredAt: '2026-11-11T10:00:05.000Z', steps: read(...names) }]);
     expect(screen.getAllByText(/^En attente dans la session de/)).toHaveLength(3);
-    expect(screen.getByRole('link', { name: 'Voir l’autre dans À toi' })).toHaveAttribute('href', '#/');
+    expect(screen.getByRole('link', { name: 'Voir l’autre dans À toi' })).toHaveAttribute('href', '#/sessions');
   });
 
   it('an older answer keeps « Réglée depuis » once its request is gone; the newer one shows no card for it', () => {

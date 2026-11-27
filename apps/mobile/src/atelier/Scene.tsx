@@ -25,8 +25,8 @@ const RIG = ['M12 2.5 20.5 7.25v9.5L12 21.5l-8.5-4.75v-9.5z', 'M12 8.5a3.5 3.5 0
 const UNASSIGNED = ['M4 7h16v12H4z', 'M4 7l2-3h4l2 3', 'M9 13h6'];
 const taskOf = (s: PhoneSession): string => s.topic ?? s.title;
 
-/** What a tap does: open a session's panel, a room's sheet, Ledge's chat. */
-export interface SceneActions { open(id: string): void; room(id: string): void; chat(): void }
+/** What a tap does: open a session's panel, a room's sheet. */
+export interface SceneActions { open(id: string): void; room(id: string): void }
 
 /** A session's bot as Desktop draws it: frozen while the state shown is only the last known one. */
 export function SessionBot({ session, size, frozen }: { session: PhoneSession; size: number; frozen: boolean }): JSX.Element {
@@ -216,13 +216,17 @@ export function Unassigned({ sessions, frozen, act }: { sessions: readonly Phone
   );
 }
 
-/** Ledge in the Atelier's corner: its bubble counts the agents it watches over; a tap opens the chat (when the PC offers it). */
-export function LedgeDesk({ count, frozen, onOpen }: { count: number; frozen: boolean; onOpen?: () => void }): JSX.Element {
+/**
+ * Ledge in the Atelier's corner (#40, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 11): while OpenRig's requests wait, its
+ * bubble counts them and a tap opens Rigs on them (`onOpen`); else it counts the agents it watches over, and a tap does nothing.
+ */
+export function LedgeDesk({ count, requests = 0, frozen, onOpen }: { count: number; requests?: number; frozen: boolean; onOpen?: () => void }): JSX.Element {
   const theme = useTheme();
+  const open = requests > 0 ? onOpen : undefined;
   return (
     <div className="ledge-corner">
-      <button type="button" className="ledge-desk" onClick={onOpen} disabled={!onOpen} aria-label={copy.atelier.desk}>
-        <span className="ledge-bubble">{copy.atelier.watching(count)}</span>
+      <button type="button" className="ledge-desk" onClick={open} disabled={!open}>
+        <span className="ledge-bubble">{requests > 0 ? copy.atelier.ledgeRequests(requests) : copy.atelier.watching(count)}</span>
         <span className="ledge-seat"><ResidentMascot size={80} theme={theme} frozen={frozen} /></span>
         <strong>Ledge</strong><small>{copy.atelier.assistant}</small>
       </button>

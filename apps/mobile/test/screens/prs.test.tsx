@@ -22,7 +22,7 @@ function open(hash: string, o: { forge?: boolean; state?: Partial<PhoneForgeStat
   return t;
 }
 
-const badge = () => within(screen.getByRole('navigation', { name: copy.nav.label })).getAllByRole('link')[2]!.querySelector('[data-badge]');
+const badge = () => within(screen.getByRole('navigation', { name: copy.nav.label })).getByRole('link', { name: new RegExp(`^${copy.nav.prs}`) }).querySelector('[data-badge]');
 
 describe('the MR/PR list', () => {
   it('says the PC does not send its requests yet, as before, and asks nothing', () => {
@@ -45,7 +45,7 @@ describe('the MR/PR list', () => {
   });
 
   it('badges the tab in red with the failed pipelines, and not without one', () => {
-    const t = open('#/atoi');
+    const t = open('#/sessions');
     expect(badge()?.textContent).toBe('1');
     expect(badge()?.getAttribute('data-badge')).toBe('red');
     act(() => t.deliver({ type: 'forge.state', ...forgeState({ prs: [pr()] }) }));

@@ -436,7 +436,7 @@ export const en: Copy = {
     chip: (what: string) => `Model and effort: ${what}`,
   },
   detail: {
-    back: 'Back to requests',
+    back: 'Back to the sessions',
     heading: { permission: 'A permission', question: 'A question', plan: 'A plan', diff: 'Changes' },
     commandTitle: 'Command to allow',
     branch: 'Branch', asked: 'Asked',
@@ -476,7 +476,7 @@ export const en: Copy = {
     body: 'The terminal received your decision. It now shows in this session’s thread.',
     thread: (bot: string) => `See ${bot}’s thread`,
     final: 'A decision once sent cannot be cancelled.',
-    back: 'Back to requests'
+    back: 'Back to the sessions'
   },
   /** Closing a session from its page, and resuming it once ended (mockup mobile-session-close). */
   sessionEnd: {
@@ -536,7 +536,7 @@ export const en: Copy = {
     suggestion: 'Suggestion for what’s next',
     capture: 'Capture',
     agentLabel: 'Agent’s answer',
-    awaiting: `Decision expected · in “${ATOI}”`, examine: 'Examine the request',
+    awaiting: 'Decision expected', examine: 'Examine the request',
     event: {
       accept: (from: string) => `Accept taken · from ${from}`,
       deny: (from: string) => `Denial taken · from ${from}`,
@@ -642,7 +642,7 @@ export const en: Copy = {
       /** The line's button (m2-sessions.html §6): it always sends with Enter. */
       lineGo: 'Type ↵',
       /** In the read-only bar, when the session has a request waiting (§6). */
-      alsoInThread: `The request is also in the thread and in “${ATOI}”.`,
+      alsoInThread: 'The request is also in the thread.',
       /** The context keys for a numbered choice on the screen (§6, QUESTIONS.md « M2b · Le terminal » 3). */
       contextKeys: { yes: 'Yes', always: 'Always', no: 'No' },
       pasteFailed: 'Nothing to paste, or the device refused access to the clipboard.',
@@ -692,7 +692,7 @@ export const en: Copy = {
     agent: { title: 'Choose an agent', body: 'Its thread and terminal open here.' }
   },
   gone: {
-    header: 'Request', title: 'Already handled on the PC', body: 'This request was settled elsewhere. No new decision was sent.', back: 'Back to requests',
+    header: 'Request', title: 'Already handled on the PC', body: 'This request was settled elsewhere. No new decision was sent.', back: 'Back to the sessions',
     /** Who answered, when the thread says it (docs/mockups/mobile-multi-device.html, part 1). */
     titleOn: (where: string) => `Already handled on ${where}`, titleElsewhere: 'Already handled elsewhere',
     decided: (what: 'accept' | 'deny' | 'always', time: string) => `${what === 'deny' ? 'Denied' : 'Accepted'} at ${time}. No new decision was sent.`,
@@ -708,7 +708,7 @@ export const en: Copy = {
       save: 'Save', cancel: 'Cancel', failed: 'The PC did not take the name. Try again.',
       others: 'The other linked devices are managed on the PC, in Ledge › Settings › Mobile access.'
     },
-    title: 'Settings', section: 'Connection', back: `Back to ${ATOI}`, pc: 'PC', status: 'State', unknown: 'Unknown',
+    title: 'Settings', section: 'Connection', back: 'Back to the sessions', pc: 'PC', status: 'State', unknown: 'Unknown',
     states: { online: 'Connected', offline: 'Disconnected', connecting: 'Connecting…' },
     account: 'Account', relay: 'Server', pcFingerprint: 'PC fingerprint', version: 'App version', appFingerprint: 'App fingerprint',
     /** A value not known yet (the build, before the service worker gives it). */
@@ -1013,7 +1013,7 @@ export const en: Copy = {
     /** `model`: the device's kind as the pairing label names it (iPad, iPhone, Android); else « Device ». */
     doneTitle: (pc: string, model: string) => `${model} linked to ${pc}`,
     doneBody: 'You can read, approve and write. Remove this device at any time from Ledge on the PC.',
-    seePending: 'See what is waiting',
+    seePending: 'See the sessions',
     cancelledTitle: 'Pairing cancelled',
     cancelledBody: 'Different codes mean that this device and the PC do not see the same keys. Someone may be trying to get in between. Deny on the PC too.',
     expiredTitle: 'Code expired',
@@ -1124,8 +1124,7 @@ export const en: Copy = {
   rigs: {
     title: 'Rigs', subtitle: 'OpenRig',
     notSent: (pc: string) => `${pc} does not send its rigs to this device yet`,
-    notSentBody: `The rigs, their seats and their queue come with a later version of Ledge on the PC. Their requests already arrive in “${ATOI}”.`,
-    seeAtoi: `See “${ATOI}”`,
+    notSentBody: 'The rigs, their seats and their queue come with a later version of Ledge on the PC.',
     pane: { title: 'Nothing to show', body: 'A rig\'s seats and topology open here.' },
     ...rigsEn
   },
@@ -1151,6 +1150,7 @@ export const en: Copy = {
     helperSeat: (kind: string, parent: string, task: string) => `${kind}, sub-agent of ${parent}: ${task}`,
     desk: 'Talk to Ledge',
     watching: (n: number) => `I watch over ${n} ${plural(n, 'agent', 'agents')}.`,
+    ledgeRequests: (n: number) => `${n} ${plural(n, 'request', 'requests')}`,
     assistant: 'Your assistant',
     unassigned: 'No project',
     unassignedHint: 'Ledge links these sessions to no project. They are filed from the PC.',

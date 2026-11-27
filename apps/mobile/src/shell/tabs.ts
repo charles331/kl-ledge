@@ -1,20 +1,22 @@
-import type { HumanAsk, TaskRoutine } from '@ledge/protocol';
+import type { HumanAsk } from '@ledge/protocol';
 import type { InboxItem } from '../model/requests';
 import { href, type Route } from '../router';
 
 /**
- * The app's tabs (docs/mockups/ledge-mobile-refonte/m0-socle.html, §1 and §2): five on the phone, always shown, in this order;
- * the tablet's rail adds the Atelier after Rigs.
+ * The app's tabs (#40 D6, docs/mockups/ledge-remove-chat-d1-d3-d6.html, cards 7 and 10): three on the phone, always shown, in this
+ * order (« À toi » and Ledge's chat left them); the tablet's rail adds the Atelier after Rigs.
  */
-export type Tab = 'atoi' | 'sessions' | 'prs' | 'rigs' | 'chat' | 'atelier';
-export const PHONE_TABS = ['atoi', 'sessions', 'prs', 'rigs', 'chat'] as const satisfies readonly Tab[];
+export type Tab = 'sessions' | 'prs' | 'rigs' | 'atelier';
+export const PHONE_TABS = ['sessions', 'prs', 'rigs'] as const satisfies readonly Tab[];
 
-/** The tab a screen belongs to: a request to À toi, a thread, a terminal or « Nouvelle session » to Sessions; none for Réglages. */
+/** The tab a screen belongs to: a session's request, a thread, a terminal or « Nouvelle session » to Sessions, an OpenRig ask to
+ *  Rigs; none for Réglages. */
 export function tabOf(r: Route): Tab | null {
   switch (r.name) {
-    case 'atoi': case 'request': case 'ask': return 'atoi';
-    case 'sessions': case 'routines': case 'thread': case 'terminal': case 'launch': return 'sessions';
-    case 'prs': case 'rigs': case 'chat': return r.name;
+    case 'sessions': case 'routines': case 'thread': case 'terminal': case 'launch': case 'request': return 'sessions';
+    case 'prs': case 'rigs': return r.name;
+    // An OpenRig ask is one of the Rigs tab's « Demandes » (#40 D1, card 3).
+    case 'ask': return 'rigs';
     // A rig, the kernel and Max belong to the Rigs tab, even opened from Sessions (m4-rigs.html, §11, Q48).
     case 'rig': case 'kernel': case 'max': return 'rigs';
     // A request belongs to the MR/PR tab, even opened from « À toi » or a session's foot (Q60).
@@ -44,15 +46,21 @@ export const tabHref = (t: Tab): string => left.get(t) ?? href(rootOf(t));
 /** For the tests: forgets where the tabs were left. */
 export const forgetTabs = (): void => left.clear();
 
+const count = (n: number): string => (n > 99 ? '99+' : String(n));
+
 /**
- * À toi's badge (m0-socle.html, §1, Desktop's rule): the permissions in red; without one, the questions and what OpenRig asks
- * the person (its decisions and the rows parked on them; a piece of news is no ask) in amber; past 99, « 99+ ». A routine's item
- * counts as Desktop counts it (docs/mockups/ledge-routines.html, card 14): a run that failed in red, an activation request in amber.
+ * The Sessions tab's badge (#40 D7, docs/mockups/ledge-remove-chat-p2.html, card 6): the sessions' permissions in red; without one,
+ * their questions and the decisions they put to Ledge (D2, answered in their thread) in amber; past 99, « 99+ ».
  */
-export function atoiBadge(items: readonly InboxItem[], asks: readonly Pick<HumanAsk, 'kind'>[] = [], routines: readonly { routine: Pick<TaskRoutine, 'kind'> }[] = []): { text: string; tone: 'red' | 'amber' } | null {
-  const perm = items.filter(i => i.filter === 'permission').length + routines.filter(r => r.routine.kind === 'failed').length;
-  const ask = items.filter(i => i.filter !== 'permission').length + asks.filter(a => a.kind !== 'update').length + routines.filter(r => r.routine.kind === 'approve').length;
-  const n = perm || ask;
-  if (!n) return null;
-  return { text: n > 99 ? '99+' : String(n), tone: perm ? 'red' : 'amber' };
+export function sessionsBadge(items: readonly InboxItem[], decisions = 0): { text: string; tone: 'red' | 'amber' } | null {
+  const perm = items.filter(i => i.filter === 'permission').length;
+  if (perm) return { text: count(perm), tone: 'red' };
+  const ask = items.length - perm + decisions;
+  return ask ? { text: count(ask), tone: 'amber' } : null;
+}
+
+/** The Rigs tab's badge (D7, card 6): what OpenRig asks the person and is still open (a piece of news is no ask), in amber. */
+export function rigsBadge(asks: readonly Pick<HumanAsk, 'kind'>[]): { text: string; tone: 'amber' } | null {
+  const n = asks.filter(a => a.kind !== 'update').length;
+  return n ? { text: count(n), tone: 'amber' } : null;
 }
