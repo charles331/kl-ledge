@@ -410,7 +410,7 @@ export function createFleetClient(config: MachineConfig[], makeClient = createDa
     // The agent screen (spec 2026-11-04): the same bytes, with the session qualified, from whichever machine runs it.
     if (m.type === 'term.opened' || m.type === 'term.output' || m.type === 'term.size' || m.type === 'term.exit') { if (available(p)) emit({ ...m, id: qualify(machine, m.id) }); return; }
     if (m.type === 'session.preview') { p.previews.set(m.id, m.lines); if (available(p)) emit({ ...m, id: qualify(machine, m.id) }); return; }
-    if (m.type === 'session.thread' || m.type === 'session.thread.item' || m.type === 'session.queue.restored') { if (available(p)) emit({ ...m, id: qualify(machine, m.id) }); return; }
+    if (m.type === 'session.thread' || m.type === 'session.thread.item' || m.type === 'session.queue.restored' || m.type === 'session.aside') { if (available(p)) emit({ ...m, id: qualify(machine, m.id) }); return; }
     if (m.type === 'session.launched') { if (!closeRows.has(machine)) operations.delete(machine); emit({ ...m, id: qualify(machine, m.id) }); return; }
     if (m.type === 'session.closed') { emit({ ...m, qid: globalQid(machine, m.qid), id: qualify(machine, m.id) }); return; }
     if (m.type === 'chat.acted') { emit({ ...m, qid: globalQid(machine, m.qid) }); return; }

@@ -5,6 +5,7 @@ export * from './documents.js';
 export * from './browser.js';
 export * from './term.js';
 export * from './session.js';
+export * from './aside.js';
 export * from './machines.js';
 export * from './island.js';
 export * from './projects.js';
