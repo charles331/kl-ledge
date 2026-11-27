@@ -36,9 +36,22 @@ export function worstAlert(alerts: readonly UsageAlert[]): { alert: UsageAlert; 
   return first ? { alert: first, more: alerts.length - 1 } : null;
 }
 
-/** Whether an alert is about a group: its account's, or for an account-less harness (Codex), its harness's first such group. */
-const alertOf = (a: UsageAlert, x: UsageGroup, groups: readonly UsageGroup[]): boolean =>
-  a.account ? x.key === `${a.harness}|${a.account}` : x === groups.find(y => y.harness === a.harness && y.key.startsWith(`${a.harness}|@`));
+/** The same window: its kind, and its model or pool when it has one. */
+const sameWindow = (w: UsageWindow, v: UsageWindow): boolean => w.kind === v.kind && (w.model ?? null) === (v.model ?? null) && (w.pool ?? null) === (v.pool ?? null);
+
+/**
+ * The group an alert is about: its account's. An account-less harness (Codex) has one group per machine and its alert names no
+ * machine: it goes to the group whose window matches it (the same reset, else the same percentage, else past it); none, or none that
+ * matches, and it leads the line on its own, never in place of another machine's (review of #40 PR 2c).
+ */
+export function groupOfAlert(a: UsageAlert, groups: readonly UsageGroup[]): UsageGroup | undefined {
+  if (a.account) return groups.find(x => x.key === `${a.harness}|${a.account}`);
+  const mine = groups.filter(y => y.harness === a.harness && y.key.startsWith(`${a.harness}|@`));
+  const win = (y: UsageGroup) => y.windows.find(w => sameWindow(w, a.window));
+  return mine.find(y => !!a.window.resetsAt && win(y)?.resetsAt === a.window.resetsAt)
+    ?? mine.find(y => win(y)?.pct === a.window.pct)
+    ?? mine.find(y => (win(y)?.pct ?? -1) >= a.window.pct);
+}
 
 /**
  * The harnesses' limits on one line above the keys, on every screen (docs/mockups/ledge-harness-usage.html, « TUI »): per
@@ -59,11 +72,12 @@ export function usageSegments(groups: readonly UsageGroup[], o: { wide: boolean;
     segs.push([alertText(worst!.alert, t, o.lang, o.now), worst!.alert.level === 'full' ? C.red : C.yellow]);
     if (worst!.more) segs.push([` ${u.more(worst!.more)}`, C.faint]);
   };
-  // An alert whose account no group shows (not read recently enough on any machine) still leads the line.
-  if (worst && !groups.some(x => alertOf(worst.alert, x, groups))) { said(); if (groups.length) segs.push(['  │  ', C.line]); }
+  // An alert no group shows (not read recently enough on any machine, or none of its windows matches) still leads the line.
+  const owner = worst ? groupOfAlert(worst.alert, groups) : undefined;
+  if (worst && !owner) { said(); if (groups.length) segs.push(['  │  ', C.line]); }
   groups.forEach((x, i) => {
     if (i) segs.push(['  │  ', C.line]);
-    if (worst && alertOf(worst.alert, x, groups)) { said(); return; }
+    if (worst && x === owner) { said(); return; }
     const cursor = x.harness === 'cursor';
     segs.push([`${x.harness === 'claude' ? g.markClaude : cursor ? g.markCursor : g.markCodex} `, x.harness === 'claude' ? C.coral : cursor ? C.fg : C.violet, cursor]);
     if (named(x)) segs.push([`${x.machines.map(o.label).join(' + ')} `, C.fg]);

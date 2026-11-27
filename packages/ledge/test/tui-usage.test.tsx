@@ -109,6 +109,29 @@ describe('ledge tui: usage limits', () => {
     } finally { await tui.cleanup(); }
   });
 
+  it('two machines: a Codex alert (no account) takes the place of the machine it is about, never the PC’s (review of #40 PR 2c)', async () => {
+    const { usageSegments } = await import('../src/tui/ui/UsageLine.js');
+    const { glyphsFor } = await import('../src/tui/glyphs.js');
+    const { fr } = await import('../src/tui/i18n/fr.js');
+    const { usageGroups } = await import('@ledge/fleet');
+    const reset = at(120);
+    const codex = (pct: number, resetsAt: string): HarnessUsage => ({ harness: 'codex', account: null, status: 'ok', readAt: at(-1), windows: [{ kind: 'five_hour', pct, resetsAt }, { kind: 'seven_day', pct: 40, resetsAt: monday() }] });
+    const alert = { id: 'cx5', harness: 'codex' as const, account: null, window: { kind: 'five_hour' as const, pct: 100, resetsAt: reset }, level: 'full' as const, at: at(0) };
+    const states = new Map([['local', state([codex(22, at(200))])], ['srv', state([codex(100, reset)], [alert])]]);
+    const groups = usageGroups(states, () => true, Date.now());
+    const line = usageSegments(groups, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [alert] }).map(x => x[0]).join('');
+    // The PC's Codex keeps its windows; the server's gives way to the alert.
+    expect(line).toMatch(/>_ Local 5 h \S+ 22%/);
+    expect(line).toContain('Codex · 5 h atteinte');
+    expect(line).not.toMatch(/>_ Serveur/);
+    // An alert none of whose windows matches leads the line, every machine keeping its own.
+    const odd = { ...alert, window: { kind: 'seven_day' as const, pct: 99, resetsAt: at(9000) } };
+    const lone = usageSegments(groups, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [odd] }).map(x => x[0]).join('');
+    expect(lone.startsWith('Codex · semaine')).toBe(true);
+    expect(lone).toMatch(/>_ Local 5 h/);
+    expect(lone).toMatch(/>_ Serveur 5 h/);
+  });
+
   describe('Cursor Agent', () => {
     const DEC1 = () => new Date(2026, 11, 1, 13, 43).toISOString();
     const cursor = (o: Partial<HarnessUsage> = {}): HarnessUsage => ({
