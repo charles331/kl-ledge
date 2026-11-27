@@ -115,7 +115,9 @@ const openEffects = (s: SurfaceState, item: Item): Effect[] =>
 
 /** Takes `item` as the one shown. From the pill it opens after `appear`; with reduced motion it fades in open at once. */
 function show(s: SurfaceState, item: Item, extra: Effect[] = []): Result {
-  const next: SurfaceState = { ...s, current: item, closing: false, ack: null, failed: null, notices: s.notices.filter(n => n.id !== item.id), forced: s.forced === item.id ? null : s.forced };
+  // A focus belongs to the card it was taken in: the element that held it is gone from the new card (or inert), and its blur
+  // may never come. The pointer, on the other hand, stays over the same island and still says when it leaves.
+  const next: SurfaceState = { ...s, focusWithin: false, current: item, closing: false, ack: null, failed: null, notices: s.notices.filter(n => n.id !== item.id), forced: s.forced === item.id ? null : s.forced };
   if (s.reduced) return { state: { ...next, phase: 'open' }, effects: [...extra, cancel('close'), cancel('leave'), ...openEffects(next, item)] };
   return { state: { ...next, phase: 'seed' }, effects: [...extra, cancel('close'), cancel('leave'), start('appear', MOTION_MS.appear)] };
 }
@@ -199,7 +201,9 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
     // Gone: nothing on screen. Something that came meanwhile starts the movement again.
     case 'leaveElapsed': {
       if (!s.closing) return same(s);
-      return pump(same({ ...s, ...letGo, phase: 'gone', current: null, closing: false, ack: null, failed: null, openedBy: s.forced !== null ? s.openedBy : null }));
+      const r = pump(same({ ...s, phase: 'gone', current: null, closing: false, ack: null, failed: null, openedBy: s.forced !== null ? s.openedBy : null }));
+      // Only an island that really goes lets the pointer go: one that comes straight back on what waits stays drawn under it.
+      return r.state.current === null ? { ...r, state: { ...r.state, ...letGo } } : r;
     }
     case 'surfaceEnter': { const next = { ...s, hovering: true }; return { state: next, effects: holdEffects(s, next) }; }
     case 'surfaceLeave': { const next = { ...s, hovering: false }; return { state: next, effects: holdEffects(s, next) }; }

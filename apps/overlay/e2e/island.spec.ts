@@ -100,6 +100,33 @@ test('after a request answered with the mouse, the next finished turn still leav
   await expect(island(page)).toHaveCount(0);
 });
 
+test('a Done card clicked opens its session and leaves; the next Done card still leaves on its own (the owner clicked them away)', async ({ page }) => {
+  await page.clock.install({ time: T0 });
+  const d = await fakeDaemon(page, [pim()]);
+  await ready(page);
+  await freeze(page);
+  d.upsert(pim({ state: 'working' }));
+  d.upsert(pim({ state: 'idle', lastReply: { text: 'First turn.', at: new Date().toISOString() } }));
+  await page.clock.runFor(260);
+  await expect(island(page)).toHaveAttribute('data-kind', 'finished');
+  await settle(page);
+  // The click lands on the card: it asks Ledge Desktop for the session and the island closes, the pointer still on it.
+  await card(page).click();
+  await expect(surface(page)).toHaveAttribute('data-closing', 'true');
+  await page.clock.runFor(320 + 240);
+  await expect(island(page)).toHaveCount(0);
+  await page.mouse.move(960, 600);
+  d.upsert(pim({ state: 'working' }));
+  d.upsert(pim({ state: 'idle', lastReply: { text: 'Second turn.', at: new Date().toISOString() } }));
+  await page.clock.runFor(260);
+  await expect(card(page)).toContainText('Second turn.');
+  await expect(page.locator('[data-ring]')).toHaveAttribute('data-running', 'true');
+  await page.clock.runFor(6000);
+  await expect(surface(page)).toHaveAttribute('data-closing', 'true');
+  await page.clock.runFor(320 + 240);
+  await expect(island(page)).toHaveCount(0);
+});
+
 test('a question with the mouse: Reply with nothing says so; a choice, then Reply, sends it', async ({ page }) => {
   const d = await fakeDaemon(page, [pim()]);
   await ready(page);
