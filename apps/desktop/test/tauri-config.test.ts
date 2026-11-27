@@ -73,6 +73,10 @@ describe('Desktop Tauri config', () => {
   it('registers the notch\'s commands beside its own', () => {
     for (const c of ['set_frame', 'set_hot_zone', 'set_outside_watch', 'focus_overlay', 'release_focus', 'list_monitors', 'set_monitor', 'open_in_ledge']) expect(commands).toContain(c);
   });
+  it('registers voice_typing, Windows\' voice typing in the focused field (#41, #39)', () => {
+    expect(commands).toContain('voice_typing');
+    expect(main).toContain('ledge_native::voice::toggle()');
+  });
   it('no longer declares a detached Atelier window (lot 9: the atelier detaches as an IDE window, open_atelier is gone)', () => {
     expect(conf.app.windows.find((x: { label: string }) => x.label === 'atelier')).toBeUndefined();
     expect(commands).not.toContain('open_atelier');
