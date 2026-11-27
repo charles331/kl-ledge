@@ -116,3 +116,30 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(tree(page).getByRole('textbox')).toHaveCount(0);
   });
 }
+
+// The field must show what is typed in every view of the explorer: compact or not, grouped by branch or not (owner's report after
+// 0.67.0: in a view the field was cropped and the text could not be read).
+for (const view of [{ dense: false, byBranch: true }, { dense: true, byBranch: true }, { dense: false, byBranch: false }, { dense: true, byBranch: false }]) {
+  test(`the nickname field shows what is typed (compact ${view.dense}, by branch ${view.byBranch})`, async ({ page }, info) => {
+    await page.addInitScript(v => { try { localStorage.setItem('desktop.sidebar', JSON.stringify({ hideDone: true, ...v })); } catch { /* ignore */ } }, view);
+    await boot(page, 'dark');
+    await row(page, 'Otto').locator('.st-main').focus();
+    await page.keyboard.press('F2');
+    const field = tree(page).getByRole('textbox', { name: 'Surnom de Otto' });
+    await expect(field).toBeFocused();
+    await page.keyboard.type('Revue des PR');
+    const o = await box(tree(page).locator('[role="treeitem"]:has(.st-rename)'));
+    await page.screenshot({ path: info.outputPath(`nickname-field-${view.dense ? 'dense' : 'roomy'}-${view.byBranch ? 'branches' : 'flat'}.png`), clip: { x: o.x - 6, y: o.y - 4, width: o.width + 12, height: o.height + 8 } });
+    // Wide enough for the text, and tall enough for its letters: nothing is cut.
+    const fit = await field.evaluate((x: HTMLInputElement) => ({ width: x.clientWidth, scroll: x.scrollWidth, height: x.clientHeight, line: parseFloat(getComputedStyle(x).fontSize) }));
+    expect(fit.width).toBeGreaterThanOrEqual(120);
+    expect(fit.scroll).toBeLessThanOrEqual(fit.width);
+    expect(fit.height).toBeGreaterThanOrEqual(fit.line + 2);
+    // Its logo on the field's line.
+    const editing = tree(page).locator('[role="treeitem"]:has(.st-rename)');
+    expect(Math.abs(mid(await box(field)) - mid(await box(editing.locator('.st-bot'))))).toBeLessThanOrEqual(1.5);
+    // The keys stay readable under it, in every view.
+    await expect(tree(page).locator('.st-rename-hint')).toBeVisible();
+    expect((await box(tree(page).locator('.st-rename-hint'))).height).toBeGreaterThanOrEqual(12);
+  });
+}
