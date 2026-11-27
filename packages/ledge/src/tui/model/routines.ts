@@ -1,11 +1,10 @@
-import { LOCAL_MACHINE, type FleetRoutine } from '@ledge/fleet';
-import type { Routine, RoutineRun, Task } from '@ledge/protocol';
-import { askScheduleText, daysText, momentOnce, onceDaysText } from '../../routine-text.js';
+import type { FleetRoutine } from '@ledge/fleet';
+import type { Routine, RoutineRun } from '@ledge/protocol';
+import { askScheduleText, daysText, momentOnce } from '../../routine-text.js';
 import type { Glyphs } from '../glyphs.js';
 import type { Lang, Messages } from '../i18n/lang.js';
 import { C } from '../theme.js';
 import { cut, lineCells, pad, type Line, type Seg } from './cells.js';
-import { tilde } from './roles.js';
 
 /*
  * The Routines screen's model (docs/mockups/ledge-routines.html, cards 18 and 25): the list as the TUI orders it, each routine in two
@@ -83,10 +82,15 @@ export function whenText(r: Pick<Routine, 'schedule'>, mode: 'list' | 'ask', lan
   return `${times.join(' ')} · ${days}`;
 }
 
-/** The right side of a routine's first line: what it waits for, its failure, its pause, or its next firing and last outcome. */
+/** A routine the owner has to answer on the Routines screen (#40, D4): a new one waiting (`pending`), or a session's change to it
+ *  (`proposal`), paused or not. a activates it (the change), x refuses it. */
+export const awaitsOwner = (r: Pick<Routine, 'state' | 'proposal'>): boolean => r.state === 'pending' || r.proposal !== undefined;
+
+/** The right side of a routine's first line: what it waits for, its failure, its pause, or its next firing and last outcome. A
+ *  change waiting says « attend votre accord » too, before its pause (design-ux, #40 D4). */
 function stateSegs(r: Routine, now: number, lang: Lang, t: Messages, g: Glyphs): Line {
   const x = t.routines;
-  if (r.state === 'pending') return [{ text: `${g.question} ${x.pending}`, color: C.yellow }];
+  if (awaitsOwner(r)) return [{ text: `${g.question} ${x.pending}`, color: C.yellow }];
   if (r.state === 'paused') return [{ text: `‖ ${x.paused}`, color: C.dim }];
   if (failedLast(r)) return [{ text: `! ${r.lastRun!.slot} ${x.out.failed}`, color: C.red }];
   const out: Line = [];
@@ -138,47 +142,8 @@ export function routineLines(rows: readonly FleetRoutine[], o: { sel: number; wi
     if (on) selLine = lines.length;
     lines.push(on ? [...first, pad(o.width - lineCells(first))].map((s: Seg) => ({ ...s, bg: C.sel })) : first);
     lines.push(cut([{ text: `   ${subText(r, o.lang, t)}`, color: C.dim }], o.width));
+    // Chosen, a session's change waiting says who asks it and what it asks (design-ux, #40 D4), in grey under it.
+    if (on && r.proposal) lines.push(cut([{ text: `   ${t.routines.change(r.proposal.by.name, r.proposal.spec.name, whenText(r.proposal.spec, 'ask', o.lang, t))}`, color: C.dim }], o.width));
   });
   return { lines, selLine };
-}
-
-/** A routine's « À toi » item in the overview (mockup card 27): what it says, its mark (? a request, ! a failure), the routines
- *  its keys act on (a group's every one), and the machine that holds them. */
-export interface RoutineItem { id: string; kind: 'approve' | 'failed'; mark: 'ask' | 'fail'; text: string; routines: string[]; machineId: string }
-
-/**
- * The open items of « À toi » a routine made (an activation request, a group of them, a failure), in words the TUI writes from the
- * routine itself; the daemon's own title when the routine is not listed (another machine's, or not read yet). A group of recurring
- * routines is not one the daemon makes: it shows its title.
- */
-export function routineItems(tasks: readonly Task[], routines: readonly FleetRoutine[], lang: Lang, t: Messages): RoutineItem[] {
-  // The fleet keeps the local daemon's tasks only: an item is about the local machine's routines, whatever another machine holds
-  // under the same id.
-  const local = routines.filter(x => x.machineId === LOCAL_MACHINE.id);
-  return tasks.flatMap((task): RoutineItem[] => {
-    const rt = task.routine;
-    if (!rt) return [];
-    const r = local.find(x => x.id === rt.id);
-    const base = { id: task.id, kind: rt.kind, routines: rt.ids ?? [rt.id], machineId: LOCAL_MACHINE.id };
-    // Never the daemon's own title: it is written in French only. A routine not read yet is said by its name.
-    const why = r?.lastRun?.outcome === 'failed' ? runReason(r.lastRun, t) : rt.reason ?? t.routines.out.failed;
-    if (rt.kind === 'failed') return [{ ...base, mark: 'fail', text: r ? t.routines.failed(rt.name, r.target.name, why) : t.routines.failedNamed(rt.name, why) }];
-    const who = r?.proposal?.by.name ?? (r?.createdBy.kind === 'session' ? r.createdBy.name : undefined);
-    let text = t.routines.waits(rt.name);
-    if (who && rt.ids) {
-      const all = rt.ids.map(id => local.find(x => x.id === id));
-      if (all.every(x => x?.schedule.kind === 'once')) text = t.routines.groupAsk(who, rt.ids.length, onceDaysText(all.flatMap(x => (x!.schedule.kind === 'once' ? x!.schedule.at : [])), lang));
-    } else if (who && r?.proposal) {
-      // A session's change to its routine (owner's decision, mockup card 29): « veut modifier », with the settings it asks for.
-      text = t.routines.change(who, r.proposal.spec.name, whenText(r.proposal.spec, 'ask', lang, t));
-    } else if (who && r) text = t.routines.ask(who, r.name, whenText(r, 'ask', lang, t), tilde(r.target.cwd));
-    return [{ ...base, mark: 'ask', text }];
-  });
-}
-
-/** The keys an item of « À toi » answers to, as the line under it says them: y and n, or y alone for a failure. */
-export function routineItemKeys(item: RoutineItem, t: Messages): Array<[string, string]> {
-  const k = t.routines.itemKeys, n = item.routines.length;
-  if (item.kind === 'failed') return [['y', k.retry]];
-  return n > 1 ? [['y', k.activateAll(n)], ['n', k.refuseAll(n)]] : [['y', k.activate], ['n', k.refuse]];
 }

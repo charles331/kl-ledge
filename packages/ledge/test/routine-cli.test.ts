@@ -115,13 +115,13 @@ describe('ledge routine: against the daemon', () => {
     const pending = { ...routine, state: 'pending' as const, createdBy: { kind: 'session' as const, id: 'iris', name: 'Iris' } };
     const { client, sent } = fake([], ok(pending));
     const r = await routineOnClient(client, ['add', 'briefing', '--session', 'Iris', '--cwd', '/a', '--at', '08:00', '--days', 'mon', '--', 'x'], { by: 'iris', key: 'k', ms: 100, lang: 'fr' });
-    expect(r).toEqual({ line: "routine briefing (r1a2b3c) proposée : elle attend l'accord de l'utilisateur dans « À toi »", code: 0 });
+    expect(r).toEqual({ line: "routine briefing (r1a2b3c) proposée : elle attend l'accord de l'utilisateur dans Routines", code: 0 });
     expect(sent[0]).toMatchObject({ type: 'routine.cmd', op: 'add', by: 'iris', key: 'k' });
   });
   it('from a terminal: as the user; an edit goes as an update of the routine found, a proposal said as such', async () => {
     const { client, sent } = fake([routine], ok({ ...routine, proposal: { spec: routine, by: { id: 'iris', name: 'Iris' }, at: AT } }));
     const r = await routineOnClient(client, ['edit', 'briefing', '--at', '09:00'], { ms: 100, lang: 'en' });
-    expect(r.line).toBe('change to briefing proposed: the routine goes on as before until the user approves it in « À toi »');
+    expect(r.line).toBe('change to briefing proposed: the routine goes on as before until the user approves it in Routines');
     const update = sent.find(m => m.type === 'routine.cmd');
     expect(update).toMatchObject({ op: 'update', routine: 'r1a2b3c', patch: { schedule: { times: ['09:00'] } } });
     expect(update && 'by' in update).toBe(false);

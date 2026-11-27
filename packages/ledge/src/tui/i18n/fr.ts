@@ -22,7 +22,7 @@ export const fr = {
   time: {
     now: 'à l’instant', decimal: ',', s: (n: number) => `${n} s`, min: (n: number) => `${n} min`, h: (n: number) => `${n} h`, d: (n: number) => `${n} j`
   },
-  tabs: { overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', routines: 'Routines' },
+  tabs: { overview: 'Vue d’ensemble', session: 'Session', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', routines: 'Routines' },
   bar: {
     sessions: (n: number) => `${n} ${plural(n, 'session', 'sessions')}`,
     machines: (n: number) => `${n} ${plural(n, 'machine', 'machines')}`,
@@ -33,10 +33,10 @@ export const fr = {
   },
   keys: {
     image: 'image', openImage: "ouvrir l'image",
-    navigate: 'naviguer', open: 'ouvrir', attachSeat: 'attacher son terminal', answer: 'répondre', attach: 'attacher (tmux)', ask: 'demander à Ledge', launch: 'nouvelle session',
+    navigate: 'naviguer', open: 'ouvrir', attachSeat: 'attacher son terminal', answer: 'répondre', attach: 'attacher (tmux)', launch: 'nouvelle session',
     settings: 'réglages', help: 'aide', quit: 'quitter', back: 'retour', write: 'écrire', diffs: 'diffs', terminal: 'terminal', model: 'modèle',
     interrupt: 'interrompre', next: 'suivante en attente', unfold: 'déplier', send: 'envoyer / lancer', nextCard: 'carte suivante',
-    newChat: 'nouvelle conversation', stopAnswer: 'arrêter la réponse', nextField: 'champ suivant', choose: 'choisir', tick: 'cocher',
+    nextField: 'champ suivant', choose: 'choisir', tick: 'cocher',
     start: 'lancer', cancel: 'annuler', change: 'changer', scroll: 'défiler', space: 'espace', redraw: 'autre nom',
     handover: 'passer le relais', writeProject: 'écrire à tout le projet', decide: 'répondre à la décision', sendAnswer: 'envoyer la réponse', edit: 'modifier',
     sendOnly: 'envoyer', newLine: 'nouvelle ligne', keepAndLeave: 'garder et sortir', lineHistory: 'ligne · historique', history: 'historique',
@@ -45,7 +45,9 @@ export const fr = {
     applyRow: 'appliquer la ligne', apply: 'appliquer', applyAll: 'tout appliquer', deny: 'refuser', ignore: 'ignorer', review: 'revoir',
     openSession: (name: string) => `ouvrir ${name}`,
     /** An OpenRig element of the thread (docs/mockups/openrig-messages): its raw, and the reply to its sender. */
-    raw: 'brut', replyTo: (name: string) => `répondre à ${name}`
+    raw: 'brut', replyTo: (name: string) => `répondre à ${name}`,
+    /** H on a session whose handover failed (#40, D10). */
+    retry: 'réessayer'
   },
   overview: { rigsGroup: 'RIGS', kernelGroup: 'KERNEL', 
     rigSeat: (rig: string, role: string) => `rig ${rig} · ${role}`,
@@ -93,45 +95,6 @@ export const fr = {
     folded: (k: number) => `${k} avis OpenRig repliés`, rawMany: (k: number) => `${k} messages collés ensemble · brut`,
     about: (line: string) => `À propos de : « ${line} »`
   },
-  ask: {
-    title: (s: number, m: number) => `Ledge · voit ${s} ${plural(s, 'session', 'sessions')}, ${m} ${plural(m, 'machine', 'machines')}`,
-    question: 'Question', read: 'lu', reading: 'Ledge lit…', you: 'vous', empty: 'Posez une question : qui a besoin de moi, où en est une session, que lancer…',
-    launchCard: 'Nouvelle session', relayCard: (name: string) => `Relayer à ${name}`, closeCard: 'Fermer des sessions', launch: 'Lancer la session',
-    relay: 'Envoyer', cancelRelay: 'Retirer de la file', close: 'Fermer', ignore: 'Ignorer', nothingWithoutYou: 'Ledge ne lance rien sans toi.',
-    folder: 'Dossier', agent: 'Agent', instruction: 'Instruction', launched: 'lancée', queued: 'en file', sentAt: 'envoyée', closed: 'fermée',
-    offline: 'Le daemon local est hors ligne : la question attendra.',
-    steps: { sessions: 'les sessions', pane: (n: string) => `le terminal de ${n}`, reply: (n: string) => `la réponse de ${n}`, git: (n: string) => `l’état git de ${n}`, repo: (p: string) => p },
-    operator: (s: number, m: number) => `Ledge · Opérateur · voit ${s} ${plural(s, 'session', 'sessions')}, ${m} ${plural(m, 'machine', 'machines')}`,
-    taskCard: 'Tâches à confier',
-    give: 'Confier',
-    given: (owner: string, id: string, state: string) => `✓ Confiée à ${owner} · ${id} · ${state}`,
-    taskState: { open: 'à prendre', taken: 'prise', done: 'finie', refused: 'refusée', dropped: 'abandonnée' } as Record<'open' | 'taken' | 'done' | 'refused' | 'dropped', string>,
-    placeholder: 'Une question pour Ledge…',
-    resetTitle: 'Nouvelle conversation ?',
-    resetBody: (n: number, since: string) => `La conversation du jour (${n} ${plural(n, 'question', 'questions')}, depuis ${since}) sera effacée.`,
-    draftStays: 'Ton brouillon reste.', keep: 'Garder', wipe: 'Effacer et repartir',
-    above: (n: number) => `↑ ${n} ${plural(n, 'ligne', 'lignes')} plus haut · PgUp`, answering: '↓ Ledge répond · G pour suivre',
-    /** The operator's point (shared words with the other PC fronts, and the terminal's own). */
-    point: pointCopy.fr, pointCard: 'Ledge · le point', pointLater: 'Plus tard', pointSuggest: 'suggestion', pointSending: 'envoi…',
-    pointConfirm: (what: string, who: string) => `Confirmer · ${what} pour ${who} ?`, pointHint: 'Ledge ne fait rien sans toi · ↵ ne confirme pas : tape y',
-    /** The generic card (#94): the words every PC front shares (`copy`), and the terminal's own. */
-    action: {
-      copy: actionCopy.fr,
-      plan: (n: number) => `Plan · ${n} actions`, request: (kind: string, name: string) => `${kind} · ${name}`,
-      confirmOne: (line: string) => `Confirmer · ${line}`, confirmMany: (n: number, d: number) => `Confirmer · ${n} actions, ${d} ${plural(d, 'irréversible', 'irréversibles')}`,
-      state: { done: (at: string) => `appliquée${at ? ` ${at}` : ''}`, running: 'en cours', held: 'pas appliquée', refused: 'refusée', cut: 'coupée', denied: (at: string) => `refus envoyé${at ? ` ${at}` : ''}` },
-      cutMark: '… (tronqué, voir la session : o)',
-      stale: (name: string) => `La demande de ${name} a changé depuis ma réponse : rien n’a été envoyé.`,
-      hint: { one: 'Ledge ne fait rien sans toi.', choose: '↑↓ choisir', cut: '↵ n’accepte pas : lis-la d’abord', stale: 'redemande à Ledge pour la nouvelle demande', confirm: '↵ ne confirme pas : tape y', inOrder: 'Dans l’ordre ; si une étape échoue, les suivantes ne sont pas appliquées.' },
-      /** `sent`: the rows applied, the denials sent and the rows failed (they went too) before the rest was set aside. */
-      ignored: (n: number, at: string, sent: { done: number; denied: number; failed: number } = { done: 0, denied: 0, failed: 0 }) => sent.done + sent.denied + sent.failed
-        ? n > 1 ? `· plan de ${n} actions : ${[...(sent.done ? [`${sent.done} ${plural(sent.done, 'appliquée', 'appliquées')}`] : []), ...(sent.denied ? [`${sent.denied} ${plural(sent.denied, 'refus envoyé', 'refus envoyés')}`] : []), ...(sent.failed ? [`${sent.failed} ${plural(sent.failed, 'échouée', 'échouées')}`] : [])].join(', ')}, le reste ignoré à ${at} · revoir : ctrl+r`
-          : `· carte ignorée à ${at}, l’action est partie, mais n’a pas abouti · revoir : ctrl+r`
-        : `· ${n > 1 ? `plan de ${n} actions ignoré` : 'carte ignorée'} à ${at}, rien n’a été envoyé · revoir : ctrl+r`,
-      denied: (name: string, at: string) => `Refus envoyé à ${name}${at ? ` · ${at}` : ''} : la commande n’a pas été lancée`,
-      done: (line: string, at: string) => `${line}${at ? ` · ${at}` : ''}`
-    }
-  },
   launch: {
     title: 'Nouvelle session', preview: 'Aperçu', instruction: 'Instruction', agent: 'Agent', model: 'Modèle', effort: 'Effort', project: 'Projet', machine: 'Machine',
     repos: 'Dépôts', folder: 'Dossier', name: 'Nom', none: 'aucun', defaultModel: 'par défaut', loading: 'chargement…', drawn: '(tiré au sort · ctrl+r pour un autre)',
@@ -153,13 +116,15 @@ export const fr = {
     cursorPool: { cursor: 'Cursor', other: 'Autres' } as Record<string, string>,
     alertThreshold: (h: string, w: string, p: number, at: string | null, _date = false) => `${h} · ${w} à ${p} %${at ? ` · remise ${at}` : ''}`,
     alertFull: (h: string, w: string, at: string | null, date = false) => `${h} · ${w} atteinte${at ? ` · reprend ${date ? 'le ' : ''}${at}` : ''}`,
+    /** The other alerts after the worst one, in the footer usage line (#40, D9). */
+    more: (n: number) => `+${n}`,
     five5: '5 h', weekOf: (m: string) => `${m} semaine`, weekAll: 'semaine',
-    setting: 'Alerte de limite', settingHint: 'au-delà : À toi prévient', settingUnknown: 'aucune machine ne donne ses limites', settingSaved: (pct: number) => `Alerte de limite : ${pct} %`,
+    setting: 'Alerte de limite', settingHint: 'au-delà : la ligne d’usage du pied prévient', settingUnknown: 'aucune machine ne donne ses limites', settingSaved: (pct: number) => `Alerte de limite : ${pct} %`,
     efforts: { low: 'bas', medium: 'moyen', high: 'élevé', xhigh: 'très élevé', max: 'max', ultra: 'ultra' } as Record<string, string>,
     limits: 'LIMITES'
   },
   help: {
-    title: 'Aide', global: 'Partout', overview: 'Vue d’ensemble', session: 'Session', ask: 'Demander à Ledge', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', rigLaunch: 'Lancer un rig', routines: 'Routines',
+    title: 'Aide', global: 'Partout', overview: 'Vue d’ensemble', session: 'Session', launch: 'Nouvelle session', settings: 'Réglages', openrig: 'OpenRig', rigLaunch: 'Lancer un rig', routines: 'Routines',
     screens: 'changer d’écran', link: 'lier un appareil', field: 'Saisie', wordBefore: 'effacer le mot avant',
     writeHere: 'écrire à cette session', replySender: "répondre à l'expéditeur du message sélectionné", rigRaw: "afficher ou masquer le texte brut d'un message OpenRig",
     more: (above: number, below: number) => [above ? `↑ ${above} plus haut` : '', below ? `↓ ${below} plus bas` : ''].filter(Boolean).join(' · ')
@@ -190,7 +155,7 @@ export const fr = {
     noteTooLong: (max: number) => `Note trop longue : ${max} caractères au plus. Elle reste dans le champ.`,
     noNote: (n: string) => `${n} ne prend pas de note ici.`,
     noTerminalOmp: (n: string) => `${n} est piloté par Ledge via le protocole d’OMP : pas de terminal à attacher.`,
-    seatStopped: (n: string) => `${n} est arrêté : son terminal n’existe plus. 6 ouvre OpenRig, où est son rig.`,
+    seatStopped: (n: string) => `${n} est arrêté : son terminal n’existe plus. 5 ouvre OpenRig, où est son rig.`,
     noTerminal: (n: string) => `Pas de terminal pour ${n}.`, attachFailed: (code: number) => `tmux s’est arrêté avec le code ${code}.`,
     modelSwitch: 'Ce daemon ne change pas le modèle d’une session en cours.',
     draftKept: 'Brouillon gardé : r pour reprendre.', draftQuit: 'Brouillon en cours : ctrl+c encore pour quitter quand même (il sera perdu).',
@@ -375,7 +340,7 @@ export const fr = {
   },
   /** Screen 7, Routines (docs/mockups/ledge-routines.html, cards 18 and 25), and the two « À toi » items of a routine. */
   routines: {
-    title: 'ROUTINES', groupOnce: 'UNIQUES', pending: 'attend votre accord dans À toi', paused: 'en pause', late: 'en retard',
+    title: 'ROUTINES', groupOnce: 'UNIQUES', pending: 'attend votre accord', paused: 'en pause', late: 'en retard',
     next: (at: string) => `prochain ${at}`, tomorrow: (at: string) => `demain ${at}`, every2: '1 sem./2', oneShot: 'unique',
     out: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' },
     empty: 'Aucune routine. `ledge routine add` en crée une.',

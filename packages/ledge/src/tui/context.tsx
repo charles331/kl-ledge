@@ -3,19 +3,18 @@ import { useWindowSize, type Key } from 'ink';
 import type { DaemonClient, DaemonState, Fleet, MachineState } from '@ledge/fleet';
 import type { Projects, Session } from '@ledge/protocol';
 import type { Actions, Toast } from './actions.js';
-import type { Asked } from './model/chat.js';
 import type { ClipboardImage } from './clipboard.js';
 import type { Glyphs } from './glyphs.js';
 import type { Lang, Messages } from './i18n/lang.js';
 import type { ThemeChoice, Tone } from './theme.js';
 
-export type Screen = 'overview' | 'session' | 'ask' | 'launch' | 'settings' | 'mobile' | 'openrig' | 'rigLaunch' | 'routines' | 'help';
-/** The screens `1`…`7` go to, in order (`mobile` is reached from Réglages, not by a number). */
-export const SCREENS: readonly Screen[] = ['overview', 'session', 'ask', 'launch', 'settings', 'openrig', 'routines'];
+export type Screen = 'overview' | 'session' | 'launch' | 'settings' | 'mobile' | 'openrig' | 'rigLaunch' | 'routines' | 'help';
+/** The screens `1`…`6` go to, in order (`mobile` is reached from Réglages, not by a number). « Demander à Ledge » left the numbers
+ *  with the chat (#40, D13): the screens after it moved up one. */
+export const SCREENS: readonly Screen[] = ['overview', 'session', 'launch', 'settings', 'openrig', 'routines'];
 
-/** What the fields keep while the TUI runs, a screen left or not: each one's draft and what it sent, by field (`ask`, or a
- *  session's id). */
-export interface Kept { drafts: Map<string, string>; sent: Map<string, string[]>; asked: Asked[];
+/** What the fields keep while the TUI runs, a screen left or not: each one's draft and what it sent, by session id. */
+export interface Kept { drafts: Map<string, string>; sent: Map<string, string[]>;
   /** The machine the OpenRig screen shows, which « Lancer un rig » launches on (null: the first one). */
   rigMachine?: string | null;
   /** The OpenRig screen's view, and the role open in its Roles view (`seat`: `rig/logicalId` it is seen from). */

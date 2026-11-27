@@ -109,7 +109,7 @@ describe('ledge tui: OpenRig › Rôles', () => {
   it('v opens the roles on role.md; ← → tabs; f sees it from a seat; Contexte names what is missing; read-only', async () => {
     const tui = await start();
     try {
-      await tui.press('6'); await until(() => tui.frame().includes('ledge-dev'));
+      await tui.press('5'); await until(() => tui.frame().includes('ledge-dev'));
       await tui.press('v');
       await until(() => tui.frame().includes('Rôle : développeur de ledge-dev'));
       let f = tui.frame();
@@ -139,7 +139,7 @@ describe('ledge tui: OpenRig › Rôles', () => {
   it('on the Rigs view, j k walk down an unfolded rig’s seats and i opens the seat’s role, seen from it', async () => {
     const tui = await start();
     try {
-      await tui.press('6'); await until(() => tui.frame().includes('ledge-dev'));
+      await tui.press('5'); await until(() => tui.frame().includes('ledge-dev'));
       await tui.press('\r'); await until(() => tui.frame().includes('dev.front'));
       await tui.press('j');
       await until(() => tui.frame().includes('i  voir'));
@@ -152,7 +152,7 @@ describe('ledge tui: OpenRig › Rôles', () => {
   it('/ searches the roles; a search without result says so', async () => {
     const tui = await start();
     try {
-      await tui.press('6'); await until(() => tui.frame().includes('ledge-dev'));
+      await tui.press('5'); await until(() => tui.frame().includes('ledge-dev'));
       await tui.press('v'); await until(() => tui.frame().includes('RÔLES'));
       await tui.press('/'); await tui.press('terraform');
       await until(() => tui.frame().includes('pm'));

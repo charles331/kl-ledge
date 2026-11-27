@@ -2,19 +2,17 @@ import { useEffect, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { randomUUID } from 'node:crypto';
 import { useState } from 'react';
-import { BROADCAST_SILENT, canBroadcast, isPending, resetIsDate, resetLong, resetShort, useContextNear, usageAlerts, useTasks, useUsage } from '@ledge/fleet';
+import { BROADCAST_SILENT, canBroadcast, isPending, useContextNear, useTasks } from '@ledge/fleet';
 import { contextNear, contextShare, isOmpSeat, isStoppedOmpSeat, LEDGE_GIVER, projectOf, type Session, type Task } from '@ledge/protocol';
 import { botState } from '@ledge/ui/bots/poseFor';
 import { useEditing, useScreenKeys, useScreenSize, useTui } from '../context.js';
-import { cursorLabel } from '../ui/UsageLine.js';
 import { closedLedgeTasks, exchanges, helperCount, machineOf, nearContext, openDecisions, overview, step } from '../model/overview.js';
 import { wrap } from '../model/thread.js';
-import { routineItemKeys, routineItems, type RoutineItem } from '../model/routines.js';
-import { useRoutines } from './Routines.js';
 import { fit, machineLabel, paneName } from '../model/labels.js';
 import { rigTag, seatSecond } from '../model/rigSeat.js';
 import { clock, oneLine } from '../model/time.js';
 import { Ago } from '../ui/Ago.js';
+import { handOver } from '../handover.js';
 import { C, projectColor, STATE_COLOR } from '../theme.js';
 import { Field, fieldRows } from '../ui/Field.js';
 import { Frame } from '../ui/Frame.js';
@@ -41,7 +39,6 @@ export function windowed<T extends { key: string }>(rows: readonly T[], selected
 export function Overview() {
   const tui = useTui();
   const { d, projects, t, g, selected, select, actions, go, attach } = tui;
-  const usage = useUsage(tui.client);
   const { columns, rows: height } = useScreenSize();
   const wide = columns >= WIDE;
   // The left column: wide enough for a topic, never more than half the terminal.
@@ -54,33 +51,7 @@ export function Overview() {
   // The decisions sessions put to the user: D answers the first one, written, read again whole, then confirmed (y). Only
   // the task.answer action answers one: an answer cannot be taken back.
   const decisions = useMemo(() => openDecisions(tasks).filter(x => !x.routine), [tasks]);
-  // A routine's activation request or failure (docs/mockups/ledge-routines.html, card 27): tab reaches it after the sessions that
-  // wait, then y activates (all of a group) or runs it again, n refuses.
-  const routines = useRoutines(tui.client);
-  const routineRows = useMemo(() => routineItems(openDecisions(tasks), routines, tui.lang, t), [tasks, routines, tui.lang, t]);
-  const [routineFocus, setRoutineFocus] = useState<string | null>(null);
-  const focused = routineRows.find(x => x.id === routineFocus);
-  useEffect(() => { if (routineFocus && !focused) setRoutineFocus(null); }, [routineFocus, focused]);
-  // An activation the daemon refused because the routine changed since it was shown (card 32), by item: the routine's name. The
-  // fleet's list already holds the new version, which the item now shows; nothing was activated, y activates the new one.
-  const [stale, setStale] = useState<ReadonlyMap<string, string>>(new Map());
-  const answerRoutine = async (x: RoutineItem, yes: boolean) => {
-    if (x.kind === 'failed' && !yes) return;
-    const op = x.kind === 'failed' ? 'run' : yes ? 'approve' : 'refuse';
-    setStale(m => { if (!m.has(x.id)) return m; const n = new Map(m); n.delete(x.id); return n; });
-    // One at a time, each bound to the version shown (`expect`): a group stops at the first routine that changed.
-    for (const id of x.routines) {
-      const r = routines.find(o => o.machineId === x.machineId && o.id === id);
-      try {
-        await tui.fleet.routineCmd(x.machineId, { op, routine: id, ...(op === 'approve' && r?.key ? { expect: r.key } : {}) });
-      } catch (e) {
-        const f = e as { message?: string; code?: string };
-        if (f.code === 'stale') setStale(m => new Map(m).set(x.id, r?.name ?? id));
-        else tui.toast({ text: t.toast.answerFailed(f.message || f.code || '?'), tone: 'error' });
-        return;
-      }
-    }
-  };
+  // A routine's activation request or failure is answered on the Routines screen (#40, D4), not here.
   const [deciding, setDeciding] = useState<{ id: string; draft: string; confirm: boolean } | null>(null);
   const decision = deciding ? decisions.find(x => x.id === deciding.id) : undefined;
   // Answered elsewhere meanwhile (the phone, Desktop, the chat): the field goes with it.
@@ -106,7 +77,8 @@ export function Overview() {
     setTimeout(off, 10_000);
     tui.client.send({ type: 'action.run', rid, action: 'task.answer', args: { task: x.id, answer: text }, confirmed: true });
   };
-  // Sessions near their context limit (context handover spec §3.2): H hands the selected one (else the first) over.
+  // Sessions near their context limit (context handover spec §3.2): H hands the selected one (else the first) over. They are no longer
+  // listed here (#40, D10): the tree's ◔ says them, and a failed relief shows on the session itself.
   const threshold = useContextNear(tui.client);
   const near = useMemo(() => nearContext(d.sessions, threshold), [d.sessions, threshold]);
 
@@ -129,24 +101,18 @@ export function Overview() {
     if (input === 'H') {
       const s = (selected && selected.source === 'launcher' && selected.state !== 'exited' && selected.tool !== 'omp' && (!selected.handover || selected.handover.state === 'failed') ? selected : undefined) ?? near.find(x => x.handover?.state !== 'failed') ?? near[0];
       if (!s) return true;
-      const rid = randomUUID();
-      const off = tui.client.onMessage(m => { if (m.type === 'session.handover.result' && m.rid === rid) { off(); tui.toast(m.ok ? { text: t.toast.handover(s.name), tone: 'ok' } : { text: t.toast.handoverRefused(m.reason ?? '?'), tone: 'info' }); } });
-      setTimeout(off, 5000);
-      tui.client.send({ type: 'session.handover', rid, id: s.id });
+      handOver(tui.client, s, t, tui.toast);
       return true;
     }
     // x puts away the oldest closed task Ledge gave (« À toi »).
     if (input === 'x' && closed[0]) { tui.client.send({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'seen', task: closed[0].id }); return true; }
-    if (focused && (input === 'y' || input === 'n')) { void answerRoutine(focused, input === 'y'); return true; }
-    if (input === 'j' || key.downArrow) { setRoutineFocus(null); select(step(view.order, sel, 1)); return true; }
-    if (input === 'k' || key.upArrow) { setRoutineFocus(null); select(step(view.order, sel, -1)); return true; }
+    if (input === 'j' || key.downArrow) { select(step(view.order, sel, 1)); return true; }
+    if (input === 'k' || key.upArrow) { select(step(view.order, sel, -1)); return true; }
     if (key.tab) {
-      // The sessions that wait, then the routines' items, round again.
-      const ids = [...view.yours.map(s => s.id), ...routineRows.map(x => `routine:${x.id}`)];
-      const at = ids.indexOf(focused ? `routine:${focused.id}` : sel ?? '');
-      const next = ids.length ? ids[(at + 1) % ids.length]! : null;
-      if (next?.startsWith('routine:')) setRoutineFocus(next.slice('routine:'.length));
-      else if (next) { setRoutineFocus(null); select(next); }
+      // The sessions that wait, round again.
+      const ids = view.yours.map(s => s.id);
+      const next = ids.length ? ids[(ids.indexOf(sel ?? '') + 1) % ids.length]! : null;
+      if (next) select(next);
       return true;
     }
     // An OMP seat of OpenRig has no thread: ↵ attaches its terminal, as a does (docs/mockups/ledge-openrig-omp.html, view 2).
@@ -173,27 +139,9 @@ export function Overview() {
       ...n.branches.flatMap(b => [{ kind: 'branch' as const, key: `${n.key}|${b.branch}`, branch: b.branch, indent: 2 }, ...b.sessions.map(s => ({ kind: 'session' as const, key: s.id, s, indent: 0 }))])
     ];
   });
-  // A harness's usage window past the threshold or reached (docs/mockups/ledge-harness-usage.html): a line each, no key of its own.
-  const usageLines = usageAlerts(usage, id => tui.machines.find(m => m.id === id)?.status === 'open').map(a => {
-    const w = a.window;
-    const cursor = a.harness === 'cursor';
-    const name = cursor ? cursorLabel(t.usage.cursorAlert, w)
-      : w.kind === 'five_hour' ? t.usage.five5 : w.kind === 'seven_day' ? t.usage.weekAll : t.usage.weekOf(w.model ?? '');
-    const date = !!w.resetsAt && resetIsDate(w.resetsAt, Date.now());
-    // A date reads without its hour (« 1 déc. », as in the mockup).
-    const at = w.resetsAt ? (date ? resetShort : resetLong)(w.resetsAt, Date.now(), tui.lang) : null;
-    const harness = t.usage.harness[a.harness] ?? a.harness;
-    return { id: a.id, full: a.level === 'full', text: a.level === 'full' ? t.usage.alertFull(harness, name, at, date) : t.usage.alertThreshold(harness, name, w.pct, at, date) };
-  });
-  const yoursCount = view.yours.length + decisions.length + routineRows.length + closed.length + usageLines.length + near.length;
-  // A routine's item takes two lines: its words, then its keys.
-  const routineEls = routineRows.flatMap(x => [
-    <Text key={`routine:${x.id}`} wrap="truncate" backgroundColor={x.id === focused?.id ? C.sel : undefined}><Text color={x.mark === 'fail' ? C.red : C.yellow}>{x.mark === 'fail' ? '!' : g.question} </Text><Text color={C.fg}>{x.text}</Text></Text>,
-    ...(stale.has(x.id) ? [<Text key={`routine-stale:${x.id}`} wrap="truncate" color={C.yellow}>  {t.routines.stale(stale.get(x.id)!)}</Text>] : []),
-    <Text key={`routine-keys:${x.id}`} wrap="truncate" color={C.dim}>  {routineItemKeys(x, t).map(([k, label]) => `${k} ${label}`).join('  ')}</Text>
-  ]);
-  const rl = routineEls.length;
-  const yoursHeight = Math.max(1, Math.min(yoursCount - routineRows.length + rl, 8));
+  // The usage alerts moved to the footer's usage line (#40, D9), the routines to their screen (D4), the near-full sessions to the tree (D10).
+  const yoursCount = view.yours.length + decisions.length + closed.length;
+  const yoursHeight = Math.max(1, Math.min(yoursCount, 8));
   // The status bar, the key bar, the toast, the boxes' borders and titles.
   // The answer's field, or the answer read again whole, across the screen under the boxes.
   const answerLines = deciding?.confirm ? wrap(deciding.draft.trim(), Math.max(10, columns - 4)) : [];
@@ -225,12 +173,8 @@ export function Overview() {
         );
       }), ...decisions.slice(0, Math.max(0, yoursHeight - view.yours.length)).map(x => (
         <Text key={`decision:${x.id}`} wrap="truncate"><Text color={C.red}>{g.question} </Text><Text color={C.fg}>{t.overview.decision(x.giverName, x.title)}</Text>{x.text ? <Text color={C.dim}> · {oneLine(x.text)}</Text> : null}</Text>
-      )), ...routineEls.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl)).map(x => (
+      )), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)).map(x => (
         <Text key={x.id} wrap="truncate"><Text color={x.state === 'done' ? C.green : C.yellow}>{x.state === 'done' ? g.ok : g.fail} </Text><Text color={C.fg}>{t.overview.ledgeTask(x.ownerName, x.title, x.state as 'done' | 'refused' | 'dropped')}</Text></Text>
-      )), ...usageLines.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl - closed.length)).map(x => (
-        <Text key={`usage:${x.id}`} wrap="truncate"><Text color={x.full ? C.red : C.yellow}>{g.gauge} </Text><Text color={C.fg}>{x.text}</Text></Text>
-      )), ...near.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length - rl - closed.length - usageLines.length)).map(s => (
-        <Text key={`near:${s.id}`} wrap="truncate" backgroundColor={s.id === sel ? C.sel : undefined}><Text color={C.yellow}>{s.handover?.state === 'failed' ? g.fail : g.gauge} </Text><Text color={C.fg}>{s.handover?.state === 'failed' ? t.overview.reliefFailed(s.name, s.handover.reason ?? '?') : t.overview.near(s.name, Math.round(((s.context?.used ?? 0) / (s.context?.window ?? 1)) * 100))}</Text></Text>
       ))]}
     </TitledBox>
   );
@@ -259,10 +203,10 @@ export function Overview() {
   const keys: Array<readonly [string, string]> = writing ? [['↵', t.keys.sendOnly], ['alt+↵', t.keys.newLine], ['esc', t.keys.cancel]] : deciding?.confirm ? [['y', t.keys.sendAnswer], ['n esc', t.keys.edit]]
     : deciding ? [['↵', t.keys.review], ['alt+↵', t.keys.newLine], ['esc', t.keys.cancel]] : [
     // On an OMP seat ↵ attaches its terminal; on a stopped one, neither ↵ nor a has anything to attach.
-    ['j k', t.keys.navigate], ...(stopped ? [] : [['↵', selected && isOmpSeat(selected) ? t.keys.attachSeat : t.keys.open] as const]), ...(view.yours.length || routineRows.length ? [['tab', t.keys.next] as const, ['y n', t.keys.answer] as const] : []),
+    ['j k', t.keys.navigate], ...(stopped ? [] : [['↵', selected && isOmpSeat(selected) ? t.keys.attachSeat : t.keys.open] as const]), ...(view.yours.length ? [['tab', t.keys.next] as const, ['y n', t.keys.answer] as const] : []),
     ...(stopped ? [] : [['a', t.keys.attach] as const]), ...(writable ? [['m', t.keys.writeProject] as const] : []),
     ...(decisions.length ? [['D', t.keys.decide] as const] : []), ...(near.length ? [['H', t.keys.handover] as const] : []),
-    ['/', t.keys.ask], ['+', t.keys.launch], [',', t.keys.settings], ['?', t.keys.help], ['q', t.keys.quit]
+    ['+', t.keys.launch], [',', t.keys.settings], ['?', t.keys.help], ['q', t.keys.quit]
   ];
   return (
     <Frame crumb={tui.machines.map(m => `${m.label} ${m.ready ? g.machine : '○'}`).join('  ')} keys={keys}>
@@ -330,7 +274,8 @@ function SessionRow({ s, on, nameW, topicW, stateW, indent = 0, group, roleW = 1
         <Text color={C.dim}>{fit(seatSecond(s, oneLine(s.topic ?? s.title)), Math.max(0, (s.rig ? topicW - rigTag(s).length - 1 : topicW) - sigW))} </Text>
         {/* Its context, compact, only past « Contexte max » (docs/mockups/ledge-harness-usage.html): a column of its own, there
             while one session of the tree needs it. */}
-        {sigW ? <Text color={C.yellow}>{fit(contextNear(s.context, near) ? `${g.gauge}${Math.round((contextShare(s.context) ?? 0) * 100)}%` : '', sigW)}</Text> : null}
+        {/* A relief that failed turns it red (#40, D10, design-ux): its words are on the Session screen, where H tries again. */}
+        {sigW ? <Text color={s.handover?.state === 'failed' ? C.red : C.yellow}>{fit(contextNear(s.context, near) || s.handover?.state === 'failed' ? `${g.gauge}${Math.round((contextShare(s.context) ?? 0) * 100)}%` : '', sigW)}</Text> : null}
       </>}
       <Text color={s.offline || stopped ? C.faint : STATE_COLOR[st]}>{fit(s.offline ? t.overview.offline : stopped ? t.state.stopped : t.state[st], stateW).trimEnd()}</Text>
       {n > 0 ? <Text color={C.violet}> +{n}</Text> : null}

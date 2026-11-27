@@ -48,7 +48,7 @@ describe('ledge tui: a rig’s seats (± on the OpenRig screen)', () => {
           tui.daemon.push({ type: 'openrig.reseated', requestId: m.requestId, ok: true, commands: [], added: ['dev.build-3'], removed: ['dev.review-2'], links: 1 });
         }
       });
-      await tui.press('6'); await until(() => tui.frame().includes('starter'));
+      await tui.press('5'); await until(() => tui.frame().includes('starter'));
       await tui.press('±');
       await until(() => tui.frame().includes('SIÈGES · STARTER'));
       await tui.press('+');
@@ -77,7 +77,7 @@ describe('ledge tui: a rig’s seats (± on the OpenRig screen)', () => {
           ? { type: 'openrig.reseated', requestId: m.requestId, ok: false, commands: [], added: [], removed: [], error: 'rig_root_unknown' }
           : { type: 'openrig.reseated', requestId: m.requestId, ok: true, commands: [], added: ['dev.build-3'], removed: [], linksUnsupported: true });
       });
-      await tui.press('6'); await until(() => tui.frame().includes('starter'));
+      await tui.press('5'); await until(() => tui.frame().includes('starter'));
       await tui.press('='); await until(() => tui.frame().includes('SIÈGES · STARTER'));
       await tui.press('+'); await tui.press('\r');
       await until(() => tui.frame().includes('les agents du rig sont introuvables'));

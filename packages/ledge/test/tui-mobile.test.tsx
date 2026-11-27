@@ -572,11 +572,15 @@ describe('Accès mobile › a field or a question holds the keys only while it i
 
   it('never takes ctrl+c, even with a field open', async () => {
     tui = await startTui({ mobile: state({ devices: two() }) });
-    await tui.press('/');
+    await tui.press('j'); await tui.press('j');
+    await until(() => tui!.frame().includes('BIX · DOCUMENTER'));
+    await tui.press('\r'); await tui.press('r');
+    await until(() => tui!.frame().includes('RÉPONDRE À BIX'));
     await tui.stdin.write('brouillon');
     await until(() => tui!.frame().includes('brouillon'));
-    // A draft keeps the field on esc: tab leaves it for the conversation, where the global keys work.
-    await tui.press('\t');
+    // esc leaves the field, its draft kept: the global keys work again.
+    await tui.press('\x1b');
+    await until(() => tui!.frame().includes('ÉCRIRE · BROUILLON'));
     await open(tui);
     await down(tui, 4);
     await tui.press('r');
@@ -657,8 +661,11 @@ describe('Accès mobile › minors of the final review', () => {
   it('keeps « L lier » off the key bar while a field has the keys', async () => {
     tui = await startTui({ mobile: online() });
     await until(() => /L\s+lier/.test(tui!.frame()));
-    await tui.press('/');
-    await until(() => tui!.frame().includes('QUESTION'));
+    await tui.press('j'); await tui.press('j');
+    await until(() => tui!.frame().includes('BIX · DOCUMENTER'));
+    await tui.press('\r'); await tui.press('r');
+    await until(() => tui!.frame().includes('RÉPONDRE À BIX'));
+
     expect(tui.frame()).not.toMatch(/L\s+lier/);
   });
 });

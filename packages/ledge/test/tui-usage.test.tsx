@@ -29,18 +29,27 @@ describe('ledge tui: usage limits', () => {
   beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 10, 5, 12, 0)); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('a foot line above the keys on every screen, the alerts in « À toi », the card and the thread say model · effort · ctx · duration', async () => {
+  it('a foot line above the keys on every screen, its alert in place of the harness (#40, D9), the card and the thread say model · effort · ctx · duration', async () => {
     const tui = await startTui({ sessions: sessions() });
     try {
       await tui.resize(120, 34);
-      tui.daemon.push(state([claude()], alerts()));
+      tui.daemon.push(state([claude()]));
       await until(() => tui.frame().includes('✻'));
       const f = tui.frame();
       shot('tui-overview-120', f);
       expect(f).toMatch(/✻ 5 h █+░* 84% ↺\d\d:\d\d +Semaine █+░* 58% ↺\S+ +Opus █+ 100%/);
-      expect(f).toContain('Claude Code · 5 h à 84 % · remise');
-      expect(f).toContain('Claude Code · Opus semaine atteinte');
       expect(f).toMatch(/Claude Code · Opus 5\.5 élevé · ctx 46 % · 1 h 1\d/);
+      // The alerts left « À toi » for the foot line: the worst (a limit reached) in place of the harness's windows, then « +1 ».
+      tui.daemon.push(state([claude()], alerts()));
+      await until(() => tui.frame().includes('Claude Code · Opus semaine atteinte'));
+      const a = tui.frame();
+      shot('tui-overview-alert-120', a);
+      expect(a).toMatch(/Claude Code · Opus semaine atteinte · reprend .* \+1/);
+      expect(a).not.toContain('5 h à 84 %');
+      expect(a).not.toMatch(/✻ 5 h █/);
+      expect(a).toContain('À TOI · 2');
+      tui.daemon.push(state([claude()]));
+      await until(() => /✻ 5 h █/.test(tui.frame()));
       expect(f).toMatch(/Nova .*◔88%/);
       // 80 columns: no gauges, « sem » without its reset.
       await tui.resize(80, 34);
@@ -83,14 +92,14 @@ describe('ledge tui: usage limits', () => {
     const tui = await startTui();
     try {
       await tui.resize(80, 34);
-      await tui.press('5');
+      await tui.press('4');
       await until(() => tui.frame().includes('Contexte max'));
       expect(tui.frame()).toContain('aucune machine ne donne ses limites');
       tui.daemon.push(state([claude()]));
       await until(() => tui.frame().includes('LIMITES'));
       const f = tui.frame();
       shot('tui-settings-80', f);
-      expect(f).toMatch(/Alerte de limite +◂ 80 % ▸ +au-delà : À toi prévient/);
+      expect(f).toMatch(/Alerte de limite +◂ 80 % ▸ +au-delà : la ligne d’usage du pied prévient/);
       expect(f).toMatch(/Claude Code · Local +lu il y a \d+ (s|min)/);
       expect(f).toMatch(/Fable +██░+ +20 %/);
       await tui.press('j'); await tui.press('j'); await tui.press('j');
@@ -98,6 +107,34 @@ describe('ledge tui: usage limits', () => {
       await until(() => tui.daemon.received.some(m => m.type === 'usage.set'));
       expect(tui.daemon.received.find(m => m.type === 'usage.set')).toEqual({ type: 'usage.set', prefs: { alert: 0.85 } });
     } finally { await tui.cleanup(); }
+  });
+
+  it('two machines: a Codex alert (no account) takes the place of the machine it is about, never the PC’s (review of #40 PR 2c)', async () => {
+    const { usageSegments } = await import('../src/tui/ui/UsageLine.js');
+    const { glyphsFor } = await import('../src/tui/glyphs.js');
+    const { fr } = await import('../src/tui/i18n/fr.js');
+    const { usageGroups } = await import('@ledge/fleet');
+    const reset = at(120);
+    const codex = (pct: number, resetsAt: string): HarnessUsage => ({ harness: 'codex', account: null, status: 'ok', readAt: at(-1), windows: [{ kind: 'five_hour', pct, resetsAt }, { kind: 'seven_day', pct: 40, resetsAt: monday() }] });
+    const alert = { id: 'cx5', harness: 'codex' as const, account: null, window: { kind: 'five_hour' as const, pct: 100, resetsAt: reset }, level: 'full' as const, at: at(0) };
+    const states = new Map([['local', state([codex(22, at(200))])], ['srv', state([codex(100, reset)], [alert])]]);
+    const groups = usageGroups(states, () => true, Date.now());
+    const line = usageSegments(groups, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [alert] }).map(x => x[0]).join('');
+    // The PC's Codex keeps its windows; the server's gives way to the alert.
+    expect(line).toMatch(/>_ Local 5 h \S+ 22%/);
+    expect(line).toContain('Codex · 5 h atteinte');
+    expect(line).not.toMatch(/>_ Serveur/);
+    // The same reset to the millisecond on both: the alert still goes to the machine whose window reached it.
+    const same = usageGroups(new Map([['local', state([codex(22, reset)])], ['srv', state([codex(100, reset)], [alert])]]), () => true, Date.now());
+    const tied = usageSegments(same, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [alert] }).map(x => x[0]).join('');
+    expect(tied).toMatch(/>_ Local 5 h \S+ 22%/);
+    expect(tied).not.toMatch(/>_ Serveur/);
+    // An alert none of whose windows matches leads the line, every machine keeping its own.
+    const odd = { ...alert, window: { kind: 'seven_day' as const, pct: 99, resetsAt: at(9000) } };
+    const lone = usageSegments(groups, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [odd] }).map(x => x[0]).join('');
+    expect(lone.startsWith('Codex · semaine')).toBe(true);
+    expect(lone).toMatch(/>_ Local 5 h/);
+    expect(lone).toMatch(/>_ Serveur 5 h/);
   });
 
   describe('Cursor Agent', () => {
@@ -134,7 +171,7 @@ describe('ledge tui: usage limits', () => {
       expect(await segs(80, [cursor({ status: 'expired', windows: [] })])).toContain('reconnectez-vous');
       expect(await segs(120, [cursor()], true)).toContain('<> Mois');
     });
-    it('the screens: « À toi » alert lines and every window in Settings', async () => {
+    it('the screens: the worst alert on the foot line, and every window in Settings', async () => {
       const tui = await startTui({ sessions: sessions() });
       try {
         await tui.resize(200, 34);
@@ -142,11 +179,12 @@ describe('ledge tui: usage limits', () => {
           { id: 'cm', harness: 'cursor', account: 'c1d2e3f4a5b6', window: { kind: 'month', pct: 81, resetsAt: DEC1() }, level: 'threshold', at: at(0) },
           { id: 'co', harness: 'cursor', account: 'c1d2e3f4a5b6', window: { kind: 'pool', pool: 'other', pct: 100, resetsAt: DEC1() }, level: 'full', at: at(-12) }
         ]));
-        await until(() => tui.frame().includes('◇'));
+        await until(() => tui.frame().includes('Autres modèles atteinte'));
         const f = tui.frame();
-        expect(f).toContain('Cursor Agent · total du mois à 81 % · remise 1 déc.');
-        expect(f).toContain('Cursor Agent · Autres modèles atteinte · reprend le 1 déc.');
-        await tui.press('5');
+        // The limit reached goes first, before the newer one past the threshold.
+        expect(f).toMatch(/Cursor Agent · Autres modèles atteinte · reprend le 1 déc\. \+1/);
+        expect(f).not.toContain('total du mois à 81 %');
+        await tui.press('4');
         await until(() => tui.frame().includes('LIMITES'));
         const s = tui.frame();
         expect(s).toMatch(/Total · mois +█+░* +81 %/);
@@ -155,17 +193,17 @@ describe('ledge tui: usage limits', () => {
       } finally { await tui.cleanup(); }
     });
 
-    it('in English: Month, ↺1 Dec, Others on the foot line and « resumes on 1 Dec » in « For you »', async () => {
+    it('in English: Month, ↺1 Dec, Others on the foot line, then the alert « resumes on 1 Dec » in its place', async () => {
       const tui = await startTui({ sessions: sessions(), lang: 'en' });
       try {
         await tui.resize(200, 34);
         tui.daemon.push(state([cursor()], [
           { id: 'co', harness: 'cursor', account: 'c1d2e3f4a5b6', window: { kind: 'pool', pool: 'other', pct: 100, resetsAt: DEC1() }, level: 'full', at: at(-12) }
         ]));
-        await until(() => tui.frame().includes('◇'));
-        const f = tui.frame();
-        expect(f).toMatch(/◇ Month █+░* 81% ↺1 Dec +Others █+ 100%/);
-        expect(f).toContain('Cursor Agent · Other models reached · resumes on 1 Dec');
+        await until(() => tui.frame().includes('Cursor Agent · Other models reached · resumes on 1 Dec'));
+        expect(tui.frame()).not.toMatch(/resumes on 1 Dec \+1/);
+        tui.daemon.push(state([cursor()]));
+        await until(() => /◇ Month █+░* 81% ↺1 Dec +Others █+ 100%/.test(tui.frame()));
       } finally { await tui.cleanup(); }
     });
   });

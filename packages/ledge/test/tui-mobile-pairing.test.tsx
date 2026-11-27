@@ -91,9 +91,12 @@ describe('the pairing alert and « Lier un appareil »', () => {
     expect(tui.sentMobile()).toEqual([{ type: 'mobile.pairing.approve', id: 'early' }]);
   });
 
-  it('ignores L in the Ask composer', async () => {
+  it('ignores L in a session’s composer', async () => {
     tui = await startTui({ mobile: base() });
-    await tui.press('/');
+    await tui.press('j'); await tui.press('j');
+    await until(() => tui!.frame().includes('BIX · DOCUMENTER'));
+    await tui.press('\r'); await tui.press('r');
+    await until(() => tui!.frame().includes('RÉPONDRE À BIX'));
     await tui.press('L');
     expect(tui.frame()).not.toContain('LIER UN APPAREIL');
     // The composer's own line holds the draft; the alert line and the key bar say « L » too, so they cannot tell.
