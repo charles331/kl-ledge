@@ -74,6 +74,15 @@ describe('multi-machine connections', () => {
     server.emit({ type: 'session.thread.item', id: 'same', item });
     expect(got.filter(m => m.type === 'session.thread' || m.type === 'session.thread.item').map(m => (m as { id: string }).id)).toEqual(['local:same', 'server:same']);
   });
+  it('qualifies the session of an aside (#41), and sends an aside to the session\'s machine', () => {
+    const { got, local, server, client } = setup();
+    const aside = { rid: 'r1', question: 'q', askedAt: new Date().toISOString(), state: 'asking' as const };
+    local.emit({ type: 'session.aside', id: 'same', aside });
+    server.emit({ type: 'session.aside', id: 'same', aside });
+    expect(got.filter(m => m.type === 'session.aside').map(m => (m as { id: string }).id)).toEqual(['local:same', 'server:same']);
+    client.send({ type: 'session.aside', id: 'server:same', rid: 'r2', question: 'why?' });
+    expect(server.sent.at(-1)).toEqual({ type: 'session.aside', id: 'same', rid: 'r2', question: 'why?' });
+  });
   it('qualifies colliding IDs and never broadcasts a command', () => {
     const { client, got, local, server } = setup();
     expect(lastSnapshot(got).sessions.map(s => s.id)).toEqual(['local:same', 'server:same']);

@@ -69,6 +69,7 @@ import { phoneLaunch } from '../mobile/launch.js';
 import { createNotifier } from '../mobile/push/notifier.js';
 import { chatEndPayload, decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
 import { createNoticeFeed, pointPush } from '../operator/notices.js';
+import { createAsides } from './aside.js';
 import { pushFor, resolvedFor } from '../mobile/push/triggers.js';
 import { createChallengeStore } from '../mobile/challenges.js';
 import { rpOf } from '../mobile/webauthn.js';
@@ -573,6 +574,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     killSession: name => { void opts.tmux.killSession(name).catch(() => log('shell kill failed')); },
     log
   }) : null;
+  /** A Claude Code session's `/btw` (#41), held under the same typing lock; absent when this tmux has no control client. */
+  const asides = opts.tmux.controlArgs ? createAsides({
+    tmux: opts.tmux, typing, session: id => store.get(id), log,
+    emit: (id, aside) => broadcast({ type: 'session.aside', id, aside })
+  }) : null;
   /** Sessions being closed: neither the relay nor the mailbox delivers to them, even free; their queues fail once they exit. */
   const closing = new Set<string>();
   // An injected chat (tests) is the only thread there is; otherwise the relay and the close cards work across the PC's and every device's.
@@ -662,7 +668,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       titles.set(c.session.id, c.session.title);
       tmux.setOption(c.session.tmuxSession, '@ledge_title', c.session.title).catch(e => log(`tab title not set for ${c.session.id}: ${(e as Error).message}`));
     }
-    if (c.type === 'removed') { panes?.drop(c.id); previews.delete(c.id); titles.delete(c.id); labelled.delete(c.id); unlabelled.delete(c.id); lastState.delete(c.id); }
+    if (c.type === 'removed') { panes?.drop(c.id); asides?.drop(c.id); previews.delete(c.id); titles.delete(c.id); labelled.delete(c.id); unlabelled.delete(c.id); lastState.delete(c.id); }
     if (c.type === 'updated') {
       const was = lastState.get(c.session.id); lastState.set(c.session.id, c.session.state);
       if (c.session.state === 'idle' && was !== undefined && was !== 'idle' && c.session.transcriptPath) void measure(c.session.id).catch(e => log(`context of ${c.session.id} not read: ${(e as Error).message}`));
@@ -672,13 +678,14 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
     if (mobile) { reply({ type: 'mobile', state: mobile.state() }); reply(holdersMsg()); } // then mobile access, and who types from a phone
     else if (unavailable) reply({ type: 'mobile', state: unavailable });
     for (const [id, lines] of previews) if (store.get(id)) reply({ type: 'session.preview', id, lines });
+    for (const [id, list] of asides?.all() ?? []) if (store.get(id)) for (const aside of list) reply({ type: 'session.aside', id, aside }); // the asides kept (#41)
     reply({ type: 'chat.history', turns: chat.history() });
     reply(contextMsg()); // the context threshold (context handover spec §3.2)
     const u = usageMsg(); if (u) reply(u); // the harnesses' limits
@@ -1761,6 +1768,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         if (backendOf(s) !== 'omp-rpc') return refuse('this session has no set of questions to answer', msg.id);
         const refused = await omp.answerAsk(msg.id, msg.requestId, msg.answers, msg.cancel === true);
         if (refused) refuse(refused, msg.id);
+        return;
+      }
+      case 'session.aside': {
+        if (!asides) return refuse('this daemon cannot read an aside here', msg.id);
+        asides.ask(msg.id, msg.rid, msg.question);
         return;
       }
       case 'session.interrupt': {

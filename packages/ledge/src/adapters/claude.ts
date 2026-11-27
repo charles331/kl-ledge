@@ -326,6 +326,35 @@ function inputBox(lines: string[]): { top: number; bottom: number } | null {
   return null;
 }
 
+/** Drops what a pane captured with its styles (`capture-pane -e`) draws faint (SGR 2), then every escape sequence. */
+export function withoutFaint(styled: string): string {
+  let out = '', faint = false;
+  const re = /\x1b\[([0-9;:]*)m|\x1b\[[0-9;:?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b./g;
+  let at = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(styled))) {
+    if (!faint) out += styled.slice(at, m.index);
+    at = re.lastIndex;
+    if (m[1] === undefined) continue;
+    for (const p of (m[1] === '' ? ['0'] : m[1].split(/[;:]/))) {
+      if (p === '2') faint = true;
+      else if (p === '0' || p === '' || p === '22') faint = false;
+    }
+  }
+  if (!faint) out += styled.slice(at);
+  return out;
+}
+
+/**
+ * What is typed in Claude Code's input box, from a pane captured with its styles: '' when nothing is (its faint « Try … »
+ * suggestion is no draft, Claude Code 2.1.332), null when the bottom of the pane is not the input box (a dialog, a panel).
+ */
+export function claudeDraft(styled: string): string | null {
+  const lines = withoutFaint(styled).split('\n').map(l => l.replace(/\s+$/, ''));
+  const box = inputBox(lines);
+  if (!box) return null;
+  return lines.slice(box.top + 1, box.bottom).map(l => l.trim()).join(' ').replace(/^❯\s*/, '').trim();
+}
+
 const TITLE_RULE = /^─{10,} (\S.*?) ─+$/;
 /** `───── add-readme-file ─`: the title Claude Code writes on the input box's top rule once the conversation has one. */
 function paneTitle(pane: string): string | null {
