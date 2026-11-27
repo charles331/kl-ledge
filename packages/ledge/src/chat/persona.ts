@@ -21,8 +21,8 @@ const READS: Record<Tool, string> = {
   cursor: 'Pour lire, tu as la lecture et la recherche du mode ask ; aucune écriture.',
   // --tools read,grep,glob
   omp: 'Pour lire, tu as les outils `read`, `grep` et `glob` ; pas de shell.',
-  // --sandbox --settings (read_file on cwd/addDirs + ls; write_file, edit_file, mcp, urls denied)
-  agy: 'Pour lire, tu as `read_file` sur le dossier courant et les dépôts, et `ls` pour lister un dossier ; aucune autre commande, aucune écriture.'
+  // --sandbox --add-dir --settings (reads held to the workspace; every command, write, edit, mcp and url denied)
+  agy: 'Pour lire, tu as `read_file` sur le dossier courant et les dépôts, par leur chemin : pas de commande shell ni de liste de dossier, aucune écriture.'
 };
 
 const RISK: Record<'read' | 'reversible' | 'destructive', string> = {

@@ -62,12 +62,12 @@ describe('agyArgs', () => {
     const settings = JSON.parse(a[a.indexOf('--settings') + 1]!) as ReturnType<typeof agySettings>;
     expect(settings).toMatchObject({ agentMode: '', toolPermission: 'request-review', allowNonWorkspaceAccess: false });
     const perms = settings.permissions as { allow: string[]; deny: string[] };
-    expect(perms.allow).toContain(`read_file(${process.cwd()})`);
-    expect(perms.allow).toContain('read_file(/w/ledge)');
-    expect(perms.allow).toContain('command(ls)');
-    // ripgrep's --pre runs a program and git's --output writes a file: neither is a read.
-    expect(perms.allow.some(r => /^command\((rg|git)\b/.test(r))).toBe(false);
-    expect(perms.deny).toEqual(expect.arrayContaining(['write_file(*)', 'edit_file(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)']));
+    // Nothing allowed: agy holds its reads to the workspace by itself, and a path rule would also cover a sibling named alike.
+    expect(perms.allow).toEqual([]);
+    // No shell at all: a shell read or listing is not held to the workspace.
+    expect(perms.deny).toEqual(expect.arrayContaining(['command(*)', 'write_file(*)', 'edit_file(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)']));
+    // The repositories are the workspace's other roots.
+    expect(a.filter((x, i) => a[i - 1] === '--add-dir')).toEqual(['/w/ledge']);
 
     const resumed = agyArgs(opts({ resume: true }));
     expect(resumed).toContain('--conversation');

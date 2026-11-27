@@ -7,25 +7,20 @@ import { buildPersona } from './persona.js';
 import { runJsonl } from './run.js';
 
 /**
- * The one shell command allowed in headless Ask Ledge runs, to list folders (Antigravity CLI has no glob tool). Files are
- * read with `read_file`, which agy keeps to the context folder and the repositories (seen on agy 1.5.18: a token two
- * folders above the context folder, `~/.bashrc` and `/var/tmp` refused; only `/tmp` stays readable, where Ledge keeps
- * nothing). A shell `cat`, `grep`, `head`… is not held there (`cat` read a file outside every workspace folder) and
- * would send any file of the machine to Google. Never `rg` (`--pre` runs a program) nor `git` (`--output` writes a file).
+ * Session-only settings for a read-only Antigravity CLI run. Reading needs no rule: agy reads its workspace (the context
+ * folder and the repositories, its `--add-dir`) by itself and refuses the rest (seen on agy 1.5.18: a token two folders
+ * above the context folder, `~/.bashrc`, `/var/tmp` and a sibling `repo-secret` of a `repo` given were refused; only
+ * `/tmp` stays readable, where Ledge keeps nothing). So no `read_file(<dir>)` rule, which would also cover a sibling
+ * whose name starts with it. Every shell command is denied: a shell `cat` or `ls` is not held to the workspace and would
+ * send any file, or any file's name, to Google. Writes, edits, MCP and URLs are denied, and the asking mode overrides
+ * an auto mode the user's own settings may set.
  */
-const READ_COMMANDS = ['command(ls)'];
-
-/** Session-only settings for a read-only Antigravity CLI run: explicit ask mode overrides any auto setting in user config, and deny rules block every write, edit, MCP and network tool. */
-export function agySettings(o: Pick<RunOptions, 'cwd' | 'addDirs'>): Record<string, unknown> {
-  const dirs = [o.cwd, ...o.addDirs];
+export function agySettings(_o: Pick<RunOptions, 'cwd' | 'addDirs'>): Record<string, unknown> {
   return {
     agentMode: '',
     toolPermission: 'request-review',
     allowNonWorkspaceAccess: false,
-    permissions: {
-      allow: [...dirs.map(d => `read_file(${d})`), ...READ_COMMANDS],
-      deny: ['write_file(*)', 'edit_file(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)']
-    }
+    permissions: { allow: [], deny: ['command(*)', 'write_file(*)', 'edit_file(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)'] }
   };
 }
 
