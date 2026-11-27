@@ -132,6 +132,7 @@ export const DaemonInfoSchema = z.object({ version: z.string(), install: z.enum(
   /** Answers `routine.list`, `routine.cmd` and `routine.preview`, and sends `routine.changed` (spec 2026-11-23 routines). */ routines: z.boolean().optional(),
   /** Answers a grouped `routine.cmd` (`others`) all or nothing: a client sends one only to a daemon that says it. */ routineGroups: z.boolean().optional(),
   /** Takes `session.aside` (#41): a Claude Code session's `/btw`, answered as an aside, not a thread item. */ aside: z.boolean().optional(),
+  /** Takes `session.label`: a session's nickname, kept with it. A client sends one only to a daemon that says it. */ sessionLabel: z.boolean().optional(),
   /** Its launcher answers `shell --nonce <N> <dir>` (#299): a free shell started through it gets the shell integration (OSC 633). */ freeShell: z.boolean().optional() });
 export type DaemonInfo = z.infer<typeof DaemonInfoSchema>;
 export const UpdateFailureSchema = z.enum(['git-install', 'no-systemd', 'sessions-at-risk', 'npm-failed', 'busy']);
@@ -378,6 +379,9 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('session.delete'), id: z.string() }),
   /** The user names the session's topic from the overlay (500 characters at most, the hook's prompt cap); an empty topic hands back to the automatic sources. */
   z.object({ type: z.literal('session.rename'), id: z.string(), topic: z.string().max(500) }),
+  /** A session's nickname set from the sidebar (`sessionLabel` in the daemon's info), trimmed; empty removes it. Its name, its
+   *  address, does not change. */
+  z.object({ type: z.literal('session.label'), id: z.string(), label: z.string().max(200) }),
   z.object({ type: z.literal('session.thread'), id: z.string() }),
   z.object({ type: z.literal('session.register'), session: SessionSchema }),
   /** `agent` and `cwd` describe the session when the daemon does not know it yet (a hook from an agent started without ledge). */

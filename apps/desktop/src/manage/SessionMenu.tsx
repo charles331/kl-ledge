@@ -1,17 +1,16 @@
 import { useState, type JSX, type ReactNode } from 'react';
 import type { Project, Session } from '@ledge/protocol';
-import { Button } from '@ledge/ui/ui/Button';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import type { Filing } from '../atelier/filing';
 import { useI18n } from '../i18n/lang';
 import { machineOf } from '../nav/agents';
 import { Menu, MenuItem } from '../shell/Menu';
-import { Modal } from '../shell/Modal';
 import { SHELL_ICONS } from '../shell/icons';
 import type { SessionActions } from './useSessionActions';
 import type { ContextMenuState } from './useContextMenu';
 import { useReorderCtl } from '../shell/sidebar/useReorder';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** A session still runs when its machine answers and it has not exited. */
 export const isLiveSession = (s: Session): boolean => !s.offline && s.state !== 'exited';
@@ -75,7 +74,7 @@ export function SessionMenu({ session: s, at, actions, filing, projects, current
   const note: ReactNode = s.helpers.length > 0 ? <p className="session-menu-note">{m.kids(s.helpers.length, s.name)}</p> : null;
   return (
     <Menu open onOpenChange={o => { if (!o) onClose(); }} label={m.label(s.name)} className="session-menu-wrap" menuClassName="session-menu" at={at} trigger={() => null}>
-      <div className="session-menu-head"><strong>{s.name}</strong><small>{s.topic ?? s.title}</small></div>
+      <div className="session-menu-head"><strong><SessionName session={s} /></strong><small>{s.topic ?? s.title}</small></div>
       {ide ? (<>
         {item(t.ide.menu.open, ICONS.external.d, () => onOpen(s), { hint: t.ide.menu.openKey })}
         {item(t.ide.menu.openRight, SHELL_ICONS.split, () => ide.openRight(s), { hint: t.ide.menu.openRightKey })}
@@ -115,37 +114,16 @@ export function SessionMenu({ session: s, at, actions, filing, projects, current
   );
 }
 
-/** « Renommer… »: one field, the session's topic; Entrée or « Renommer » sends it. Escape cancels without going further. */
-export function RenameDialog({ session: s, onRename, onClose }: { session: Session; onRename(topic: string): void; onClose(): void }): JSX.Element {
-  const { t } = useI18n();
-  const r = t.manage.rename;
-  const [topic, setTopic] = useState(s.topic ?? '');
-  const ok = topic.trim() !== '' && topic.trim() !== (s.topic ?? '');
-  const submit = () => { if (ok) { onRename(topic.trim()); onClose(); } };
-  return (
-    <Modal title={r.title(s.name)} className="rename-modal" onClose={onClose}>
-      <form className="rename-form" onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
-        <input autoFocus aria-label={r.label} value={topic} maxLength={500} onChange={e => setTopic(e.target.value)} onFocus={e => e.currentTarget.select()} />
-        <div className="confirm-actions">
-          <Button type="button" onClick={onClose}>{r.cancel}</Button>
-          <Button type="submit" variant="primary" disabled={!ok}>{r.save}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/** The session menu and the rename dialog of a `useContextMenu`, once for the page that owns it: only for a session target. */
+/** The session menu of a `useContextMenu`, once for the page that owns it: only for a session target. */
 export function SessionMenuHost({ state, actions, filing, projects, currentOf, onOpen, onHandover, ide }: {
   state: ContextMenuState; actions: SessionActions; filing: Filing; projects: readonly Project[]; currentOf(s: Session): string | null; onOpen(s: Session): void; onHandover?(s: Session): void;
   ide?: SessionMenuIde;
 }): JSX.Element {
-  const { menu, session, renaming } = state;
+  const { menu, session } = state;
   return (<>
     {menu && session && (
       <SessionMenu session={session} at={menu.at} actions={actions} filing={filing} projects={projects} current={currentOf(session)}
         onOpen={onOpen} onTerminal={state.terminal} onRename={state.rename} {...(onHandover ? { onHandover } : {})} {...(ide ? { ide } : {})} onClose={state.close} />
     )}
-    {renaming && <RenameDialog session={renaming} onRename={state.sendRename} onClose={state.closeRename} />}
   </>);
 }

@@ -1,5 +1,5 @@
 import { Fragment, useState, type CSSProperties, type DragEvent, type JSX, type MouseEvent } from 'react';
-import { PROJECT_COLORS, type Project, type Session } from '@ledge/protocol';
+import { PROJECT_COLORS, labelledName, type Project, type Session } from '@ledge/protocol';
 import { botState } from '@ledge/ui/bots/poseFor';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
@@ -15,6 +15,7 @@ import type { DropTarget, Filing } from './filing';
 import { Plants } from './Plants';
 import { RUG_SIDE, helperState, layoutTable, noteX, sheetState, tableBranch, type AtelierTable, type Side } from './layout';
 import { ProjectSwatch } from '../projects/ProjectSwatch';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 export interface ProjectTableProps {
   project: Project;
@@ -174,7 +175,7 @@ export function ProjectTable({ project, mains, order, helpers, seats: maxSeats, 
               {...seatDrag?.(s)}
               className={cls('agent-seat', `place-${side}`, seated === s.id && 'just-seated', focusedId === s.id && 'keyboard-selected', s.offline ? 'seat-offline' : state === 'working' && 'seat-working')}>
               {bot(s, 64)}
-              <strong><span className="seat-name" title={s.name}>{s.name}</span>{n >= 1 && n <= 9 && <span className="seat-shortcut">Alt {n}</span>}</strong>
+              <strong><span className="seat-name" title={labelledName(s)}><SessionName session={s} /></span>{n >= 1 && n <= 9 && <span className="seat-shortcut">Alt {n}</span>}</strong>
               {s.rig && <span className="seat-rig-tag"><RigTag session={s} /></span>}
               <span className="seat-machine" title={seatLine(s, machineOf(s))}>{s.rig?.role ?? machineOf(s)}</span>
               <StateBadge state={state} offline={!!s.offline} />

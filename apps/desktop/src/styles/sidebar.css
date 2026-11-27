@@ -203,11 +203,15 @@
 .st-tally .t-bg i{background:none;border:1.5px solid currentColor;width:7px;height:7px}
 
 /* Issue #16 (docs/mockups/ledge-reorder.html): putting projects and sessions in order by dragging them. */
-/* The grip ⋮⋮ in the row's left margin, on hover or focus only; the whole row takes the drag (the grip is a sign). */
+/* The grip in the row's left margin, on hover or focus only; the whole row takes the drag (the grip is a sign). Six drawn
+   dots, centred on the row's first line: a project's beside its chevron, never over it; a session's on its name and logo. */
 .st-row.st-grab{cursor:grab}
-.st-grip{position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:12px;text-align:center;font-size:11px;letter-spacing:-2px;line-height:1;color:var(--muted-foreground);opacity:0;pointer-events:auto;cursor:grab}
-.st-agent > .st-grip{left:13px}
-.st-agent:has(> .st-chev) > .st-grip{left:0}
+.st-grip{position:absolute;left:0;top:50%;transform:translateY(-50%);display:grid;grid-template-columns:repeat(2,2px);gap:2px;padding:2px 1px;opacity:0;pointer-events:auto;cursor:grab}
+.st-grip i{width:2px;height:2px;border-radius:50%;background:var(--muted-foreground)}
+/* A session's: in its gap, 6 px left of its logo; with sub-agents, left of their chevron. */
+.st-agent > .st-grip{top:15px;left:calc(var(--d) * 14px + 13px)}
+.st-agent:has(> .st-chev) > .st-grip{left:calc(var(--d) * 14px - 4px)}
+.st-dense .st-agent > .st-grip{top:50%}
 .st-row:hover > .st-grip,.st-row:focus-within > .st-grip{opacity:1}
 /* The row lifted leaves its place dashed, its content faded. */
 .st-row.st-lifted{outline:1.5px dashed var(--input);outline-offset:-1.5px;background:transparent}
@@ -227,3 +231,27 @@
 /* After the last project (#16 review C2): its line under its last row, at the tree's end. */
 .st-mark-end{position:relative;height:2px;margin:1px 6px 0 4px;border-radius:1px;background:var(--task)}
 .st-mark-end::before{content:"";position:absolute;left:-5px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--task);background:var(--sidebar);box-sizing:border-box}
+
+/* docs/mockups/ledge-sidebar-names.html, card 2: a session's name as a field in place; its second line says the keys, or why the
+   name is refused. The strong keeps its overflow hidden, so the field's ring is drawn inside its border. */
+.st-agent .st-main.st-renaming strong{overflow:visible;display:flex;align-items:center;gap:4px}
+.st-renaming strong > .sn-name{flex:none}
+/* Over the first line's own rule (its marks keep their width): the field is what gives way, so « (Otto) » stays in the row. */
+.st-agent .st-main.st-renaming strong > .st-rename{flex:1 1 auto;min-width:0;width:0}
+/* The compact view puts the name and its second line side by side, the name as narrow as its text: while it is a field, the field
+   takes the row's width and the keys go under it, as in the roomy view. */
+.st-dense .st-agent .st-main.st-renaming{flex-direction:column;align-items:stretch;gap:1px}
+.st-dense .st-agent .st-main.st-renaming strong,.st-dense .st-agent:not(.helper) .st-main.st-renaming > span{flex:none}
+/* Two lines while it is a field: the logo (and a sub-agents' chevron) on the field's line, as in the roomy view. */
+.st-dense .st-agent:has(> .st-renaming){align-items:flex-start}
+.st-dense .st-agent:has(> .st-renaming) > .st-bot{margin-top:3px}
+.st-dense .st-agent:has(> .st-renaming) > .st-chev{margin-top:4px}
+/* The second line is the field's own while it is open (the mockup's card 2): no time, no row buttons over the field. */
+.st-row:has(> .st-renaming) > .st-time,.st-row:has(> .st-renaming) > .st-acts,.st-row:has(> .st-renaming) > .st-kids,.st-row:has(> .st-renaming) > .st-grip{display:none!important}
+.st-tree .st-agent > .st-main.st-renaming > span{padding-right:0!important}
+.st-rename{flex:1;min-width:0;width:auto;height:20px;margin:-1px 0 -1px -4px;padding:0 4px;border:1px solid var(--ring);border-radius:4px;background:var(--background);color:var(--sidebar-foreground);font:inherit;font-weight:500;outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--ring) 25%,transparent)}
+.st-rename:focus-visible{outline:none}
+.st-rename.bad{border-color:var(--danger-text,var(--destructive));box-shadow:0 0 0 2px color-mix(in srgb,var(--danger-text,var(--destructive)) 25%,transparent)}
+.st-main .st-rename-hint{font-size:11px;color:var(--muted-foreground)}
+.st-rename-hint kbd{font:500 10px var(--font-mono,ui-monospace,monospace);border:1px solid var(--input);border-radius:4px;padding:0 4px}
+.st-main .st-rename-err{font-size:11px;line-height:15px;color:var(--danger-text,var(--destructive));white-space:normal;overflow:visible}

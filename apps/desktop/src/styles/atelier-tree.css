@@ -31,6 +31,10 @@
 :root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-gap { display: none; }
 :root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-chev { position: absolute; left: 9px; }
 :root[data-skin="atelier"] .st-tree .st-agent.helper { padding-left: 52px; }
+/* The drag grip (docs/mockups/ledge-sidebar-names.html, card 1) in the 28 px gutter: 4 px left of the logo, or left of the
+   sub-agents' chevron when there is one. */
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-grip { left: 17px; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper):has(> .st-chev) > .st-grip { left: 1px; }
 :root[data-skin="atelier"] .st-tree .st-agent.helper > .st-gap { display: none; }
 /* The time, on the second line's right; « À toi » stays on the first, where it is looked for. */
 :root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-time:not(:has(.at-tag)) { position: absolute; right: 8px; bottom: 6px; margin: 0; }
@@ -58,6 +62,8 @@
 :root[data-skin="atelier"] .st-tally > .t-bg > i { display: block; width: 6px; height: 6px; }
 :root[data-skin="atelier"] .st-kids.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
 :root[data-skin="atelier"] .st-kids { margin-top: 6px; }
+/* The compact view centres its one line: the pill is centred with it, on the logo and the name, not pushed under them. */
+:root[data-skin="atelier"] .st-dense .st-kids { margin-top: 0; }
 /* On an icon of the activity bar: solid, ringed in the bench's colour so it cuts cleanly out of the icon under it. */
 :root[data-skin="atelier"] .ide-badge { top: 1px; right: 0; background: var(--at-coral); color: var(--at-coral-ink); box-shadow: 0 0 0 2px var(--at-bench); }
 :root[data-skin="atelier"] .ide-badge.amber { background: var(--warning); color: var(--at-warning-ink); }

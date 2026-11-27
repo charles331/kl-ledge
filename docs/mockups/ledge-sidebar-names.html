@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poignée et noms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Trois retouches demandées par le propriétaire le 2026-11-27, après la 0.65.0 :
+   1. la poignée de glisser-déposer (#16) mal alignée : elle chevauche le chevron d'un projet et ses « ⋮⋮ » se dessinent mal ;
+   2. renommer une session dans la barre latérale, à la place de la boîte « Renommer… » ;
+   3. remplacer l'interrupteur « Définir un nom ? » de « Nouvelle session » (#15).
+   Base : docs/mockups/ledge-reorder.html et docs/mockups/ledge-launch-name.html (mêmes tokens « Atelier »).
+   Validée par le propriétaire le 2026-11-27 : « 1. Je valide 2. Je valide 3. A » (cartes 1 et 2, proposition A). Les deux
+   questions de la fiche gardent la proposition faite : pas de double-clic, les sessions seules se renomment sur place. Le champ de
+   la carte 2 change le nom de la session (pas son sujet) : décision du propriétaire le même jour.
+   v2 de la carte 2, le même jour, à la demande du propriétaire après la revue : changer le nom (l'identité) posait trop de
+   problèmes (routines, relais, l'agent ignore son nom, le nom libéré redonné) ; « Renommer » donne désormais un SURNOM affiché
+   devant le nom, « KB Projet 1 (Otto) ». « Tout recommandé » : partout où le nom s'affiche, gardé par le daemon. À valider. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --foreground:#ece7df;--card:#232120;--muted:#2f2c29;--muted-foreground:#a39d94;--border:#ffffff17;--input:#ffffff26;
+  --side:#1c1a19;--pane:#181716;--page:#0f0e0d;--shell:#141312;--hover:#ffffff0d;--sel:#ffffff12;
+  --accent:#e0875f;--note:#a78bfa;--ok:#5fb98b;--blue:#6aa7e8;--ask:#e0b04f;--err:#ef6b5b;--tip:#2a2826;--primary:#c8322b;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --foreground:#2a2622;--card:#fffdf9;--muted:#efe9e1;--muted-foreground:#7d756b;--border:#00000014;--input:#00000022;
+  --side:#f5f0e8;--pane:#fffdf9;--page:#ebe5dc;--shell:#f1ebe2;--hover:#0000000a;--sel:#00000010;
+  --accent:#c4643c;--note:#7c3aed;--ok:#2f8f5f;--blue:#2f6fb8;--ask:#a8730f;--err:#c53b2c;--tip:#2a2622;--primary:#b42a24;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1280px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid;color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.tag.reco{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:300px}
+.cap.bad{color:var(--err)}
+/* L'arborescence « Atelier ». */
+.side{width:250px;background:var(--side);border:1px solid var(--border);border-radius:8px;padding:6px 6px 10px;font-size:12.5px;position:relative;flex-shrink:0}
+.sh{display:flex;align-items:center;padding:4px 6px 8px;font-weight:600;font-size:12px}
+.sh span{margin-left:auto;display:flex;gap:9px;color:var(--muted-foreground);font-weight:400}
+.row{display:flex;align-items:center;gap:4px;padding:4px 6px 4px 4px;border-radius:6px;position:relative;min-height:26px}
+.row.hov{background:var(--hover)}
+.chev{width:16px;color:var(--muted-foreground);font-size:9px;flex:none;text-align:center}
+.pdot{width:8px;height:8px;border-radius:50%;flex:none}
+.row.proj b{font-weight:600}
+.cnts{margin-left:auto;display:flex;gap:4px}
+.cnt{min-width:16px;height:16px;border-radius:8px;display:grid;place-items:center;font:500 9.5px 'Geist Mono',monospace;padding:0 4px}
+.cnt.a{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent)}
+.cnt.b{background:color-mix(in srgb,var(--blue) 22%,transparent);color:var(--blue)}
+.ses{display:flex;gap:7px;padding:5px 6px 5px 30px;border-radius:6px;position:relative;align-items:flex-start}
+.ses.hov{background:var(--hover)}.ses.sel{background:var(--sel)}
+.ses .sc{position:absolute;left:16px;top:8px;line-height:12px;width:10px;color:var(--muted-foreground);font-size:9px;text-align:center}
+.ses .lg{width:14px;height:14px;border-radius:4px;flex:none;margin-top:2px}
+.ses .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ses .l1{display:flex;align-items:center;gap:6px;min-height:18px}
+.ses .l1 b{font-weight:500}
+.ses .l2{display:flex;gap:6px;font-size:11.5px;color:var(--muted-foreground)}
+.ses .l2 span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ses .l2 i{font:normal 10.5px 'Geist Mono',monospace}
+.atoi{margin-left:auto;font-size:10px;font-weight:600;color:#1a1a1a;background:var(--ask);border-radius:6px;padding:0 5px}
+/* La poignée d'aujourd'hui (texte « ⋮⋮ ») et la nouvelle (six points dessinés). */
+.oldgrip{position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:12px;color:var(--muted-foreground);font-size:11px;letter-spacing:-2px;text-align:center}
+.ses .oldgrip{left:13px}
+.grip{position:absolute;display:grid;grid-template-columns:repeat(2,2px);gap:2px;padding:2px 1px;transform:translateY(-50%)}
+.grip i{width:2px;height:2px;border-radius:50%;background:var(--muted-foreground)}
+.row .grip{left:0;top:50%}
+.ses .grip{left:18px;top:14px}
+.ses.kids .grip{left:5px}
+.zoom{zoom:1.6}
+/* Le renommage en place. */
+.ren{flex:1;min-width:0;height:20px;margin:-1px 0 -1px -4px;padding:0 4px;border:1px solid var(--note);border-radius:4px;background:var(--pane);color:var(--foreground);font:500 12.5px 'Geist',sans-serif;display:flex;align-items:center;box-shadow:0 0 0 3px color-mix(in srgb,var(--note) 22%,transparent)}
+.ren .selt{background:color-mix(in srgb,var(--note) 40%,transparent);border-radius:2px}
+.ren .caret{width:1px;height:13px;background:var(--foreground);margin-left:1px}
+.ren.bad{border-color:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 22%,transparent)}
+.ses .l2.hint{color:var(--muted-foreground);font-size:11px}
+.ses .l2.hint kbd,.kbd{font:500 10px 'Geist Mono',monospace;border:1px solid var(--input);border-radius:4px;padding:0 4px;color:var(--muted-foreground)}
+.ses .l2.err{color:var(--err);font-size:11px;white-space:normal}
+.ses .l2.err span{white-space:normal}
+/* Le surnom : devant, le nom entre parenthèses en gris. */
+.nm{color:var(--muted-foreground);font-weight:400;margin-left:4px;white-space:nowrap}
+.ren .ph{color:var(--muted-foreground);font-weight:400}
+.ses .l1 .ren{flex:1}
+.ses .l2.old{color:var(--err);font-size:11px;white-space:normal}
+.ses .l2.old span{white-space:normal}
+/* Le surnom ailleurs. */
+.strips{display:flex;flex-direction:column;gap:12px;width:440px}
+.strip{border:1px solid var(--border);border-radius:8px;background:var(--side);padding:8px 10px;font-size:12.5px}
+.strip .lbl2{font-size:10.5px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.tabsbar{display:flex;gap:2px;border-bottom:1px solid var(--border)}
+.tab{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px 6px 0 0;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab.on{background:var(--pane);box-shadow:inset 0 2px 0 var(--accent)}
+.tab i,.seat i,.hd i,.prow2 i{width:12px;height:12px;border-radius:3px;flex:none}
+.hd{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.hd small{font-weight:400;color:var(--muted-foreground);font-size:12px}
+.seat{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:9px;padding:7px 10px;background:var(--card)}
+.prow2{display:flex;align-items:center;gap:9px;font-size:13.5px}
+.prow2 small{display:block;font-size:11.5px;color:var(--muted-foreground)}
+/* Menu contextuel. */
+.menu{width:220px;background:var(--card);border:1px solid var(--input);border-radius:8px;padding:4px;box-shadow:0 8px 24px #0006;font-size:12.5px}
+.menu .it{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px}
+.menu .it.on{background:var(--hover)}
+.menu .it small{margin-left:auto;font:10.5px 'Geist Mono',monospace;color:var(--muted-foreground)}
+.menu .sep{height:1px;background:var(--border);margin:3px 0}
+/* La boîte « Nouvelle session », réduite à ce qui change. */
+.modal{width:560px;background:var(--card);border:1px solid var(--input);border-radius:12px;padding:16px 18px 14px;box-shadow:0 18px 50px #0007;position:relative}
+.modal h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;min-height:24px}
+.modal .lead{margin:2px 0 12px;font-size:12px;color:var(--muted-foreground)}
+.modal .x{position:absolute;right:14px;top:12px;color:var(--muted-foreground)}
+.grid{display:grid;grid-template-columns:110px 1fr;gap:10px 14px;align-items:center}
+.lbl{color:var(--muted-foreground);font-size:12px}
+.inp{height:30px;border:1px solid var(--input);border-radius:7px;display:flex;align-items:center;gap:6px;padding:0 9px;background:var(--pane);font-size:12.5px;min-width:0}
+.inp b{font-weight:600}.inp .car{margin-left:auto;color:var(--muted-foreground);font-size:10px}
+.inp.ph{color:var(--muted-foreground)}
+.inp.focus{border-color:var(--note);box-shadow:0 0 0 3px color-mix(in srgb,var(--note) 22%,transparent);color:var(--foreground)}
+.inp.bad{border-color:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 22%,transparent)}
+.agents{display:flex;gap:6px}
+.ag{flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;display:flex;align-items:center;gap:6px}
+.ag.on{border-color:var(--foreground)}
+.ag i{width:12px;height:12px;border-radius:3px}
+.more{color:var(--muted-foreground);font-size:11.5px;font-style:italic}
+.foot{display:flex;gap:8px;margin-top:12px;padding-left:124px}
+.btn{height:30px;border-radius:7px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;border:1px solid var(--input)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.pri .kbd{color:#ffffffcc;border-color:#ffffff66}
+.say{font-size:11px;color:var(--muted-foreground);margin-top:4px}
+.say.err{color:var(--err)}
+/* Proposition A : le nom dans le titre. */
+.tname{display:inline-flex;align-items:center;gap:5px;padding:0 6px;height:24px;border-radius:6px;border:1px dashed transparent;color:var(--foreground)}
+.tname .pen{color:var(--muted-foreground);font-size:12px}
+.tname.hov{border-color:var(--input);background:var(--hover)}
+.tname.edit{border:1px solid var(--note);background:var(--pane);box-shadow:0 0 0 3px color-mix(in srgb,var(--note) 22%,transparent);min-width:150px;font-weight:600}
+.tname.bad{border-color:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 22%,transparent)}
+.tname .caret{width:1px;height:15px;background:var(--foreground)}
+.tname .ghost{color:var(--muted-foreground);font-weight:400}
+.dot{color:var(--muted-foreground);font-weight:400}
+/* Proposition C : le lien. */
+.addlink{color:var(--muted-foreground);font-size:12px;display:inline-flex;gap:5px;align-items:center}
+.addlink.hov{color:var(--foreground);text-decoration:underline}
+.olds{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--input);border-radius:16px;padding:3px 10px 3px 4px;font-size:12px;white-space:nowrap}
+.olds i{width:24px;height:14px;border-radius:7px;background:var(--muted);position:relative}
+.olds i::after{content:"";position:absolute;left:2px;top:2px;width:10px;height:10px;border-radius:50%;background:var(--muted-foreground)}
+.strike{position:relative;opacity:.55}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}.modal{width:100%}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const q = new URLSearchParams(location.search);
+let theme = q.get('theme') || 'dark', lang = q.get('lang') || 'fr';
+const L = {
+  fr: {
+    h1: 'Poignée et noms', hsub: 'Retouches après la 0.65.0 · #15, #16, #17 · demandées le 2026-11-27',
+    projects: 'Projets', atoi: 'À toi',
+    grip: 'Glisser pour déplacer · Alt+↑ / Alt+↓',
+    renHint: ['↵', 'renommer', 'Échap', 'annuler'],
+    nickPh: 'Surnom de Otto', nick: 'KB Projet 1', outdated: 'Mettez Ledge à jour sur PC pour donner un surnom à cette session.',
+    tabs: 'Onglets', header: 'En-tête de la session', phone: 'Téléphone', seat: 'Atelier',
+    menu: ['Ouvrir la session', 'Terminal', 'Renommer', 'Déplacer vers…', 'Terminer la session'],
+    newSession: 'Nouvelle session', lead: 'S’ouvre dans le groupe actif. Ctrl+Entrée lance, Échap ferme.',
+    project: 'Projet', name: 'Nom', agent: 'Agent', rest: 'Modèle, premier message, ouverture : inchangés',
+    launch: 'Lancer', cancel: 'Annuler', setName: 'Définir un nom ?', addName: 'Nommer la session',
+    nameAutoHint: 'Vide : elle s’appellera Pim.', namePh: 'Pim (par défaut)',
+    takenNew: 'Otto est déjà le nom d’une session de ledge. Choisissez un autre nom, ou laissez vide.',
+    editHint: 'Entrée valide le nom · Échap revient à Pim',
+    cards: [
+      { t: 'La poignée, redessinée', tag: 'retouche',
+        why: 'Aujourd’hui, la poignée est faite de deux caractères <b>« ⋮⋮ »</b> serrés par l’espacement : leurs points se séparent selon la police, et sur un projet elle <b>tombe sur le chevron</b>. À la place : <b>six points dessinés</b> (2 × 3, 2 px), toujours au survol ou au focus seulement. Sur un projet, dans la marge, <b>à gauche du chevron</b> sans le toucher ; sur une session, <b>centrée sur la ligne du nom et du logo</b>, pas sur la hauteur des deux lignes. Le reste de #16 ne change pas : toute la ligne se saisit, même infobulle.',
+        keys: 'Aucun texte nouveau · side.reorder.grip inchangé' },
+      { t: 'Renommer : un surnom, sur place dans la barre latérale', tag: 'v2 · à valider',
+        why: 'La boîte « Renommer… » disparaît. <b>Renommer donne un surnom</b> : la session <b>garde son nom</b>, qui reste son adresse pour les autres sessions, les tâches et les routines ; le surnom s’affiche devant, le nom entre parenthèses en gris : <b>« KB Projet 1 (Otto) »</b>. <b>F2</b>, ou <b>Renommer</b> dans le menu (sans « … »), ouvre un champ à la place du nom : le surnom actuel sélectionné, ou vide avec <b>« Surnom de Otto »</b> en grisé ; le nom reste visible à droite, entre parenthèses. La 2e ligne cède la place à l’aide <b>↵ renommer · Échap annuler</b>. <b>Entrée</b> ou un clic ailleurs enregistre ; <b>Échap</b> annule ; <b>un champ vidé retire le surnom</b>. Rien n’est refusé : deux sessions peuvent porter le même surnom, leur nom les distingue. Le surnom est gardé par le daemon : <b>l’explorateur, les onglets, l’Atelier, l’en-tête de la session, l’île et le téléphone</b> le montrent. F2 sur la page de session ou dans l’Atelier ouvre le même champ dans la barre latérale. Le sujet (2e ligne) ne se renomme plus depuis Desktop.',
+        keys: 'Nouveau : side.rename.placeholder, side.rename.hint, side.rename.outdated · Protocole : Session.label, message session.label · Retiré : manage.rename.* (la boîte) · Modifié : manage.menu.rename « Renommer… » → « Renommer »' },
+      { t: 'Le nom dans « Nouvelle session » : trois propositions', tag: 'à choisir',
+        why: 'L’interrupteur « Définir un nom ? » détonne : un interrupteur règle un état, pas l’ouverture d’un champ, et il alourdit la ligne Projet. Trois façons de garder la boîte courte. <b>A, recommandée</b> : le nom par défaut s’affiche <b>dans le titre</b> et se modifie sur place, comme dans la barre latérale : un seul geste partout. <b>B</b> : un vrai champ, toujours là, sur la ligne Projet. <b>C</b> : un lien discret qui déplie le champ.',
+        keys: 'Retiré dans les trois cas : launch.modal.nameToggle' },
+      { t: 'Proposition A en détail : le nom dans le titre', tag: 'recommandée',
+        why: 'Au repos, le titre dit <b>« Nouvelle session · Pim ✎ »</b> : on voit le nom qu’elle aura sans rien ouvrir. Survol : un cadre pointillé, l’infobulle « Renommer ». Clic, ou <b>F2</b> n’importe où dans la boîte : le nom devient un champ, sélectionné. Entrée ou Tab valide, Échap revient à Pim ; vidé, il revient à Pim. Un nom déjà pris cercle le champ de rouge et dit la raison sous le titre, à la place de la phrase d’aide ; « Lancer » attend un nom valide, comme aujourd’hui.',
+        keys: 'Nouveau : launch.modal.renameTip « Renommer » · Repris : launch.modal.nameTaken, launch.modal.cleaned' }
+    ],
+    caps: {
+      oldP: 'Aujourd’hui · survol d’un projet : sur le chevron', oldS: 'Aujourd’hui · survol d’une session : points écartés, entre deux lignes',
+      newP: 'Corrigé · survol d’un projet', newS: 'Corrigé · survol d’une session', newK: 'Corrigé · session avec sous-agents (chevron)',
+      zoom: 'Zoom × 1,6',
+      menu: 'Clic droit : « Renommer » sans « … »', edit: 'F2 : le champ du surnom, vide, le nom à droite', typing: 'Pendant la frappe',
+      done: 'Entrée : « KB Projet 1 (Otto) »', again: 'F2 à nouveau : le surnom sélectionné ; vidé, il est retiré', old: 'Ledge trop ancien sur la machine',
+      everywhere: 'Le surnom ailleurs : onglet, en-tête, Atelier, téléphone',
+      a: 'A · le nom dans le titre (recommandée)', b: 'B · un champ toujours là, sur la ligne Projet', c: 'C · un lien qui déplie le champ',
+      aRest: 'Au repos', aHov: 'Survol', aEdit: 'Clic ou F2 : en champ', aBad: 'Nom refusé'
+    },
+    fiche: 'Déjà tranché, et ce qui reste', questions: [
+      'Tranché le 2026-11-27 : cartes 1 et 4 validées (proposition A) ; pas de double-clic ; les sessions seules se renomment ; le surnom s’affiche partout et il est gardé par le daemon ; le sujet ne se renomme plus depuis Desktop.',
+      'Longueur du surnom : je propose <b>40 caractères</b> au plus, tout caractère permis (espaces, accents), espaces de début et de fin retirés.',
+      'Dans un onglet étroit, le surnom passe d’abord et « (Otto) » se coupe le premier ; l’infobulle de l’onglet dit les deux en entier. Je le propose ainsi.'
+    ]
+  },
+  en: {
+    h1: 'Grip and names', hsub: 'Touch-ups after 0.65.0 · #15, #16, #17 · asked on 2026-11-27',
+    projects: 'Projects', atoi: 'For you',
+    grip: 'Drag to move · Alt+↑ / Alt+↓',
+    renHint: ['↵', 'rename', 'Esc', 'cancel'],
+    nickPh: 'Nickname for Otto', nick: 'KB Project 1', outdated: 'Update Ledge on PC to give this session a nickname.',
+    tabs: 'Tabs', header: 'Session header', phone: 'Phone', seat: 'Atelier',
+    menu: ['Open session', 'Terminal', 'Rename', 'Move to…', 'End session'],
+    newSession: 'New session', lead: 'Opens in the active group. Ctrl+Enter launches, Esc closes.',
+    project: 'Project', name: 'Name', agent: 'Agent', rest: 'Model, first message, where it opens: unchanged',
+    launch: 'Launch', cancel: 'Cancel', setName: 'Set a name?', addName: 'Name the session',
+    nameAutoHint: 'Empty: it will be called Pim.', namePh: 'Pim (default)',
+    takenNew: 'Otto is already the name of a session of ledge. Choose another name, or leave it empty.',
+    editHint: 'Enter keeps the name · Esc goes back to Pim',
+    cards: [
+      { t: 'The grip, redrawn', tag: 'touch-up',
+        why: 'Today the grip is two <b>« ⋮⋮ »</b> characters squeezed by letter spacing: their dots drift apart with the font, and on a project it <b>lands on the chevron</b>. Instead: <b>six drawn dots</b> (2 × 3, 2 px), still on hover or focus only. On a project, in the margin, <b>left of the chevron</b> without touching it; on a session, <b>centred on the name and logo line</b>, not on the height of both lines. The rest of #16 is unchanged: the whole row takes the drag, same tooltip.',
+        keys: 'No new text · side.reorder.grip unchanged' },
+      { t: 'Rename: a nickname, in place in the sidebar', tag: 'v2 · to approve',
+        why: 'The « Rename… » box goes. <b>Rename gives a nickname</b>: the session <b>keeps its name</b>, still its address for the other sessions, tasks and routines; the nickname shows in front, the name in grey brackets: <b>« KB Project 1 (Otto) »</b>. <b>F2</b>, or <b>Rename</b> in the menu (no « … »), opens a field in place of the name: the current nickname selected, or empty with <b>« Nickname for Otto »</b> greyed; the name stays visible on the right, in brackets. The 2nd line gives way to the hint <b>↵ rename · Esc cancel</b>. <b>Enter</b> or a click elsewhere saves; <b>Esc</b> cancels; <b>an emptied field removes the nickname</b>. Nothing is refused: two sessions may share a nickname, their names tell them apart. The daemon keeps the nickname: <b>the explorer, the tabs, the Atelier, the session header, the island and the phone</b> show it. F2 on the session page or in the Atelier opens the same field in the sidebar. The topic (2nd line) is no longer renamed from Desktop.',
+        keys: 'New: side.rename.placeholder, side.rename.hint, side.rename.outdated · Protocol: Session.label, message session.label · Removed: manage.rename.* (the box) · Changed: manage.menu.rename « Rename… » → « Rename »' },
+      { t: 'The name in « New session »: three proposals', tag: 'to choose',
+        why: 'The « Set a name? » switch jars: a switch sets a state, it does not open a field, and it crowds the Project line. Three ways to keep the box short. <b>A, recommended</b>: the default name shows <b>in the title</b> and is edited in place, as in the sidebar: one gesture everywhere. <b>B</b>: a real field, always there, on the Project line. <b>C</b>: a quiet link that unfolds the field.',
+        keys: 'Removed in all three: launch.modal.nameToggle' },
+      { t: 'Proposal A in detail: the name in the title', tag: 'recommended',
+        why: 'At rest the title reads <b>« New session · Pim ✎ »</b>: the name it will get shows without opening anything. Hover: a dashed frame, the tooltip « Rename ». Click, or <b>F2</b> anywhere in the box: the name becomes a field, selected. Enter or Tab keeps it, Esc goes back to Pim; emptied, it goes back to Pim. A name already taken rings the field in red and says why under the title, in place of the hint; « Launch » waits for a valid name, as today.',
+        keys: 'New: launch.modal.renameTip « Rename » · Reused: launch.modal.nameTaken, launch.modal.cleaned' }
+    ],
+    caps: {
+      oldP: 'Today · hovering a project: on the chevron', oldS: 'Today · hovering a session: dots apart, between two lines',
+      newP: 'Fixed · hovering a project', newS: 'Fixed · hovering a session', newK: 'Fixed · session with sub-agents (chevron)',
+      zoom: 'Zoom × 1.6',
+      menu: 'Right click: « Rename » without « … »', edit: 'F2: the nickname field, empty, the name on the right', typing: 'While typing',
+      done: 'Enter: « KB Project 1 (Otto) »', again: 'F2 again: the nickname selected; emptied, it is removed', old: 'Ledge too old on the machine',
+      everywhere: 'The nickname elsewhere: tab, header, Atelier, phone',
+      a: 'A · the name in the title (recommended)', b: 'B · a field always there, on the Project line', c: 'C · a link that unfolds the field',
+      aRest: 'At rest', aHov: 'Hover', aEdit: 'Click or F2: a field', aBad: 'Name refused'
+    },
+    fiche: 'Decided, and what is left', questions: [
+      'Decided on 2026-11-27: cards 1 and 4 approved (proposal A); no double click; sessions only; the nickname shows everywhere and the daemon keeps it; the topic is no longer renamed from Desktop.',
+      'Nickname length: I propose <b>40 characters</b> at most, any character (spaces, accents), leading and trailing spaces trimmed.',
+      'In a narrow tab the nickname goes first and « (Otto) » is cut first; the tab’s tooltip says both in full. I propose it so.'
+    ]
+  }
+};
+
+const LG = { claude: '#e0875f', codex: '#10a37f', cursor: '#8a8a8a', omp: '#a78bfa' };
+const G = '<span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
+const OG = '<span class="oldgrip">⋮⋮</span>';
+const t = () => L[lang];
+const proj = (name, color, o = {}) => `<div class="row proj ${o.hov ? 'hov' : ''}">${o.grip || ''}<span class="chev">▾</span><span class="pdot" style="background:${color}"></span><b>${name}</b><span class="cnts"><span class="cnt a">1</span><span class="cnt b">2</span></span></div>`;
+const ses = (name, tool, topic, time, o = {}) => `<div class="ses ${o.hov ? 'hov' : ''} ${o.sel ? 'sel' : ''} ${o.kids ? 'kids' : ''}">${o.grip || ''}${o.kids ? '<span class="sc">▾</span>' : ''}<span class="lg" style="background:${LG[tool]}"></span><span class="m"><span class="l1">${o.l1 || `<b>${name}</b>`}${o.atoi ? `<span class="atoi">${t().atoi}</span>` : ''}</span>${o.l2 || `<span class="l2"><span>${topic}</span><i>${time}</i></span>`}</span></div>`;
+const side = (rows, extra = '') => `<div class="side"><div class="sh">${t().projects}<span>⎇ ≡ +</span></div>${rows}${extra}</div>`;
+const base = (o = {}) => proj('ledge', '#6aa7e8', o.p || {}) + ses('Pim', 'claude', 'Tests e2e de l’espace', '2 min', o.pim || { atoi: true }) + ses('Otto', 'claude', 'Fusion des PR', '4 min', o.otto || {}) + ses('Nova', 'codex', 'Terminaux WebGL', '8 min', o.nova || {});
+const shot = (html, cap, cls = '') => `<div>${html}<div class="cap ${cls}">${cap}</div></div>`;
+const hint = () => { const h = t().renHint; return `<span class="l2 hint"><span><kbd>${h[0]}</kbd> ${h[1]} · <kbd>${h[2]}</kbd> ${h[3]}</span></span>`; };
+
+function render() {
+  document.documentElement.dataset.theme = theme; document.documentElement.lang = lang;
+  for (const [id, v] of [['theme', theme], ['lang', lang]]) for (const b of document.querySelectorAll(`#${id} button`)) b.classList.toggle('on', b.dataset.v === v);
+  document.querySelector('#theme [data-v=dark]').textContent = lang === 'fr' ? 'Sombre' : 'Dark';
+  document.querySelector('#theme [data-v=light]').textContent = lang === 'fr' ? 'Clair' : 'Light';
+  const x = t(), c = x.caps;
+  document.getElementById('h1').textContent = x.h1; document.getElementById('hsub').textContent = x.hsub;
+  const card = (i, scene) => { const k = x.cards[i]; const reco = i === 3; return `<section class="card" id="s${i + 1}"><h2><span class="n">${i + 1}</span>${k.t}<span class="tag ${reco ? 'reco' : ''}">${k.tag}</span></h2><div class="why">${k.why}</div><div class="keys">${k.keys}</div><div class="scene">${scene}</div></section>`; };
+
+  // 1 · The grip.
+  const s1 =
+    shot(`<div class="zoom">${side(proj('ledge', '#6aa7e8', { hov: true, grip: OG }) + ses('Pim', 'claude', 'Tests e2e', '2 min', { atoi: true, grip: '' }))}</div>`, c.oldP + ' · ' + c.zoom, 'bad') +
+    shot(`<div class="zoom">${side(proj('ledge', '#6aa7e8', {}) + ses('Pim', 'claude', 'Tests e2e', '2 min', { hov: true, atoi: true, grip: OG }))}</div>`, c.oldS + ' · ' + c.zoom, 'bad') +
+    shot(`<div class="zoom">${side(proj('ledge', '#6aa7e8', { hov: true, grip: G }) + ses('Pim', 'claude', 'Tests e2e', '2 min', { atoi: true }))}</div>`, c.newP + ' · ' + c.zoom) +
+    shot(`<div class="zoom">${side(proj('ledge', '#6aa7e8', {}) + ses('Pim', 'claude', 'Tests e2e', '2 min', { hov: true, atoi: true, grip: G }))}</div>`, c.newS + ' · ' + c.zoom) +
+    shot(`<div class="zoom">${side(proj('ledge', '#6aa7e8', {}) + ses('Otto', 'claude', 'Fusion des PR', '4 min', { hov: true, kids: true, grip: G }))}</div>`, c.newK + ' · ' + c.zoom);
+
+  // 2 · Rename gives a nickname, in place (v2).
+  const N = (nick) => `<b>${nick}</b><span class="nm">(Otto)</span>`;
+  const otto = (o) => base({ otto: o });
+  const tip = `<span class="nm">(Otto)</span>`;
+  const s2 =
+    shot(`<div style="position:relative;margin-right:40px;margin-bottom:70px">${side(otto({ hov: true }))}<div class="menu" style="position:absolute;left:110px;top:100px;width:180px">${x.menu.map((m, i) => `${i === 4 ? '<div class="sep"></div>' : ''}<div class="it ${i === 2 ? 'on' : ''}">${m}${i === 2 ? '<small>F2</small>' : ''}</div>`).join('')}</div></div>`, c.menu) +
+    shot(side(otto({ sel: true, l1: `<span class="ren"><span class="caret"></span><span class="ph">${x.nickPh}</span></span>${tip}`, l2: hint() })), c.edit) +
+    shot(side(otto({ sel: true, l1: `<span class="ren">${x.nick}<span class="caret"></span></span>${tip}`, l2: hint() })), c.typing) +
+    shot(side(otto({ sel: true, l1: N(x.nick) })), c.done) +
+    shot(side(otto({ sel: true, l1: `<span class="ren"><span class="selt">${x.nick}</span></span>${tip}`, l2: hint() })), c.again) +
+    shot(side(otto({ sel: true, l1: `<span class="ren bad"><span class="caret"></span><span class="ph">${x.nickPh}</span></span>${tip}`, l2: `<span class="l2 old"><span>${x.outdated}</span></span>` })), c.old, 'bad') +
+    shot(`<div class="strips">
+      <div class="strip"><div class="lbl2">${x.tabs}</div><div class="tabsbar"><span class="tab"><i style="background:${LG.claude}"></i>Pim</span><span class="tab on"><i style="background:${LG.claude}"></i>${N(x.nick)}</span><span class="tab"><i style="background:${LG.codex}"></i>Nova</span></div></div>
+      <div class="strip"><div class="lbl2">${x.header}</div><div class="hd"><i style="background:${LG.claude}"></i>${x.nick}<span class="nm">(Otto)</span><small>· Fusion des PR</small></div></div>
+      <div class="strip"><div class="lbl2">${x.seat}</div><span class="seat"><i style="background:${LG.claude}"></i>${N(x.nick)}</span></div>
+      <div class="strip"><div class="lbl2">${x.phone}</div><div class="prow2"><i style="background:${LG.claude}"></i><span>${N(x.nick)}<small>Fusion des PR · 4 min</small></span></div></div>
+    </div>`, c.everywhere);
+
+  // 3 · Three proposals for the name in New session.
+  const head = (title) => `<h3>${title}</h3><p class="lead">${x.lead}</p><span class="x">✕</span>`;
+  const projInp = `<div class="inp"><b>ledge</b><span class="mut">· ~/Workspace/ledge · PC</span><span class="car">▾</span></div>`;
+  const agents = `<span class="lbl">${x.agent}</span><div class="agents"><span class="ag on"><i style="background:${LG.claude}"></i>Claude Code</span><span class="ag"><i style="background:${LG.codex}"></i>Codex</span><span class="ag"><i style="background:${LG.cursor}"></i>Cursor</span><span class="ag"><i style="background:${LG.omp}"></i>OMP</span></div><span></span><span class="more">${x.rest}</span>`;
+  const foot = `<div class="foot"><span class="btn pri">${x.launch} <span class="kbd">Ctrl ↵</span></span><span class="btn">${x.cancel}</span></div>`;
+  const today = `<div class="modal strike">${head(x.newSession)}<div class="grid"><span class="lbl">${x.project}</span><div style="display:flex;gap:8px">${projInp.replace('class="inp"', 'class="inp" style="flex:1"')}<span class="olds"><i></i>${x.setName}</span></div>${agents}</div>${foot}</div>`;
+  const tA = (state) => {
+    const nm = state === 'edit' ? `<span class="tname edit">Pim<span class="caret"></span></span>`
+      : state === 'bad' ? `<span class="tname edit bad">Otto<span class="caret"></span></span>`
+      : `<span class="tname ${state === 'hov' ? 'hov' : ''}">Pim <span class="pen">✎</span></span>`;
+    const lead = state === 'bad' ? `<p class="lead say err">${x.takenNew}</p>` : state === 'edit' ? `<p class="lead">${x.editHint}</p>` : `<p class="lead">${x.lead}</p>`;
+    return `<div class="modal"><h3>${x.newSession} <span class="dot">·</span> ${nm}</h3>${lead}<span class="x">✕</span><div class="grid"><span class="lbl">${x.project}</span>${projInp}${agents}</div>${foot}</div>`;
+  };
+  const pB = `<div class="modal">${head(x.newSession)}<div class="grid"><span class="lbl">${x.project}</span><div style="display:flex;gap:8px">${projInp.replace('class="inp"', 'class="inp" style="flex:1"')}<div class="inp ph" style="width:150px">${x.namePh}</div></div>${agents}</div>${foot}</div>`;
+  const pC = `<div class="modal">${head(x.newSession)}<div class="grid"><span class="lbl">${x.project}</span><div>${projInp}<div style="margin-top:6px"><span class="addlink hov">+ ${x.addName}</span></div></div>${agents}</div>${foot}</div>`;
+  const s3 =
+    shot(today, (lang === 'fr' ? 'Aujourd’hui · l’interrupteur « ' : 'Today · the « ') + x.setName + (lang === 'fr' ? ' »' : ' » switch'), 'bad') +
+    shot(tA('rest'), c.a) + shot(pB, c.b) + shot(pC, c.c);
+
+  // 4 · Proposal A in detail.
+  const s4 = shot(tA('hov').replace('<span class="tname hov">', `<span class="tname hov" title="Renommer">`), c.aHov) + shot(tA('edit'), c.aEdit) + shot(tA('bad'), c.aBad);
+
+  document.getElementById('main').innerHTML = card(0, s1) + card(1, s2) + card(2, s3) + card(3, s4) +
+    `<section class="fiche" id="s5"><h2>${x.fiche}</h2><ol>${x.questions.map(qq => `<li>${qq}</li>`).join('')}</ol></section>`;
+}
+for (const id of ['theme', 'lang']) document.getElementById(id).addEventListener('click', e => {
+  const v = e.target.closest('button')?.dataset.v; if (!v) return;
+  if (id === 'theme') theme = v; else lang = v; render();
+});
+render();
+</script>
+</body>
+</html>

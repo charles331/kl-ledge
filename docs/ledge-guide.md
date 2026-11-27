@@ -19,9 +19,20 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
   - `ledge tui` est Ledge dans un terminal ;
   - `ledge setup` et `ledge uninstall` installent et retirent les hooks et `~/.ledge`.
 - **Ledge Desktop** est l'application Windows : la fenêtre principale, un espace de travail en onglets (sessions, sièges OpenRig, MR et PR, atelier, réglages) avec le chat de Ledge à droite, et l'**encoche**.
-- **L'encoche** (l'île) est une pastille en haut de l'écran : la mascotte de Ledge, puis une mascotte par session, de la couleur de son état (rouge : une autorisation à donner ; ambre : une question ; bleu : au travail ; vert : attend une consigne).
-  - Une demande étire l'encoche en bulle, avec « Refuser » et « Autoriser ».
-  - Survoler l'encoche, ou `Ctrl+Alt+L`, ouvre la liste des sessions, le champ « Demander à Ledge » et la vue d'une session.
+- **L'encoche** (l'île) ne reste pas à l'écran. Au repos, il n'y a rien en haut de l'écran.
+  - Quand un agent a quelque chose à dire, une pastille sort du bord haut et flotte à 8 px de lui. Elle porte le logo du provider de l'agent (Claude, Codex…) et le signe de l'événement. Puis elle s'ouvre sur la notification, se referme et disparaît.
+  - Une carte par événement, avec le logo, une pastille d'état, la phrase, le projet et la branche :
+    - **tour terminé** : pastille verte et début de la dernière réponse, 6 s ;
+    - **erreur** : pastille rouge et message de l'erreur, 6 s ;
+    - **demande d'accord** : la commande, avec « Autoriser » (`Y`), « Refuser » (`N`), « Ouvrir dans Ledge » (`O`) et « Plus tard » (`Esc`) ;
+    - **question** : les réponses proposées (`1`-`9`) et un champ libre ;
+    - **plan ou diff à relire** : « Relire dans Ledge » et « Plus tard ».
+  - Un avis (tour terminé, erreur) se ferme seul : un anneau autour du logo se vide pendant les 6 s, et le survol le retient. Un clic ouvre la session dans Ledge Desktop.
+  - Une demande reste ouverte jusqu'à la réponse ou « Plus tard ». Après « Plus tard », plus rien n'est à l'écran : `Ctrl+Alt+L` rouvre la plus ancienne demande en attente.
+  - Une seule notification à la fois, les demandes avant les avis ; « +2 autres » dit ce qui attend. « Ne pas déranger » n'ouvre rien.
+  - Les avis de Ledge (la question d'un rig, une décision, une routine) et « une machine est hors ligne » passent aussi par l'encoche. Le point de Ledge, lui, reste dans le chat de Ledge Desktop.
+  - La musique, le chat de Ledge, la ligne d'activité, les mascottes et le réveil au survol ne sont plus dans l'encoche : le chat est dans Ledge Desktop.
+  - `Ctrl+Alt+L` rouvre la plus ancienne demande en attente ; sans demande, il ne fait rien.
   - `Ctrl+Alt+N` ouvre « Nouvelle session » dans Ledge Desktop.
   - Ses réglages sont dans Réglages › Encoche.
 - **Ledge mobile** est une application web pour le téléphone, servie par un relais. Elle se lie au PC depuis Réglages › Accès mobile.
@@ -46,7 +57,7 @@ Ledge n'attend pas qu'on l'interroge : il écrit « le point » dans le chat, de
 
 Un plafond évite que Ledge parle trop. Le daemon tient un journal des événements et écrit ce dont le chat a besoin dans ses fichiers (`journal.md`, `attentes.md`) ; Ledge n'agit jamais seul : répondre, archiver, passer un relais, écrire à un siège ou réparer une PR est toujours un clic. Une réponse irréversible demande une confirmation.
 
-**L'encoche n'a qu'une voix : Ledge.** Les bulles « session terminée » et « erreur » n'existent plus ; Ledge dit le point, ou la question d'un rig, dans une bulle courte. « Plus tard » met la bulle de côté : elle revient avec un point plus récent, ou quand la conversation est lue. Le réglage « Bulle quand un agent a terminé » ne commande plus que le son.
+**Le point ne passe pas par l'encoche** : il s'écrit dans le chat de Ledge Desktop. La question d'un rig, elle, s'ouvre dans l'encoche comme une demande. Le tour terminé et l'erreur d'une session y ont leur carte de 6 s (voir « Ce qu'est Ledge »).
 
 **Sur le téléphone**, le réglage « Le point de Ledge » (Réglages › Notifications, l'ancien « Agent terminé ») active la notification d'un point. Le point et ses réponses s'y affichent comme sur le PC.
 
@@ -182,7 +193,7 @@ L'onglet porte le logo de l'agent, son nom et une pastille d'état ; il est soul
 - **La dictée :** le micro à côté du bouton d'envoi ouvre la saisie vocale de Windows (Win+H) dans le champ, qui garde le focus ; un second clic, Win+H ou la fenêtre de Windows l'arrêtent. Ledge ne sait pas si elle écoute : c'est la fenêtre de Windows qui le montre, et qui dit quand la saisie vocale est désactivée. Hors de Ledge Desktop, la dictée n'est pas disponible.
 - **Le terminal :** `` Ctrl+` `` ou le menu de l'onglet bascule sur le tmux de l'agent, où l'on peut taper.
 - **La barre du bas :** le modèle (un clic en change), le contexte, la branche, le projet, la puce de sa MR ou PR, « Interrompre » pendant le travail et, tout à droite, `+N −N`, qui ouvre ses modifications à côté.
-- **Le menu « Gérer la session »** (clic droit dans l'explorateur) : « Renommer… », « Ranger dans… », « Terminer la session », « Archiver », « Supprimer… ». Quand le contexte de l'agent approche de sa limite, Ledge propose de passer le relais à une session neuve.
+- **Le menu « Gérer la session »** (clic droit dans l'explorateur) : « Renommer » (ou F2 : un champ s'ouvre sur place, dans l'explorateur, pour donner à la session un surnom affiché devant son nom, « KB Projet 1 (Otto) » ; la session garde son nom, son adresse pour les autres sessions ; Entrée garde le surnom, un champ vidé le retire, Échap annule), « Ranger dans… », « Terminer la session », « Archiver », « Supprimer… ». Quand le contexte de l'agent approche de sa limite, Ledge propose de passer le relais à une session neuve.
 - « Ouvrir dans… » envoie le dossier de la session à l'éditeur choisi dans Réglages › Espace de travail (Cursor, VS Code ou Zed).
 
 Y renvoyer l'utilisateur pour répondre à un agent, l'interrompre, ou gérer la session (renommer, archiver, supprimer, passer le relais).
@@ -301,12 +312,11 @@ Photo de profil, thème (Galet clair, Signal sombre), couleur d'accent, échelle
 ##### Encoche (`island`)
 
 - Afficher l'encoche, l'écran où elle se trouve, et sa position (gauche, centre, droite).
-- « Mode discret sous une fenêtre ».
-- Taille de l'encoche et de ses fenêtres.
+- Un aperçu : l'encoche ouverte sur une demande, à la position et à la taille choisies.
+- Taille de l'encoche, qui règle aussi ses cartes.
 - « Autoriser et répondre depuis l'encoche ».
-- « Bulle quand un agent a terminé » (ne commande plus que le son : Ledge est la seule voix de l'encoche).
-- Bulles de parole, sous-agents.
-- Raccourci d'ouverture.
+- « Avis quand un agent a terminé » : la carte « Terminé » de 6 s.
+- « Raccourci pour rouvrir une demande » (`Ctrl+Alt+L` par défaut).
 
 ##### Notifications (`notifications`)
 
@@ -334,7 +344,7 @@ Les notes de l'utilisateur (`~/.ledge/context`) : chacune avec son titre, « qua
 
 ##### Raccourcis clavier (`shortcuts`)
 
-Les raccourcis valables partout dans Windows. Le raccourci de l'encoche se change ici.
+Les raccourcis valables partout dans Windows. Le raccourci qui rouvre la plus ancienne demande se change dans Réglages › Encoche.
 
 ##### À propos (`about`)
 

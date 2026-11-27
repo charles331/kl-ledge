@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode, type DragEvent } from 'react';
-import { contextShare, type Helper, type Projects, type Session } from '@ledge/protocol';
+import { contextShare, SESSION_LABEL_MAX, type Helper, type Projects, type Session } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import type { Filing } from '../../atelier/filing';
 import { useI18n } from '../../i18n/lang';
@@ -19,6 +19,7 @@ import { useReorder, type OrderWriter } from './useReorder';
 import type { MenuTarget } from '../../manage/useContextMenu';
 import { isMenuKey, menuPoint } from './menuPoint';
 import type { ProjectGroup } from './model';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 const branchIcon = ['M6 3v12', 'M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6', 'M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6', 'M18 9a9 9 0 0 1-9 9'];
 
@@ -39,6 +40,48 @@ function BranchTag({ session }: { session: Session }): JSX.Element | null {
 
 /** A row the keyboard walks: Left folds it (or goes to its parent), Right unfolds it. `session` is set only for a principal. */
 interface Nav { toggle?: () => void; open?: boolean; parent?: string; session?: Session; target?: MenuTarget }
+
+/** The six-dot grip a draggable row shows on hover: drawn dots, so it sits the same whatever the font (the « ⋮⋮ » glyphs did not). */
+function Grip({ title }: { title: string }): JSX.Element {
+  return <span className="st-grip" aria-hidden="true" title={title}><i /><i /><i /><i /><i /><i /></span>;
+}
+
+/** A session's nickname as a field, in place (docs/mockups/ledge-sidebar-names.html, card 2, v2): its name stays shown in brackets,
+ *  the nickname selected at first (empty, « Surnom de Otto » greyed, when it has none). Enter or a click elsewhere keeps it, an emptied
+ *  field removes it, Escape leaves it as it was. Nothing is refused, a nickname being only shown; the keys stay in the field (the
+ *  tree's own E, Delete, H… would act on the row). */
+function RenameField({ session, outdated, onDone }: { session: Session; outdated: string | null; onDone(label: string | null): void }): JSX.Element {
+  const { t } = useI18n();
+  const r = t.side.rename;
+  const [value, setValue] = useState(session.label ?? '');
+  const touched = useRef(false);
+  const field = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  useEffect(() => { field.current?.focus(); field.current?.select(); }, []);
+  // Given elsewhere meanwhile (another window, the phone): the field follows as long as nothing was typed in it.
+  useEffect(() => { if (!touched.current) setValue(session.label ?? ''); }, [session.label]);
+  const finish = (label: string | null) => { if (done.current) return; done.current = true; onDone(label); };
+  const keep = () => {
+    const label = value.trim().slice(0, SESSION_LABEL_MAX);
+    finish(outdated || label === (session.label ?? '') ? null : label);
+  };
+  return (
+    <div className="st-main st-renaming">
+      <strong><input ref={field} className={cls('st-rename', outdated && 'bad')} value={value} maxLength={SESSION_LABEL_MAX} spellCheck={false} autoComplete="off"
+        placeholder={r.placeholder(session.name)} aria-label={r.placeholder(session.name)} aria-invalid={outdated ? true : undefined} aria-describedby={`rename-${session.id}`}
+        onChange={e => { touched.current = true; setValue(e.target.value); }}
+        onBlur={keep}
+        onContextMenu={e => e.stopPropagation()}
+        onKeyDown={e => {
+          e.stopPropagation();
+          if (e.key === 'Enter') { e.preventDefault(); if (!outdated) keep(); }
+          else if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+        }} /><span className="sn-name">({session.name})</span></strong>
+      {outdated ? <span id={`rename-${session.id}`} className="st-rename-err" role="alert">{outdated}</span>
+        : <span id={`rename-${session.id}`} className="st-rename-hint"><kbd>↵</kbd> {r.keep} · <kbd>{r.escKey}</kbd> {r.cancel}</span>}
+    </div>
+  );
+}
 
 /** Issue #32 (design-ux and the lead, 2026-11-26): each branch tag of `root` shows its name while the line leaves it room for its icon
  *  and three characters with « … »; with less, its icon alone (`data-fit="icon"`), so that room goes back to the session's name. The room
@@ -170,8 +213,13 @@ export function Tree(p: {
   onMenu(target: MenuTarget, at: { x: number; y: number }, opener: HTMLElement | null): void;
   onArchive(ids: string[]): void;
   onDelete(ids: string[]): void;
-  /** F2 on a principal's row: the rename dialog, as the menu's « Renommer… F2 » (a finished or offline session is refused there). */
+  /** F2 on a principal's row: its nickname becomes a field in place, as the menu's « Renommer F2 » (a finished or offline session is refused there). */
   onRename(s: Session): void;
+  /** The session whose nickname is a field now (docs/mockups/ledge-sidebar-names.html, card 2), and why it cannot be given one when
+   *  its machine's Ledge is too old; `onRenamed` gets the new nickname (empty: none), or null for « leave it as it was ». */
+  renaming?: { session: Session; outdated: string | null } | null;
+  /** True when the focus went back where the rename was asked; false: the row takes it. */
+  onRenamed?(label: string | null): boolean;
   onTerminal(s: Session): void;
   onToggleHide(): void;
   onToggleDense(): void;
@@ -246,6 +294,8 @@ export function Tree(p: {
   };
   useEffect(() => { if (p.current) openTo(p.current, false); }, [p.current]);
   useEffect(() => { if (p.revealCurrent && p.current) openTo(p.current, true); }, [p.revealCurrent]);
+  // A rename asked from the session page or the atelier: its row is unfolded into view, so the field has a place to open.
+  useEffect(() => { if (p.renaming) openTo(p.renaming.session.id, false); }, [p.renaming?.session.id]);
   // H hides every ended session again, the ones a « +N finished » showed included, but not the open one.
   useEffect(() => {
     if (!p.hideDone) return;
@@ -325,14 +375,15 @@ export function Tree(p: {
     const timeClass = s.offline ? undefined : helper
       ? (helper.state === 'waiting_permission' ? 't-approval' : helper.state === 'waiting_input' ? 't-question' : helper.state === 'error' ? 't-error' : undefined)
       : (s.state === 'waiting_permission' ? 't-approval' : s.state === 'waiting_input' ? 't-question' : s.state === 'error' ? 't-error' : undefined);
+    const editing = !helper && p.renaming?.session.id === s.id ? p.renaming : null;
     const row = (
       <div key={treeKey} role="treeitem" aria-level={depth + 1} aria-expanded={subs.length > 0 ? open : undefined}
         aria-selected={selected} aria-current={selected ? 'true' : undefined}
-        className={cls('st-row st-agent', selected && 'sel', !helper && p.picked.has(s.id) && 'picked', !helper && isEnded(s) && 'done', s.offline && 'off', !!helper && 'helper',
+        className={cls('st-row st-agent', (selected || !!editing) && 'sel', !helper && p.picked.has(s.id) && 'picked', !helper && isEnded(s) && 'done', s.offline && 'off', !!helper && 'helper',
           !helper && canDrag && 'st-grab', ro.dragged?.kind === 'session' && ro.dragged.id === s.id && 'st-lifted',
           !helper && ro.mark?.id === s.id && (ro.mark.after ? 'st-mark-after' : 'st-mark-before'))}
         style={{ '--d': depth } as CSSProperties}
-        {...(!helper && canDrag ? {
+        {...(!helper && canDrag && !editing ? {
           draggable: true,
           onDragStart: (e: DragEvent<HTMLElement>) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; ro.setDragged({ kind: 'session', id: s.id }); },
           onDragEnd: () => { ro.setDragged(null); ro.setMark(null); ro.setFileOver(null); },
@@ -340,15 +391,16 @@ export function Tree(p: {
           onDrop: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id) || !ro.mark) return; e.preventDefault(); ro.drop(ro.mark); }
         } : {})}
         onContextMenu={helper ? undefined : e => menuOn({ kind: 'session', id: s.id }, e)}>
-        {!helper && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
+        {!helper && canDrag && <Grip title={t.side.reorder.grip} />}
         {toggle ? <Chevron open={open} label={open ? t.side.foldKids(name) : t.side.unfoldKids(name)} onClick={toggle} /> : <span className="st-gap" />}
         <span className="st-bot"><ProviderLogo provider={providerOf(s.tool)} size={14} />{bg && <span className="st-bg-ring" aria-hidden="true" />}</span>
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
+        {editing ? <RenameField session={s} outdated={editing.outdated} onDone={label => { if (!p.onRenamed?.(label)) keepFocus(treeKey); }} /> :
         <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
-          <strong><span className="st-aname">{name}</span>{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          <strong><span className="st-aname">{helper ? name : <SessionName session={s} />}</span>{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
           {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
-        </button>
+        </button>}
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
           {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
         <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.yours}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
@@ -476,7 +528,7 @@ export function Tree(p: {
           gid !== null && canDrag && 'st-grab', ro.dragged?.kind === 'project' && ro.dragged.id === gid && 'st-lifted',
           lineBefore(gid) && 'st-mark-before')}
         style={{ '--d': 0 } as CSSProperties} {...dnd} onContextMenu={e => menuOn(target, e)}>
-        {gid !== null && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
+        {gid !== null && canDrag && <Grip title={t.side.reorder.grip} />}
         {filingHere && <span className="st-drop-tip" role="status">{t.side.reorder.fileInto(filedName, label)}</span>}
         {toggle ? <Chevron open={open} label={open ? t.side.fold(label) : t.side.unfold(label)} onClick={toggle} /> : <span className="st-gap" />}
         <ProjectSwatch project={project} />

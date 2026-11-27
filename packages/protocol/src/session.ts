@@ -102,6 +102,14 @@ export const BACKGROUND_MAX = 20;
 export const TopicSourceSchema = z.enum(['user', 'pane', 'prompt']);
 export type TopicSource = z.infer<typeof TopicSourceSchema>;
 
+/** A session's nickname, at most this many characters once trimmed. */
+export const SESSION_LABEL_MAX = 40;
+
+/** How a session is called on screen: its nickname then its name in brackets, or its name alone. */
+export function labelledName(s: { name: string; label?: string | undefined }): string {
+  return s.label ? `${s.label} (${s.name})` : s.name;
+}
+
 export const SessionSchema =z.object({
   /** Origin is annotated by the overlay, never used as an unqualified session id on the wire. */
   machineId: z.string().optional(), machineName: z.string().optional(), repoId: z.string().optional(),
@@ -109,6 +117,9 @@ export const SessionSchema =z.object({
   offline: z.boolean().optional(),
   id: z.string().min(1),
   name: z.string().min(1),
+  /** A nickname the person gave it (docs/mockups/ledge-sidebar-names.html, card 2): shown before its name, « KB Projet 1 (Otto) ».
+   *  Only a label: the name stays its address for the other sessions, the tasks and the routines. */
+  label: z.string().min(1).max(SESSION_LABEL_MAX).optional(),
   tool: ToolSchema,
   cwd: z.string(),
   project: z.string(),

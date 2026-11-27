@@ -1,13 +1,16 @@
-import { useEffect, useId, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { DaemonClient, MachineState } from '@ledge/fleet';
 import { cleanName, nameHolder, nameRefusal, namesInUse, type OmpApproval, type Project, type Session } from '@ledge/protocol';
 import { splitId } from '@ledge/fleet';
 import { Button } from '@ledge/ui/ui/Button';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
+import { SHELL_ICONS } from '../shell/icons';
 import { useI18n, type Messages } from '../i18n/lang';
 import { cls } from '../shell/cls';
 import { Menu, MenuItem } from '../shell/Menu';
+import { ModalTitleSlot } from '../shell/Modal';
 import { PROVIDER_TITLES, ProviderLogo } from '../ide/ProviderLogo';
 import { providerOf } from '../workspace/sessionTab';
 import { tilde } from '../openrig/roles/model';
@@ -78,12 +81,19 @@ export function LaunchModal(p: {
   const [menu, setMenu] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { field.current?.focus(); }, []);
-  // Issue #15 (docs/mockups/ledge-launch-name.html, v2): « Définir un nom ? », off at each opening. On, the Name row shows under
-  // Project and takes the focus; off, it goes and its name is not sent, but what was typed is kept (form.name) until the box closes.
-  const [named, setNamed] = useState(false);
-  const nameField = useRef<HTMLInputElement>(null);
-  const switched = useRef(false);
-  useEffect(() => { if (named && switched.current) nameField.current?.focus(); }, [named]);
+  // docs/mockups/ledge-sidebar-names.html, card 4 (proposal A, which replaces #15's switch): the name the session will get stands in the
+  // box's title; a click or F2 makes it a field there. Escape goes back to Ledge's pick.
+  const [editing, setEditing] = useState(false);
+  const slot = useContext(ModalTitleSlot);
+  // The field gone (kept or dropped), the keyboard goes back to the name in the title: Ctrl+Entrée still launches from there.
+  const nameButton = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  // Only when it was lost with the field: a click elsewhere (the first message) keeps what it clicked.
+  useEffect(() => {
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (!editing && wasEditing.current && lost) nameButton.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
   const id = useId();
 
   const project = projects.find(x => x.id === form.project);
@@ -113,9 +123,9 @@ export function LaunchModal(p: {
   const missing = missingOf(form, machines);
   // The name Ledge would give (the field's placeholder, and what an empty or switched-off field leaves to the daemon).
   const auto = previewOf({ ...form, name: '' }, p.sessions, p.projectIdOf).name;
-  // A name typed while the switch is on, as the session will carry it; checked against the live sessions of the chosen machine,
+  // The name typed in the title, as the session will carry it; checked against the live sessions of the chosen machine,
   // whose daemon refuses a taken name (name_taken) — so « Lancer » does not send it.
-  const typed = named ? form.name ?? '' : '';
+  const typed = form.name ?? '';
   const clean = cleanName(typed);
   const live = p.sessions.filter(s => (splitId(s.id)?.machine ?? s.machineId ?? 'local') === form.machine && s.state !== 'exited' && !s.archivedAt);
   const refused = nameRefusal(namesInUse(live), typed) !== undefined;
@@ -130,18 +140,51 @@ export function LaunchModal(p: {
   const submit = () => {
     setTried(true);
     if (refused || missing || launching || !project || unavailable) return;
-    // No name (switched off, or nothing left once cleaned): the daemon picks the first free one, so two launches never race for it.
+    // No name (none typed, or nothing left once cleaned): the daemon picks the first free one, so two launches never race for it.
     const { name: _auto, ...msg } = sentMessage(form, project.id, auto, { outdated, approvable });
-    p.onLaunch(clean ? { ...msg, name: clean } : msg, { name: clean || auto, project: project.name, projectId: project.id }, where);
+    // Ledge's own pick left as it is goes unsent too: the daemon chooses again at launch, so two launches never race for it.
+    p.onLaunch(clean && clean !== auto ? { ...msg, name: clean } : msg, { name: clean || auto, project: project.name, projectId: project.id }, where);
   };
 
   const row = rows.find(r => onRow(form, r));
   const branch = form.repos[0] ? infos.get(form.repos[0])?.branch : null;
   const lbl = (k: string) => `${id}-${k}`;
+  // The field opens on the name shown (Ledge's pick when none was typed), selected, as the sidebar's rename does.
+  const edit = () => { if (editing) return; setEditing(true); setForm(f => ({ ...f, name: f.name || auto })); };
+  // Enter, Tab or a click elsewhere keeps the name; emptied, the session takes the one Ledge picks. Escape goes back to Ledge's pick.
+  // Ledge's pick kept as it is is not pinned: another machine, or a launch elsewhere, may change it before « Lancer ».
+  const keepName = () => { setForm(f => (cleanName(f.name ?? '') === auto ? { ...f, name: '' } : f)); setEditing(false); };
+  const dropName = () => { setForm(f => ({ ...f, name: '' })); setEditing(false); };
+  const keys = launchKeys(submit);
+  const shown = clean || auto;
 
   return (
-    <form className="launch-modal" onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={launchKeys(submit)}>
-      <p className="launch-modal-sub">{`${m.opensIn[where]} ${m.keys}`}</p>
+    <form className="launch-modal" onSubmit={e => { e.preventDefault(); submit(); }}
+      onKeyDown={e => { if (e.key === 'F2' && !editing) { e.preventDefault(); edit(); return; } keys(e); }}>
+      {slot && createPortal(editing ? (
+        <span className="launch-modal-tname">
+          <span className="dot" aria-hidden="true">·</span>
+          <input autoFocus className={cls('launch-modal-tfield', refused && 'bad')} value={typed} placeholder={auto} maxLength={100} spellCheck={false} autoComplete="off"
+            aria-label={m.name} aria-invalid={refused || undefined} aria-describedby={lbl('sub')}
+            onFocus={e => e.currentTarget.select()}
+            onChange={e => { const name = e.target.value; setForm(f => ({ ...f, name })); }}
+            onBlur={keepName}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dropName(); }
+              else if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); keepName(); }
+            }} />
+        </span>
+      ) : (
+        <span className="launch-modal-tname">
+          <span className="dot" aria-hidden="true">·</span>
+          <button ref={nameButton} type="button" className={cls('launch-modal-tbtn', refused && 'bad')} title={m.renameTip} aria-label={`${m.renameTip} · ${shown}`} onClick={edit}>
+            {shown}<Icon d={SHELL_ICONS.pencil} size={12} />
+          </button>
+        </span>
+      ), slot)}
+      <p id={lbl('sub')} className={cls('launch-modal-sub', nameError && 'bad')} role={nameError ? 'alert' : undefined}>
+        {nameError ?? (editing ? (clean && clean !== typed.trim() ? m.cleaned(clean) : m.editHint(auto)) : `${m.opensIn[where]} ${m.keys}`)}
+      </p>
       <div className="launch-modal-fld">
         <span className="launch-modal-lbl" id={lbl('project')}>{m.project}</span>
         {projects.length === 0 ? (
@@ -166,21 +209,9 @@ export function LaunchModal(p: {
               </MenuItem>
             ))}
           </Menu>
-          <button type="button" role="switch" aria-checked={named} className="launch-modal-sw"
-            onClick={() => { switched.current = true; setNamed(v => !v); }}><i aria-hidden="true" />{m.nameToggle}</button>
           </div>
         )}
 
-        {named && <>
-          <label className="launch-modal-lbl" htmlFor={lbl('name')}>{m.name}</label>
-          <div className="launch-modal-name">
-            <input id={lbl('name')} ref={nameField} type="text" className="launch-modal-field" value={form.name ?? ''} placeholder={m.namePlaceholder(auto)}
-              spellCheck={false} autoComplete="off" aria-invalid={refused || undefined} aria-describedby={lbl('name-say')}
-              onChange={e => { const name = e.target.value; setForm(f => ({ ...f, name })); }} />
-            {nameError ? <span id={lbl('name-say')} className="launch-modal-ferr" role="alert">{nameError}</span>
-              : <span id={lbl('name-say')} className={cls('launch-modal-hint', clean && clean !== typed && 'said')}>{clean && clean !== typed ? m.cleaned(clean) : m.nameHint}</span>}
-          </div>
-        </>}
 
         <span className="launch-modal-lbl">{m.where}</span>
         <div className="launch-modal-txt">{branch ? withPart(m.onBranch, <span className="mono">⎇ {branch}</span>) : m.inFolder}</div>

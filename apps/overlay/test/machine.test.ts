@@ -1,352 +1,252 @@
 import { describe, it, expect } from 'vitest';
-import { transition, initialSurface, TIMERS, FINISHED_BUBBLE_MS, type SurfaceState, type SurfaceEvent } from '../src/surface/machine';
-import { createSurfaceController } from '../src/surface/controller';
+import { transition, initialSurface, waitingCount, MOTION_MS, NOTICE_MS, ACK_MS, type SurfaceEvent, type SurfaceState, type Effect } from '../src/surface/machine';
 
-const run = (events: SurfaceEvent[], start: SurfaceState = initialSurface()) => {
-  let s = start; const effects: string[] = [];
-  for (const e of events) { const r = transition(s, e); s = r.state; effects.push(...r.effects.map(x => `${x.type}:${x.name}`)); }
+/** Runs events from rest (or `from`), returning the last state and the effects of the last event. */
+function run(events: SurfaceEvent[], from: SurfaceState = initialSurface()) {
+  let s = from; let effects: Effect[] = [];
+  for (const e of events) { const r = transition(s, e); s = r.state; effects = r.effects; }
   return { s, effects };
-};
-const ask = (id = 'a') => run([{ type: 'ask', id }, { type: 'unfoldElapsed' as never }]).s;
-
-describe('sober surface machine', () => {
-  it('the resident opens the chat', () => {
-    const { s } = run([{ type: 'homeClick' }]);
-    expect(s.mode).toBe('chat');
-    expect(s.selectedId).toBeNull();
-    expect(run([{ type: 'back' }], s).s.mode).toBe('handle');
-  });
-
-  it('an ask grows the bot first, then unfolds, and stays without a clock', () => {
-    const r = run([{ type: 'ask', id: 'a' }]);
-    expect(r.s.mode).toBe('handle'); expect(r.s.queue).toEqual(['a']); expect(r.effects).toContain('startTimer:unfold');
-    const r2 = run([{ type: 'unfoldElapsed' as never }], r.s);
-    expect(r2.s).toMatchObject({ mode: 'bubble', bubbleId: 'a', bubbleKind: 'ask' });
-    expect(r2.effects).not.toContain('startTimer:bubble');
-    expect(run([{ type: 'bubbleElapsed' }], r2.s).s.mode).toBe('bubble');
-  });
-
-  it('a second ask queues behind the bubble', () => {
-    const { s } = run([{ type: 'ask', id: 'a' }, { type: 'unfoldElapsed' as never }, { type: 'ask', id: 'b' }]);
-    expect(s.mode).toBe('bubble'); expect(s.bubbleId).toBe('a'); expect(s.queue).toEqual(['a', 'b']);
-  });
-
-  it('Later sets the ask aside and shows the next one that was not', () => {
-    const first = ask('a');
-    const both = run([{ type: 'ask', id: 'b' }], first).s;
-    const later = run([{ type: 'defer' }], both);
-    expect(later.s).toMatchObject({ mode: 'bubble', bubbleId: 'b', queue: ['a', 'b'], deferred: ['a'] });
-    const none = run([{ type: 'defer' }], later.s);
-    expect(none.s).toMatchObject({ mode: 'handle', queue: ['a', 'b'], deferred: ['a', 'b'] });
-  });
-
-  it('clicking a bot with an ask shows it again; clicking another opens a peek', () => {
-    const aside = run([{ type: 'defer' }], ask()).s;
-    const back = run([{ type: 'botClick', id: 'a' }], aside);
-    expect(back.s).toMatchObject({ mode: 'bubble', bubbleId: 'a', deferred: [] });
-    const peek = run([{ type: 'botClick', id: 'b' }], aside);
-    expect(peek.s).toMatchObject({ mode: 'peek', selectedId: 'b', queue: ['a'] });
-    expect(run([{ type: 'back' }], peek.s).s.mode).toBe('handle');
-  });
-
-  it('hovering the edge no longer opens a list, and an ask waits out the brush', () => {
-    const dwell = run([{ type: 'handleEnter' }, { type: 'dwellElapsed' }]);
-    expect(dwell.s.mode).toBe('handle');
-    const brushed = run([{ type: 'ask', id: 'a' }], dwell.s);
-    expect(brushed.s.mode).toBe('handle'); expect(brushed.s.unfoldDue).toBe(true);
-    const left = run([{ type: 'handleLeave' }, { type: 'unfoldElapsed' as never }], brushed.s);
-    expect(left.s).toMatchObject({ mode: 'bubble', bubbleId: 'a' });
-  });
-
-  it('Ctrl+Alt+L opens the first ask, then the chat, and from the chat it folds', () => {
-    const queued = run([{ type: 'ask', id: 'a' }]).s;
-    const shown = run([{ type: 'shortcut' }], queued);
-    expect(shown.s).toMatchObject({ mode: 'bubble', bubbleId: 'a' });
-    const chat = run([{ type: 'shortcut' }], shown.s);
-    expect(chat.s.mode).toBe('chat'); expect(chat.s.queue).toEqual(['a']);
-    expect(run([{ type: 'shortcut' }], chat.s).s.mode).toBe('handle');
-    expect(run([{ type: 'shortcut' }]).s.mode).toBe('chat');
-  });
-
-  it('a shortcut brings back an ask that was set aside', () => {
-    const aside = run([{ type: 'defer' }], ask()).s;
-    expect(run([{ type: 'shortcut' }], aside).s).toMatchObject({ mode: 'bubble', bubbleId: 'a', deferred: [] });
-  });
-
-  it('the screens that left the island cannot be opened', () => {
-    const start = initialSurface();
-    for (const type of ['newSession', 'settings', 'help', 'launch', 'rowClick', 'documentOpen', 'openHelper'] as const) {
-      const event = type === 'rowClick' || type === 'openHelper' ? { type, id: 'a' } : type === 'documentOpen' ? { type, origin: { kind: 'chat' as const } } : { type };
-      expect(run([event as SurfaceEvent], start).s).toBe(start);
-    }
-  });
-
-  it('do not disturb keeps the queue and unfolds nothing, including an ask that arrives while it is on', () => {
-    const up = ask();
-    const quiet = run([{ type: 'dnd', on: true }], up);
-    expect(quiet.s).toMatchObject({ mode: 'handle', quiet: true, queue: ['a'] });
-    expect(quiet.effects).toContain('cancelTimer:unfold');
-    const during = run([{ type: 'ask', id: 'b' }, { type: 'unfoldElapsed' as never }], quiet.s);
-    expect(during.s).toMatchObject({ mode: 'handle', queue: ['a', 'b'] });
-    const off = run([{ type: 'dnd', on: false }], during.s);
-    expect(off.s.mode).toBe('handle'); expect(off.s.quiet).toBe(false);
-  });
-
-  it('deciding holds until both 900ms and the daemon confirmation, then the next ask follows', () => {
-    const both = run([{ type: 'ask', id: 'b' }], ask()).s;
-    const held = run([{ type: 'decidedInBubble' }], both);
-    expect(held.s.ack).toEqual({ id: 'a', minElapsed: false, confirmed: false });
-    expect(run([{ type: 'holdElapsed' }], held.s).s.mode).toBe('bubble');
-    const confirmed = run([{ type: 'askCleared', id: 'a' }], run([{ type: 'holdElapsed' }], held.s).s);
-    expect(confirmed.s).toMatchObject({ mode: 'bubble', bubbleId: 'b', queue: ['b'], ack: null });
-  });
-
-  it('a removal of the acknowledged ask confirms it', () => {
-    const held = run([{ type: 'decidedInBubble' }, { type: 'holdElapsed' }], ask()).s;
-    expect(run([{ type: 'removed', id: 'a', remaining: [] }], held).s).toMatchObject({ mode: 'handle', queue: [] });
-  });
-
-  it('a repeated decision does not restart the acknowledgement', () => {
-    const held = run([{ type: 'decidedInBubble' }], ask()).s;
-    expect(run([{ type: 'decidedInBubble' }], held).s).toBe(held);
-  });
-
-  it('a late confirmation cannot steal a peek opened since', () => {
-    const held = run([{ type: 'decidedInBubble' }], ask()).s;
-    const peek = run([{ type: 'botClick', id: 'b' }], held).s;
-    expect(run([{ type: 'askCleared', id: 'a' }, { type: 'holdElapsed', rev: held.rev }], peek).s).toMatchObject({ mode: 'peek', selectedId: 'b' });
-  });
-
-  it('a delayed timer from a previous context is ignored', () => {
-    const shown = ask();
-    const next = run([{ type: 'close' }], shown).s;
-    expect(run([{ type: 'unfoldElapsed', rev: shown.rev }], next).s).toBe(next);
-  });
-
-  it('removing the peeked session folds back to the handle', () => {
-    const peek = run([{ type: 'botClick', id: 'a' }]).s;
-    expect(run([{ type: 'removed', id: 'a', remaining: [] }], peek).s.mode).toBe('handle');
-  });
-
-  it('a replaced request confirms an acknowledgement in progress and shows the new one', () => {
-    const held = run([{ type: 'decidedInBubble' }], ask()).s;
-    const replaced = run([{ type: 'askReplaced', id: 'a' }], held);
-    expect(replaced.s.ack?.confirmed).toBe(true);
-    expect(run([{ type: 'holdElapsed' }], replaced.s).s).toMatchObject({ mode: 'bubble', bubbleId: 'a', ack: null });
-  });
-
-  it('a terminal error unlocks the ask and does not start a clock', () => {
-    const acked = run([{ type: 'decidedInBubble' }], ask()).s;
-    const r = run([{ type: 'decisionFailed', id: 'a' }], acked);
-    expect(r.s).toMatchObject({ mode: 'bubble', bubbleId: 'a', ack: null, failed: 'a', queue: ['a'] });
-    expect(r.effects).toEqual(['cancelTimer:hold']);
-    expect(run([{ type: 'holdElapsed', rev: acked.rev }], r.s).s).toBe(r.s);
-  });
-
-  it('a failure for another id, or outside the bubble, changes nothing', () => {
-    const acked = run([{ type: 'decidedInBubble' }], ask()).s;
-    expect(run([{ type: 'decisionFailed', id: 'b' }], acked).s).toBe(acked);
-    const chat = run([{ type: 'chat' }]).s;
-    expect(run([{ type: 'decisionFailed', id: 'a' }], chat).s).toBe(chat);
-  });
-
-  it('outside a click folds the chat and a peek, and leaves the handle and a bubble', () => {
-    expect(run([{ type: 'outsideClick' }], run([{ type: 'chat' }]).s).s.mode).toBe('handle');
-    expect(run([{ type: 'outsideClick' }], run([{ type: 'botClick', id: 'a' }]).s).s.mode).toBe('handle');
-    expect(run([{ type: 'outsideClick' }], ask()).s.mode).toBe('bubble');
-    expect(run([{ type: 'outsideClick' }]).s.mode).toBe('handle');
-  });
-
-  it('a notice on the bare handle unfolds for 6 s; an ask replaces it at once', () => {
-    const grew = run([{ type: 'notice', id: 'a', kind: 'offline' }]);
-    expect(grew.s.mode).toBe('handle'); expect(grew.effects).toContain('startTimer:unfold');
-    const up = run([{ type: 'unfoldElapsed' as never }], grew.s);
-    expect(up.s).toMatchObject({ mode: 'bubble', bubbleId: 'a', bubbleKind: 'offline' });
-    expect(up.effects).toContain('startTimer:bubble');
-    expect(run([{ type: 'bubbleElapsed' }], up.s).s.mode).toBe('handle');
-    const replaced = run([{ type: 'ask', id: 'b' }], up.s);
-    expect(replaced.s).toMatchObject({ mode: 'bubble', bubbleId: 'b', bubbleKind: 'ask' });
-  });
-
-  it('a second notice waits behind the first', () => {
-    const up = run([{ type: 'notice', id: 'a', kind: 'offline' }, { type: 'unfoldElapsed' as never }]).s;
-    const chained = run([{ type: 'notice', id: 'm', kind: 'offline' }], up);
-    expect(chained.s.bubbleId).toBe('a'); expect(chained.s.done).toEqual(['a', 'm']);
-    const next = run([{ type: 'bubbleElapsed' }], chained.s);
-    expect(next.s).toMatchObject({ mode: 'bubble', bubbleId: 'm', bubbleKind: 'offline' });
-  });
-
-  it('a notice does not cover an ask; it follows once the ask is done', () => {
-    const waiting = run([{ type: 'notice', id: 'a', kind: 'offline' }], ask()).s;
-    expect(waiting).toMatchObject({ mode: 'bubble', bubbleId: 'a', bubbleKind: 'ask', done: ['a'] });
-    expect(run([{ type: 'defer' }], waiting).s).toMatchObject({ mode: 'bubble', bubbleKind: 'offline', bubbleId: 'a' });
-  });
-
-  it('hovering pauses a notice clock and leaving resumes the remainder', () => {
-    const up = run([{ type: 'notice', id: 'a', kind: 'offline' }, { type: 'unfoldElapsed' as never }]).s;
-    const paused = run([{ type: 'surfaceEnter' }], up);
-    expect(paused.effects).toContain('pauseTimer:bubble');
-    expect(run([{ type: 'surfaceLeave' }], paused.s).effects).toContain('resumeTimer:bubble');
-  });
-
-  it('a notice during do not disturb is not unfolded', () => {
-    const quiet = run([{ type: 'dnd', on: true }]).s;
-    expect(run([{ type: 'notice', id: 'a', kind: 'offline' }, { type: 'notice', id: 'm', kind: 'offline' }], quiet).s.mode).toBe('handle');
-  });
-
-});
-
-function fakeClock() {
-  let t = 0; let seq = 0;
-  const q = new Map<number, { at: number; fn: () => void }>();
-  return {
-    now: () => t,
-    setTimeout: ((fn: () => void, ms: number) => { q.set(++seq, { at: t + ms, fn }); return seq; }) as never,
-    clearTimeout: ((h: number) => { q.delete(h); }) as never,
-    pending: () => q.size,
-    advance(ms: number) {
-      const end = t + ms;
-      for (;;) {
-        let next: [number, { at: number; fn: () => void }] | undefined;
-        for (const entry of q) if (entry[1].at <= end && (!next || entry[1].at < next[1].at)) next = entry;
-        if (!next) break;
-        q.delete(next[0]); t = next[1].at; next[1].fn();
-      }
-      t = end;
-    }
-  };
 }
+const started = (effects: Effect[]) => effects.filter(e => e.type === 'startTimer').map(e => (e as { name: string; ms: number }).name + ':' + (e as { ms: number }).ms);
+const has = (effects: Effect[], type: Effect['type'], name: string) => effects.some(e => e.type === type && e.name === name);
+/** From rest to an open card: out of the edge, then open. */
+const opened = (first: SurfaceEvent): SurfaceEvent[] => [first, { type: 'appearElapsed' }];
 
-const noticeOpen = () => {
-  const clock = fakeClock();
-  const c = createSurfaceController({ onState: () => {}, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, now: clock.now });
-  c.dispatch({ type: 'notice', id: 'a', kind: 'offline' }); clock.advance(540);
-  expect(c.state()).toMatchObject({ mode: 'bubble', bubbleId: 'a', bubbleKind: 'offline' });
-  return { clock, c };
-};
-
-describe('controller timers', () => {
-  it('unfolds an ask after 540 ms and does not arm a bubble clock', () => {
-    const timers: Array<{ ms: number; fn: () => void }> = [];
-    const c = createSurfaceController({ onState: () => {}, setTimeout: ((fn: () => void, ms: number) => { timers.push({ ms, fn }); return timers.length; }) as never, clearTimeout: (() => {}) as never });
-    c.dispatch({ type: 'ask', id: 'a' });
-    expect(timers.at(-1)!.ms).toBe(540); timers.at(-1)!.fn();
-    expect(c.state().mode).toBe('bubble');
-    expect(timers.filter(t => t.ms === 4000)).toHaveLength(0);
-    c.dispose();
+describe('the island’s movement (issue #27)', () => {
+  it('rests with nothing on screen', () => {
+    const s = initialSurface();
+    expect(s.phase).toBe('gone'); expect(s.current).toBeNull();
   });
 
-  it('a notice clock is 6 s and does not follow the animation scaling', () => {
-    expect(import.meta.env.VITE_LEDGE_MOTION).toBe('0');
-    expect(TIMERS.unfold).toBe(540);
-    expect(FINISHED_BUBBLE_MS).toBe(6000);
-    const timers: Array<{ ms: number; fn: () => void }> = [];
-    const c = createSurfaceController({ onState: () => {}, setTimeout: ((fn: () => void, ms: number) => { timers.push({ ms, fn }); return timers.length; }) as never, clearTimeout: (() => {}) as never });
-    c.dispatch({ type: 'notice', id: 'a', kind: 'offline' }); timers.at(-1)!.fn();
-    expect(timers.at(-1)!.ms).toBe(6000);
-    c.dispose();
+  it('a notice comes out of the edge (260 ms), opens with a 6 s clock, closes back to the pill (320 ms), then leaves (240 ms)', () => {
+    let r = run([{ type: 'notice', id: 'otto', kind: 'finished' }]);
+    expect(r.s.phase).toBe('seed'); expect(r.s.current).toEqual({ id: 'otto', kind: 'finished' }); expect(r.s.closing).toBe(false);
+    expect(started(r.effects)).toEqual([`appear:${MOTION_MS.appear}`]);
+    r = run([{ type: 'appearElapsed' }], r.s);
+    expect(r.s.phase).toBe('open'); expect(started(r.effects)).toEqual([`notice:${NOTICE_MS}`]);
+    r = run([{ type: 'noticeElapsed' }], r.s);
+    expect(r.s.phase).toBe('seed'); expect(r.s.closing).toBe(true); expect(started(r.effects)).toEqual([`close:${MOTION_MS.close}`]);
+    r = run([{ type: 'closeElapsed' }], r.s);
+    expect(r.s.phase).toBe('gone'); expect(r.s.current).not.toBeNull(); expect(started(r.effects)).toEqual([`leave:${MOTION_MS.leave}`]);
+    r = run([{ type: 'leaveElapsed' }], r.s);
+    expect(r.s.phase).toBe('gone'); expect(r.s.current).toBeNull();
   });
 
-  const holds: Array<[string, SurfaceEvent, SurfaceEvent]> = [
-    ['hover', { type: 'surfaceEnter' }, { type: 'surfaceLeave' }],
-    ['keyboard focus', { type: 'focusWithin', on: true }, { type: 'focusWithin', on: false }],
-    ['a hidden document', { type: 'visibility', hidden: true }, { type: 'visibility', hidden: false }]
-  ];
-  for (const [name, hold, release] of holds) {
-    it(`a notice retains its remaining time under ${name}`, () => {
-      const { clock, c } = noticeOpen();
-      clock.advance(1000);
-      c.dispatch(hold); clock.advance(5000);
-      expect(c.state().mode).toBe('bubble');
-      expect(c.bubbleRemaining()).toBe(5000);
-      c.dispatch(release); clock.advance(4999);
-      expect(c.state().mode).toBe('bubble');
-      expect(c.bubbleRemaining()).toBe(1);
-      clock.advance(1);
-      expect(c.state()).toMatchObject({ mode: 'handle', done: [] });
-      c.dispose();
-    });
-  }
-
-  it('the notice clock resumes only when no hold remains', () => {
-    const { clock, c } = noticeOpen();
-    clock.advance(1000);
-    c.dispatch({ type: 'surfaceEnter' }); c.dispatch({ type: 'focusWithin', on: true }); c.dispatch({ type: 'visibility', hidden: true });
-    c.dispatch({ type: 'surfaceLeave' }); c.dispatch({ type: 'focusWithin', on: false }); clock.advance(10_000);
-    expect(c.state().mode).toBe('bubble');
-    c.dispatch({ type: 'visibility', hidden: false }); clock.advance(4999);
-    expect(c.state().mode).toBe('bubble');
-    clock.advance(1); expect(c.state().mode).toBe('handle');
+  it('a request has no clock: it stays open until an answer or « Plus tard »', () => {
+    const r = run(opened({ type: 'ask', id: 'pim' }));
+    expect(r.s.phase).toBe('open'); expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' });
+    expect(started(r.effects)).toEqual([]);
+    expect(run([{ type: 'noticeElapsed' }], r.s).s.phase).toBe('open');
   });
 
-  it('a decision without daemon confirmation keeps the ask after 900ms', () => {
-    const clock = fakeClock();
-    const c = createSurfaceController({ onState: () => {}, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, now: clock.now });
-    c.dispatch({ type: 'ask', id: 'a' }); clock.advance(540);
-    c.dispatch({ type: 'decidedInBubble' }); clock.advance(10_000);
-    expect(c.state()).toMatchObject({ mode: 'bubble', bubbleId: 'a', queue: ['a'], ack: { id: 'a', minElapsed: true, confirmed: false } });
-    c.dispatch({ type: 'askCleared', id: 'a' });
-    expect(c.state()).toMatchObject({ mode: 'handle', queue: [], ack: null });
-    c.dispose();
+  it('the hover holds a notice’s clock and lets it go; a card opening under the pointer starts held', () => {
+    const open = run(opened({ type: 'notice', id: 'otto', kind: 'finished' })).s;
+    const enter = transition(open, { type: 'surfaceEnter' });
+    expect(has(enter.effects, 'pauseTimer', 'notice')).toBe(true);
+    const leave = transition(enter.state, { type: 'surfaceLeave' });
+    expect(has(leave.effects, 'resumeTimer', 'notice')).toBe(true);
+    const r = run([{ type: 'surfaceEnter' }, { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'appearElapsed' }]);
+    expect(has(r.effects, 'startTimer', 'notice') && has(r.effects, 'pauseTimer', 'notice')).toBe(true);
   });
 
-  it('an early confirmation waits for the 900ms minimum', () => {
-    const clock = fakeClock();
-    const c = createSurfaceController({ onState: () => {}, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, now: clock.now });
-    c.dispatch({ type: 'ask', id: 'a' }); clock.advance(540);
-    c.dispatch({ type: 'decidedInBubble' }); clock.advance(300);
-    c.dispatch({ type: 'askCleared', id: 'a' }); clock.advance(599);
-    expect(c.state().mode).toBe('bubble');
-    clock.advance(1); expect(c.state().mode).toBe('handle');
-    c.dispose();
+  it('the island gone, nothing holds the next notice’s clock: its card left under the pointer and the focus, which never said so', () => {
+    // A request answered with a click: the pointer and the focus are inside, and the card is removed before either leaves.
+    let s = run([...opened({ type: 'ask', id: 'pim' }), { type: 'surfaceEnter' }, { type: 'focusWithin', on: true }, { type: 'decided' }, { type: 'askCleared', id: 'pim' }]).s;
+    s = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }], s).s;
+    expect(s.phase).toBe('gone'); expect(s.current).toBeNull();
+    expect(s.hovering).toBe(false); expect(s.focusWithin).toBe(false);
+    const r = run([{ type: 'notice', id: 'pim', kind: 'finished' }, { type: 'appearElapsed' }], s);
+    expect(has(r.effects, 'startTimer', 'notice')).toBe(true);
+    expect(has(r.effects, 'pauseTimer', 'notice')).toBe(false);
+    // Hidden from Desktop takes the island off at once: the same holds go with it.
+    const off = run([...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'surfaceEnter' }, { type: 'focusWithin', on: true }, { type: 'visible', on: false }]).s;
+    expect(off.hovering).toBe(false); expect(off.focusWithin).toBe(false);
   });
 
-  it('a late confirmation cannot steal a peek opened since', () => {
-    const clock = fakeClock();
-    const c = createSurfaceController({ onState: () => {}, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, now: clock.now });
-    c.dispatch({ type: 'ask', id: 'a' }); clock.advance(540);
-    c.dispatch({ type: 'decidedInBubble' }); clock.advance(200);
-    c.dispatch({ type: 'botClick', id: 'b' });
-    c.dispatch({ type: 'askCleared', id: 'a' }); clock.advance(10_000);
-    expect(c.state()).toMatchObject({ mode: 'peek', selectedId: 'b' });
-    expect(clock.pending()).toBe(0);
-    c.dispose();
+  it('a focus belongs to the card it was taken in: the pill reopening on the next notice does not hold its clock with it (review, finding 1)', () => {
+    // Answered with a click on « Allow »: the focus stays on a button that the next card no longer has; a finish came meanwhile.
+    const ask = [...opened({ type: 'ask', id: 'pim' }), { type: 'focusWithin', on: true }, { type: 'decided' }, { type: 'askCleared', id: 'pim' }, { type: 'notice', id: 'pim', kind: 'finished' }] as SurfaceEvent[];
+    let r = run([...ask, { type: 'holdElapsed' }, { type: 'closeElapsed' }]);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'finished' }); expect(r.s.focusWithin).toBe(false);
+    r = run([{ type: 'appearElapsed' }], r.s);
+    expect(has(r.effects, 'startTimer', 'notice')).toBe(true); expect(has(r.effects, 'pauseTimer', 'notice')).toBe(false);
+    // With reduced motion the card opens in the same step: the same.
+    r = run([{ type: 'reduced', on: true }, ...ask, { type: 'holdElapsed' }, { type: 'leaveElapsed' }]);
+    expect(r.s.phase).toBe('open'); expect(has(r.effects, 'startTimer', 'notice')).toBe(true); expect(has(r.effects, 'pauseTimer', 'notice')).toBe(false);
   });
 
-  it('dispose clears pending timers', () => {
-    const { clock, c } = noticeOpen();
-    c.dispose(); expect(clock.pending()).toBe(0);
+  it('the pointer, though, stays on the island while it stays mounted: the next card opening under it starts held, and its leave lets it go (mockup: « le survol retient »)', () => {
+    const ask = [...opened({ type: 'ask', id: 'pim' }), { type: 'surfaceEnter' }, { type: 'decided' }, { type: 'askCleared', id: 'pim' }, { type: 'notice', id: 'pim', kind: 'finished' }] as SurfaceEvent[];
+    let r = run([...ask, { type: 'holdElapsed' }, { type: 'closeElapsed' }, { type: 'appearElapsed' }]);
+    expect(has(r.effects, 'pauseTimer', 'notice')).toBe(true);
+    expect(has(transition(r.s, { type: 'surfaceLeave' }).effects, 'resumeTimer', 'notice')).toBe(true);
+    // Reduced motion: the island fades out and, something waiting, back in without being removed; the pointer still holds it.
+    r = run([{ type: 'reduced', on: true }, ...ask, { type: 'holdElapsed' }, { type: 'leaveElapsed' }]);
+    expect(r.s.current?.kind).toBe('finished'); expect(r.s.hovering).toBe(true); expect(has(r.effects, 'pauseTimer', 'notice')).toBe(true);
   });
-});
 
-describe('operator notices', () => {
-  it('a notice unfolds from the handle without a clock, and leaves when it is gone', () => {
-    const r = run([{ type: 'operator', id: 'local|point:p1' }]);
-    expect(r.s).toMatchObject({ mode: 'handle', operator: 'local|point:p1', unfoldDue: true });
-    expect(r.effects).toContain('startTimer:unfold');
-    const r2 = run([{ type: 'unfoldElapsed' as never }], r.s);
-    expect(r2.s).toMatchObject({ mode: 'bubble', bubbleId: 'local|point:p1', bubbleKind: 'operator' });
-    expect(r2.effects).not.toContain('startTimer:bubble');
-    expect(run([{ type: 'bubbleElapsed' }], r2.s).s.mode).toBe('bubble');
-    expect(run([{ type: 'operator', id: null }], r2.s).s.mode).toBe('handle');
+  it('one at a time, requests before notices: back on the pill it reopens at once on the next, without leaving', () => {
+    let s = run(opened({ type: 'notice', id: 'otto', kind: 'finished' })).s;
+    s = run([{ type: 'notice', id: 'iris', kind: 'error' }, { type: 'ask', id: 'pim' }], s).s;
+    expect(s.current?.id).toBe('otto');
+    expect(waitingCount(s)).toBe(2);
+    const r = run([{ type: 'noticeElapsed' }, { type: 'closeElapsed' }], s);
+    expect(r.s.phase).toBe('seed'); expect(r.s.closing).toBe(false); expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' });
+    expect(started(r.effects)).toEqual([`appear:${MOTION_MS.appear}`]);
+    expect(waitingCount(r.s)).toBe(1);
   });
-  it('a request comes first: the notice waits behind it, then unfolds once it is answered', () => {
-    const s = run([{ type: 'operator', id: 'n1' }], ask('a')).s;
-    expect(s).toMatchObject({ mode: 'bubble', bubbleId: 'a', bubbleKind: 'ask', operator: 'n1' });
-    const after = run([{ type: 'askCleared', id: 'a' }], s).s;
-    expect(after).toMatchObject({ mode: 'bubble', bubbleId: 'n1', bubbleKind: 'operator' });
-    const replaced = run([{ type: 'ask', id: 'b' }], after).s;
-    expect(replaced).toMatchObject({ mode: 'bubble', bubbleId: 'b', bubbleKind: 'ask' });
+
+  it('a decision shows « Envoyé » until the terminal confirms it, then « Reçu » for 900 ms, then the island closes', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'decided' }]);
+    expect(r.s.ack).toEqual({ id: 'pim', confirmed: false }); expect(started(r.effects)).toEqual([]);
+    r = run([{ type: 'holdElapsed' }], r.s);
+    expect(r.s.phase).toBe('open');
+    r = run([{ type: 'askCleared', id: 'pim' }], r.s);
+    expect(r.s.ack).toEqual({ id: 'pim', confirmed: true }); expect(started(r.effects)).toEqual([`hold:${ACK_MS}`]);
+    expect(r.s.queue).toEqual([]);
+    r = run([{ type: 'holdElapsed' }], r.s);
+    expect(r.s.phase).toBe('seed'); expect(r.s.closing).toBe(true);
   });
-  it('a newer notice replaces the shown one in place; closed, it only comes back from the Ledge mark', () => {
-    const shown = run([{ type: 'operator', id: 'n1' }, { type: 'unfoldElapsed' as never }, { type: 'operator', id: 'n2' }]).s;
-    expect(shown).toMatchObject({ mode: 'bubble', bubbleId: 'n2', bubbleKind: 'operator' });
-    const closed = run([{ type: 'close' }, { type: 'operator', id: 'n2' }], shown);
-    expect(closed.s.mode).toBe('handle'); expect(closed.effects).not.toContain('startTimer:unfold');
-    expect(run([{ type: 'operator', id: 'n2', show: true }], closed.s).s).toMatchObject({ mode: 'bubble', bubbleId: 'n2', bubbleKind: 'operator' });
+
+  it('a refused decision unlocks the card, which stays open', () => {
+    const r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'decided' }, { type: 'decisionFailed', id: 'pim' }]);
+    expect(r.s.ack).toBeNull(); expect(r.s.failed).toBe('pim'); expect(r.s.phase).toBe('open');
   });
-  it('Do not disturb keeps a notice folded', () => {
-    const r = run([{ type: 'dnd', on: true }, { type: 'operator', id: 'n1' }]);
-    expect(r.s).toMatchObject({ mode: 'handle', operator: 'n1' }); expect(r.effects).not.toContain('startTimer:unfold');
+
+  it('a request answered elsewhere closes the island', () => {
+    const r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'askCleared', id: 'pim' }]);
+    expect(r.s.closing).toBe(true);
+  });
+
+  it('a request replaced in place stays open on the new one; one replaced after a decision is confirmed and comes back next', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'askReplaced', id: 'pim' }]);
+    expect(r.s.phase).toBe('open'); expect(r.s.closing).toBe(false);
+    r = run([{ type: 'decided' }, { type: 'askReplaced', id: 'pim' }], r.s);
+    expect(r.s.ack?.confirmed).toBe(true); expect(r.s.queue).toEqual(['pim']);
+    r = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.closing).toBe(false);
+  });
+
+  it('« Plus tard » sets the request aside: the island leaves and does not reopen on it', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'defer' }]);
+    expect(r.s.closing).toBe(true); expect(r.s.deferred).toEqual(['pim']);
+    r = run([{ type: 'closeElapsed' }, { type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.queue).toEqual(['pim']);
+    // Something else that comes opens; the request set aside does not come with it.
+    r = run([{ type: 'notice', id: 'otto', kind: 'finished' }], r.s);
+    expect(r.s.current?.id).toBe('otto'); expect(waitingCount(r.s)).toBe(0);
+  });
+
+  it('« Plus tard, suivante »: with another request waiting, the island reopens on it', () => {
+    const r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'ask', id: 'bix' }, { type: 'defer' }, { type: 'closeElapsed' }]);
+    expect(r.s.current).toEqual({ id: 'bix', kind: 'ask' }); expect(r.s.phase).toBe('seed');
+  });
+
+  it('Ctrl+Alt+L reopens the oldest request still waiting; without one it does nothing', () => {
+    expect(run([{ type: 'shortcut' }]).s).toEqual(initialSurface());
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'defer' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }, { type: 'shortcut' }]);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.phase).toBe('seed'); expect(r.s.openedBy).toBe('keyboard');
+    expect(r.s.deferred).toEqual([]);
+    // Over a notice: it closes, and the pill reopens on the request.
+    r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'defer' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }, ...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'shortcut' }]);
+    expect(r.s.closing).toBe(true);
+    r = run([{ type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' });
+  });
+
+  it('Ctrl+Alt+L on the request already open marks it opened from the keyboard, so the focus is given back once it leaves (review 575f5fb8, 1)', () => {
+    const open = run(opened({ type: 'ask', id: 'pim' })).s;
+    expect(open.openedBy).toBeNull();
+    let r = run([{ type: 'shortcut' }], open);
+    expect(r.s.openedBy).toBe('keyboard'); expect(r.s.phase).toBe('open'); expect(r.effects).toEqual([]);
+    // Still coming out of the edge: the same.
+    expect(run([{ type: 'ask', id: 'pim' }, { type: 'shortcut' }]).s.openedBy).toBe('keyboard');
+    r = run([{ type: 'decided' }, { type: 'askCleared', id: 'pim' }, { type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.openedBy).toBe('keyboard');
+    r = run([{ type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.openedBy).toBeNull();
+  });
+
+  it('a session’s finish right after its own request is answered waits behind it, then opens (review 575f5fb8, 2)', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'decided' }, { type: 'notice', id: 'pim', kind: 'finished' }, { type: 'askCleared', id: 'pim' }]);
+    expect(r.s.notices).toEqual([{ id: 'pim', kind: 'finished' }]);
+    r = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'finished' }); expect(r.s.closing).toBe(false);
+    // The same notice while it is open is not queued twice.
+    r = run([{ type: 'appearElapsed' }, { type: 'notice', id: 'pim', kind: 'finished' }], r.s);
+    expect(r.s.notices).toEqual([]);
+  });
+
+  it('a request that comes back first takes the head of the line', () => {
+    const r = run([{ type: 'visible', on: false }, { type: 'ask', id: 'a' }, { type: 'ask', id: 'b' }, { type: 'ask', id: 'b', first: true }]);
+    expect(r.s.queue).toEqual(['b', 'a']);
+  });
+
+  it('a notice clicked closes the island', () => {
+    expect(run([...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'dismiss' }]).s.closing).toBe(true);
+  });
+
+  it('Do not disturb: the island closes, notices are dropped, nothing opens; off, the oldest request comes out, one at a time; « Plus tard » stays aside (owner’s choice A)', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'ask', id: 'old' }, { type: 'defer' }, { type: 'closeElapsed' }, { type: 'appearElapsed' }]);
+    expect(r.s.current?.id).toBe('old'); expect(r.s.deferred).toEqual(['pim']);
+    r = run([{ type: 'notice', id: 'otto', kind: 'finished' }, { type: 'dnd', on: true }], r.s);
+    expect(r.s.closing).toBe(true); expect(r.s.notices).toEqual([]);
+    r = run([{ type: 'closeElapsed' }, { type: 'leaveElapsed' }, { type: 'ask', id: 'bix' }, { type: 'notice', id: 'iris', kind: 'error' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.notices).toEqual([]); expect(waitingCount(r.s)).toBe(0);
+    // Off: the oldest still waiting (« old », whose card the mode closed), then « bix »; « pim » stays set aside; no notice.
+    r = run([{ type: 'dnd', on: false }], r.s);
+    expect(r.s.current).toEqual({ id: 'old', kind: 'ask' }); expect(r.s.phase).toBe('seed');
+    expect(waitingCount(r.s)).toBe(1);
+    r = run([{ type: 'appearElapsed' }, { type: 'askCleared', id: 'old' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'bix', kind: 'ask' });
+    r = run([{ type: 'appearElapsed' }, { type: 'askCleared', id: 'bix' }, { type: 'closeElapsed' }, { type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.queue).toEqual(['pim']);
+    // Ctrl+Alt+L still opens a request during the mode.
+    r = run([{ type: 'dnd', on: true }, { type: 'shortcut' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.quiet).toBe(true);
+  });
+
+  it('reduced motion: no trip through the pill, a fade in open and a fade out', () => {
+    let r = run([{ type: 'reduced', on: true }, { type: 'notice', id: 'otto', kind: 'finished' }]);
+    expect(r.s.phase).toBe('open'); expect(started(r.effects)).toEqual([`notice:${NOTICE_MS}`]);
+    r = run([{ type: 'noticeElapsed' }], r.s);
+    expect(r.s.phase).toBe('gone'); expect(r.s.closing).toBe(true); expect(started(r.effects)).toEqual([`leave:${MOTION_MS.leave}`]);
+    r = run([{ type: 'ask', id: 'pim' }, { type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.phase).toBe('open');
+  });
+
+  it('a session removed while shown closes the island; removed while waiting, it is forgotten', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'removed', id: 'otto' }]);
+    expect(r.s.notices).toEqual([]); expect(r.s.closing).toBe(false);
+    r = run([{ type: 'removed', id: 'pim' }], r.s);
+    expect(r.s.closing).toBe(true); expect(r.s.queue).toEqual([]);
+  });
+
+  it('hidden from Desktop: nothing on screen at once, nothing opens; shown again, the oldest request opens', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'visible', on: false }]);
+    expect(r.s.phase).toBe('gone'); expect(r.s.current).toBeNull(); expect(r.s.notices).toEqual([]);
+    expect(r.effects.every(e => e.type === 'cancelTimer')).toBe(true);
+    r = run([{ type: 'ask', id: 'bix' }, { type: 'notice', id: 'iris', kind: 'error' }, { type: 'shortcut' }], r.s);
+    expect(r.s.current).toBeNull();
+    r = run([{ type: 'visible', on: true }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' }); expect(r.s.phase).toBe('seed');
+  });
+
+  it('a timer from an earlier card is ignored', () => {
+    const first = run([{ type: 'notice', id: 'otto', kind: 'finished' }]);
+    const staleRev = first.s.rev;
+    const later = run([{ type: 'appearElapsed' }, { type: 'dismiss' }], first.s);
+    expect(transition(later.s, { type: 'closeElapsed', rev: staleRev }).state).toBe(later.s);
+  });
+
+  it('Ledge’s own requests wait in the same line as the sessions’, in their order, before the notices; « Plus tard » and Ctrl+Alt+L work alike', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'notice', id: 'otto', kind: 'finished' }, { type: 'ask', id: 'ledge:local|rig.ask:q1' }]);
+    expect(waitingCount(r.s)).toBe(2);
+    r = run([{ type: 'defer' }, { type: 'closeElapsed' }, { type: 'appearElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'ledge:local|rig.ask:q1', kind: 'ledge' }); expect(started(r.effects)).toEqual([]);
+    r = run([{ type: 'decided' }, { type: 'askCleared', id: 'ledge:local|rig.ask:q1' }], r.s);
+    expect(r.s.ack?.confirmed).toBe(true);
+    r = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'otto', kind: 'finished' });
   });
 });

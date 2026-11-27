@@ -73,7 +73,7 @@ export interface SessionPageProps {
   api: MutableRefObject<PageApi | null>;
   /** OMP's « Ouvrir un shell », from the Terminal view: a shell in the right panel. */
   onOpenShell(): void;
-  /** F2 on the page of a session (not a subagent's): the rename dialog, as its menu's « Renommer… F2 » (#17). Never from a field,
+  /** F2 on the page of a session (not a subagent's): its nickname as a field in the sidebar, as its menu's « Renommer F2 » (#17). Never from a field,
    *  the composer or the terminal: useKeys keeps them out of the screen's keys, and the terminal gets F2 as it is. */
   onRename?(s: Session): void;
   /** The side pane's share of the page (desktop.session, written by the Workspace's owner). */

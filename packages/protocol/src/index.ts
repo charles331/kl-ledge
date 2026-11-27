@@ -36,7 +36,6 @@ export * from './push.js';
 export * from './handover.js';
 export * from './actions.js';
 export * from './todos.js';
-export * from './media.js';
 export * from './activity.js';
 export * from './usage.js';
 export * from './forge.js';

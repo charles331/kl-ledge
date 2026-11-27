@@ -2,40 +2,29 @@
  * Everything the web app asks of the native shell goes through here. In a plain browser (dev, tests) every call is a
  * no-op or a DOM fallback; under Tauri it talks to the commands and events of Ledge Desktop's notch window (`apps/desktop/src-tauri/src/notch.rs`):
  *   set_frame { left, top, width, height }   the rectangle the page draws, from the work area's corner: the window itself
- *                                      covers the whole work area and only its region follows the frame (clicks pass outside it)
- *   set_hot_zone { left, width }       the island's x range (logical px): the cursor poller watches the top band around it
- *   set_outside_watch { on }           arm (or disarm) the native watch for a mouse press outside the window
+ *                                      covers the whole work area and only its region follows the frame (clicks pass outside it);
+ *                                      0 × 0 is no region at all, while the island rests
  *   list_monitors                      every monitor (logical sizes, work-area height, which one is the primary)
  *   set_monitor { id | null }          the Screen setting: the overlay moves to that monitor at once (null: primary)
  *   focus_overlay                      remember the foreground window, then show and focus the overlay window
  *   release_focus                      give the foreground back to the window remembered by focus_overlay
- *   focus_terminal { title }           bring the matching terminal window forward (true when found)
- *   open_terminal { title, command }   open a Windows Terminal tab running `command` in WSL (true once spawned)
  *   open_url { url }                   open a web URL in the default browser (the webview never navigates)
  *   daemon_token                       the per-user daemon token read from WSL: { kind: 'token', token } | { kind: 'absent' } | { kind: 'unavailable' }
  *   open_in_ledge { target }           show Ledge Desktop's window on the target (the same process)
- *   event `ledge://outside-click`      a mouse button went down outside the window while the watch was armed
- *   event `ledge://cursor-near` { x, y } | null    cursor in the top band around the island, in logical work-area coordinates
- *   event `ledge://foreground` { covered }   a maximised or full-screen window took (or left) the foreground on the island's monitor
- * The events are sent to this window only (`notch`); the tray and its menu are Ledge Desktop's.
+ *   foreground_is_terminal             whether Windows Terminal holds the foreground (a sound rule)
+ * The tray and its menu are Ledge Desktop's.
  * Coordinates sent to the shell are logical px from the top of the chosen monitor's work area ("monitor px").
  * The page is never zoomed (each layer applies its own UI scale), so its CSS px are monitor px; `setFrame` still
  * takes an optional `zoom` (one CSS px = `zoom` monitor px) and round frames outward here. The shell
  * itself never knows about any zoom.
  */
 import { createTokenSource, type TokenRead, type TokenSource } from '@ledge/fleet';
-import { MEDIA_COMMAND, NOW_PLAYING_COMMAND, NOW_PLAYING_EVENT, parseNowPlaying, type MediaCommand, type NowPlayingState } from '@ledge/protocol';
 import { resolveMonitor, type MonitorInfo } from '../monitor';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 
 export const isTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const inTauri = isTauri;
 
 export interface Frame { left: number; top: number; w: number; h: number }
-export const OUTSIDE_CLICK_EVENT = 'ledge://outside-click';
-export const CURSOR_NEAR_EVENT = 'ledge://cursor-near';
-export const FOREGROUND_EVENT = 'ledge://foreground';
 
 /** The work-area height, in logical (monitor) px, of the monitor the Screen setting `choice` resolves to (`null`: the
  *  primary): the height the surface lays itself out in. */
@@ -119,25 +108,6 @@ export function setFrame(f: Frame, zoom = 1): Promise<boolean> {
   return run;
 }
 
-let lastHot = '';
-/** The island's x range in logical px: the shell's cursor poller watches the 10 px band along the top edge around it. */
-export function setHotZone(left: number, width: number): void {
-  if (!inTauri()) return;
-  const key = `${left}:${width}`;
-  if (key === lastHot) return;
-  lastHot = key;
-  invoke('set_hot_zone', { left, width }).catch(() => { if (lastHot === key) lastHot = ''; });
-}
-
-let lastWatch: boolean | null = null;
-/** Arms the native watch for a press outside the window while a panel shows. The window never takes focus on a
- *  mouse open, so a click elsewhere gives it no blur to react to. */
-export function setOutsideWatch(on: boolean): void {
-  if (!inTauri() || on === lastWatch) return;
-  lastWatch = on;
-  invoke('set_outside_watch', { on }).catch(() => { if (lastWatch === on) lastWatch = null; });
-}
-
 /** Gives the overlay OS focus so single-letter keys reach it. Only for keyboard opens: asks never steal focus. */
 export async function focusOverlay(): Promise<void> {
   if (!inTauri()) return;
@@ -148,19 +118,6 @@ export async function focusOverlay(): Promise<void> {
 export async function releaseFocus(): Promise<void> {
   if (!inTauri()) return;
   await invoke('release_focus').catch(() => {});
-}
-
-/** Brings the terminal window whose title matches `title` forward; true when one was found (always false in the browser). */
-export async function focusTerminal(title: string): Promise<boolean> {
-  if (!inTauri()) return false;
-  return invoke<boolean>('focus_terminal', { title }).catch(() => false);
-}
-
-/** Opens a new Windows Terminal tab titled `title` running `command` inside WSL (`wt.exe -w 0 new-tab --title <title>
- *  wsl.exe --exec <command>`): the tab of a session the overlay launched itself. True once the tab was spawned. */
-export async function openTerminal(title: string, command: string[]): Promise<boolean> {
-  if (!inTauri()) return false;
-  return invoke<boolean>('open_terminal', { title, command }).catch(() => false);
 }
 
 /** Opens a web URL in the default browser: through the shell in Tauri (the overlay's webview must never navigate
@@ -181,84 +138,6 @@ export async function openDesktop(target: string): Promise<'ok' | 'failed' | 'br
 export async function foregroundIsTerminal(): Promise<boolean> {
   if (!inTauri()) return false;
   return invoke<boolean>('foreground_is_terminal').catch(() => false);
-}
-
-/** Listens on this window only: the shell sends the notch's events to it (`emit_to("notch", …)`). A throw (no window
- *  metadata) becomes a rejection the callers already swallow. */
-const listenHere = <T>(event: string, fn: EventCallback<T>): Promise<UnlistenFn> => {
-  try { return getCurrentWebviewWindow().listen<T>(event, fn); } catch (e) { return Promise.reject(e); }
-};
-
-/** A press outside the window while the watch is armed. In the browser it never fires: the surface listens to the
- *  document's own pointer presses there. */
-export function onOutsideClick(fn: () => void): () => void {
-  if (!inTauri()) return () => {};
-  let off = () => {}; let disposed = false;
-  void listenHere(OUTSIDE_CLICK_EVENT, () => { if (!disposed) fn(); }).then(un => {
-    off = un;
-    if (disposed) un();
-  }).catch(() => {});
-  return () => { disposed = true; off(); };
-}
-
-/** The native window is only as wide as the island, so the shell reports cursor movement in the band along the top
- *  edge around it. Null means the cursor left that region. Browser previews use document pointer events instead. */
-export function onCursorProximity(fn: (point: { x: number; y: number } | null) => void): () => void {
-  if (!inTauri()) return () => {};
-  let off = () => {}; let disposed = false;
-  void listenHere<{ x: number; y: number } | null>(CURSOR_NEAR_EVENT, e => { if (!disposed) fn(e.payload); }).then(un => {
-    off = un;
-    if (disposed) un();
-  }).catch(() => {});
-  return () => { disposed = true; off(); };
-}
-
-/** Whether a maximised or full-screen window holds the foreground on the island's monitor (the discreet strip). In the
- *  browser, a `ledge:foreground` CustomEvent on `window` (dev previews and e2e) stands in for the shell. */
-export function onForegroundCovered(fn: (covered: boolean) => void): () => void {
-  if (!inTauri()) {
-    const h = (e: Event) => fn(!!(e as CustomEvent<{ covered: boolean }>).detail?.covered);
-    window.addEventListener('ledge:foreground', h);
-    return () => window.removeEventListener('ledge:foreground', h);
-  }
-  let off = () => {}; let disposed = false;
-  void listenHere<{ covered: boolean }>(FOREGROUND_EVENT, e => { if (!disposed) fn(e.payload.covered); }).then(un => {
-    off = un;
-    if (disposed) un();
-  }).catch(() => {});
-  return () => { disposed = true; off(); };
-}
-
-/** What is playing on the PC (Windows' media controls, `@ledge/protocol` media.ts), read once. Null outside Tauri. */
-export async function nowPlaying(): Promise<NowPlayingState> {
-  if (!inTauri()) return null;
-  return invoke<unknown>(NOW_PLAYING_COMMAND).then(parseNowPlaying, () => null);
-}
-
-/** Every change of what plays. The shell broadcasts it to every window (`app.emit`), so this listens app-wide. `onReady`
- *  fires once the listener is in place: only then is a `nowPlaying()` read sure not to miss a change made meanwhile (the
- *  shell sends changes only). In the browser, a `ledge:now-playing` CustomEvent on `window` (dev previews and e2e)
- *  stands in for the shell, and it is ready at once. */
-export function onNowPlaying(fn: (state: NowPlayingState) => void, onReady?: () => void): () => void {
-  if (!inTauri()) {
-    const h = (e: Event) => fn(parseNowPlaying((e as CustomEvent<unknown>).detail));
-    window.addEventListener('ledge:now-playing', h);
-    onReady?.();
-    return () => window.removeEventListener('ledge:now-playing', h);
-  }
-  let off = () => {}; let disposed = false;
-  void import('@tauri-apps/api/event').then(({ listen }) => listen<unknown>(NOW_PLAYING_EVENT, e => { if (!disposed) fn(parseNowPlaying(e.payload)); })).then(un => {
-    off = un;
-    if (disposed) un(); else onReady?.();
-  }).catch(() => {});
-  return () => { disposed = true; off(); };
-}
-
-/** Previous, play/pause or next on the player shown; true when it took it. In the browser, a `ledge:media-command`
- *  CustomEvent tells previews which button was pressed. */
-export async function mediaCommand(command: MediaCommand): Promise<boolean> {
-  if (!inTauri()) { window.dispatchEvent(new CustomEvent('ledge:media-command', { detail: command })); return false; }
-  return invoke<boolean>(MEDIA_COMMAND, { command }).catch(() => false);
 }
 
 let shortcutPlugin: Promise<typeof import('@tauri-apps/plugin-global-shortcut')> | null = null;

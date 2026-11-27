@@ -9,6 +9,7 @@ import { SessionBot, StateBadge } from '../shell/SessionBot';
 import type { Filing } from './filing';
 import { MoveTo } from './MoveTo';
 import { machineOf, taskOf } from '../nav/agents';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** « Sans projet » (observatory.tsx, `unassigned-zone` in atelier mode): the agents Ledge ties to no project wait in a
  *  taped-off area, one card each. A card drags onto a table or a sidebar project, or « Ranger dans… » files it (filing). */
@@ -39,7 +40,7 @@ export function Unassigned({ sessions, order, focusedId, paused, dispatch, filin
               <button className="unassigned-open" data-agent={s.id} aria-label={`${s.name}, ${task}`} onClick={e => dispatch(openClick(s.id, e))}>
                 <SessionBot session={s} size={56} paused={paused} />
                 <span className="unassigned-copy">
-                  <strong>{s.name}{n >= 1 && n <= 9 && <span className="seat-shortcut">Alt {n}</span>}</strong>
+                  <strong><SessionName session={s} />{n >= 1 && n <= 9 && <span className="seat-shortcut">Alt {n}</span>}</strong>
                   <span title={task}>{task}</span>
                   <code>{machineOf(s)} · {s.cwd}</code>
                 </span>

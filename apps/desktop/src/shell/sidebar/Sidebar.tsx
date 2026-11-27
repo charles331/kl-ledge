@@ -174,7 +174,8 @@ export function Sidebar(p: {
             onBroadcast={p.broadcast ? project => p.dispatch({ type: 'modal', modal: { kind: 'broadcast', to: { project } } }) : undefined}
             picked={picked} onPick={p.broadcast ? pick : undefined} onOpenRight={id => p.dispatch({ type: 'open', id, where: 'right' })}
             onMenu={(target, at, opener) => p.menu.openOn(target, at, opener)}
-            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onRename={p.menu.rename} onTerminal={p.onTerminal}
+            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onRename={p.menu.rename} renaming={p.menu.renaming ? { session: p.menu.renaming, outdated: p.menu.renameOutdated ? t.side.rename.outdated(p.menu.renameOutdated) : null } : null}
+            onRenamed={label => (label !== null ? p.menu.sendRename(label) : p.menu.closeRename())} onTerminal={p.onTerminal}
             onToggleHide={() => setPrefs(v => ({ ...v, hideDone: !v.hideDone }))} onToggleDense={() => setPrefs(v => ({ ...v, dense: !v.dense }))}
             onToggleBranches={() => setPrefs(v => ({ ...v, byBranch: !v.byBranch }))}
             onNewProject={() => p.dispatch({ type: 'modal', modal: { kind: 'project' } })} ide {...(p.clock ? { clock: p.clock } : {})} />

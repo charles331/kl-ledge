@@ -58,6 +58,11 @@ export const fr = {
     }
   },
   side: {
+    // docs/mockups/ledge-sidebar-names.html, card 2 (v2): a session's nickname as a field in place of the old « Renommer… » box.
+    rename: {
+      placeholder: (n: string) => `Surnom de ${n}`, keep: 'renommer', escKey: 'Échap', cancel: 'annuler',
+      outdated: (machine: string) => `Mettez Ledge à jour sur ${machine} pour donner un surnom à cette session.`
+    },
     /** Issue #16 (docs/mockups/ledge-reorder.html): putting projects and sessions in order. `i` is already an ordinal (« 1re », « 2e »). */
     reorder: {
       grip: 'Glisser pour déplacer · Alt+↑ / Alt+↓',
@@ -611,34 +616,27 @@ export const fr = {
     },
     island: {
       bannerTitle: 'L’encoche n’a plus de réglages à elle.',
-      bannerBody: 'Le menu de son chat Ledge ouvre cette page, « Réglages dans Ledge Desktop ». L’encoche garde l’essentiel : vous prévenir, autoriser ou répondre d’un geste, ouvrir une session, parler à Ledge.',
+      bannerBody: 'Elle vous prévient quand un agent a besoin de vous : autoriser ou répondre d’un geste, ou ouvrir la session dans Ledge Desktop.',
       outdated: 'Le daemon local est trop ancien pour les réglages de l’encoche : mettez-le à jour.',
-      show: 'Afficher l’encoche', showHint: 'La petite encoche en haut de l’écran. Masquée, Ledge Desktop continue de vous prévenir.', shown: 'Encoche affichée', hidden: 'Encoche masquée',
-      preview: 'Aperçu de l’encoche', bubble: 'Otto attend votre accord',
+      show: 'Afficher l’encoche', showHint: 'Elle sort du haut de l’écran quand un agent a besoin de vous. Masquée, Ledge Desktop continue de vous prévenir.', shown: 'Encoche affichée', hidden: 'Encoche masquée',
+      preview: 'Aperçu de l’encoche',
       caption: {
-        dnd: 'Ne pas déranger : les demandes restent dans l’encoche, sans bulle.',
-        strip: 'Mode discret : un simple trait sous la fenêtre maximisée.',
-        whole: 'Mode discret désactivé : l’encoche reste entière au-dessus de la fenêtre.',
-        rest: 'L’encoche au repos, trois agents qui l’habitent.',
+        dnd: 'Ne pas déranger : rien ne s’ouvre, les demandes attendent dans Ledge Desktop.',
+        rest: 'Au repos, rien n’est à l’écran. L’encoche s’ouvre ici sur une demande.',
         hidden: 'L’encoche est masquée. Ledge Desktop continue de vous prévenir.'
       },
-      cover: 'Simuler une fenêtre maximisée', uncover: 'Retirer la fenêtre',
       screen: 'Écran', screens: { primary: 'Principal', nth: (n: number) => `Écran ${n}`, missing: 'Débranché' },
       screenHint: (size: string | null) => (size ? `L’encoche se pose en haut de cet écran (${size}).` : 'L’encoche se pose en haut de cet écran.'),
       screenSaved: { primary: 'Écran principal', nth: (n: number) => `Écran ${n}` },
       position: 'Position de l’encoche', positionHint: 'Au centre du bord supérieur, ou décalée au quart de l’écran pour laisser libres les titres et les onglets.',
       positions: { left: 'À gauche', center: 'Centre', right: 'À droite' } as Record<'left' | 'center' | 'right', string>, positionSaved: (p: string) => `Position : ${p}`,
-      discreet: 'Mode discret sous une fenêtre', discreetHint: 'Un simple trait quand une fenêtre maximisée occupe l’écran ; un survol la redéploie.', discreetOn: 'Mode discret', discreetOff: 'Encoche toujours entière',
-      islandScale: 'Taille de l’encoche', islandScaleHint: 'L’encoche et ses compagnons en haut de l’écran.', islandScaleSaved: (label: string) => `Taille de l’encoche ${label}`,
-      panelScale: 'Taille des fenêtres de l’encoche', panelScaleHint: 'Bulle, liste, session et chat qui s’ouvrent depuis l’encoche.', panelScaleSaved: (label: string) => `Taille des fenêtres ${label}`,
+      islandScale: 'Taille de l’encoche', islandScaleHint: 'L’encoche et ses cartes, en haut de l’écran.', islandScaleSaved: (label: string) => `Taille de l’encoche ${label}`,
       does: 'Ce que fait l’encoche', doesNote: 'Les demandes d’accord et les questions s’affichent toujours dans l’encoche. Le reste est à votre choix.',
       quick: 'Autoriser et répondre depuis l’encoche', quickHint: 'Autoriser, refuser (Y / N) ou répondre en une ligne sans ouvrir Ledge Desktop.', quickOn: 'Réponses rapides dans l’encoche', quickOff: 'Réponses dans Ledge Desktop seulement',
-      finished: 'Bulle quand un agent a terminé', finishedHint: 'Une bulle de 6 s sous l’encoche.', finishedOn: 'Bulle de fin de tâche', finishedOff: 'Pas de bulle de fin de tâche',
-      say: 'Paroles des agents', sayHint: 'Une phrase d’un agent, en bulle, qui s’efface après 5 s.', sayOn: 'Paroles des agents', sayOff: 'Paroles masquées',
-      helpers: 'Sous-agents dans l’encoche', helpersHint: 'Les petits bots sur l’épaule de leur agent principal.', helpersOn: 'Sous-agents affichés', helpersOff: 'Sous-agents masqués',
-      shortcut: 'Raccourci pour ouvrir l’encoche', shortcutHint: 'Ouvre la liste des sessions de l’encoche, partout dans Windows.', recordingHint: 'Appuyez sur la combinaison voulue. Échap pour annuler.',
-      recorder: (keys: string) => `Raccourci pour ouvrir l’encoche : ${keys}. Modifier`, press: 'Appuyez…', edit: 'Modifier', cancel: 'Annuler',
-      needsModifier: 'Ajoutez Ctrl, Alt ou ⊞ : le raccourci doit marcher partout dans Windows.', shortcutSaved: (keys: string) => `Ouvrir l’encoche : ${keys}`,
+      finished: 'Avis quand un agent a terminé', finishedHint: 'La carte « Terminé » de 6 s, avec le début de sa réponse.', finishedOn: 'Avis de fin de tâche', finishedOff: 'Pas d’avis de fin de tâche',
+      shortcut: 'Raccourci pour rouvrir une demande', shortcutHint: 'Rouvre la plus ancienne demande en attente, partout dans Windows.', recordingHint: 'Appuyez sur la combinaison voulue. Échap pour annuler.',
+      recorder: (keys: string) => `Raccourci pour rouvrir une demande : ${keys}. Modifier`, press: 'Appuyez…', edit: 'Modifier', cancel: 'Annuler',
+      needsModifier: 'Ajoutez Ctrl, Alt ou ⊞ : le raccourci doit marcher partout dans Windows.', shortcutSaved: (keys: string) => `Rouvrir une demande : ${keys}`,
       /** How a stored key name (`Ctrl Alt Shift Win L`) is shown. */
       keyNames: { Shift: 'Maj', Win: '⊞' } as Record<string, string>,
       refused: {
@@ -648,7 +646,7 @@ export const fr = {
     },
     shortcuts: {
       global: 'Partout dans Windows', globalNote: 'Ces raccourcis marchent même quand Ledge Desktop est fermé dans la zone de notification.',
-      globalRows: { island: 'Ouvrir la liste de l’encoche', newSession: 'Nouvelle session', theme: 'Changer le thème', dnd: 'Ne pas déranger, depuis l’encoche' },
+      globalRows: { island: 'Rouvrir la plus ancienne demande', newSession: 'Nouvelle session', theme: 'Changer le thème', dnd: 'Ne pas déranger, depuis l’encoche' },
       edit: 'Modifier', editLabel: 'Modifier le raccourci de l’encoche',
       title: 'Dans Ledge Desktop',
       note: 'Y et N n’agissent que sur la demande épinglée de la session ouverte, jamais pendant la saisie.'
@@ -922,14 +920,13 @@ export const fr = {
     menu: {
       label: (name: string): string => `Gérer la session ${name}`, more: 'Gérer la session (clic droit)',
       up: 'Monter', down: 'Descendre', top: 'En haut du projet', topList: 'En haut de la liste', upKey: 'Alt ↑', downKey: 'Alt ↓', topKey: 'Alt Début',
-      open: 'Ouvrir la session', terminal: 'Terminal', rename: 'Renommer…', moveTo: 'Ranger dans…', end: 'Terminer la session', resume: 'Reprendre la session',
+      open: 'Ouvrir la session', terminal: 'Terminal', rename: 'Renommer', moveTo: 'Ranger dans…', end: 'Terminer la session', resume: 'Reprendre la session',
       archive: 'Archiver', endAndArchive: 'Terminer et archiver…', delete: 'Supprimer…',
       kids: (n: number, name: string): string => `${n} ${plural(n, 'sous-agent part', 'sous-agents partent')} avec ${name}.`,
       cannotEnd: (machine: string): string => `${machine} est injoignable : Ledge ne peut pas l’arrêter.`,
       rigOwned: (rig: string) => `Siège du rig ${rig} : arrêtez-le ou relancez-le depuis la page OpenRig`, outsideLedge: 'Lancée hors de Ledge : Ledge ne peut pas l’arrêter.',
       deleteKey: 'Suppr', archiveFinished: 'Archiver les terminées'
     },
-    rename: { title: (name: string): string => `Renommer ${name}`, label: 'Nom de la session', save: 'Renommer', cancel: 'Annuler' },
     archivedBanner: {
       pill: 'Archivée', title: 'Session archivée',
       body: (ago: string): string => `${ago} · l’agent est arrêté, la conversation est en lecture seule.`,
@@ -1366,9 +1363,8 @@ export const fr = {
       limit: (pct: string, reset: string | null) => `Limite 5 h ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitMonth: (pct: string, reset: string | null) => `Limite du mois ${pct}${reset ? ` · réinit. ${reset}` : ''}`,
       limitWeek: (pct: string, reset: string | null) => `Limite de la semaine ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitUnread: 'Limite non lue',
       offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler',
-      // Issue #15 (docs/mockups/ledge-launch-name.html, v2): an optional name, behind a switch on the Project row.
-      nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laissez vide pour ${n}`,
-      nameHint: 'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
+      // docs/mockups/ledge-sidebar-names.html, card 4: the name stands in the title and is edited there (it replaced #15's switch).
+      name: 'Nom', renameTip: 'Renommer', editHint: (n: string) => `Entrée valide le nom · Échap revient à ${n}`,
       cleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
       nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisissez un autre nom, ou laissez vide.`,
       nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,
