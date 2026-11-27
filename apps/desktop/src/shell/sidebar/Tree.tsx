@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode, type DragEvent } from 'react';
-import { contextShare, SESSION_LABEL_MAX, type Helper, type Projects, type Session } from '@ledge/protocol';
+import { contextShare, liveHelpers, SESSION_LABEL_MAX, type Helper, type Projects, type Session } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import type { Filing } from '../../atelier/filing';
 import { useI18n } from '../../i18n/lang';
@@ -282,11 +282,11 @@ export function Tree(p: {
     if (!found) return;
     setClosed(c => { const n = new Set(c); n.delete(found.pkey); n.delete(found.bkey); return n; });
     if (isEnded(found.session)) setShown(s => { const n = new Set(s); n.add(found.pkey); n.add(found.bkey); return n; });
-    if (kidsToo && found.session.helpers.length > 0) {
+    if (kidsToo && liveHelpers(found.session).length > 0) {
       const s = found.session;
       setKids(k => {
         const n = new Set(k);
-        if (s.helpers.some(h => helperNeeds(s, h))) n.delete(s.id); else n.add(s.id);
+        if (liveHelpers(s).some(h => helperNeeds(s, h))) n.delete(s.id); else n.add(s.id);
         return n;
       });
     }
@@ -356,7 +356,8 @@ export function Tree(p: {
   );
 
   const agentRows = (s: Session, depth: number, parentKey: string, helper?: Helper): ReactNode[] => {
-    const subs = helper ? [] : (s.helpers ?? []);
+    // Issue #47: a finished subagent leaves the tree (the session's thread keeps it).
+    const subs = helper ? [] : liveHelpers(s);
     const auto = subs.some(h => helperNeeds(s, h));
     const open = subs.length > 0 && auto !== kids.has(s.id);
     const toggle = subs.length > 0 ? () => flip(kids, setKids, s.id) : undefined;

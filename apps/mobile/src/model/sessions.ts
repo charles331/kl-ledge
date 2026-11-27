@@ -1,4 +1,4 @@
-import { sortSessions, type PhoneProject, type PhoneSession, type PhoneSessionOrder } from '@ledge/protocol';
+import { liveHelpers, sortSessions, type PhoneProject, type PhoneSession, type PhoneSessionOrder } from '@ledge/protocol';
 import { copy } from '../copy';
 import type { DotState } from '../ui/kit/marks';
 import { endedAtLabel } from './sessionEnd';
@@ -119,8 +119,8 @@ export function dotOf(s: PhoneSession): DotState {
   return 'idle';
 }
 
-/** Its sub-agents still at work: the « +2 » next to its name (Q21). */
-export const activeHelpers = (s: PhoneSession): number => s.helpers.filter(h => h.state !== 'exited' && h.finishedAt === undefined).length;
+/** Its sub-agents still at work: the « +2 » next to its name (Q21); the finished ones are not counted (#47, `liveHelpers`). */
+export const activeHelpers = (s: PhoneSession): number => liveHelpers(s).length;
 
 /**
  * What a row says under the name (§1): its state in words and its context, « autorisation demandée », « au travail · 38 % »,

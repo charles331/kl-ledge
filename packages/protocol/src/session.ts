@@ -227,6 +227,13 @@ export function doingOf(s: Pick<Session, 'state' | 'pending' | 'running'>): { to
 export const helperAtWork = (h: Pick<Helper, 'state'>): boolean => h.state === 'working' || h.state === 'waiting_permission' || h.state === 'waiting_input';
 
 /**
+ * The helpers a list shows under their session (issue #47): every one but those that finished (`exited`) or stopped (`idle`, an
+ * interrupt). A finished one stays in the session's thread, never in Desktop's tree, the phone's list or `ledge tui`.
+ */
+export const liveHelpers = <H extends Pick<Helper, 'state'>>(s: { helpers?: readonly H[] | undefined }): H[] =>
+  (s.helpers ?? []).filter(h => h.state !== 'exited' && h.state !== 'idle');
+
+/**
  * What a session's agent has going on besides its own turn (issue #1), at rest as much as at work: its helpers (subagents) at
  * work, and the commands it left running in the background. Undefined when there is neither. Only what its harness reports: Claude
  * Code (subagents and background commands), OMP launched by Ledge (subagents); nothing for Codex or Cursor Agent.
