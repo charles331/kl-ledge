@@ -83,15 +83,17 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
     expect(surface()).toHaveAttribute('data-closing', 'true');
   });
 
-  it('a rig’s answer refused by the daemon brings the question back with its reason', () => {
+  it('a rig’s answer refused by the daemon brings the question back with its reason, at the head of the line (review 575f5fb8, 3)', () => {
     const f = fleetClient(); mount(f);
     f.set({ dev: [rigAsk('q1')] });
     fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
-    tick(900 + 240);
+    // A session's request arrives meanwhile: it waits behind the question that comes back.
+    act(() => { daemonStore.apply({ type: 'session.updated', session: fakeSession('otto', { name: 'Otto', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } }) }); });
     act(() => { daemonStore.apply({ type: 'error', message: 'This question was already answered', request: 'point.act' }); });
-    tick(300);
+    tick(900 + 240);
     expect(island()).toHaveAttribute('data-kind', 'rig');
     expect(card().querySelector('.di-note[data-tone="bad"]')).toHaveTextContent('This question was already answered');
+    expect(card()).toHaveTextContent('+1 more');
   });
 
   it('a rig’s question without proposed answers: one « Answer in Ledge » (O), which opens it there', () => {

@@ -46,9 +46,11 @@ export function useLedgeNotices(o: {
 
   // Each notice that comes joins the queue; one the daemon settled, or answered here, leaves it (« Reçu » when it was ours).
   const shown = useRef<Set<string>>(new Set());
+  /** Answers the daemon refused: the question comes back where it was, at the head of the line. */
+  const back = useRef<Set<string>>(new Set());
   useEffect(() => {
     const now = new Set(notices.filter(n => !aside.has(n.key)).map(n => n.key));
-    for (const k of now) if (!shown.current.has(k)) dispatch({ type: 'ask', id: k });
+    for (const k of now) if (!shown.current.has(k)) dispatch({ type: 'ask', id: k, ...(back.current.delete(k) ? { first: true } : {}) });
     for (const k of shown.current) if (!now.has(k)) dispatch({ type: 'askCleared', id: k });
     shown.current = now;
   }, [notices, aside, dispatch]);
@@ -117,7 +119,8 @@ export function useLedgeNotices(o: {
     const n = find(key); if (!n?.notice.qid || !n.notice.qitem) return;
     if (!sendOn(n.machine, { type: 'point.act', qid: n.notice.qid, item: `rig.ask:${n.notice.qitem}`, answer: { id: option } })) return;
     acting.current = { key, qid: n.notice.qid, seq: o.lastError?.seq ?? 0 };
-    // Set aside at once, as the notch did: « Reçu », then the island closes. A refusal brings the question back.
+    // Set aside at once, as the notch did: a successful `point.act` gets no answer, and the notice leaves the daemon's list only once
+    // the rig settles the question, so nothing else could confirm it. « Reçu », then the island closes; a refusal brings it back.
     setFailure(null); dispatch({ type: 'decided' }); setAside(key, true); o.onAnswered('accept');
   }
   // A refused rig answer: a launch to confirm goes to the point in Desktop's chat (never confirmed from the island); any other
@@ -127,7 +130,7 @@ export function useLedgeNotices(o: {
     if (!a || !e || e.seq <= a.seq || e.request !== 'point.act') return;
     acting.current = null;
     if (e.code === 'confirm_required') { openInLedge({ kind: 'point', qid: a.qid }); return; }
-    setFailure({ key: a.key, message: e.message }); setAside(a.key, false); dispatch({ type: 'decisionFailed', id: a.key });
+    back.current.add(a.key); setFailure({ key: a.key, message: e.message }); setAside(a.key, false); dispatch({ type: 'decisionFailed', id: a.key });
   }, [o.lastError?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** A routine item's button, answered on its machine: a grouped request in one command, all or nothing (`others`), only to a

@@ -59,6 +59,20 @@ test('a permission: Y allows it, « Sent, waiting for the terminal », then « R
   await expect(island(page)).toHaveCount(0);
 });
 
+test('a turn that ends while « Received » shows still gets its Done card (review 575f5fb8, 2)', async ({ page }) => {
+  const d = await fakeDaemon(page, [pim()]);
+  await ready(page);
+  d.upsert(asks());
+  await expect(island(page)).toHaveAttribute('data-phase', 'open');
+  await page.keyboard.press('y');
+  await expect(card(page)).toContainText('Sent, waiting for the terminal');
+  d.upsert(pim({ state: 'working' }));
+  await expect(card(page)).toContainText('Received');
+  d.upsert(pim({ state: 'idle', lastReply: { text: 'Tests pass.', at: new Date().toISOString() } }));
+  await expect(card(page)).toContainText('Tests pass.', { timeout: 5000 });
+  await expect(island(page)).toHaveAttribute('data-kind', 'finished');
+});
+
 test('a question with the mouse: Reply with nothing says so; a choice, then Reply, sends it', async ({ page }) => {
   const d = await fakeDaemon(page, [pim()]);
   await ready(page);

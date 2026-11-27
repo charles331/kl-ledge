@@ -118,6 +118,34 @@ describe('the island’s movement (issue #27)', () => {
     expect(r.s.current).toEqual({ id: 'pim', kind: 'ask' });
   });
 
+  it('Ctrl+Alt+L on the request already open marks it opened from the keyboard, so the focus is given back once it leaves (review 575f5fb8, 1)', () => {
+    const open = run(opened({ type: 'ask', id: 'pim' })).s;
+    expect(open.openedBy).toBeNull();
+    let r = run([{ type: 'shortcut' }], open);
+    expect(r.s.openedBy).toBe('keyboard'); expect(r.s.phase).toBe('open'); expect(r.effects).toEqual([]);
+    // Still coming out of the edge: the same.
+    expect(run([{ type: 'ask', id: 'pim' }, { type: 'shortcut' }]).s.openedBy).toBe('keyboard');
+    r = run([{ type: 'decided' }, { type: 'askCleared', id: 'pim' }, { type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.openedBy).toBe('keyboard');
+    r = run([{ type: 'leaveElapsed' }], r.s);
+    expect(r.s.current).toBeNull(); expect(r.s.openedBy).toBeNull();
+  });
+
+  it('a session’s finish right after its own request is answered waits behind it, then opens (review 575f5fb8, 2)', () => {
+    let r = run([...opened({ type: 'ask', id: 'pim' }), { type: 'decided' }, { type: 'notice', id: 'pim', kind: 'finished' }, { type: 'askCleared', id: 'pim' }]);
+    expect(r.s.notices).toEqual([{ id: 'pim', kind: 'finished' }]);
+    r = run([{ type: 'holdElapsed' }, { type: 'closeElapsed' }], r.s);
+    expect(r.s.current).toEqual({ id: 'pim', kind: 'finished' }); expect(r.s.closing).toBe(false);
+    // The same notice while it is open is not queued twice.
+    r = run([{ type: 'appearElapsed' }, { type: 'notice', id: 'pim', kind: 'finished' }], r.s);
+    expect(r.s.notices).toEqual([]);
+  });
+
+  it('a request that comes back first takes the head of the line', () => {
+    const r = run([{ type: 'visible', on: false }, { type: 'ask', id: 'a' }, { type: 'ask', id: 'b' }, { type: 'ask', id: 'b', first: true }]);
+    expect(r.s.queue).toEqual(['b', 'a']);
+  });
+
   it('a notice clicked closes the island', () => {
     expect(run([...opened({ type: 'notice', id: 'otto', kind: 'finished' }), { type: 'dismiss' }]).s.closing).toBe(true);
   });

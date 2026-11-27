@@ -59,7 +59,7 @@ export type Effect =
 /** `rev` is stamped by the controller on timer events; omitted, the event is accepted. */
 type Elapsed<T extends string> = { type: T; rev?: number };
 export type SurfaceEvent =
-  | { type: 'ask'; id: string } | { type: 'askCleared'; id: string } | { type: 'askReplaced'; id: string } | { type: 'removed'; id: string }
+  | { type: 'ask'; id: string; /** It comes back where it was, at the head of the line (a refused answer). */ first?: boolean } | { type: 'askCleared'; id: string } | { type: 'askReplaced'; id: string } | { type: 'removed'; id: string }
   | { type: 'notice'; id: string; kind: 'finished' | 'error' | 'offline' }
   | Elapsed<'appearElapsed'> | Elapsed<'noticeElapsed'> | Elapsed<'holdElapsed'> | Elapsed<'closeElapsed'> | Elapsed<'leaveElapsed'>
   | { type: 'surfaceEnter' } | { type: 'surfaceLeave' } | { type: 'focusWithin'; on: boolean } | { type: 'visibility'; hidden: boolean }
@@ -147,13 +147,15 @@ function confirm(s: SurfaceState): Result {
 function step(s: SurfaceState, e: SurfaceEvent): Result {
   switch (e.type) {
     case 'ask': {
-      const queue = s.queue.includes(e.id) ? s.queue : [...s.queue, e.id];
+      const queue = e.first ? [e.id, ...without(s.queue, e.id)] : s.queue.includes(e.id) ? s.queue : [...s.queue, e.id];
       // During Do not disturb a request waits set aside: Ctrl+Alt+L opens it, nothing else does.
       const deferred = s.quiet && !s.deferred.includes(e.id) ? [...s.deferred, e.id] : s.deferred;
       return pump(same({ ...s, queue, deferred }));
     }
     case 'notice': {
-      if (s.quiet || s.current?.id === e.id) return same(s);
+      // The same notice already open is not shown twice; a session's notice after its own request (a turn that ends right
+      // after an answer) waits behind it.
+      if (s.quiet || (s.current?.id === e.id && !isRequestKind(s.current.kind))) return same(s);
       const item: Item = { id: e.id, kind: e.kind };
       const notices = s.notices.some(n => n.id === e.id) ? s.notices.map(n => (n.id === e.id ? item : n)) : [...s.notices, item];
       return pump(same({ ...s, notices }));
@@ -223,7 +225,9 @@ function step(s: SurfaceState, e: SurfaceEvent): Result {
     /* Ctrl+Alt+L: the oldest request still waiting (a session's or Ledge's), set aside or not. Without one it does nothing. */
     case 'shortcut': {
       const oldest = s.queue[0];
-      if (s.off || oldest === undefined || (s.current?.id === oldest && !s.closing)) return same(s);
+      if (s.off || oldest === undefined) return same(s);
+      // Already open: the island takes the focus for its keys, so it must give it back once it leaves.
+      if (s.current?.id === oldest && !s.closing) return same({ ...s, openedBy: 'keyboard' });
       const next = { ...s, deferred: without(s.deferred, oldest), forced: oldest, openedBy: 'keyboard' as const };
       if (s.current === null && s.phase === 'gone') return show(next, requestOf(oldest));
       // Something else shows: it closes, and the pill reopens on the request.
