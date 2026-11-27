@@ -98,7 +98,8 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
   const longPress = useLongPress(() => onPress(s));
   const lift = useLiftDrag({ onLong: () => onPress(s), onLift: y => drag?.onLift(y), onDrag: y => drag?.onDrag(y), onDrop: () => drag?.onDrop(), onCancel: () => drag?.onCancel() });
   const press = { ...(drag ? lift : longPress), 'data-reorder-row': s.id, ...(drag?.lifted !== null && drag?.lifted !== undefined ? { style: liftedStyle(drag.lifted) } : {}) };
-  const open = (route.name === 'thread' || route.name === 'terminal') && route.sessionId === s.id;
+  // Its thread, terminal or request beside the list (a request belongs to Sessions since #40 D6).
+  const open = (route.name === 'thread' || route.name === 'terminal' || route.name === 'request') && route.sessionId === s.id;
   const dot = dotOf(s);
   const kids = activeHelpers(s);
   const pct = contextPct(s);

@@ -40,17 +40,17 @@ const tab = (page: Page, name: string, label?: string) => nav(page, label).getBy
 for (const theme of ['dark', 'light'] as const) {
   test.describe(`on a phone, ${theme}`, () => {
     test.use(iPhone13);
-    test('five tabs, the tabs without data, Réglages over the tab, a relay out of reach', async ({ page }) => {
+    test('three tabs, the tabs without data, Réglages over the tab, a relay out of reach', async ({ page }) => {
       await pair(page, theme);
-      // §1 · À toi first, its badge in red for the permission waiting; the host pill says the PC answers.
-      await expect(page.getByRole('heading', { name: copy.inbox.title, level: 1 })).toBeVisible();
-      await expect(nav(page).getByRole('link')).toHaveText([/^À toi/, 'Sessions', 'MR/PR', 'Rigs', 'Ledge']);
-      await expect(tab(page, copy.nav.atoi)).toHaveAttribute('aria-current', 'page');
-      await expect(tab(page, copy.nav.atoi).locator('[data-badge="red"]')).toHaveText('1');
+      // Sessions first (#40 D6), its badge in red for the permission waiting; the host pill says the PC answers.
+      await expect(page.locator('[data-route]')).toHaveAttribute('data-route', 'sessions');
+      await expect(nav(page).getByRole('link')).toHaveText([/^Sessions/, 'MR/PR', 'Rigs']);
+      await expect(tab(page, copy.nav.sessions)).toHaveAttribute('aria-current', 'page');
+      await expect(tab(page, copy.nav.sessions).locator('[data-badge="red"]')).toHaveText('1');
       await expect(page.locator('[data-host="online"]')).toHaveText(PC_NAME);
       const bar = (await nav(page).boundingBox())!;
       expect.soft(bar.y + bar.height).toBeCloseTo(page.viewportSize()!.height, 0);
-      await shot(page, `phone-atoi-${theme}`);
+      await shot(page, `phone-sessions-${theme}`);
 
       // §3 · MR/PR and Rigs before the PC sends them.
       await tab(page, copy.nav.prs).click();
@@ -59,11 +59,6 @@ for (const theme of ['dark', 'light'] as const) {
       await tab(page, copy.nav.rigs).click();
       await expect(page.getByRole('heading', { name: copy.rigs.notSent(PC_NAME) })).toBeVisible();
       await shot(page, `phone-rigs-${theme}`);
-      // The Ledge tab of a PC that does not offer the chat.
-      await tab(page, copy.nav.chat).click();
-      await expect(page.getByRole('heading', { name: copy.chat.unavailable.title(PC_NAME) })).toBeVisible();
-      await expect(page).toHaveURL(/#\/chat$/);
-      await shot(page, `phone-chat-${theme}`);
 
       // §5 · Réglages from the gear, over Rigs: back, the tabs stay, Rigs lit.
       await tab(page, copy.nav.rigs).click();
@@ -90,15 +85,15 @@ for (const theme of ['dark', 'light'] as const) {
     test('the rail, the list and its pane', async ({ page }) => {
       await pair(page, theme);
       const rail = nav(page);
-      // Ledge is the pane's button, not a link (m3-chat.html §7).
-      await expect(rail.getByRole('link')).toHaveText([/^À toi/, 'Sessions', 'MR/PR', 'Rigs', 'Réglages']);
-      await expect(rail.getByRole('button', { name: copy.nav.chat })).toHaveAttribute('aria-pressed', 'false');
+      // No Ledge in the rail any more (#40 D6, card 10).
+      await expect(rail.getByRole('link')).toHaveText([/^Sessions/, 'MR/PR', 'Rigs', 'Réglages']);
+      await expect(rail.getByRole('button', { name: copy.nav.chat })).toHaveCount(0);
       const box = (await rail.boundingBox())!;
       expect.soft(box.x).toBe(0);
       expect.soft(box.width).toBe(76);
       expect.soft(box.height).toBe(page.viewportSize()!.height);
-      await expect(page.getByRole('heading', { name: copy.split.request.title })).toBeVisible();
-      await shot(page, `tablet-atoi-${theme}`);
+      await expect(page.getByRole('heading', { name: copy.split.agent.title })).toBeVisible();
+      await shot(page, `tablet-sessions-${theme}`);
 
       // §2 · Rigs before B4: the list says so, the pane says what will open there.
       await rail.getByRole('link', { name: copy.nav.rigs, exact: true }).click();
@@ -127,7 +122,7 @@ test.describe('in English, on a phone', () => {
     await page.getByRole('group', { name: copy.settings.lang }).getByText('English').click();
     await expect(page.getByRole('heading', { name: en.nav.settings, level: 1 })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(nav(page, en.nav.label).getByRole('link')).toHaveText([/^For you/, 'Sessions', 'MR/PR', 'Rigs', 'Ledge']);
+    await expect(nav(page, en.nav.label).getByRole('link')).toHaveText([/^Sessions/, 'MR/PR', 'Rigs']);
     // Theme and language sit at their natural width, on the left of the section (m0-langue.html, §1).
     const section = await page.getByRole('heading', { name: en.settings.appearance, level: 2 }).locator('..').boundingBox();
     for (const name of [en.settings.theme, en.settings.lang]) {
@@ -138,9 +133,9 @@ test.describe('in English, on a phone', () => {
     await shot(page, 'phone-settings-en');
     await page.reload();
     await expect(page.getByRole('heading', { name: en.nav.settings, level: 1 })).toBeVisible();
-    await tab(page, en.nav.atoi, en.nav.label).click();
-    await expect(page.getByRole('heading', { name: en.inbox.title, level: 1 })).toBeVisible();
-    await shot(page, 'phone-atoi-en');
+    await tab(page, en.nav.sessions, en.nav.label).click();
+    await expect(page.locator('[data-route]')).toHaveAttribute('data-route', 'sessions');
+    await shot(page, 'phone-sessions-en');
     await tab(page, en.nav.rigs, en.nav.label).click();
     await expect(page.getByRole('heading', { name: en.rigs.notSent(PC_NAME) })).toBeVisible();
     await shot(page, 'phone-rigs-en');

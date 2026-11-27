@@ -92,7 +92,7 @@ test('a reinstalled iPhone comes back with its passkey, without a code', async (
     await expect(page.getByText(copy.recover.done.told(PC_NAME))).toBeVisible();
     await shot(page, 'done');
     await page.getByRole('link', { name: copy.notifications.later }).click();
-    await expect(page.getByRole('heading', { name: copy.inbox.title })).toBeVisible();
+    await expect(page.locator('[data-route]')).toHaveAttribute('data-route', 'sessions');
     await expect.poll(() => h.pc.ready).toBe(true);
   });
 });

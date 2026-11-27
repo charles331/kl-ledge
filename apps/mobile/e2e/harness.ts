@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   DevicePollResponseSchema, DeviceStartResponseSchema, PHONE_PROTOCOL,
-  type PhoneChatTurn, type PhoneClientMessage, type PhoneRoutine, type PhoneRoutineDetail, type PhoneTask, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage
+  type PhoneChatTurn, type PhoneClientMessage, type PhoneRoutine, type PhoneRoutineDetail, type PhoneTask, type PhoneForgeState, type PrDetail, type PhoneProject, type PhoneServerMessage, type PhoneSession, type PushSubscription, type ThreadItem, type PhoneHarnessUsage, type HumanAsk
 } from '@ledge/protocol';
 import { startAccountsRelay } from '../../relay/src/app';
 import type { AccountsConfig } from '../../relay/src/config';
@@ -122,8 +122,12 @@ export interface FakeDaemon {
   /** Set: the PC answers `routine.list` and `routine.show` from these (docs/mockups/ledge-routines.html); null: an older PC, which
    *  never answers them. `prompts`: each routine's prompt, by id, as its detail carries it. */
   routines: { list: PhoneRoutine[]; prompts: Record<string, string>; proposals?: Record<string, NonNullable<PhoneRoutineDetail['proposal']>> } | null;
-  /** The tasks the PC sends after each snapshot: Ledge's, the decisions, the routines' items of « À toi ». */
+  /** The tasks the PC sends after each snapshot: Ledge's, the decisions, the routines' items. */
   tasks: PhoneTask[];
+  /** #40: set, the snapshot says `daemon.openrig` and the PC answers `openrig.asks` with these (the Rigs tab's « Demandes »). */
+  asks: HumanAsk[] | null;
+  /** #40 D2: the snapshot says `daemon.taskAnswer` (a decision is answered at the foot of its session's thread). */
+  taskAnswer: boolean;
   /** The routine commands the phone sent (`routine.cmd`), in order; each is applied. */
   routineCmds: Extract<PhoneClientMessage, { type: 'routine.cmd' }>[];
   /** Replaces a session (or adds it) and tells the phone. */
@@ -136,7 +140,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   let seen = 0;
   let busy = false;
   const d: FakeDaemon = {
-    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, sessionOrder: null, broadcast: false, launch: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
+    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, sessionOrder: null, broadcast: false, launch: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], asks: null, taskAnswer: false, routineCmds: [],
     finishChat() { d.turns = d.turns.map((t) => (t.answer === undefined ? finished(t) : t)); },
     async update(s) {
       d.sessions = [...d.sessions.filter((x) => x.id !== s.id), s];
@@ -146,7 +150,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   };
   const snapshot = (): PhoneServerMessage => ({
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: d.sessions,
-    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.launch ? { launch: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}), ...(d.sessionOrder ? { sessionOrder: true as const, projectEdit: true as const } : {}) },
+    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.launch ? { launch: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}), ...(d.sessionOrder ? { sessionOrder: true as const, projectEdit: true as const } : {}), ...(d.asks ? { openrig: true as const } : {}), ...(d.taskAnswer ? { taskAnswer: true as const } : {}) },
     ...(d.projects ? { projects: d.projects } : {}),
     ...(d.sessionOrder ? { sessionOrder: d.sessionOrder } : {}),
     ...(d.device || d.push || d.chat ? { device: { confirm: d.device ? d.device.registered : true, ...(d.push ? { push: d.push } : {}), ...(d.chat ? { chat: true as const } : {}) } } : {})
@@ -297,6 +301,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
       if (d.tasks.length) await pc.send({ type: 'tasks', tasks: d.tasks });
       return;
     }
+    if (d.asks && m.type === 'openrig.asks') return pc.send({ type: 'openrig.asks', channel: { state: 'ready', person: null, slack: false }, asks: d.asks });
     if (d.routines && m.type === 'routine.list') return pc.send({ type: 'routines', routines: d.routines.list });
     if (d.routines && m.type === 'routine.show') {
       const r = d.routines.list.find(x => x.id === m.routine);
@@ -536,4 +541,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   };
   void approve();
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { void h.close().finally(() => process.exit(0)); });
+}
+
+/**
+ * #40 D6: without « À toi »'s list, a session's request opens on its own screen as its push opens it (`#/request/<sid>/<key>`);
+ * the page is left on the request, its buttons ready.
+ */
+export async function openRequest(page: import('@playwright/test').Page, key: string, sessionId = 's1'): Promise<void> {
+  await page.evaluate(([s, k]) => { location.hash = `#/request/${encodeURIComponent(s!)}/${encodeURIComponent(k!)}`; }, [sessionId, key]);
+  await page.locator('[data-route="request"]').waitFor();
 }

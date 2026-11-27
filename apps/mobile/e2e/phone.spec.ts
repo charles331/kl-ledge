@@ -5,7 +5,7 @@ import { PAD_TIERS, RELAY_CLOSE_SIGNED_OUT, type PhoneClientMessage } from '@led
 import { generateIdentity } from '@ledge/seal';
 import { copy } from '../src/copy';
 import { UNCERTAIN_MS } from '../src/state/operations';
-import { PC_NAME, startHarness, waiting, type Harness } from './harness';
+import { PC_NAME, startHarness, waiting, type Harness, openRequest } from './harness';
 import { hasWebkit } from './webkit';
 
 const { defaultBrowserType: _webkit, ...iPhone13 } = devices['iPhone 13'];
@@ -20,9 +20,9 @@ const sent = () => h.pc.received.map((t) => JSON.parse(t) as PhoneClientMessage)
 const decides = () => sent().filter((m): m is Extract<PhoneClientMessage, { type: 'session.decide' }> => m.type === 'session.decide');
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 
-/** The inbox, from wherever the phone is: it lists the fake PC's request. */
-async function toRequest(page: Page) {
-  await page.getByRole('link', { name: /pnpm test/ }).click();
+/** The fake PC's request on its own screen, as its push opens it (#40 D6: no « À toi » list any more). */
+async function toRequest(page: Page, key = 'p1') {
+  await openRequest(page, key);
   await expect(page.getByRole('button', { name: copy.decide.allow })).toBeEnabled();
 }
 
@@ -86,7 +86,7 @@ test('a phone signs in, pairs, decides, survives a relay restart and a session r
     await h.daemon.update({ ...waiting(), pending: { ...waiting().pending!, key: 'p2', text: 'pnpm test --run' } });
     h.daemon.answer = false;
     await page.getByText(copy.result.back).click();
-    await page.getByRole('link', { name: /pnpm test --run/ }).click();
+    await openRequest(page, 'p2');
     await page.getByRole('button', { name: copy.decide.allow }).click();
     await expect.poll(() => decides().length).toBe(2);
     await expect.poll(() => h.daemon.typed.length).toBe(2);
@@ -133,8 +133,7 @@ test('a phone signs in, pairs, decides, survives a relay restart and a session r
     await expect(page.getByRole('heading', { name: copy.keyChanged.title(PC_NAME) })).toBeVisible();
     await expect(page.getByRole('button')).toHaveText([copy.keyChanged.relink, copy.keyChanged.signOut]);
     await expect(page.getByRole('link')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: copy.inbox.title })).toHaveCount(0);
-    await expect(page.getByText(copy.inbox.upToDate)).toHaveCount(0);
+    await expect(page.locator('[data-route="sessions"]')).toHaveCount(0);
     // The PC back online would get a hello from a phone still talking (link.ts: presence); this one stays silent.
     // Silence has no event to wait on, hence the fixed window.
     const count = h.pc.frames.length;
@@ -145,18 +144,19 @@ test('a phone signs in, pairs, decides, survives a relay restart and a session r
     h.pc.answerAs(h.pc.identity);
   });
 
-  await test.step('a reload: still paired (IndexedDB), the inbox comes back', async () => {
+  await test.step('a reload: still paired (IndexedDB), Sessions comes back', async () => {
     // A new request (a key never decided here): the one decided before would come back as its receipt.
     h.daemon.sessions = [{ ...waiting(), pending: { ...waiting().pending!, key: 'p3' } }];
     await page.goto(h.url);
-    await expect(page.getByRole('heading', { name: copy.inbox.title })).toBeVisible();
-    await expect(page.getByRole('link', { name: /pnpm test/ })).toBeVisible();
+    await expect(page.locator('[data-route]')).toHaveAttribute('data-route', 'sessions');
+    await expect(page.getByRole('link', { name: /Otto/ })).toBeVisible();
   });
 
-  await test.step('« À toi » decides in place: the card turns into its receipt (m1-a-toi.html §1, §5)', async () => {
+  await test.step('the new request, from Sessions: allowed on its screen (#40 D6)', async () => {
     const before = decides().length;
-    await page.getByRole('article').getByRole('button', { name: copy.atoi.allow, exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: copy.atoi.receipt.allowed('Otto') })).toBeVisible();
+    await toRequest(page, 'p3');
+    await page.getByRole('button', { name: copy.decide.allow }).click();
+    await expect.poll(() => decides().length).toBeGreaterThan(before);
     expect(decides()[before]).toMatchObject({ id: 's1', decision: 'accept', expect: { key: 'p3' } });
   });
 

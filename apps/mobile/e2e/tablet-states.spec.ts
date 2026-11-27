@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { copy } from '../src/copy';
 import { forgeState } from '../test/model/forge-fixtures';
 import { openrig } from '../test/model/openrig-fixtures';
-import { startHarness, type FakeOpenRig, type Harness } from './harness';
+import { openRequest, startHarness, type FakeOpenRig, type Harness } from './harness';
 import { hasWebkit } from './webkit';
 
 test.skip(({ browserName }) => browserName === 'webkit' && !hasWebkit, 'WebKit is not installed');
@@ -83,8 +83,8 @@ for (const theme of ['dark', 'light'] as const) {
 
     test('a relay out of reach puts one banner over both panes (Q95 A)', async ({ page }) => {
       await pair(page, theme);
-      const row = page.getByRole('link', { name: /pnpm test/ });
-      await row.click();
+      // A request beside the Sessions list, as its push opens it (#40 D6).
+      await openRequest(page, 'p1');
       await expect(page.getByRole('button', { name: copy.decide.allow })).toBeEnabled();
       await h.stopRelay();
       const strip = page.locator('.split-banner > [data-strip="relay"]');
@@ -95,11 +95,10 @@ for (const theme of ['dark', 'light'] as const) {
       expect.soft(Math.round(box.x)).toBeGreaterThanOrEqual(RAIL);
       expect.soft(Math.round(box.x + box.width)).toBeGreaterThan(1100);
       await expect(page.locator('.split-list .pane-head')).toContainText(/Dernier état connu · \d\d:\d\d/);
-      // À toi's head has no host pill (§6), its title on one line; the request keeps no card of its own under the banner.
-      await expect(page.locator('.split-list .pane-head [data-host]')).toHaveCount(0);
+      // The Sessions list keeps its head, its title on one line; the request keeps no card of its own under the banner.
       expect.soft(Math.round((await page.locator('.split-list .pane-head h1').boundingBox())!.height)).toBeLessThan(32);
       await expect(page.getByText(copy.link.lostTitle)).toHaveCount(0);
-      await expect(row).toBeVisible();
+      await expect(page.locator('.split-list main a[href^="#/thread/"]', { hasText: 'Otto' }).first()).toBeVisible();
       await shot(page, 'relay', theme);
       await h.startRelay();
       await expect(strip).toBeHidden({ timeout: 20_000 });

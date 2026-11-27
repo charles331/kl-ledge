@@ -102,7 +102,7 @@ for (const lang of ['fr', 'en'] as const) {
         await shot(page, `mine-none-${tag}`);
       });
 
-      test('the list, a failed MR and its four views, a ready PR, a merged one, À toi', async ({ page }) => {
+      test('the list, a failed MR and its four views, a ready PR, a merged one', async ({ page }) => {
         const tag = `phone-${theme}-${lang}`;
         await pair(page, theme, lang);
         await go(page, '#/prs');
@@ -137,9 +137,6 @@ for (const lang of ['fr', 'en'] as const) {
         await expect(page.locator('[data-foot="done"]')).toBeVisible();
         await shot(page, `merged-${tag}`);
 
-        await go(page, '#/');
-        await expect(page.getByRole('region', { name: C.atoi.title })).toBeVisible();
-        await shot(page, `atoi-${tag}`);
       });
     });
   }

@@ -27,10 +27,11 @@ test('in landscape the app spans the whole width with its tabs on the left', asy
   await page.getByRole('button', { name: copy.compare.same }).click();
   h.pc.ok();
   await page.getByRole('link', { name: copy.compare.seePending }).click();
-  await expect(page.getByRole('link', { name: /pnpm test/ })).toBeVisible();
+  // Sessions is home (#40 D6): Otto's row, its request waiting.
+  await expect(page.getByRole('link', { name: /Otto/ })).toBeVisible();
 
   const width = async () => (await page.locator('.app').boundingBox())!.width;
-  await shot(page, 'inbox', browserName);
+  await shot(page, 'sessions', browserName);
   expect.soft(await width()).toBe(page.viewportSize()!.width);
 
   // The tabs are a rail on the left, the whole height, beside the list rather than under it.
@@ -41,7 +42,7 @@ test('in landscape the app spans the whole width with its tabs on the left', asy
   expect.soft(rail.height).toBe(page.viewportSize()!.height);
   expect.soft(list.x).toBeGreaterThanOrEqual(rail.x + rail.width);
 
-  await page.getByRole('link', { name: /pnpm test/ }).click();
+  await page.evaluate(() => { location.hash = '#/request/s1/p1'; });
   await expect(page.getByRole('button', { name: copy.decide.allow })).toBeEnabled();
   await shot(page, 'request', browserName);
   // One pane with the rail, the command in view above the buttons (the user's « A », 2026-11-11 09:06Z): the request opens scrolled
@@ -74,7 +75,7 @@ test('in landscape the app spans the whole width with its tabs on the left', asy
   await placed();
   await page.goBack();
   await page.setViewportSize(upright);
-  await page.getByRole('link', { name: /pnpm test/ }).click();
+  await page.evaluate(() => { location.hash = '#/request/s1/p1'; });
   await expect(allowButton).toBeEnabled();
   await page.setViewportSize(side);
   await placed();
