@@ -87,6 +87,14 @@ describe('the reply field\'s bottom row (#41)', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Dictate' })).toBeDisabled();
     expect(document.querySelector('.reply-hint')).toHaveTextContent('Choose one of the proposed answers (1–9).');
+    // #44 (option A): no placeholder inviting a free answer in a field that takes none.
+    expect(field()).toHaveAttribute('placeholder', '');
+  });
+
+  it('an open question field keeps its placeholder (#44 empties only a shut one)', () => {
+    shown({ tool: 'claude', state: 'waiting_input', pending: { kind: 'question', text: 'Which one?', options: ['A', 'B'], source: 'hook' } } as Partial<Session>);
+    expect(field()).not.toBeDisabled();
+    expect(field().getAttribute('placeholder')).not.toBe('');
   });
 
   it('the voice button: outside Ledge Desktop greyed, and says why', () => {

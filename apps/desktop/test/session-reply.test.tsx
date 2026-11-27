@@ -281,6 +281,8 @@ describe('the reply, beyond the brief (carried items)', () => {
     const kit = { ...listSessions()[4]!, tool: 'codex' as const, pending: { kind: 'question' as const, text: 'Quel port ?', options: ['8080', '3000'], source: 'hook' as const } };
     await open('Kit', [...listSessions().slice(0, 4), kit]);
     expect(field()).toBeDisabled();
+    // #44 (option A): a shut field invites nothing; its hint says why, alone.
+    expect(field()).toHaveAttribute('placeholder', '');
     expect(screen.getByText('Choose one of the proposed answers (1–9).')).toHaveClass('reply-hint');
     expect(screen.queryByRole('button', { name: /^R\s*Write your own answer/ })).toBeNull();
   });
@@ -291,6 +293,7 @@ describe('the reply, beyond the brief (carried items)', () => {
     expect(card('Approval requested').getByText('Otto wants to change a file')).toBeVisible();
     expect(card('Approval requested').queryByRole('button', { name: /^Always allow/ })).toBeNull();
     expect(field()).toBeDisabled();
+    expect(field()).toHaveAttribute('placeholder', '');
     expect(screen.getByText('This agent takes no message with a refusal: deny with N.')).toHaveClass('reply-hint');
     await user.keyboard('n');
     await waitFor(() => expect(sent(d, 'session.decide')).toEqual([{ type: 'session.decide', id: 'otto', decision: 'deny', expect: { kind: 'diff', text: 'src/a.ts', key: expect.any(String) } }]));
@@ -377,6 +380,7 @@ describe('OMP: the ask card (one call, several questions)', () => {
     const card = within(screen.getByRole('region', { name: 'Question from the agent' }));
     expect(card.getByText('Favorite color?')).toBeVisible(); expect(card.getByText('the sea')).toBeVisible();
     expect(field()).toBeDisabled(); expect(screen.getByText('Answer from the card above.')).toBeVisible();
+    expect(field()).toHaveAttribute('placeholder', '');
     const send = card.getByRole('button', { name: 'Send the answers' });
     expect(send).toBeDisabled();
     await user.click(card.getByRole('checkbox', { name: /red/ })); await user.click(card.getByRole('checkbox', { name: /blue/ }));
