@@ -191,3 +191,27 @@ button.cw-send.stop i { width: 10px; height: 10px; border-radius: 3px; backgroun
 .cw-aside-wait { margin: 0; font-size: 13.5px; line-height: 20px; }
 .cw-aside-cut { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; line-height: 17px; color: var(--at-ink2); }
 .cw-aside-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; line-height: 19px; color: var(--at-ink2); }
+
+/* ---------- The rows the mockup did not draw (messages between agents, notices, OpenRig's lines, tasks) ----------
+   As the owner chose on 2026-11-27 (#41, A; docs/mockups/ledge-thread-cowork-rows.md): no icon margin, the time under the
+   card on its side, the cards unchanged. */
+.cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 4px;
+  padding: 0;
+}
+/* The icon in the margin: the card already says what it is (its kicker, its border, its side). */
+.cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .n { display: none; }
+/* The time under the card, on the card's side: as the person's bubble (right) and the agent's text (left) carry theirs. */
+.cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .tm {
+  grid-row: 2;
+  justify-self: start;
+  font: 11px/14px 'Geist Mono', monospace;
+  color: var(--at-ink2);
+  text-align: left;
+}
+.cw-turn .message-row.sent > .tm { justify-self: end; }
+.cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .tm:empty { display: none; }
+/* A notice keeps its left rule: it now starts on the column's edge, as the steps' rows do. */
+.cw-turn .notice-row > .notice-line { justify-self: stretch; }

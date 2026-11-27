@@ -281,7 +281,7 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
         <div className="reply-note"><span>{tr.readOnly}</span></div>
       ) : helper ? (
         <div className="reply-note">
-          <SessionBot session={session} size={22} />
+          <SessionBot session={session} size={22} mark="logo" />
           <span>{tr.viaParent(helper.kind, session.name)}</span>
           <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'open', id: session.id })}>{tr.openParent(session.name)}</Button>
         </div>

@@ -110,6 +110,25 @@ describe('the reply field\'s bottom row (#41)', () => {
   });
 });
 
+describe('a subagent\'s page (#41)', () => {
+  it('no field: the note says replies go through the parent, beside the provider\'s flat logo, not the mascot', () => {
+    const env = fakeClient(true);
+    const session = fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working' });
+    const decisions = { busy: () => false, reply: vi.fn(), decide: vi.fn(), answer: vi.fn() } as unknown as Decisions;
+    render(
+      <LangProvider lang="en">
+        <Reply session={session} helper={{ id: 'h1', kind: 'Explore', task: 'Lire', state: 'working' }} asker="Explore" since="" decisions={decisions} memory={createSessionMemory()} memoKey="otto"
+          notify={() => {}} dispatch={() => {}} focusOnArrival={false} keys={{ current: null }} onReadPlan={() => {}} client={env.client} modelChip={false} ide />
+      </LangProvider>
+    );
+    const note = document.querySelector<HTMLElement>('.reply-note')!;
+    expect(note).toHaveTextContent('Replies to Explore go through Otto, who started it.');
+    expect(note.querySelector('.logo-bot')).not.toBeNull();
+    expect(note.querySelector('.bot:not(.logo-bot)')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Reply to the agent' })).toBeNull();
+  });
+});
+
 describe('« /btw »: an aside (#41)', () => {
   it('on Claude Code, the frame says so; Enter asks the daemon; the answer shows under the thread, outside it', async () => {
     const { user, sent, emit } = shown({}, { thread: true });
