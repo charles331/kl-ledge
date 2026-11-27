@@ -80,13 +80,15 @@ test('the Atelier tab: its bar, « Projects | Rigs », the subagents, the filter
   await expect(groups(page).nth(1).locator('.dv-tab')).toContainText('Pim');
 });
 
-test('Ledge’s desk opens the chat in the right panel', async ({ page }) => {
+test('Ledge’s desk no longer opens the chat: without OpenRig requests it is no button (#40, page 1, question 3)', async ({ page }) => {
   await boot(page);
   await expect(page.locator('.ide-right')).toBeVisible();
-  await page.keyboard.press('Control+/');
+  await page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ }).click();
   await expect(page.locator('.ide-right')).toHaveCount(0);
-  await page.locator('.ide-atelier').getByRole('button', { name: /desk|Ledge/ }).first().click();
-  await expect(page.locator('.ide-right')).toBeVisible();
+  await expect(page.locator('.ide-atelier .ledge-desk')).toBeVisible();
+  await expect(page.locator('.ide-atelier button.ledge-desk')).toHaveCount(0);
+  await page.locator('.ide-atelier .ledge-desk').click();
+  await expect(page.locator('.ide-right')).toHaveCount(0);
 });
 
 test('Settings › Workspace › Status bar: the limits hidden and shown, the alert stepped', async ({ page }) => {

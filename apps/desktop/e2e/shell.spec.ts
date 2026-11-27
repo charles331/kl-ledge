@@ -48,14 +48,15 @@ test('a stored list preference opens the atelier', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'List' })).toHaveCount(0);
 });
 
-test('Ctrl+/ hides and shows the chat with Ledge', async ({ page }) => {
+test('the right panel\'s toggle hides and shows the chat with Ledge (Ctrl+/ opens Tasks, #40 D3)', async ({ page }) => {
   await fakeDaemon(page, eight, { projects: twoProjects });
   await page.goto('/'); await ideReady(page);
   const chat = page.locator('.ide-right');
   await expect(chat).toBeVisible();
-  await page.keyboard.press('Control+/');
+  const toggle = page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ });
+  await toggle.click();
   await expect(chat).toHaveCount(0);
-  await page.keyboard.press('Control+/');
+  await toggle.click();
   await expect(chat).toBeVisible();
 });
 

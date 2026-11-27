@@ -44,65 +44,68 @@ async function boot(page: Page, theme: 'dark' | 'light' = 'dark') {
 }
 const panel = (page: Page) => page.getByRole('complementary', { name: 'Chat Ledge' });
 const rtab = (page: Page, name: RegExp) => panel(page).getByRole('tablist', { name: 'Vues de Ledge' }).getByRole('tab', { name });
-const rows = (page: Page) => panel(page).locator('.rt-trow');
+/** « Tâches », a view of the activity bar since #40 D3 (Ctrl+/ opens it; the right panel keeps Conversation and Historique). */
+const tasks = (page: Page) => page.getByRole('complementary', { name: 'Tâches' });
+const rows = (page: Page) => tasks(page).locator('.rt-trow');
+const openTasks = async (page: Page) => { await page.locator('body').click({ position: { x: 900, y: 500 } }); await page.keyboard.press('Control+/'); await expect(tasks(page)).toBeVisible(); };
+const rightToggle = (page: Page) => page.getByRole('button', { name: 'Panneau de droite' });
 const shot = async (page: Page, name: string, el: ReturnType<Page['locator']>) => {
   const b = (await el.boundingBox())!;
   await page.screenshot({ path: `e2e/.results/lot12-${name}.png`, clip: { x: b.x, y: b.y, width: b.width, height: b.height } });
 };
 
 for (const theme of ['dark', 'light'] as const) {
-  test(`(${theme}) the right panel's tabs: Conversation · Tâches · Historique; a task's detail in place of the list, « ‹ Tâches » and Échap back`, async ({ page }) => {
+  test(`(${theme}) the Tasks view (#40 D3): the right panel keeps Conversation · Historique; a task's detail in place of the list, « ‹ Tâches » and Échap back`, async ({ page }) => {
     await boot(page, theme);
     await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
+    await expect(rtab(page, /^Tâches/)).toHaveCount(0);
+    await openTasks(page);
     // The open tasks counted: t-11, t-13, t-14.
-    await expect(rtab(page, /^Tâches/)).toHaveAccessibleName('Tâches · 3');
-    await rtab(page, /^Tâches/).click();
+    await expect(tasks(page).locator('.ide-tasks-h')).toContainText('3 ouvertes');
     await expect(rows(page)).toHaveCount(5);
     await expect(rows(page).first()).toContainText('t-14 · de Ledge à Otto · prise');
     await expect(rows(page).nth(1).locator('.mk')).toHaveText('?');
     await expect(rows(page).nth(1)).toContainText('décision');
-    await shot(page, `tasks-list-${theme}`, panel(page));
+    await shot(page, `tasks-list-${theme}`, tasks(page));
     // The detail replaces the list.
     await rows(page).filter({ hasText: 't-12' }).click();
-    const detail = panel(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' });
+    const detail = tasks(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' });
     await expect(detail).toContainText('de Ledge à Pim · finie');
     await expect(detail).toContainText('Résultat : test ajouté');
     await expect(detail.getByRole('listitem')).toHaveCount(3);
     await expect(rows(page)).toHaveCount(0);
-    await shot(page, `tasks-detail-${theme}`, panel(page));
+    await shot(page, `tasks-detail-${theme}`, tasks(page));
     await detail.getByRole('button', { name: '‹ Tâches' }).click();
     await expect(rows(page)).toHaveCount(5);
     // Escape too, the filters kept.
-    await panel(page).getByRole('combobox', { name: 'Filtres' }).selectOption('closed');
+    await tasks(page).getByRole('combobox', { name: 'Filtres' }).selectOption('closed');
     await expect(rows(page)).toHaveCount(2);
     await rows(page).filter({ hasText: 't-12' }).click();
     await expect(detail).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(rows(page)).toHaveCount(2);
-    await expect(panel(page).getByRole('combobox', { name: 'Filtres' })).toHaveValue('closed');
+    await expect(tasks(page).getByRole('combobox', { name: 'Filtres' })).toHaveValue('closed');
     // A decision awaited: « Répondre » opens the existing answer form.
-    await panel(page).getByRole('combobox', { name: 'Filtres' }).selectOption('all');
+    await tasks(page).getByRole('combobox', { name: 'Filtres' }).selectOption('all');
     await rows(page).filter({ hasText: 't-13' }).click();
-    await panel(page).getByRole('button', { name: 'Répondre' }).click();
-    await expect(panel(page).getByRole('textbox')).toBeVisible();
-    await shot(page, `tasks-decision-${theme}`, panel(page));
+    await tasks(page).getByRole('button', { name: 'Répondre' }).click();
+    await expect(tasks(page).getByRole('textbox')).toBeVisible();
+    await shot(page, `tasks-decision-${theme}`, tasks(page));
   });
 }
 
-test('« Voir » of a closed task in the sidebar « À toi »: the right panel, even hidden, on « Tâches » at its detail, the filters back to Toutes / Tous', async ({ page }) => {
+test('« Voir » of a closed task in the sidebar « À toi »: the Tasks view, at its detail, the filters back to Toutes / Tous (#40 D3)', async ({ page }) => {
   await boot(page);
-  await rtab(page, /^Tâches/).click();
-  await panel(page).getByRole('combobox', { name: 'Donneur' }).selectOption('sessions');
-  await page.keyboard.press('Control+/');
-  await expect(panel(page)).toBeHidden();
+  await openTasks(page);
+  await tasks(page).getByRole('combobox', { name: 'Donneur' }).selectOption('sessions');
   await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
+  await expect(tasks(page)).toHaveCount(0);
   const card = page.locator('.st-card[data-task="t-12"]');
   await card.getByRole('button', { name: 'Voir' }).click();
-  await expect(panel(page)).toBeVisible();
-  await expect(rtab(page, /^Tâches/)).toHaveAttribute('aria-selected', 'true');
-  await expect(panel(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
+  await expect(tasks(page)).toBeVisible();
+  await expect(tasks(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(panel(page).getByRole('combobox', { name: 'Donneur' })).toHaveValue('all');
+  await expect(tasks(page).getByRole('combobox', { name: 'Donneur' })).toHaveValue('all');
   await expect(rows(page)).toHaveCount(5);
 });
 
@@ -129,14 +132,14 @@ test('« Historique »: the day\'s questions, the latest first; a click goes bac
 
 test('the local daemon goes away: the last list stays, dimmed under its banner; the rows still open, « Répondre » off', async ({ page }) => {
   const daemon = await boot(page);
-  await rtab(page, /^Tâches/).click();
+  await openTasks(page);
   await expect(rows(page)).toHaveCount(5);
   daemon.close();
-  await expect(panel(page).locator('.rt-banner')).toHaveText('Daemon local hors ligne : la liste est celle du dernier relevé.');
-  await expect(panel(page).locator('.rt-list')).toHaveClass(/dim/);
-  await shot(page, 'tasks-offline-dark', panel(page));
+  await expect(tasks(page).locator('.rt-banner')).toHaveText('Daemon local hors ligne : la liste est celle du dernier relevé.');
+  await expect(tasks(page).locator('.rt-list')).toHaveClass(/dim/);
+  await shot(page, 'tasks-offline-dark', tasks(page));
   await rows(page).filter({ hasText: 't-13' }).click();
-  await expect(panel(page).getByRole('button', { name: 'Répondre' })).toBeDisabled();
+  await expect(tasks(page).getByRole('button', { name: 'Répondre' })).toBeDisabled();
 });
 
 for (const theme of ['dark', 'light'] as const) {
@@ -162,9 +165,9 @@ for (const theme of ['dark', 'light'] as const) {
     await shot(page, `atoi-rigask-${theme}`, block('rigs'));
     await block('rigs').getByRole('button', { name: 'Replier' }).click();
     await expect(block('rigs').locator('.atoi-askc')).toHaveCount(0);
-    // « Voir » of a closed task: the right panel at its detail.
+    // « Voir » of a closed task: the Tasks view at its detail (#40 D3).
     await fin.locator('[data-task="t-12"]').getByRole('button', { name: 'Voir' }).click();
-    await expect(panel(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
+    await expect(tasks(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
     // « Résumer la journée »: the question asked in the chat, on Conversation.
     await tab.getByRole('button', { name: 'Résumer la journée' }).click();
     await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
@@ -185,11 +188,10 @@ test('« Voir » of a rig\'s request in the sidebar: the page « À toi », its 
 });
 
 // Review of lot 12 (review-qa2, P2): a hidden right panel is unmounted; the question waits for it and goes once it is there.
-test('« Résumer la journée » with the right panel hidden (Ctrl+/): the panel comes back on Conversation and the question goes, once', async ({ page }) => {
+test('« Résumer la journée » with the right panel hidden (its toggle): the panel comes back on Conversation and the question goes, once', async ({ page }) => {
   const daemon = await boot(page);
   await expect(panel(page)).toBeVisible();
-  await page.locator('body').click({ position: { x: 900, y: 500 } });
-  await page.keyboard.press('Control+/');
+  await rightToggle(page).click();
   await expect(panel(page)).toHaveCount(0);
   await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
   await page.getByRole('button', { name: 'Page', exact: true }).click();
@@ -198,8 +200,8 @@ test('« Résumer la journée » with the right panel hidden (Ctrl+/): the panel
   await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
   await expect.poll(() => daemon.received.filter(m => m.type === 'chat.ask').length).toBe(1);
   // Hidden and shown again: nothing is asked twice.
-  await page.keyboard.press('Control+/');
-  await page.keyboard.press('Control+/');
+  await rightToggle(page).click();
+  await rightToggle(page).click();
   await expect(panel(page)).toBeVisible();
   await page.waitForTimeout(500);
   expect(daemon.received.filter(m => m.type === 'chat.ask')).toHaveLength(1);
