@@ -42,20 +42,20 @@ const PROJECTS = { projects: [
 ], rules: [] };
 
 /** The mockup's window: French, the explorer 248 px wide on « Projets », Pim in front of the focused group, Nova and Ida beside. */
-async function scene(page: Page, theme: 'dark' | 'light', sessions: Session[] = SESSIONS, sidebar?: { hideDone: boolean; dense: boolean; byBranch: boolean }) {
+async function scene(page: Page, theme: 'dark' | 'light', sessions: Session[] = SESSIONS, sidebar?: { hideDone: boolean; dense: boolean; byBranch: boolean }, sideWidth = 248) {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await realFonts(page);
-  await page.addInitScript(([th, sb]) => {
+  await page.addInitScript(([th, sb, sw]) => {
     const set = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
     set('desktop.lang', 'fr');
     set('desktop.theme', th!);
     if (sb) set('desktop.sidebar', sb);
-    set('ledge.ide.layout', JSON.stringify({ sideOpen: true, sideWidth: 248, sideView: 'projects', bottom: true, bottomHeight: 200, right: true }));
+    set('ledge.ide.layout', JSON.stringify({ sideOpen: true, sideWidth: Number(sw), sideView: 'projects', bottom: true, bottomHeight: 200, right: true }));
     set('ledge.ide.workspace', JSON.stringify(JSON.stringify({ version: 1, windows: ['main'], groups: [
       { id: 'g1', window: 'main', tabs: [{ kind: 'session', ref: 'local:pim' }], active: 0, link: 'violet' },
       { id: 'g2', window: 'main', tabs: [{ kind: 'session', ref: 'local:nova' }, { kind: 'session', ref: 'local:ida' }], active: 0, link: 'teal' }
     ], focus: 'g1', next: 3 })));
-  }, [theme, sidebar ? JSON.stringify(sidebar) : '']);
+  }, [theme, sidebar ? JSON.stringify(sidebar) : '', String(sideWidth)]);
   await fakeDaemon(page, sessions, { projects: PROJECTS, daemon: { version: '0.63.0', install: 'npm', systemd: true, routing: true } });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 45_000 });
@@ -177,14 +177,18 @@ const LONG: Session[] = [
 /** A session row's parts: the row, its name (the text alone), its branch tag, the sub-agents' count, its time or pill. */
 async function parts(page: Page, name: string) {
   // By the name's own span: a row with sub-agents has its chevron's label first in its accessible name.
-  return page.locator('[role=treeitem]').filter({ has: page.locator('.st-name', { hasText: new RegExp(`^${name}`) }) }).evaluate(r => {
+  return page.locator('[role=treeitem]').filter({ has: page.locator('.st-aname', { hasText: new RegExp(`^${name}`) }) }).evaluate(r => {
     const box = (el: Element | null) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, right: b.right }; };
-    const name = r.querySelector<HTMLElement>('.st-name');
+    const name = r.querySelector<HTMLElement>('.st-aname');
     const tag = r.querySelector<HTMLElement>('.st-btag');
     const tagText = r.querySelector<HTMLElement>('.st-btag .st-btag-name');
     return { row: box(r)!, name: box(name), nameCut: !!name && name.scrollWidth > name.clientWidth, tag: box(tag), tagCut: !!tagText && tagText.scrollWidth > tagText.clientWidth,
       // The tag's name is shown when it sits on the tag's one line, not on the hidden second one.
-      tagNameShown: !!tag && !!tagText && tagText.getBoundingClientRect().top < tag.getBoundingClientRect().bottom - 2,
+      // The tag's name is shown unless the tag is its icon alone (data-fit="icon", the name folded to nothing).
+      tagNameShown: !!tagText && tagText.getBoundingClientRect().width > 1,
+      iconOnly: tag?.dataset.fit === 'icon',
+      // The name's font: the topic's look (.st-main span) must not reach it.
+      nameFont: name ? getComputedStyle(name).fontSize + ' ' + getComputedStyle(name).fontWeight : '', lineFont: name ? getComputedStyle(name.parentElement!).fontSize + ' ' + getComputedStyle(name.parentElement!).fontWeight : '',
       tagNameW: tagText?.getBoundingClientRect().width ?? 0,
       ch: (() => { if (!tagText) return 0; const m = document.createElement('span'); m.textContent = '0'; tagText.append(m); const w = m.getBoundingClientRect().width; m.remove(); return w; })(),
       kids: box(r.querySelector(':scope > .st-kids')), time: box(r.querySelector(':scope > .st-time')), timeText: r.querySelector(':scope > .st-time')?.textContent ?? '' };
@@ -224,11 +228,42 @@ for (const theme of ['dark', 'light'] as const) {
     const kit = await parts(page, 'Kit');
     expect(kit.nameCut).toBe(true);
     expect(kit.tag!.right).toBeLessThanOrEqual(kit.time!.x);
-    // Too little room for three characters and « … »: the tag is its icon alone, in its frame (its name on the hidden second line).
-    expect(kit.tag!.w).toBeLessThan(24);
+    // Too little room for three characters and « … »: the tag is its icon alone, in its smallest frame.
+    expect(kit.iconOnly).toBe(true);
+    expect(kit.tag!.w).toBeLessThanOrEqual(21);
+    expect(kit.tag!.w).toBeGreaterThanOrEqual(19);
     expect(kit.tagNameShown).toBe(false);
+    // The name keeps the line's font.
+    expect(lea.nameFont).toBe(lea.lineFont);
     // Léa's tag shows at least three characters before « … ».
     expect(lea.tagNameShown).toBe(true);
     expect(lea.tagNameW).toBeGreaterThanOrEqual(lea.ch * 4 - 1);
+  });
+}
+
+// #32 review (review-qa3, 2026-11-26): across explorer widths, compact and not, a branch tag is either its name with three characters
+// and « … » at least, or its icon alone in its smallest frame — never an empty frame beside a name cut for it.
+const SWEEP: Session[] = [...LONG, mk('wanda', { name: 'Wanda', state: 'working', branch: 'feat/ide-shell', worktree: true, topic: 'Un arbre à part' })];
+for (const dense of [true, false]) {
+  test(`#32, the branch tag across explorer widths, ${dense ? 'compact' : 'two lines'}`, async ({ page }) => {
+    for (const width of [180, 200, 220, 248, 320]) {
+      await page.context().clearCookies();
+      await scene(page, 'dark', SWEEP, { hideDone: true, dense, byBranch: false }, width);
+      await page.mouse.move(900, 900);
+      for (const name of ['Kit', 'Max', 'Léa', 'Wanda', 'Zed', 'Pim']) {
+        const p = await parts(page, name);
+        const at = `${name} at ${width} px`;
+        if (!p.tag) continue;
+        // The icon alone in its whole frame: neither wider (an empty frame) nor narrower (the icon cut).
+        if (p.iconOnly) { expect(p.tag.w, at).toBeLessThanOrEqual(21); expect(p.tag.w, at).toBeGreaterThanOrEqual(19); }
+        else { expect(p.tagNameShown, at).toBe(true); expect(p.tagNameW, at).toBeGreaterThanOrEqual(p.ch * 4 - 1); }
+        // The session's name is cut only once its tag is its icon alone.
+        if (p.nameCut) expect(p.iconOnly, at).toBe(true);
+        // Nothing past the row's edge, and the tag before whatever follows it on the line.
+        expect(p.tag.right, at).toBeLessThanOrEqual(p.row.right);
+        if (p.kids) expect(p.tag.right, at).toBeLessThanOrEqual(p.kids.x);
+        if (dense && p.time) expect(p.tag.right, at).toBeLessThanOrEqual(p.time.x);
+      }
+    }
   });
 }

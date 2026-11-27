@@ -217,7 +217,7 @@ describe('the sidebar tree', () => {
     localStorage.setItem('desktop.sidebar', JSON.stringify({ hideDone: true, dense: false, byBranch: false }));
     const { side } = await boot({ projects: PROJECTS, sessions: listSessions() });
     const otto = within(side.getByRole('tree', { name: 'Projects, branches and sessions' })).getByRole('treeitem', { name: /Otto/ });
-    expect(otto.querySelector('.st-main strong > .st-name')).toHaveTextContent(/^Otto$/);
+    expect(otto.querySelector('.st-main strong > .st-aname')).toHaveTextContent(/^Otto$/);
     expect(otto.querySelector('.st-main strong > .st-btag > .st-btag-name')).toHaveTextContent(/^desktop$/);
   });
 });

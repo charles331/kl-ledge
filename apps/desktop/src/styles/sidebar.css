@@ -53,15 +53,18 @@
    their size but the branch tag, which gives way first, its name ending in « … »; then the name does. Never one under the next part. */
 .st-agent .st-main strong{display:flex;align-items:center;min-width:0}
 .st-agent .st-main strong>*{flex:none}
-.st-agent .st-main strong>.st-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.st-agent .st-main strong>.st-aname{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* `.st-main span` (the topic's look) must not reach the spans inside the name's line: they keep the name's and the tag's font. */
+.st-agent .st-main strong>.st-aname,.st-agent .st-main .st-btag-name{font:inherit;color:inherit}
+.st-agent .st-main strong>.st-btag{flex:0 999 auto;min-width:0}
+.st-btag-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* #32, design-ux and the lead (2026-11-26): the tag shortens with « … » while it can show three characters (« ⎇ fea… », « ⎇ main »);
-   below that it is its icon alone in its frame, the branch in its tooltip (and still in the row's text). Done by wrapping: the name
-   holds at least 3 characters and « … » (4ch); when that does not fit beside the icon it goes to a second line, which the tag's
-   one-line height hides. */
-.st-agent .st-main strong>.st-btag{flex:0 999 auto;min-width:20px;box-sizing:border-box;height:17px;flex-wrap:wrap;align-content:flex-start;row-gap:0;overflow:hidden}
-.st-btag-name{flex:1 1 4ch;min-width:4ch;overflow:hidden;text-overflow:ellipsis}
-/* The icon's line as tall as a line of text, so a name sent to the second line is wholly under the frame, not peeking into it. */
-.st-agent .st-main strong>.st-btag>svg{min-height:15px}
+   below that, its icon alone in its smallest frame, the branch in its tooltip and still in the row's text. Tree.tsx (fitBranchTags)
+   decides it from the room the line leaves: data-fit="icon". */
+.st-btag[data-fit=icon]{gap:0}
+/* Its icon alone keeps its whole frame: from there the name gives way. */
+.st-agent .st-main strong>.st-btag[data-fit=icon]{flex:none}
+.st-btag[data-fit=icon]>:not(svg){width:0;max-width:0;margin:0;overflow:hidden}
 .st-main span{font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-project .st-main{flex-direction:row;align-items:baseline;gap:6px}
 .st-project .st-main strong{font-weight:600;flex:none;max-width:60%}
