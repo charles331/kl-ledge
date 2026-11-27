@@ -23,13 +23,17 @@ const open = async (page: Page, name: string) => { await page.getByRole('tree').
 const thread = (page: Page) => page.locator('.session-thread');
 const gap = (page: Page) => thread(page).evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight);
 
-test('the session reads as a rail; the past exchange stays open, one of the last three; Y allows the pinned request once', async ({ page }) => {
+test('the session reads as a conversation (#41): the past exchange keeps its request and answer, its work under « Work »; Y allows the pinned request once', async ({ page }) => {
   const daemon = await fakeDaemon(page, fleet, { projects: twoProjects, threads: { otto: ottoThread } });
   await page.goto('/'); await ideReady(page);
   await open(page, 'Otto');
-  await expect(thread(page).locator('.turn.folded')).toHaveCount(0);
   await expect(thread(page).getByText('Câble la liste', { exact: true })).toBeVisible();
-  await expect(thread(page).locator('.turn').first().locator('li.action-row')).toHaveCount(4);
+  const past = thread(page).locator('.turn').first();
+  await expect(past.locator('li.action-row')).toHaveCount(0);              // folded under « Work »: its runs with it
+  await past.getByRole('button', { name: /^Work/ }).click();
+  const folded = past.locator('.cw-steps-head[aria-expanded="false"]');
+  while (await folded.count() > 0) await folded.first().click();
+  await expect(past.locator('li.action-row')).toHaveCount(4);
   await page.keyboard.press('y');
   await expect.poll(() => daemon.received.filter(m => m.type === 'session.decide')).toEqual([{ type: 'session.decide', id: 'otto', decision: 'accept', expect: { kind: 'permission', text: 'npm test', key: expect.any(String) } }]);
   await expect(page.getByRole('region', { name: 'Approval requested' })).toHaveCount(0);
@@ -86,14 +90,14 @@ test('each tab keeps its own view: Otto on Terminal, Nova on its thread, and Ott
   await tabOf(page, 'Otto').click();
   await expect(pane(page, 'Otto').locator('.agent-view')).toBeVisible({ timeout: 20_000 });
 });
-test("under 1000 px the thread's rail stays centred at 820 px at most (the mockup's), beside no rail of agents", async ({ page }) => {
+test("under 1000 px the thread's column stays centred at 760 px at most (#41), beside no rail of agents", async ({ page }) => {
   await fakeDaemon(page, fleet, { projects: twoProjects, threads: { otto: ottoThread } });
   await page.setViewportSize({ width: 960, height: 800 });
   await page.goto('/'); await ideReady(page);
   await open(page, 'Otto');
   await expect(page.locator('.project-rail')).toHaveCount(0);
-  const rail = (await thread(page).locator('.rail').boundingBox())!;
-  expect(rail.width).toBeLessThanOrEqual(820);
+  const col = (await thread(page).locator('.cw').boundingBox())!;
+  expect(col.width).toBeLessThanOrEqual(760);
   expect(await page.locator('.session-page').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
 });
 
@@ -111,6 +115,7 @@ test('a session page under 600 px keeps a change\'s row readable: the path, then
   await open(page, 'Otto');
   // Opened at the usual size (the tree folds away when narrow), then the window narrowed.
   await page.setViewportSize({ width: 600, height: 900 });
+  await thread(page).locator('.cw-steps-head').last().click();
   const row = thread(page).locator('.action-row.is-change').last();
   await expect(row).toBeVisible();
   expect(await page.locator('.session-page').evaluate(el => el.getBoundingClientRect().width)).toBeLessThan(600);
@@ -119,12 +124,10 @@ test('a session page under 600 px keeps a change\'s row readable: the path, then
     const tg = r.querySelector('.action-target') as HTMLElement;
     const probe = document.createElement('span'); probe.style.font = getComputedStyle(tg).font; probe.textContent = 'xx'; document.body.append(probe);
     const two = probe.getBoundingClientRect().width; probe.remove();
-    return { target: b('.action-target'), link: b('.action-link'), time: b('.action-time'), act: b('.act'), verb: getComputedStyle(r.querySelector('.action-verb')!).display, two,
-      cols: getComputedStyle(r).gridTemplateColumns, vb: r.querySelector('.vb')!.getBoundingClientRect().width, linkFont: getComputedStyle(r.querySelector('.action-link')!).fontSize };
+    return { target: b('.action-target'), link: b('.action-link'), time: b('.action-time'), act: b('.cw-step-line'), verb: getComputedStyle(r.querySelector('.action-verb')!).display, two,
+      linkFont: getComputedStyle(r.querySelector('.action-link')!).fontSize };
   });
-  // The narrow rules hold: the rail's 32 px column, no 86 px slot kept for the hidden verb, the link's long words gone.
-  expect(geo.cols.startsWith('32px')).toBe(true);
-  expect(geo.vb).toBeLessThan(86);
+  // The narrow rules hold: the verb hidden, the link's long words gone.
   expect(geo.linkFont).toBe('0px');
   expect(geo.verb).toBe('none');
   expect(geo.target!.w).toBeGreaterThan(geo.two);

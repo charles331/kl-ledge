@@ -52,6 +52,8 @@ describe('messages between agents in the thread', () => {
     expect(card).toHaveTextContent('Message reçu');
     expect(card).toHaveTextContent(/^Message reçuDe Nova · voir son fil · suivre la conversation/);
     expect(within(card).getByText('Nova', { selector: 'strong' })).toBeVisible();
+    // Its sender by name alone: no mascot in the thread (#41, the owner, 2026-11-27).
+    expect(card.querySelector('.bot')).toBeNull();
     expect(thread().queryByText('Vous')).toBeNull();
     expect(within(card).getByRole('button', { name: 'voir son fil' })).toHaveAttribute('title', 'Voir dans le fil de Nova');
   });

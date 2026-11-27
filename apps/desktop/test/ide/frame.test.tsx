@@ -304,20 +304,22 @@ describe('the IDE session tab (lot 2)', () => {
     expect(tabs()[0]).toHaveAccessibleName('Otto');
   });
 
-  it('the bottom bar: Otto\'s +1 opens « Modifications · Otto » in a second group and lights; the model chip is in the bar, not the reply', async () => {
+  it('the bottom bar: Otto\'s +1 opens « Modifications · Otto » in a second group and lights; the bar sits in the reply field, under the session on the terminal view', async () => {
     const { d, tree, user } = await mount({ daemon: { version: '1', install: 'npm', systemd: true, models: true, modelSwitch: true } });
     d.thread('otto', [{ kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 1, tool: 'Write', label: '/w/ledge/notes.md', status: 'success', files: [{ path: '/w/ledge/notes.md', change: 'write', diff: '+ Bonjour' }] }]);
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
     const page = () => document.querySelector<HTMLElement>('.ide-pane .session-page[data-session$="otto"]')!;
     await waitFor(() => expect(page().querySelector('.ide-bar .model-chip')).not.toBeNull());
-    expect(page().querySelector('.session-reply .model-chip')).toBeNull();
-    const chip = await within(page()).findByRole('button', { name: /\+1/ });
+    // The bar is in the reply field's bottom row (#41); the field has no model chip of its own.
+    expect(page().querySelector('.session-reply .cw-tools .ide-bar .model-chip')).not.toBeNull();
+    expect(page().querySelector('.session-reply > form > .model-chip')).toBeNull();
+    const chip = await within(page()).findByRole('button', { name: /^\+1/ });
     expect(document.querySelectorAll('.ide-dock .dv-groupview')).toHaveLength(1);
     await user.click(chip);
     await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toContain('Modifications · Otto'));
     expect(document.querySelectorAll('.ide-dock .dv-groupview')).toHaveLength(2);
-    await waitFor(() => expect(within(page()).getByRole('button', { name: /\+1/ })).toHaveClass('on'));
+    await waitFor(() => expect(within(page()).getByRole('button', { name: /^\+1/ })).toHaveClass('on'));
     expect(activeTab()).toHaveAccessibleName('Otto');
     // On the terminal view, the bar stays.
     fireEvent.contextMenu(tabOf('Otto'));
@@ -325,7 +327,7 @@ describe('the IDE session tab (lot 2)', () => {
     await waitFor(() => expect(within(tabOf('Otto')).getByTitle(/^Vue terminal/)).toBeInTheDocument());
     expect(page().querySelector('.session-reply')).toBeNull();
     expect(page().querySelector('.ide-bar .model-chip')).not.toBeNull();
-    expect(within(page()).getByRole('button', { name: /\+1/ })).toHaveClass('on');
+    expect(within(page()).getByRole('button', { name: /^\+1/ })).toHaveClass('on');
     fireEvent.contextMenu(tabOf('Otto'));
     await user.click(within(await screen.findByRole('menu', { name: /Otto/ })).getByRole('menuitem', { name: /Revenir au fil/ }));
     await waitFor(() => expect(within(tabOf('Otto')).queryByTitle(/^Vue terminal/)).toBeNull());
@@ -354,7 +356,7 @@ describe('the IDE session tab (lot 2)', () => {
     d.thread('otto', [{ kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 1, tool: 'Write', label: '/w/ledge/notes.md', status: 'success', files: [{ path: '/w/ledge/notes.md', change: 'write', diff: '+ Bonjour' }] }]);
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     const page = await waitFor(() => { const el = document.querySelector<HTMLElement>('.ide-pane .session-page[data-session$="otto"]'); expect(el).not.toBeNull(); return el!; });
-    await user.click(await within(page).findByRole('button', { name: /\+1/ }));
+    await user.click(await within(page).findByRole('button', { name: /^\+1/ }));
     await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toContain('Modifications · Otto'));
     const logo = within(tabOf('Modifications · Otto')).getByTitle('Anthropic');
     expect(logo.closest('[aria-hidden="true"]')).not.toBeNull();
@@ -367,7 +369,7 @@ describe('the IDE session tab (lot 2)', () => {
     d.thread('otto', [{ kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 1, tool: 'Write', label: '/w/ledge/notes.md', status: 'success', files: [{ path: '/w/ledge/notes.md', change: 'write', diff: '+ Bonjour' }] }]);
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     const page = await waitFor(() => { const el = document.querySelector<HTMLElement>('.ide-pane .session-page[data-session$="otto"]'); expect(el).not.toBeNull(); return el!; });
-    await user.click(await within(page).findByRole('button', { name: /\+1/ }));
+    await user.click(await within(page).findByRole('button', { name: /^\+1/ }));
     await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toContain('Modifications · Otto'));
     act(() => d.remove('otto'));
     await waitFor(() => expect(tabs().map(t => t.getAttribute('aria-label'))).toEqual(['Atelier']));

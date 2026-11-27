@@ -29,6 +29,7 @@ import { ArchivedBanner } from '../manage/ArchivedBanner';
 import type { SessionActions } from '../manage/useSessionActions';
 import { Reply } from './Reply';
 import { SessionBar } from './SessionBar';
+import { failAsking, forgetAsides } from './asides';
 import { usePublishTabExtras } from '../ide/tabExtras';
 import { reliefText } from './relief';
 import type { Link } from '../workspace/model';
@@ -504,6 +505,22 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
   // In an IDE tab there is no heading (lot 3, option A): the bar says where the screen runs, the relief under way, the
   // subagents and the browser; the tab's menu the external terminal, the relief's sessions and the Story / Objectif.
   usePublishTabExtras(p.ide ? { external: termExternal, tags } : null);
+  // An aside Ledge could not read is in the agent's screen: its Terminal view.
+  // Stable, so the memoised thread is not rendered again for it.
+  const toTerminal = useRef(switchView); toTerminal.current = switchView;
+  const onAsideTerminalStable = useCallback(() => toTerminal.current('terminal', true), []);
+  const onAsideTerminal = seat === 'stopped' ? undefined : onAsideTerminalStable;
+  // Asides do not outlive the session's page (its tab): they are outside the thread (#41).
+  useEffect(() => () => forgetAsides(session.id), [session.id]);
+  // Offline, an aside still waiting will not be answered: the daemon keeps them in memory only.
+  useEffect(() => { if (session.offline === true) failAsking(session.id); }, [session.offline, session.id]);
+  // The session bar goes in the reply field's bottom row when there is a field (#41).
+  const barInField = !!p.ide && view === 'thread' && !archived && seat === null && session.offline !== true && session.source !== 'hook_only' && !helper;
+  const sessionBar = (inField: boolean) => (
+    <SessionBar client={p.client} session={session} project={p.project ?? ''} files={files} besideLink={p.besideLink ?? null} notify={p.notify} onChanges={() => p.onChanges?.()} pr={p.pr ?? null} onPr={p.onPr ?? noop} prUnknown={p.prUnknown ?? null} prMachine={p.prMachine ?? ''} onPrUnknown={p.onPrUnknown ?? noop}
+      terminal={termChip ? (agent.remote ? t.session.terminal.remote(agent.host) : t.session.terminal.local) : null}
+      kids={kids.length} onShowKids={p.onShowKids} browser={pill === null ? null : { pill, captures: captures.length }} onBrowser={() => openCapture(null)} inField={inField} />
+  );
   return (
     <section className="conversation session-page" data-session={session.id} data-helper={helper?.id}>
       {!p.ide && <div className="pane-heading">
@@ -559,7 +576,7 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
                 : xs.length === 0 ? <p className="thread-note muted">{th.empty}</p>
                 : <Thread client={p.client} session={session} helper={helper} items={items} xs={shownXs} now={times} unread={unread.current ?? null} since={since} dispatch={p.dispatch}
                     flash={flash?.id ?? null} onChange={openDiff} onCapture={onCapture} onDocument={openDoc} planOpen={planOpen} onPlan={openPlan}
-                    convOpen={convOpen} onConversation={helper ? undefined : openConversation} waiting={waiting} onReplyTo={replyTo} />}
+                    convOpen={convOpen} onConversation={helper ? undefined : openConversation} waiting={waiting} onReplyTo={replyTo} onTerminal={onAsideTerminal} />}
               </>}
             </div>
             {view === 'terminal' && (
@@ -577,11 +594,11 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
             </div>
           )}
           {view === 'thread' && !archived && seat === null && <Reply session={session} helper={helper} asker={asker} since={waitedFor} decisions={p.decisions} memory={memory} memoKey={key}
-            notify={p.notify} dispatch={p.dispatch} focusOnArrival={place.kind === 'session' && place.focus === 'reply'} keys={replyKeys} onReadPlan={readPlan} client={p.client} modelChip={!p.ide} ide={p.ide} />}
-          {/* In an IDE tab, on the thread as on the terminal: the model, the context, where it works, and its changes. */}
-          {p.ide && <SessionBar client={p.client} session={session} project={p.project ?? ''} files={files} besideLink={p.besideLink ?? null} notify={p.notify} onChanges={() => p.onChanges?.()} pr={p.pr ?? null} onPr={p.onPr ?? noop} prUnknown={p.prUnknown ?? null} prMachine={p.prMachine ?? ''} onPrUnknown={p.onPrUnknown ?? noop}
-            terminal={termChip ? (agent.remote ? t.session.terminal.remote(agent.host) : t.session.terminal.local) : null}
-            kids={kids.length} onShowKids={p.onShowKids} browser={pill === null ? null : { pill, captures: captures.length }} onBrowser={() => openCapture(null)} />}
+            notify={p.notify} dispatch={p.dispatch} focusOnArrival={place.kind === 'session' && place.focus === 'reply'} keys={replyKeys} onReadPlan={readPlan} client={p.client} modelChip={!p.ide} ide={p.ide}
+            bar={barInField ? sessionBar(true) : undefined} />}
+          {/* In an IDE tab, where there is no reply field (the Terminal view, a subagent's page, offline, read only, an OMP seat): the
+              model, the context, where it works, and its changes, under the session (#41: with a field, they are in its bottom row). */}
+          {p.ide && !barInField && sessionBar(false)}
         </div>
         {paneShown && (
           <SidePane tabs={tabs} active={activeTab!} onActive={setActiveTab} onClose={closeTab} split={p.split} onSplit={onSplit}

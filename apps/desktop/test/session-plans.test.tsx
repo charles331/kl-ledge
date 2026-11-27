@@ -113,7 +113,7 @@ it('a request tab opened before its action arrived keeps its keys', async () => 
   await screen.findByText('Proposed plan');
   expect(status()).toBe(HINT);
 });
-it('a decided plan is a chip, its node in the colour of its fate', async () => {
+it('a decided plan is a chip on the person\'s side, with its fate and its time', async () => {
   const { d, user } = await boot({ sessions: listSessions(), list: true });
   const decided = (id: string, decision: 'always' | 'unknown'): ThreadItem => ({ kind: 'permission', id, at: new Date().toISOString(), turn: 2, tool: 'ExitPlanMode', text: '# Plan : version 0.6.0', decision });
   d.thread('otto', [...ottoThread(), decided('perm-plan', 'always'), decided('perm-plan-2', 'unknown')]);
@@ -121,9 +121,8 @@ it('a decided plan is a chip, its node in the colour of its fate', async () => {
   await screen.findByText('Corrige-les');
   const always = document.querySelector('.decision-chip.plan.always')!;
   expect(always).toHaveTextContent('You approved the plan in auto mode“Plan : version 0.6.0”');
-  expect(always.closest('.r')!.querySelector('.n')).toHaveClass('success');
-  // Answered in the terminal, its fate is not known: no success colour.
-  expect(document.querySelector('.decision-chip.plan.unknown')!.closest('.r')!.querySelector('.n')).not.toHaveClass('success');
+  expect(always.closest('.cw-decision')!.querySelector('.cw-time')).toHaveTextContent(/\d\d:\d\d/);
+  expect(document.querySelector('.decision-chip.plan.unknown')).toHaveTextContent('Plan answered in the terminal');
 });
 it('a request refused by a close says so on its chip, in both languages', async () => {
   const { d, user } = await boot({ sessions: listSessions(), list: true });

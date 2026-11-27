@@ -371,6 +371,9 @@ export const en: Messages = {
       tool: 'Default agent', toolHint: 'For Ledge’s chat and its cards.', toolSaved: (name) => `Default agent: ${name}`,
       view: 'Default session view', viewHint: 'The view a new session opens on. A running OMP seat always opens on the Terminal; a machine without a terminal, on the Thread.',
       viewSaved: (v) => `Default view: ${v}`,
+      // « Past exchanges » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), approved by the owner on 2026-11-27.
+      past: 'Past exchanges', pastHint: 'In a session\'s thread, a finished exchange keeps its request and its answer in sight; the work between them folds under “Work”. The last exchange stays open.',
+      pastChoices: { folded: 'Folded', open: 'Open' }, pastSaved: { folded: 'Past exchanges: folded', open: 'Past exchanges: open' },
       context: 'Max context', contextHint: 'Past it, a session is near its limit: « Your turn » offers to hand it over, and Ledge relieves on its own a session that works without asking.',
       usageAlert: 'Usage limit alert', usageAlertHint: 'Past it, Ledge Desktop tells you once that a harness usage window (5 h, week, per model) is nearing its limit. Limits are the account’s, read on each machine.',
       usageAlertSaved: (pct) => `Usage limit alert: ${pct} %`, usageAlertUnknown: 'No machine gives its harnesses’ limits yet: update Ledge, or sign in to Claude Code.',
@@ -1008,6 +1011,10 @@ export const en: Messages = {
       stopKey: 'stop', escKey: 'Esc', stopping: 'Stop requested…', stopped: (n: string) => `You interrupted ${n}.`, whenQueued: 'after this turn', whenNow: 'now',
       queueLabel: 'Waiting instructions', queued: (n: number) => `Waiting (${n})`, queueSteer: 'redirect', queueAfter: 'after this turn', restore: 'Interrupt and take back', restoreTitle: 'Stops the work and puts the waiting instructions back in the field',
       queueTitle: (n: number) => pluralEn(n, `${n} message waiting`, `${n} messages waiting`), queueOrder: 'sent in order', queueNow: 'now', queueLater: 'after the turn', queueTakeBack: 'Stop and take back',
+      // The reply field's bottom row (#41, #39), approved by the owner on 2026-11-27.
+      asideWait: (n: string) => `${n} is answering aside: you can send once it has answered.`,
+      interruptName: (n: string) => `Interrupt ${n}`, askAside: 'Ask aside', btwNote: (n: string) => `Aside: ${n} answers without stopping, outside the thread`,
+      dictate: 'Dictate', dictateTitle: 'Dictate (Win+H) · Windows voice typing', dictateUnavailable: 'Dictation is only available in Ledge Desktop.',
       noNote: 'This agent takes no message with a refusal: deny with N.', tooLong: (max) => `A note holds ${max} characters at most.`
     },
     slash: {
@@ -1051,6 +1058,29 @@ export const en: Messages = {
       lostBody: 'The thread is frozen: what follows is the last known state; what the agent is doing now is not known.',
       frozenEnd: (s) => `No news since the connection was lost · ${s}`, ended: (at, s) => `Session ended at ${at} · ${s}`,
       endOf: 'End of the exchange',
+      // The « Cowork » thread (#41): the texts of the mockup and its complement, approved by the owner on 2026-11-27.
+      work: 'Work',
+      side: { label: 'Session summary', progress: 'Progress', files: 'Changed files', helpers: 'Subagents' },
+      thinks: (n) => `${n} is thinking…`,
+      aside: {
+        tag: 'btw', head: (n) => `Aside · outside the thread, ${n} keeps working`, close: 'Close the aside',
+        asking: (n) => `${n} is answering aside…`,
+        // Failure by cause, an answer cut short, a lost connection: proposed by design-ux, approved by the owner on 2026-11-27 (review of #41).
+        failed: {
+          unreadable: (n) => `Ledge could not read the answer: it is in ${n}’s terminal.`,
+          timeout: (n) => `The answer took too long: it may be incomplete, in ${n}’s terminal.`,
+          not_empty: (n) => `Unsent text is waiting in ${n}’s terminal: the aside was not asked. Send or clear that text, then ask again.`,
+          busy: (n) => `${n} cannot take an aside right now: ask again in a moment.`,
+          no_panel: (n) => `${n} did not open the aside: nothing was answered. This Claude Code may not know /btw.`,
+          interrupted: (n) => `The aside was cut off before the answer, by a request or by ${n} stopping.`,
+          invalid: () => 'The aside did not go through.',
+          unsupported: () => 'The aside did not go through: Ledge cannot type /btw into this session.',
+          read_only: () => 'The aside did not go through: Ledge cannot type /btw into this session.'
+        },
+        truncated: (n) => `Answer cut short: the rest is in ${n}’s terminal.`,
+        offline: (m, n) => `The connection to ${m} dropped before the answer: check ${n}’s terminal once reconnected.`,
+        seeTerminal: 'Open the Terminal view'
+      },
       endFailed: (n, recovered) => `${n} failed` + (recovered ? ', recovered' : ''),
       subagent: 'subagent', openThread: (n) => `Open ${n}'s thread`,
       launched: (n) => pluralEn(n, 'Subagent launched', 'Subagents launched'),

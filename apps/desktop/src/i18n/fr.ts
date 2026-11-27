@@ -405,6 +405,9 @@ export const fr = {
       // « Vue par défaut d'une session » (docs/mockups/ledge-session-view-default.html, #300, validated 2026-11-13).
       view: 'Vue par défaut d’une session', viewHint: 'La vue qu’ouvre une session neuve. Un siège OMP en marche s’ouvre toujours sur le Terminal ; une machine sans terminal, sur le Fil.',
       viewSaved: (v: string) => `Vue par défaut : ${v}`,
+      // « Échanges passés » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), validé par jde le 2026-11-27.
+      past: 'Échanges passés', pastHint: 'Dans le fil d’une session, un échange terminé garde sa demande et sa réponse en vue ; le travail entre les deux se replie sous « Travail ». Le dernier échange reste ouvert.',
+      pastChoices: { folded: 'Repliés', open: 'Ouverts' }, pastSaved: { folded: 'Échanges passés : repliés', open: 'Échanges passés : ouverts' },
       context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : « À toi » propose de passer le relais, et Ledge relève de lui-même une session qui travaille sans demander.',
       usageAlert: 'Alerte de limite d’usage', usageAlertHint: 'Au-delà, Ledge Desktop vous prévient une seule fois qu’une fenêtre d’usage d’un harnais (5 h, semaine, par modèle) approche de sa limite. Les limites sont celles du compte, lues sur chaque machine.',
       usageAlertSaved: (pct: number) => `Alerte de limite d’usage : ${pct} %`, usageAlertUnknown: 'Aucune machine ne donne encore les limites de ses harnais : mettez à jour Ledge, ou connectez Claude Code.',
@@ -1064,6 +1067,10 @@ export const fr = {
       stopKey: 'arrêter', escKey: 'Échap', stopping: 'Arrêt demandé…', stopped: (n: string) => `Vous avez interrompu ${n}.`, whenQueued: 'après ce tour', whenNow: 'maintenant',
       queueLabel: 'Consignes en attente', queued: (n: number) => `En attente (${n})`, queueSteer: 'réorienter', queueAfter: 'après ce tour', restore: 'Interrompre et récupérer', restoreTitle: 'Arrête le travail et remet les consignes en attente dans le champ',
       queueTitle: (n: number) => plural(n, `${n} message en attente`, `${n} messages en attente`), queueOrder: 'partent dans l’ordre', queueNow: 'maintenant', queueLater: 'après le tour', queueTakeBack: 'Arrêter et reprendre',
+      // La rangée du bas du champ (#41, #39), validée par jde le 2026-11-27.
+      asideWait: (n: string) => `${n} répond en aparté : vous pourrez envoyer après sa réponse.`,
+      interruptName: (n: string) => `Interrompre ${n}`, askAside: 'Demander en aparté', btwNote: (n: string) => `En aparté : ${n} répond sans s’interrompre, hors du fil`,
+      dictate: 'Dicter', dictateTitle: 'Dicter (Win+H) · saisie vocale de Windows', dictateUnavailable: 'La dictée n’est disponible que dans Ledge Desktop.',
       noNote: 'Cet agent ne prend pas de message avec un refus : refusez avec N.', tooLong: (max: number) => `Une note tient en ${max} caractères au plus.`
     },
     slash: {
@@ -1098,7 +1105,7 @@ export const fr = {
       marks: { running: 'En cours', success: 'Réussi', failed: 'Échec', unknown: 'Interrompu' } as Record<ToolStatus, string>,
       verbs: { create: 'Création', delete: 'Suppression', read: 'Lecture', search: 'Recherche', command: 'Commande', edit: 'Modification' } as Record<Verb, string>,
       // `unknown` : seul un historique écrit avant le lot 6b le porte (un Decided sans décision ne marque plus de permission).
-      decided: { accept: 'Accordé', always: 'Toujours autorisé', deny: 'Refusé', unknown: 'Répondu dans le terminal', denyByClose: 'Refusé par la fermeture' } as Record<'accept' | 'always' | 'deny' | 'unknown' | 'denyByClose', string>,
+      decided: { accept: 'Autorisé', always: 'Toujours autorisé', deny: 'Refusé', unknown: 'Répondu dans le terminal', denyByClose: 'Refusé par la fermeture' } as Record<'accept' | 'always' | 'deny' | 'unknown' | 'denyByClose', string>,
       questionByClose: 'Refusée par la fermeture',
       captureDropped: 'Capture trop lourde pour Ledge',
       seeChange: 'Voir la modification', seeChangeShort: 'Voir',
@@ -1110,6 +1117,29 @@ export const fr = {
       // The rail (issue #34, maquette B): a folded exchange or run, the end of an exchange, a subagent's card, the waiting row,
       // the Story / Objectif markers and the task card.
       endOf: 'Fin de l’échange',
+      // Le fil « Cowork » (#41) : textes de la maquette et de son complément, validés par jde le 2026-11-27.
+      work: 'Travail',
+      side: { label: 'Résumé de la session', progress: 'Progression', files: 'Fichiers modifiés', helpers: 'Sous-agents' },
+      thinks: (n: string) => `${n} réfléchit…`,
+      aside: {
+        tag: 'btw', head: (n: string) => `En aparté · hors du fil, ${n} continue son travail`, close: 'Fermer l’aparté',
+        asking: (n: string) => `${n} répond en aparté…`,
+        // Échec par cause, réponse coupée, déconnexion : proposés par design-ux, validés par jde le 2026-11-27 (revue de #41).
+        failed: {
+          unreadable: (n: string) => `Ledge n’a pas pu lire la réponse : elle est dans le terminal de ${n}.`,
+          timeout: (n: string) => `La réponse a pris trop de temps : elle est peut-être incomplète, dans le terminal de ${n}.`,
+          not_empty: (n: string) => `Un texte non envoyé attend dans le terminal de ${n} : l’aparté n’a pas été posé. Envoyez ou effacez ce texte, puis redemandez.`,
+          busy: (n: string) => `${n} ne peut pas prendre d’aparté pour l’instant : redemandez dans un moment.`,
+          no_panel: (n: string) => `${n} n’a pas ouvert l’aparté : rien n’a été répondu. Ce Claude Code ne connaît peut-être pas /btw.`,
+          interrupted: (n: string) => `L’aparté a été coupé avant la réponse, par une demande ou un arrêt de ${n}.`,
+          invalid: (_n: string) => 'L’aparté n’a pas abouti.',
+          unsupported: (_n: string) => 'L’aparté n’a pas abouti : Ledge ne peut pas écrire /btw dans cette session.',
+          read_only: (_n: string) => 'L’aparté n’a pas abouti : Ledge ne peut pas écrire /btw dans cette session.'
+        } as Record<'unreadable' | 'timeout' | 'not_empty' | 'busy' | 'no_panel' | 'interrupted' | 'invalid' | 'unsupported' | 'read_only', (n: string) => string>,
+        truncated: (n: string) => `Réponse coupée : la suite est dans le terminal de ${n}.`,
+        offline: (m: string, n: string) => `La connexion avec ${m} s’est coupée avant la réponse : regardez le terminal de ${n} à la reconnexion.`,
+        seeTerminal: 'Voir la vue Terminal'
+      },
       endFailed: (n: number, recovered: boolean) => plural(n, `${n} échec`, `${n} échecs`) + (recovered ? plural(n, ' rattrapé', ' rattrapés') : ''),
       subagent: 'sous-agent', openThread: (n: string) => `Ouvrir le fil ${deName(n)}`,
       launched: (n: number) => plural(n, 'Sous-agent lancé', 'Sous-agents lancés'),

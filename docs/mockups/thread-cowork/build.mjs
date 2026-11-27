@@ -44,8 +44,6 @@ const swap = {
 const reply = path.join(desktop, 'src/session/Reply.tsx');
 const REPLY_EDITS = [
   ['const submit = () => {', 'const submit = () => { if (!pending && takeBtw(session, text, () => setDraft(\'\'))) return;'],
-  ['const name = session.name;', 'const name = session.name; const cwMode = useComposerMode(session.id);'],
-  ['placeholder={placeholder}', 'placeholder={cwMode === \'voice\' ? \'Je vous écoute…\' : placeholder}'],
   ['</form>', '{ide && <Composer client={client} session={session} filled={!!text || withImages} shut={shut} btw={session.tool === \'claude\' && !pending && isBtw(draft)} ownStop={stoppable && client && !askCard ? stop : undefined} stopping={stopping} />}</form>']
 ];
 const composer = {
@@ -57,13 +55,25 @@ const composer = {
     return { code: `import { Composer, useComposerMode } from ${from('Composer.tsx')};\nimport { isBtw, takeBtw } from ${from('composer.ts')};\n` + code, map: null };
   }
 };
+// Settings › General gets the « past exchanges » row (./PastRow.tsx) under « Vue par défaut d'une session ».
+const general = path.join(desktop, 'src/settings/General.tsx');
+const settings = {
+  name: 'ledge-cowork-settings', enforce: 'pre',
+  transform(code, id) {
+    if (id.split('?')[0] !== general) return null;
+    const anchor = '        <Row label={g.context}';
+    if (!code.includes(anchor)) throw new Error('General.tsx changed: anchor not found: ' + anchor);
+    code = code.replace(anchor, '        <PastRow saved={ctx.saved} />\n' + anchor);
+    return { code: `import { PastRow } from ${JSON.stringify(path.join(root, 'PastRow.tsx'))};\n` + code, map: null };
+  }
+};
 const out = await mkdtemp(path.join(tmpdir(), 'ledge-thread-cowork-'));
 await build({
   configFile: false, root, base: './', logLevel: 'warn',
   // The e2e build's stand-ins (the shell that echoes, the short reconnect backoff): nothing here reaches a real machine.
   define: { 'import.meta.env.VITE_LEDGE_E2E': '"1"' },
   resolve: { alias: { react: path.dirname(require.resolve('react/package.json')), 'react-dom': path.dirname(require.resolve('react-dom/package.json')) } },
-  plugins: [mockup, swap, composer, react(), tailwind()],
+  plugins: [mockup, swap, composer, settings, react(), tailwind()],
   build: { outDir: out, emptyOutDir: true, target: 'es2022', minify: !process.env.MOCKUP_DEBUG, assetsInlineLimit: 1_000_000, rollupOptions: { output: { inlineDynamicImports: true } } }
 });
 let html = await readFile(path.join(out, 'index.html'), 'utf8');

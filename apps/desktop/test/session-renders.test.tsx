@@ -3,6 +3,7 @@ import { act, cleanup, screen, within } from '@testing-library/react';
 import { daemonStore } from '@ledge/fleet';
 import type { ThreadItem } from '@ledge/protocol';
 import { boot, closeDaemons, listSessions, ottoThread } from './helpers';
+import { PAST_EXCHANGES_KEY, reloadPastExchanges } from '../src/session/pastExchanges';
 
 // Each action group counts its renders by its first action; each exchange's time mark counts the thread's renders.
 const groups = vi.hoisted(() => new Map<string, number>());
@@ -29,11 +30,13 @@ vi.mock('@ledge/ui/documents/markdown', async importOriginal => {
   };
 });
 
-afterEach(async () => { cleanup(); localStorage.clear(); vi.useRealTimers(); groups.clear(); marks.n = 0; docs.n = 0; intros.n = 0; await closeDaemons(); });
+afterEach(async () => { cleanup(); localStorage.clear(); reloadPastExchanges(); vi.useRealTimers(); groups.clear(); marks.n = 0; docs.n = 0; intros.n = 0; await closeDaemons(); });
 
 const thread = () => within(screen.getByRole('tabpanel', { name: 'Session thread' }));
 /** Otto's page with its thread (an action running in the last exchange), the page's clock held still. */
 async function openOtto(extra: ThreadItem[] = []) {
+  // Past exchanges open (#41): the finished exchange's runs of actions render too, so the test sees them left alone.
+  localStorage.setItem(PAST_EXCHANGES_KEY, 'open'); reloadPastExchanges();
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
   const env = await boot({ sessions: listSessions(), list: true });
   env.d.thread('otto', [...ottoThread(), ...extra]);

@@ -280,7 +280,7 @@ const token = (page: Page, v: string) => page.evaluate(name => {
 }, v);
 const bg = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
 
-test('the mockup\'s look under Atelier: 8 px dots with a halo on a request, the tab in front on the card, no line under any tab, the reply box and thread across the group, « + »', async ({ page }) => {
+test('the mockup\'s look under Atelier: 8 px dots with a halo on a request, the tab in front on the card, no line under any tab, the reply box on the thread\'s reading column (#41), « + »', async ({ page }) => {
   await boot(page);
   await open(page, 'Otto');
   await open(page, 'Nova');
@@ -308,16 +308,16 @@ test('the mockup\'s look under Atelier: 8 px dots with a halo on a request, the 
   expect(await front.evaluate(el => getComputedStyle(el).boxShadow)).not.toContain(coral);
   expect(await front.evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
   expect(await behind.evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
-  // The reply box and the thread span the group, 12 px in from each side of the card (its 1 px border inside, Atelier #28).
-  const group = await box(page.locator('.ide-dockview .dv-groupview').first());
+  // The reply box keeps to the thread's reading column (#41, docs/mockups/ledge-thread-cowork.html): same left and right edges.
   const form = await box(pane(page, 'Nova').locator('.session-reply form'));
-  expect(Math.abs(form.width - (group.width - 2 - 24))).toBeLessThanOrEqual(1);
-  expect(Math.abs(form.x - (group.x + 1 + 12))).toBeLessThanOrEqual(1);
-  expect((await box(pane(page, 'Nova').locator('.session-reply textarea'))).height).toBeGreaterThanOrEqual(72);
-  // The rail fills the thread's content box (its clientWidth leaves the scrollbar out) less the 14 px paddings (Atelier #28).
-  const rail = await box(thread(page, 'Nova').locator('.rail'));
-  const inner = await thread(page, 'Nova').evaluate(el => el.clientWidth);
-  expect(Math.abs(rail.width - (inner - 28))).toBeLessThanOrEqual(1);
+  const col = await box(thread(page, 'Nova').locator('.cw-col'));
+  expect(Math.abs(form.x - col.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(form.x + form.width - (col.x + col.width))).toBeLessThanOrEqual(1);
+  // The conversation is centred in the thread, 760 px at most beside no summary.
+  const cw = await box(thread(page, 'Nova').locator('.cw'));
+  const th = await box(thread(page, 'Nova'));
+  expect(cw.width).toBeLessThanOrEqual(1048);
+  expect(Math.abs(cw.x - th.x - (th.x + th.width - (cw.x + cw.width)))).toBeLessThanOrEqual(20);
   await page.locator('.ide-dockview .dv-groupview').first().screenshot({ path: 'e2e/.results/ide-mockup-gaps-group.png' });
   await page.screenshot({ path: 'e2e/.results/ide-mockup-gaps-full.png' });
   // « + » then the split (lot 3) at the right end of the strip; « + » opens the launch dialog.

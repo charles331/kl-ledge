@@ -7,3 +7,4 @@ pub mod pty;
 pub mod wsl_keepalive;
 pub mod shells;
 pub mod editor;
+pub mod voice;

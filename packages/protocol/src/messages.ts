@@ -28,6 +28,7 @@ import { RoutineChangedSchema, RoutineCmdSchema, RoutineListedSchema, RoutineLis
 import { ReportAgentResultSchema, ReportAgentSchema, ReportCreatedSchema, ReportCreateSchema, ReportIgnoredSchema, ReportIgnoreSchema, ReportPreviewReplySchema, ReportPreviewSchema } from './report.js';
 import { BrainAddSchema, BrainAnswerSchema, BrainListSchema, BrainNoteSchema, BrainResultSchema } from './brain.js';
 import { UsageAckSchema, UsageSetSchema, UsageStateMessageSchema } from './usage.js';
+import { SessionAsideAskSchema, SessionAsideSchema } from './aside.js';
 import { ForgeActReplySchema, ForgeActSchema, ForgeDetailReplySchema, ForgeDetailSchema, ForgeStateMessageSchema } from './forge.js';
 import { ContextPrefsMessageSchema, ContextSetSchema, HandoverBriefSchema, HandoverResultSchema, HandoverShowSchema, SessionHandoverResultSchema, SessionHandoverSchema } from './handover.js';
 
@@ -130,6 +131,7 @@ export const DaemonInfoSchema = z.object({ version: z.string(), install: z.enum(
   /** Sends `forge.state` and answers `forge.detail` and `forge.act`: the pull and merge requests of its sessions' branches (lot 8a). */ forge: z.boolean().optional(),
   /** Answers `routine.list`, `routine.cmd` and `routine.preview`, and sends `routine.changed` (spec 2026-11-23 routines). */ routines: z.boolean().optional(),
   /** Answers a grouped `routine.cmd` (`others`) all or nothing: a client sends one only to a daemon that says it. */ routineGroups: z.boolean().optional(),
+  /** Takes `session.aside` (#41): a Claude Code session's `/btw`, answered as an aside, not a thread item. */ aside: z.boolean().optional(),
   /** Takes `session.label`: a session's nickname, kept with it. A client sends one only to a daemon that says it. */ sessionLabel: z.boolean().optional(),
   /** Its launcher answers `shell --nonce <N> <dir>` (#299): a free shell started through it gets the shell integration (OSC 633). */ freeShell: z.boolean().optional() });
 export type DaemonInfo = z.infer<typeof DaemonInfoSchema>;
@@ -189,6 +191,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   /** A session's thread, on request (spec 2026-10-13 §5); then each created or updated item, broadcast. */
   z.object({ type: z.literal('session.thread'), id: z.string(), items: z.array(ThreadItemSchema) }),
   z.object({ type: z.literal('session.thread.item'), id: z.string(), item: ThreadItemSchema }),
+  SessionAsideSchema,
   /** Answer to the requester of a `session.launch`: the session exists (its `session.updated` is broadcast as usual). */
   z.object({ type: z.literal('session.launched'), id: z.string() }),
   /** Answer to the requester of a `session.close`, once per row closed: the session `id` and how it ended. */
@@ -360,6 +363,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('session.kill'), id: z.string() }),
   /** `restoreQueue` (OMP): also take back what waits in its queue, returned as `session.queue.restored` to put in the draft. */
   z.object({ type: z.literal('session.interrupt'), id: z.string(), restoreQueue: z.boolean().optional() }),
+  SessionAsideAskSchema,
   /** Removes a finished (exited) or read-only (hook_only) session from the list; refused for a live launcher session. */
   z.object({ type: z.literal('session.dismiss'), id: z.string() }),
   /** Puts a session in the archive: it leaves the live list but is kept. */

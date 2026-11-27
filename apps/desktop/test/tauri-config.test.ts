@@ -77,6 +77,10 @@ describe('Desktop Tauri config', () => {
     for (const c of ['set_hot_zone', 'set_outside_watch', 'now_playing', 'media_command']) expect(commands).not.toContain(c);
     expect(main).not.toContain('mod media;');
   });
+  it('registers voice_typing, Windows\' voice typing in the focused field (#41, #39)', () => {
+    expect(commands).toContain('voice_typing');
+    expect(main).toContain('ledge_native::voice::toggle()');
+  });
   it('no longer declares a detached Atelier window (lot 9: the atelier detaches as an IDE window, open_atelier is gone)', () => {
     expect(conf.app.windows.find((x: { label: string }) => x.label === 'atelier')).toBeUndefined();
     expect(commands).not.toContain('open_atelier');

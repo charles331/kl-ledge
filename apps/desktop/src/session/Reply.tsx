@@ -1,8 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type JSX, type KeyboardEvent, type MutableRefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type JSX, type KeyboardEvent, type MutableRefObject, type ReactNode } from 'react';
 import { isBusy, type DaemonClient } from '@ledge/fleet';
 import { useSlashCommands } from '@ledge/fleet/slashCommands';
 import { completed, draftCommand, matchCommands, slashQuery } from '@ledge/ui/slash/match';
-import { alwaysScope, NOTE_MAX, offers, type Helper, type Session } from '@ledge/protocol';
+import { alwaysScope, asideQuestion, isArchived, NOTE_MAX, offers, type Helper, type Session } from '@ledge/protocol';
 import { Button } from '@ledge/ui/ui/Button';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { Kbd } from '@ledge/ui/ui/Kbd';
@@ -21,6 +21,8 @@ import type { SessionMemory } from './memory';
 import { SessionModel } from './SessionModel';
 import { SlashMenu, slashOptionId } from './SlashMenu';
 import { isFreeRow, PendingCard, sortOf, type PendingActions } from './PendingCard';
+import { MicButton } from '../voice/MicButton';
+import { askAside, useAsking, useTakesAsides } from './asides';
 
 export interface ReplyProps {
   /** The parent on a subagent's page. */
@@ -44,11 +46,13 @@ export interface ReplyProps {
   /** In an IDE tab (mockup agentView() `.cbox`): the field alone in its box, the mockup's placeholder, no send button (Enter
    *  sends) and no hint row but for one that says why the field is shut or what Enter will not do. */
   ide?: boolean;
+  /** In an IDE tab: the session bar's content, drawn in the field's bottom row (#41) beside the voice and the round button. */
+  bar?: ReactNode;
 }
 
 /** The reply area under the thread (session.tsx `replyArea`): the pinned request, then the field, or a note saying why
  *  there is none (offline, read only, a subagent's page). The draft lives in the shell's memory, written at each keystroke. */
-export function Reply({ session, helper, asker, since, decisions, memory, memoKey: key, notify, dispatch, focusOnArrival, keys, onReadPlan, client, modelChip = true, ide = false }: ReplyProps): JSX.Element {
+export function Reply({ session, helper, asker, since, decisions, memory, memoKey: key, notify, dispatch, focusOnArrival, keys, onReadPlan, client, modelChip = true, ide = false, bar }: ReplyProps): JSX.Element {
   const { t } = useI18n();
   const tp = t.session.pending;
   const tr = t.session.reply;
@@ -85,6 +89,11 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
   }), [client, session.id, key]);
 
   const text = draft.trim();
+  // « /btw … » (#41): an aside, on a Claude Code session whose daemon takes them, with no request open (the field is then a note).
+  const takesAsides = useTakesAsides(client, session);
+  const btw = ide && takesAsides && canAct && !pending && /^\/btw(\s|$)/.test(text);
+  // While an aside of the session is answered, its daemon takes no other text: send waits (stopping does not).
+  const asking = useAsking(session.id);
   // The « / » list (lot 1: Claude Code), only where the field sends an instruction: no request waiting, the session drivable.
   const slashTool = session.tool === 'claude' && canAct && !pending;
   const query = slashTool ? slashQuery(draft) : null;
@@ -121,6 +130,8 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
   const native = isNative(session) && !offline;
   const working = native && session.state === 'working' && !pending;
   const stoppable = native && (session.state === 'working' || session.state === 'waiting_input' || session.state === 'waiting_permission');
+  // Any other harness at work is interrupted from the round button (in an IDE tab), as the session bar did it.
+  const interruptible = !native && !offline && !readOnly && !isArchived(session) && session.state === 'working';
   // « Arrêter » asked: said in the field until OMP's work stops, then once as a toast (mockup omp-sessions, Interrompre A).
   const [stopping, setStopping] = useState(false);
   useEffect(() => {
@@ -157,6 +168,13 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
     sendReply(true);
   };
   const submit = () => {
+    if (asking) return;
+    if (btw) {
+      const question = asideQuestion(text);
+      // A bare « /btw » waits for its question.
+      if (question && client) { askAside(client, session.id, question); setDraft(''); }
+      return;
+    }
     if ((!text && !withImages) || !canAct || shut || tooLong || !imagesOk) return;
     if (isNote) { if (decisions.decide(session, 'deny', text, restore)) setDraft(''); }
     else sendReply(false);
@@ -238,9 +256,9 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
     : ide ? (session.rig ? t.ide.replyPlaceholderSeat(name) : t.ide.replyPlaceholder(name)) : tr.placeholder.idle(name);
   // In the IDE only the hints that give a reason (why the field is shut, why Enter will not send, what is under way) or say
   // what Enter does when it does not plainly send: a refusal's note, a plan's revision, a queued turn, a slash command.
-  const reason = !!(stopping || (chosen && !pending) || bare || (withImages && pending) || askCard || optionsOnly || noteless || tooLong
-    || (isNote && text) || (working && text));
-  const hint = stopping ? tr.stopping
+  const reason = asking || (!btw && !!(stopping || (chosen && !pending) || bare || (withImages && pending) || askCard || optionsOnly || noteless || tooLong
+    || (isNote && text) || (working && text)));
+  const hint = asking && !stopping ? tr.asideWait(name) : stopping ? tr.stopping
     : chosen?.blocked && !pending ? <span className="slash-warn">{t.session.slash.blocked[chosen.blocked]}</span>
     : bare ? <span className="slash-warn">{t.session.slash.bare(chosen!.name)}</span>
     : chosen && !pending ? <><Kbd>↵</Kbd> {t.session.slash.sends(name)}</>
@@ -263,7 +281,7 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
         <div className="reply-note"><span>{tr.readOnly}</span></div>
       ) : helper ? (
         <div className="reply-note">
-          <SessionBot session={session} size={22} />
+          <SessionBot session={session} size={22} mark="logo" />
           <span>{tr.viaParent(helper.kind, session.name)}</span>
           <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'open', id: session.id })}>{tr.openParent(session.name)}</Button>
         </div>
@@ -293,10 +311,23 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
           {images.error && <span className="reply-hint reply-images-error" role="alert">{images.error}</span>}
           {client && modelChip && <SessionModel client={client} session={session} notify={notify} />}
           {(!ide || reason) && <span className="reply-hint">{hint}</span>}
-          {stoppable && client && !text && !askCard
+          {ide ? (
+            <div className={cls('cw-tools', btw && 'btw')}>
+              {btw ? <span className="cw-btw-note"><b>{t.session.thread.aside.tag}</b>{tr.btwNote(name)}</span> : <span className="cw-bar-slot">{bar}</span>}
+              <MicButton disabled={shut} />
+              {/* One round button: it sends what is typed; with nothing typed it stops the agent at work (OMP: its own stop, which
+                  gives its queue back, also while it waits). */}
+              {!text && !withImages && client && ((stoppable && !askCard) || interruptible)
+                ? <button type="button" className="cw-send stop" disabled={stopping} onClick={stoppable ? stop : () => client.send({ type: 'session.interrupt', id: session.id })}
+                    aria-label={stoppable ? (stopping ? tr.stopping : tr.stop(name)) : tr.interruptName(name)} title={stoppable ? tr.stopTitle : tr.interruptName(name)}>
+                    {stopping ? <span className="reply-stop-spin" aria-hidden="true" /> : <i aria-hidden="true" />}</button>
+                : <button type="submit" className="cw-send" disabled={asking || (btw ? !asideQuestion(text) : (!text && !withImages) || shut || tooLong || busy || !imagesOk)}
+                    aria-label={btw ? tr.askAside : sort === 'approval' ? tr.denyWith : working ? tr.queue : tr.send} title={asking ? tr.asideWait(name) : btw ? tr.askAside : undefined}><Icon d={ICONS.send.d} size={15} /></button>}
+            </div>
+          ) : stoppable && client && !text && !askCard
             ? <Button variant="primary" size="icon" type="button" className="reply-stop" onClick={stop} disabled={stopping} aria-label={stopping ? tr.stopping : tr.stop(session.name)} title={tr.stopTitle}
                 style={{ width: 32, height: 32 }}>{stopping ? <span className="reply-stop-spin" aria-hidden="true" /> : <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" /></svg>}</Button>
-            : !ide && <Button variant="primary" size="icon" type="submit" aria-label={sort === 'approval' ? tr.denyWith : working ? tr.queue : tr.send}
+            : <Button variant="primary" size="icon" type="submit" aria-label={sort === 'approval' ? tr.denyWith : working ? tr.queue : tr.send}
                 disabled={(!text && !withImages) || shut || tooLong || busy || !imagesOk} style={{ width: 32, height: 32 }}><Icon d={ICONS.send.d} /></Button>}
         </form>
         </>

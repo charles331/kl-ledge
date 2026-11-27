@@ -120,12 +120,20 @@ export function ottoFolded(): ThreadItem[] {
   return [...items.filter(x => x.turn === 1), ...between, ...items.filter(x => x.turn === 2).map(x => ({ ...x, turn: 4 }))];
 }
 
-/** Shows a past exchange of the thread in full (by default ottoThread's turn 1, « Câble la liste »): one of the last
- *  OPEN_TURNS is open already, an older one is folded to its row, and that row unfolds it. */
+/** Shows a past exchange of the thread in full (by default ottoThread's turn 1, « Câble la liste »): its work, folded under
+ *  « Travail » (issue #41), unfolds, and each of its runs of actions opens on its list. */
 export async function unfoldPast(user: UserEvent, prompt: RegExp = /Câble la liste/): Promise<void> {
-  await waitFor(() => expect(screen.queryByRole('button', { name: prompt, expanded: false }) ?? screen.queryAllByText(prompt).find(e => e.closest('.turn.open'))).toBeTruthy());
-  const fold = screen.queryByRole('button', { name: prompt, expanded: false });
-  if (fold) await user.click(fold);
+  const turn = () => screen.queryAllByText(prompt).map(e => e.closest<HTMLElement>('.turn')).find(Boolean) ?? null;
+  await waitFor(() => expect(turn()).toBeTruthy());
+  const work = turn()!.querySelector<HTMLElement>('.cw-work[aria-expanded="false"]');
+  if (work) await user.click(work);
+  for (const run of [...turn()!.querySelectorAll<HTMLElement>('.cw-steps-head[aria-expanded="false"]')]) await user.click(run);
+}
+
+/** An action's line in the thread (`data-tool`), its run opened first: the thread folds every run of actions to one line (#41). */
+export function toolRow(id: string, scope: ParentNode = document): HTMLElement {
+  for (const head of [...scope.querySelectorAll<HTMLElement>('.cw-steps-head[aria-expanded="false"]')]) fireEvent.click(head);
+  return scope.querySelector<HTMLElement>(`[data-tool="${id}"]`)!;
 }
 
 export type MockDaemon = Awaited<ReturnType<typeof createMockDaemon>>;

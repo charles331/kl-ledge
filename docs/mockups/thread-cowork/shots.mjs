@@ -43,8 +43,13 @@ for (const theme of ['dark', 'light']) {
   await shot(`nova-btw-${theme}`, `s=nova&theme=${theme}`, { act: async page => { await page.locator('.session-reply textarea').fill('/btw Et sous Firefox ?'); } });
   await shot(`nova-slash-${theme}`, `s=nova&theme=${theme}`, { act: page => page.locator('.session-reply textarea').pressSequentially('/b') });
   await shot(`nova-btw-envoye-${theme}`, `s=nova&theme=${theme}`, { act: async page => { const f = page.locator('.session-reply textarea'); await f.fill('/btw Et sous Firefox ?'); await f.press('Enter'); } });
-  await shot(`ida-voix-${theme}`, `s=ida&theme=${theme}`, { act: page => page.locator('.cw-mic').click() });
+  await shot(`ida-voix-${theme}`, `s=ida&theme=${theme}`, { act: async page => { await page.locator('.cw-mic').click(); await page.locator('.session-reply textarea').fill('Ajoute une capture en vue étroite et vérifie les alignements du groupe actif.'); } });
   await shot(`ida-${theme}`, `s=ida&theme=${theme}`);
+  // The complement of 2026-11-27: the dictated text in the field under Windows' own window, an aside waiting then unread, the « past exchanges » setting.
+  await shot(`cplt-aparte-attente-${theme}`, `s=nova&aparte=attente&theme=${theme}`);
+  await shot(`cplt-aparte-echec-${theme}`, `s=nova&aparte=echec&theme=${theme}`);
+  await shot(`cplt-zoom-voix-${theme}`, `s=ida&theme=${theme}`, { act: async page => { await page.locator('.cw-mic').click(); await page.locator('.session-reply textarea').fill('Ajoute une capture en vue étroite et vérifie les alignements du groupe actif.'); }, clip: [400, 660, 780, 320], scale: 2 });
+  await shot(`cplt-reglages-${theme}`, `theme=${theme}`, { act: async page => { await page.getByRole('button', { name: 'Réglages (onglet)' }).first().click(); await page.waitForTimeout(500); await page.getByText('Échanges passés', { exact: true }).first().scrollIntoViewIfNeeded(); } });
   // The thread at its narrowest: two groups, the chat and the bottom panel open.
   await shot(`etroit-${theme}`, `vue=split&theme=${theme}`);
   // Zooms, to check corners and alignments.

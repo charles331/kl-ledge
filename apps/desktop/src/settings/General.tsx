@@ -20,6 +20,7 @@ import { providerOf } from '../workspace/sessionTab';
 import { useNow } from '../usage/useUsageView';
 import { useResumeOnStart } from '../workspace/prefs';
 import { setDefaultView, useDefaultView } from '../session/defaultView';
+import { setPastExchanges, usePastExchanges, type PastExchanges } from '../session/pastExchanges';
 import type { SessionView } from '../session/prefs';
 import { SHELL_ICONS } from '../shell/icons';
 
@@ -35,6 +36,7 @@ export function General({ ctx }: { ctx: SettingsContext }): JSX.Element {
   const { t } = useI18n();
   const g = t.settings.general;
   const view = useDefaultView();
+  const past = usePastExchanges();
   const [tool, setTool] = useDefaultTool();
   // The context threshold the local daemon keeps (context handover spec §3.2): set there, applied by every front.
   const near = useContextNear(ctx.client);
@@ -104,6 +106,12 @@ export function General({ ctx }: { ctx: SettingsContext }): JSX.Element {
           {describedBy => (
             <Segmented label={g.view} value={view} describedBy={describedBy} onChange={v => { setDefaultView(v); ctx.saved(g.viewSaved(t.session.views[v])); }}
               options={SESSION_VIEWS.map(v => ({ value: v.view, label: <><Icon d={v.icon} size={13} />{t.session.views[v.view]}</> }))} />
+          )}
+        </Row>
+        <Row label={g.past} hint={g.pastHint}>
+          {describedBy => (
+            <Segmented<PastExchanges> label={g.past} value={past} describedBy={describedBy} onChange={v => { setPastExchanges(v); ctx.saved(g.pastSaved[v]); }}
+              options={[{ value: 'folded', label: g.pastChoices.folded }, { value: 'open', label: g.pastChoices.open }]} />
           )}
         </Row>
         <Row label={g.context} hint={known ? g.contextHint : g.contextUnknown}>

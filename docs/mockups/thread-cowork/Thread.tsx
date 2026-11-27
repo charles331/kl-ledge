@@ -222,7 +222,11 @@ function Cowork({ client, onCapture, session, helper, items, xs, now, dispatch, 
             <div className="cw-aside-head"><span className="cw-aside-tag">btw</span><span>En aparté · hors du fil, {name} continue son travail</span><span className="cw-time mono">{clock(a.at)}</span>
               <button type="button" aria-label="Fermer l'aparté" title="Fermer l'aparté" onClick={() => closeAside(session.id, a.id)}><Icon d={ICONS.close.d} size={13} /></button></div>
             <p className="cw-aside-q">{a.question}</p>
-            <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={a.answer} onDocument={ref => onDocument(ref.path)} /></div></div>
+            {a.answer !== null
+              ? <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={a.answer} onDocument={ref => onDocument(ref.path)} /></div></div>
+              : a.failed
+              ? <div className="cw-aside-failed" role="status"><span>Ledge n'a pas pu lire la réponse : elle est dans le terminal de {name}.</span><button type="button" className="cw-link">Voir la vue Terminal</button></div>
+              : <p className="cw-aside-wait cw-shimmer">{name} répond en aparté…</p>}
           </li>
         ))}
       </ol>

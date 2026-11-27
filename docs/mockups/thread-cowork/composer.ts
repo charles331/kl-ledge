@@ -3,12 +3,17 @@
 import type { Session } from '@ledge/protocol';
 import { getVariant } from './variant';
 
+/** `voice`: the mic was pressed and Windows' voice typing is open. Ledge cannot tell that it listens (Win+H opens Windows' own
+ *  window): the mockup only draws where that window shows. */
 export type Mode = 'voice' | null;
+/** The page's query sets the states the complement draws: an aside waiting or unread. */
+const Q = new URLSearchParams(location.search);
 /** « /btw » and its question, as typed in the reply field. */
 const BTW = /^\/btw(?:\s+([\s\S]*))?$/;
 /** The field holds an aside: it starts with « /btw ». */
 export const isBtw = (text: string): boolean => BTW.test(text.trim());
-export interface Aside { id: number; question: string; answer: string; at: string }
+/** `answer` null: the harness has not answered yet. `failed`: Ledge could not read its answer (complement of 2026-11-27). */
+export interface Aside { id: number; question: string; answer: string | null; at: string; failed?: boolean }
 
 const modes = new Map<string, Mode>();
 const asides = new Map<string, readonly Aside[]>();
@@ -39,5 +44,6 @@ export function takeBtw(session: Session, text: string, clear: () => void): bool
 }
 
 // One aside already asked, so the mockup shows it without typing.
-asides.set('nova', [{ id: next++, question: 'Au fait, c\'est WebGL 1 ou 2 qu\'on demande ?', at: new Date(Date.now() - 30_000).toISOString(),
-  answer: 'WebGL 2 : `WebglAddon` le demande d\'abord, et le terminal retombe sur le rendu DOM s\'il manque.' }]);
+const aside = Q.get('aparte');
+asides.set('nova', [{ id: next++, question: 'Au fait, c\'est WebGL 1 ou 2 qu\'on demande ?', at: new Date(Date.now() - (aside ? 3_000 : 30_000)).toISOString(),
+  answer: aside === 'attente' || aside === 'echec' ? null : 'WebGL 2 : `WebglAddon` le demande d\'abord, et le terminal retombe sur le rendu DOM s\'il manque.', failed: aside === 'echec' }]);

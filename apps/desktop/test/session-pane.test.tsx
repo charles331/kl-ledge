@@ -5,7 +5,7 @@ import type { ClientMessage, ServerMessage, ThreadItem } from '@ledge/protocol';
 import { DOCUMENT_TIMEOUT_MS, useDocument } from '../src/session/useDocument';
 import { docRefs } from '../src/session/exchanges';
 import { besideDoc } from '../src/session/SidePane';
-import { boot, closeDaemons, listSessions, ottoThread, unfoldPast } from './helpers';
+import { boot, closeDaemons, listSessions, ottoThread, unfoldPast, toolRow } from './helpers';
 
 afterEach(async () => { cleanup(); localStorage.clear(); vi.useRealTimers(); await closeDaemons(); });
 
@@ -39,7 +39,7 @@ it('a document link opens beside the thread; the thread stays usable; Escape clo
 it('a held Escape closes one layer, as one press does, and never leaves the page', async () => {
   const { user } = await openOtto([...withDoc, { kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 2, tool: 'Write', label: '/w/ledge/docs/guide.md', status: 'success', files: [{ path: '/w/ledge/docs/guide.md', change: 'write', diff: '+ # Guide' }] }]);
   await user.click(screen.getByRole('button', { name: /guide\.md.*Read/ }));
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="t3"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('t3')).getByRole('button', { name: 'View the change' }));
   (document.activeElement as HTMLElement).blur();
   expect(side().getAllByRole('tab')).toHaveLength(2);
   fireEvent.keyDown(document.body, { key: 'Escape' });
@@ -54,7 +54,7 @@ it('a held Escape closes one layer, as one press does, and never leaves the page
 it('a document card under the message; several items become closable tabs; « View the change » opens a diff tab J / K walk', async () => {
   const { user } = await openOtto([...withDoc, { kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 2, tool: 'Write', label: '/w/ledge/docs/guide.md', status: 'success', files: [{ path: '/w/ledge/docs/guide.md', change: 'write', diff: '+ # Guide' }] }]);
   await user.click(screen.getByRole('button', { name: /guide\.md.*Read/ }));
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="t3"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('t3')).getByRole('button', { name: 'View the change' }));
   expect(side().getAllByRole('tab').map(t => t.textContent)).toEqual(['guide.md', '± App.tsx']);
   expect(side().getByRole('tab', { name: '± App.tsx' })).toHaveAttribute('aria-selected', 'true');
   await user.keyboard('j');
@@ -69,7 +69,7 @@ const changesTitle = () => document.querySelector('.ide-changes .file-title code
 it('« All changes » opens the session\'s Changes tab beside, on that file; the reading pane stays beside the thread', async () => {
   const more: ThreadItem[] = [{ kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 2, tool: 'Write', label: '/w/ledge/docs/guide.md', status: 'success', files: [{ path: '/w/ledge/docs/guide.md', change: 'write', diff: '+ # Guide' }] }];
   const { user } = await openOtto(more);
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="t3"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('t3')).getByRole('button', { name: 'View the change' }));
   expect(side().getByText('Change · App.tsx')).toBeVisible();
   expect([...document.querySelectorAll('.side-diff .diff-line .code')].map(c => c.textContent)).toEqual(['a', 'b']);
   await user.click(side().getByRole('button', { name: 'All changes' }));
@@ -78,7 +78,7 @@ it('« All changes » opens the session\'s Changes tab beside, on that file; the
   await vi.waitFor(() => expect(changesTitle()).toHaveTextContent('src/App.tsx'));
   expect(side().getByText('Change · App.tsx')).toBeVisible();
   // Asked again on another file, the same tab moves to it.
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="w1"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('w1')).getByRole('button', { name: 'View the change' }));
   await user.click(side().getByRole('button', { name: 'All changes' }));
   await vi.waitFor(() => expect(changesTitle()).toHaveTextContent('docs/guide.md'));
   expect(screen.getAllByRole('tab').filter(t => t.getAttribute('aria-label') === 'Changes · Otto')).toHaveLength(1);
@@ -154,8 +154,8 @@ const threeTabs: ThreadItem[] = [...withDoc, { kind: 'tool', id: 'w1', at: new D
 it('closing a middle tab hands over to the next one; the focus follows the active tab, then the pane, then the thread', async () => {
   const { user } = await openOtto(threeTabs);
   await user.click(screen.getByRole('button', { name: /guide\.md.*Read/ }));
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="t3"]')!).getByRole('button', { name: 'View the change' }));
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="w1"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('t3')).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('w1')).getByRole('button', { name: 'View the change' }));
   expect(side().getAllByRole('tab').map(t => t.textContent)).toEqual(['guide.md', '± App.tsx', '± guide.md']);
   await user.click(side().getByRole('tab', { name: '± App.tsx' }));
   await user.click(side().getByRole('button', { name: 'Close ± App.tsx' }));

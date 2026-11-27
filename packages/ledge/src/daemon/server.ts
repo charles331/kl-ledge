@@ -69,6 +69,7 @@ import { phoneLaunch } from '../mobile/launch.js';
 import { createNotifier } from '../mobile/push/notifier.js';
 import { chatEndPayload, decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
 import { createNoticeFeed, pointPush } from '../operator/notices.js';
+import { createAsides, type Asides } from './aside.js';
 import { pushFor, resolvedFor } from '../mobile/push/triggers.js';
 import { createChallengeStore } from '../mobile/challenges.js';
 import { rpOf } from '../mobile/webauthn.js';
@@ -219,7 +220,7 @@ function logDroppedRequest(id: string, ev: SessionEvent, before: Session | undef
 /** The reports an agent may have waiting on the user at once (issue #9). */
 const REPORTS_OPEN_MAX = 5;
 
-export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
+export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; asides?: Asides; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
   /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
   report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
@@ -573,6 +574,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     killSession: name => { void opts.tmux.killSession(name).catch(() => log('shell kill failed')); },
     log
   }) : null;
+  /** A Claude Code session's `/btw` (#41), held under the same typing lock; absent when this tmux has no control client. */
+  const asides: Asides | null = opts.asides ?? (opts.tmux.controlArgs ? createAsides({
+    tmux: opts.tmux, typing, session: id => store.get(id), closing: id => closing.has(id), log,
+    emit: (id, aside) => broadcast({ type: 'session.aside', id, aside })
+  }) : null);
   /** Sessions being closed: neither the relay nor the mailbox delivers to them, even free; their queues fail once they exit. */
   const closing = new Set<string>();
   // An injected chat (tests) is the only thread there is; otherwise the relay and the close cards work across the PC's and every device's.
@@ -662,7 +668,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       titles.set(c.session.id, c.session.title);
       tmux.setOption(c.session.tmuxSession, '@ledge_title', c.session.title).catch(e => log(`tab title not set for ${c.session.id}: ${(e as Error).message}`));
     }
-    if (c.type === 'removed') { panes?.drop(c.id); previews.delete(c.id); titles.delete(c.id); labelled.delete(c.id); unlabelled.delete(c.id); lastState.delete(c.id); }
+    if (c.type === 'removed') { panes?.drop(c.id); asides?.drop(c.id); previews.delete(c.id); titles.delete(c.id); labelled.delete(c.id); unlabelled.delete(c.id); lastState.delete(c.id); }
     if (c.type === 'updated') {
       const was = lastState.get(c.session.id); lastState.set(c.session.id, c.session.state);
       if (c.session.state === 'idle' && was !== undefined && was !== 'idle' && c.session.transcriptPath) void measure(c.session.id).catch(e => log(`context of ${c.session.id} not read: ${(e as Error).message}`));
@@ -672,13 +678,14 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
     if (mobile) { reply({ type: 'mobile', state: mobile.state() }); reply(holdersMsg()); } // then mobile access, and who types from a phone
     else if (unavailable) reply({ type: 'mobile', state: unavailable });
     for (const [id, lines] of previews) if (store.get(id)) reply({ type: 'session.preview', id, lines });
+    for (const [id, list] of asides?.all() ?? []) if (store.get(id)) for (const aside of list) reply({ type: 'session.aside', id, aside }); // the asides kept (#41)
     reply({ type: 'chat.history', turns: chat.history() });
     reply(contextMsg()); // the context threshold (context handover spec §3.2)
     const u = usageMsg(); if (u) reply(u); // the harnesses' limits
@@ -867,6 +874,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (closing.has(id)) throw new Refusal('a close is already in progress', 'busy');
     closing.add(id);
     try {
+      // An aside under way closes its panel and lets the pane go first (#41): the close's Esc would only close the panel.
+      await asides?.cancel(id);
       if (backendOf(cur) === 'omp-rpc') {
         await omp.close(id).catch(e => log(`close of omp ${id} failed: ${(e as Error).message}`));
         store.apply(id, { name: 'PaneGone', at: now(), source: 'daemon' });
@@ -925,6 +934,12 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (s.source === 'hook_only') return readOnly();
     if (isOmpSeat(s)) return ompSeatReadOnly(s);
     if (closing.has(id)) return new Refusal('the session is being closed', 'busy');
+    // An aside's panel is on the pane (#41): typed now, the text would go to the panel, not the prompt. An answer to a request
+    // that came up meanwhile waits for the aside to close its panel; anything else is refused.
+    if (asides?.running(id)) {
+      if (!s.pending) return new Refusal('an aside is being read in this session: send again once it is answered', 'busy');
+      await asides.cancel(id);
+    }
     const ids = how.attachments ?? [];
     const refs: AttachmentRef[] = [];
     for (const a of ids) {
@@ -1757,6 +1772,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         if (msg.expect && (s.pending?.kind !== msg.expect.kind || s.pending.text !== msg.expect.text
           || (msg.expect.key !== undefined && pendingKey(s.pending) !== msg.expect.key))) return refuse(new Refusal(STALE, 'stale'), msg.id);
         if (!s.pending) return refuse(new Refusal('nothing to decide', 'nothing_to_decide'), msg.id);
+        // A request that came up during an aside sits behind its panel (#41): the aside closes it and lets the pane go first.
+        await asides?.cancel(s.id);
         // OMP's requests are its own dialogs, answered with the option or the text they ask for (a reply), never accept/deny keys.
         if (backendOf(s) === 'omp-rpc') return refuse(new Refusal('answer this request with one of its options', 'not_offered'), msg.id);
         const pending = s.pending; const adapter = adapterFor(s.tool);
@@ -1782,6 +1799,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         if (refused) refuse(refused, msg.id);
         return;
       }
+      case 'session.aside': {
+        if (!asides) return refuse('this daemon cannot read an aside here', msg.id);
+        asides.ask(msg.id, msg.rid, msg.question);
+        return;
+      }
       case 'session.interrupt': {
         const s = store.get(msg.id);
         if (s?.source === 'hook_only') return refuse(readOnly(), msg.id);
@@ -1792,6 +1814,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         }
         if (!s?.tmuxSession) return;
         if (isOmpSeat(s)) return refuse(ompSeatReadOnly(s), msg.id);
+        // An aside under way first closes its panel and lets the pane go (#41): Esc on the panel would only close it.
+        await asides?.cancel(s.id);
         await tmux.sendKeys(s.tmuxSession, adapterFor(s.tool).interruptKeys());
         return;
       }

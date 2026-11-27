@@ -31,18 +31,20 @@ export function Composer({ client, session, filled, shut, btw, ownStop, stopping
   const working = session.state === 'working' && session.offline !== true;
   // The other harnesses are interrupted where the session bar did it: at work, reachable, and nothing typed.
   const stops = !filled && (ownStop !== undefined || working);
-  return (
+  return (<>
+    {/* Not Ledge's: where Windows' voice typing window shows (Win+H). It listens, says when it is turned off, and closes on its
+        own; Ledge draws no state of its own. */}
+    {mode === 'voice' && <div className="cw-win-voice" aria-hidden="true"><b>Saisie vocale de Windows</b><span>sa fenêtre et ses messages, dessinés par Windows, pas par Ledge</span></div>}
     <div className={cls('cw-tools', btw && 'btw')}>
       <span className="cw-bar-slot" />
       {btw && <span className="cw-btw-note"><b>btw</b>En aparté : {session.name} répond sans s'interrompre, hors du fil</span>}
-      <button type="button" className={cls('cw-mic', mode === 'voice' && 'on')} aria-pressed={mode === 'voice'} disabled={shut}
-        aria-label={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter'} title={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter · saisie vocale de Windows'} onClick={() => toggleMode(session.id, 'voice')}>
-        {mode === 'voice' ? <span className="cw-wave" aria-hidden="true"><i /><i /><i /><i /></span> : <Icon d={MIC} size={15} />}
+      <button type="button" className="cw-mic" disabled={shut} aria-label="Dicter" title="Dicter (Win+H) · saisie vocale de Windows" onClick={() => toggleMode(session.id, 'voice')}>
+        <Icon d={MIC} size={15} />
       </button>
       {stops
         ? <button type="button" className="cw-send stop" aria-label={`Interrompre ${session.name}`} title={`Interrompre ${session.name}`} disabled={stopping}
             onClick={ownStop ?? (() => client?.send({ type: 'session.interrupt', id: session.id }))}><i aria-hidden="true" /></button>
         : <button type="submit" className="cw-send" disabled={!filled || shut} aria-label={btw ? 'Demander en aparté' : 'Envoyer'} title={btw ? 'Demander en aparté' : 'Envoyer'}><Icon d={ICONS.send.d} size={15} /></button>}
     </div>
-  );
+  </>);
 }

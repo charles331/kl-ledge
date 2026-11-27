@@ -1,0 +1,72 @@
+import { useEffect, useSyncExternalStore } from 'react';
+import { useMachines, type DaemonClient } from '@ledge/fleet';
+import type { Aside, Session } from '@ledge/protocol';
+
+/**
+ * The asides (« /btw », #41) this window asked, by session: shown under the thread, outside it, until closed. Only the ones asked
+ * here are kept: a daemon replays its last asides after each snapshot, which serves a reconnection while one is under way, not a
+ * history (they do not outlive the session's tab: `forgetAsides`).
+ */
+/** An aside as this window holds it: what its daemon said, and `offline` when it failed because its machine went offline. */
+export type HeldAside = Aside & { offline?: true };
+const bySession = new Map<string, readonly HeldAside[]>();
+const listeners = new Set<() => void>();
+const NONE: readonly HeldAside[] = [];
+let next = 0;
+const emit = () => { for (const l of listeners) l(); };
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+export const asidesOf = (id: string): readonly HeldAside[] => bySession.get(id) ?? NONE;
+
+/** Asks `question` aside of session `id` (its qualified id). The aside shows at once, « asking », until the daemon answers. */
+export function askAside(client: DaemonClient, id: string, question: string): void {
+  const rid = `${Date.now().toString(36)}-${++next}`;
+  bySession.set(id, [...asidesOf(id), { rid, question, askedAt: new Date().toISOString(), state: 'asking' }]);
+  emit();
+  client.send({ type: 'session.aside', id, rid, question });
+}
+
+/** Closes an aside: gone from under the thread (the daemon is not told: it has nothing to undo). */
+export function closeAside(id: string, rid: string): void {
+  bySession.set(id, asidesOf(id).filter(a => a.rid !== rid));
+  emit();
+}
+
+/** A session's asides still waiting for their answer fail: its machine went offline, and the daemon that comes back has lost them. */
+export function failAsking(id: string): void {
+  const list = asidesOf(id);
+  if (!list.some(a => a.state === 'asking')) return;
+  bySession.set(id, list.map(a => (a.state === 'asking' ? { ...a, state: 'failed', cause: 'interrupted', offline: true } : a)));
+  emit();
+}
+
+/** Forgets a session's asides: its tab closed. */
+export function forgetAsides(id: string): void {
+  if (bySession.delete(id)) emit();
+}
+
+/** A session's asides, kept up to date with what its daemon says of the ones asked here. */
+export function useAsides(client: DaemonClient, id: string): readonly HeldAside[] {
+  useEffect(() => client.onMessage(m => {
+    if (m.type !== 'session.aside' || m.id !== id || !('aside' in m)) return;
+    const list = asidesOf(id);
+    if (!list.some(a => a.rid === m.aside.rid)) return;
+    bySession.set(id, list.map(a => (a.rid === m.aside.rid ? m.aside : a)));
+    emit();
+  }), [client, id]);
+  return useSyncExternalStore(subscribe, () => asidesOf(id), () => asidesOf(id));
+}
+
+const NO_CLIENT = {} as DaemonClient;
+/** Whether a « /btw » typed in this session's field is an aside: a Claude Code session whose daemon takes them (DaemonInfo.aside). */
+export function useTakesAsides(client: DaemonClient | undefined, session: Pick<Session, 'tool' | 'machineId'>): boolean {
+  // Without a client, no machine: useMachines reads none.
+  const daemon = useMachines(client ?? NO_CLIENT).find(m => m.id === (session.machineId ?? 'local'))?.daemon;
+  return !!client && session.tool === 'claude' && daemon?.aside === true;
+}
+
+/** Whether an aside of session `id` asked here still waits for its answer: the daemon refuses a reply meanwhile (busy). */
+export const useAsking = (id: string): boolean => useSyncExternalStore(subscribe, () => asidesOf(id).some(a => a.state === 'asking'), () => false);
+
+/** For tests. */
+export const resetAsidesForTests = (): void => { bySession.clear(); emit(); };

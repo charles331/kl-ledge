@@ -53,6 +53,8 @@ describe('OpenRig messages in a seat’s thread', () => {
     expect(card).toHaveAttribute('data-rig', 'message');
     expect(thread().queryByText('Vous')).toBeNull();
     expect(card).toHaveTextContent(/De.*Bix.*pilot-lead/);
+    // The sender by name alone: no mascot in the thread (#41, the owner, 2026-11-27).
+    expect(card.querySelector('.bot')).toBeNull();
     // Same rig as the thread's session: no rig tag.
     expect(card.querySelector('.rigtag')).toBeNull();
     expect(within(card).getByRole('button', { name: 'voir son fil' })).toBeVisible();
@@ -204,7 +206,8 @@ describe('OpenRig messages in a seat’s thread', () => {
     expect(packet.querySelector('pre')!.textContent).toBe('BLOCK ONE\nBLOCK TWO');
     const bad = thread().getByText('Message OpenRig illisible · affiché tel quel').closest<HTMLElement>('[data-rig="unreadable"]')!;
     expect(bad.querySelector('.rawbox')).toHaveTextContent('Relance : la maquette est-elle prête ?');
-    // The user's own words stay « Vous ».
-    expect(thread().getByText('Regarde aussi le mobile.').closest('.prompt-block')).toHaveTextContent('Vous');
+    // The user's own words stay theirs: a bubble on their side, not an agent's instruction.
+    expect(thread().getByText('Regarde aussi le mobile.')).toHaveClass('cw-bubble');
+    expect(thread().getByText('Regarde aussi le mobile.').closest('.prompt-block')).not.toHaveClass('from-agent');
   });
 });

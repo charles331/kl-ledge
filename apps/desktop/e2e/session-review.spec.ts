@@ -139,3 +139,24 @@ test('the Conversation tab: both sides interleaved, Otto on the right, live; nar
   await expect(pane).toHaveCount(0);
   await expect(page.locator('.session-thread .message-card.lit[data-message="s1"]')).toBeVisible();
 });
+
+// #41: the rows the « Cowork » mockup did not draw sit on the new column (docs/mockups/ledge-thread-cowork-rows.md): no icon
+// margin, the card the column's width, its time under it. Under the Atelier skin, `.ide-pane .r` keeps three columns unless the
+// thread's rule outweighs it: a card left in a 40 px column stacks its text letter by letter.
+test('messages between agents in the « Cowork » thread take the column, no icon margin, wide and narrow', async ({ page }) => {
+  await fakeDaemon(page, fleet, { projects: twoProjects, threads: { otto: withNova, nova }, documents });
+  for (const width of [1600, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/'); await ideReady(page);
+    await open(page);
+    const card = pane(page, 'Otto').locator('.cw-turn .message-card').first();
+    await expect(card).toBeVisible();
+    const geo = await card.evaluate(el => {
+      const row = el.closest('li')!;
+      return { card: el.getBoundingClientRect().width, cols: getComputedStyle(row).gridTemplateColumns.split(' ').length, node: getComputedStyle(row.querySelector('.n')!).display };
+    });
+    expect(geo.card, `card at ${width} px`).toBeGreaterThan(200);
+    expect(geo.cols).toBe(1);
+    expect(geo.node).toBe('none');
+  }
+});

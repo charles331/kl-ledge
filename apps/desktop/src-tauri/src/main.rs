@@ -52,6 +52,9 @@ fn foreground_is_terminal() -> bool { ledge_native::terminal::foreground_is_term
 fn open_terminal(title: String, command: Vec<String>) -> Result<bool, String> { ledge_native::terminal::open(&title, &command) }
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> { ledge_native::browser::open_url(&url) }
+/// Opens or closes Windows' voice typing in the focused field (#41, #39): false outside Windows.
+#[tauri::command]
+fn voice_typing() -> bool { ledge_native::voice::toggle() }
 
 /// The daemon's token, read from WSL: `{ kind: "token", token }`, `{ kind: "absent" }` or `{ kind: "unavailable" }`.
 #[tauri::command]
@@ -189,7 +192,7 @@ fn main() {
         .manage(notch::Screen::default())
         .manage(pty::PtyState::default())
         .invoke_handler(tauri::generate_handler![
-            focus_terminal, foreground_is_terminal, open_terminal, open_url, daemon_token, get_autostart, set_autostart, set_tray_labels, take_open_target,
+            focus_terminal, foreground_is_terminal, open_terminal, open_url, voice_typing, daemon_token, get_autostart, set_autostart, set_tray_labels, take_open_target,
             open_in_ledge, notch::set_frame, notch::focus_overlay, notch::release_focus,
             notch::list_monitors, notch::set_monitor, popout::close_window, pty::pty_open, pty::shells_available, pty::pty_write, pty::pty_resize, pty::pty_close,
             editor::editors_available, editor::open_in_editor,
