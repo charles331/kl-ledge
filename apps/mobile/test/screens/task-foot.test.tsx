@@ -117,6 +117,18 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     expect(within(f).getByRole('button', { name: 'Refuser' })).toBeInTheDocument();
   });
 
+  it('a session that ended: the decision\'s foot stays, above « Session terminée » (design-ux, 19:43Z)', async () => {
+    const t = setup();
+    const snap = snapshot([session('nova', { name: 'Nova', repo: 'ledge', state: 'exited' })], 'PC-Desan', undefined, { confirm: true }) as Extract<PhoneServerMessage, { type: 'snapshot' }>;
+    t.deliver({ ...snap, daemon: { ...snap.daemon, taskAnswer: true } } as PhoneServerMessage);
+    t.deliver({ type: 'tasks', tasks: [decision('t1')] });
+    render(<Thread store={t.store} sessionId="nova" />);
+    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    expect(within(f).getByText('Choisir le dossier des captures')).toBeInTheDocument();
+    const ended = screen.getByText(copy.sessionEnd.ended);
+    expect(f.compareDocumentPosition(ended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('a PC without task.answer keeps the composer', async () => {
     const t = open([decision('t1')], { taskAnswer: false });
     render(<Thread store={t.store} sessionId="nova" />);

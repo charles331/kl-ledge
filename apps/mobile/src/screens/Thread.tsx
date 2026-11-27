@@ -351,6 +351,8 @@ export function Thread({ store, sessionId, storage, onReconnect, panel, forge }:
           </button>
         </div>
       )}
+      {/* A decision still waits once the session ended: its foot stays, above « Session terminée » (design-ux, 19:43Z). */}
+      {ending.kind !== 'open' && (asked.length > 0 || answered !== null) && <TaskFoot store={store} session={session} tasks={asked} sent={answered} onSent={setAnswered} />}
       {ending.kind === 'open' && (asked.length > 0 || answered !== null)
         ? <TaskFoot store={store} session={session} tasks={asked} sent={answered} onSent={setAnswered} />
         : ending.kind === 'open'
