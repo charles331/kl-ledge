@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ThreadItem } from '@ledge/protocol';
-import { boot, closeDaemons, declarations, listSessions, ottoFolded, ottoThread, unfoldPast } from './helpers';
+import { boot, closeDaemons, declarations, listSessions, ottoFolded, ottoThread, toolRow, unfoldPast } from './helpers';
 import { createSessionMemory, memoKey } from '../src/session/memory';
 import { saveReduced } from '../src/motionPreferences';
 
@@ -26,31 +26,38 @@ async function openOtto(o: { offline?: boolean; withThread?: boolean; folded?: b
 }
 
 describe('the session page', () => {
-  it('the page replaces the pending place: one exchange per prompt, the last three open, an older one folded to a row that unfolds', async () => {
+  it('the page replaces the pending place: one exchange per prompt; a past one keeps its request and answer, its work folded under « Work » (#41)', async () => {
     // « Exchange at hh:mm » is today's wording: the clock at midday, so the thread's minutes ago never fall on yesterday.
     vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
     const noon = new Date(); noon.setHours(12, 0, 0, 0);
     vi.setSystemTime(noon);
     const { user } = await openOtto({ folded: true });
     expect(screen.queryByText('This screen is coming soon.')).toBeNull();
-    // The exchange before the last three is one row: its prompt, what it did; the last three are open.
-    const fold = await thread().findByRole('button', { name: /Câble la liste/, expanded: false });
-    expect(fold).toHaveTextContent(/^Exchange at \d\d:\d\d · Câble la liste · 4 actions · 1 file changed$/);
+    // A past exchange keeps its request and its answer in sight; what came between folds under « Work ».
+    const past = (await thread().findByText('Câble la liste')).closest<HTMLElement>('.turn')!;
+    const fold = within(past).getByRole('button', { name: /^Work/, expanded: false });
+    expect(fold).toHaveTextContent(/^Work4 actions · 1 file changed1 failed\d/);
+    expect(within(past).getByText('Deux tests échouent.')).toBeVisible();
+    expect(within(past).queryByText('Je lance les tests.')).toBeNull();
     expect(document.querySelectorAll('.session-thread .turn')).toHaveLength(4);
-    expect(document.querySelectorAll('.session-thread .turn.folded')).toHaveLength(1);
-    expect(thread().getByText('Relis').closest('.prompt-block')).toHaveTextContent('You');
-    expect(thread().getByText('Corrige-les').closest('.prompt-block')).toHaveTextContent('You');
+    // The person's requests are bubbles on the right, their time under them; no mascot, no avatar anywhere in the thread.
+    expect(thread().getByText('Relis')).toHaveClass('cw-bubble');
+    expect(thread().getByText('Corrige-les').closest('.cw-you')!.querySelector('.cw-time')).toHaveTextContent(/\d\d:\d\d/);
+    expect(document.querySelector('.session-thread .botn, .session-thread .av')).toBeNull();
+    // The last exchange has no fold; a short one (a request, its answer) neither.
+    expect(document.querySelector('.turn.current .cw-work')).toBeNull();
+    expect(thread().getByText('Relis').closest('.turn')!.querySelector('.cw-work')).toBeNull();
     await user.click(fold);
     expect(fold).toHaveAttribute('aria-expanded', 'true');
-    expect(thread().getByText('Câble la liste').closest('.prompt-block')).toHaveTextContent('You');
-    // The agent is its bot on the rail, named for screen readers.
-    expect(document.querySelector('.say-row .botn')).toHaveTextContent('Otto');
+    expect(within(past).getByText('Je lance les tests.')).toBeVisible();
     expect(thread().getByText('Deux tests échouent.').closest('.ledge-thread-md')).not.toBeNull();
+    // Its answer is followed by the files it changed, as chips.
+    expect(within(past).getByRole('button', { name: /App\.tsx/ })).toHaveTextContent('App.tsx+1−1');
     expect(document.querySelector('.session-page')).toHaveAttribute('data-session', 'local:otto'); // the fleet qualifies ids with the machine
     expect(document.querySelector('.session-page')).not.toHaveAttribute('data-helper');
   });
 
-  it('more than six actions fold into a summary that unfolds; a failure and the running one stay in sight', async () => {
+  it('a run of actions folds to one line that unfolds; a failure and the running one stay in sight (#41)', async () => {
     const at = new Date().toISOString();
     const read = (i: number): ThreadItem => ({ kind: 'tool', id: `r${i}`, at, turn: 1, tool: 'Read', label: `/w/ledge/src/F${i}.tsx`, status: 'success', durationMs: 100, files: [] });
     const { d, user } = await boot({ sessions: listSessions(), list: true });
@@ -63,8 +70,7 @@ describe('the session page', () => {
     await user.click(screen.getByRole('button', { name: /^Otto,/ }));
     const summary = await thread().findByRole('button', { name: /^8 actions/ });
     expect(summary).toHaveAttribute('aria-expanded', 'false');
-    expect(summary).toHaveTextContent('8 actions · 6 reads, 2 commands · 1 failed');
-    expect(summary.closest('.r')!.querySelector('.tm')).toHaveTextContent(/^running · /);
+    expect(summary).toHaveTextContent(/^8 actions6 reads, 2 commands1 failed\d/);
     expect([...document.querySelectorAll('.turn [data-tool]')].map(e => e.getAttribute('data-tool'))).toEqual(['f', 'run']);
     const failed = document.querySelector<HTMLElement>('.action-row.status-failed')!;
     expect(within(failed).getByLabelText('Failed')).not.toBeNull();
@@ -84,7 +90,7 @@ describe('the session page', () => {
     const t6 = { ...t5, id: 't6', tool: 'Read', label: '/w/ledge/src/List.tsx', at: new Date().toISOString() };
     d.threadItem('otto', t6);                                                            // a second action starts beside the first
     d.threadItem('otto', { ...t5, status: 'success', durationMs: 3000, output: 'ok' });  // then the first one's result comes
-    const row = (id: string) => document.querySelector(`.turn.current [data-tool="${id}"]`);
+    const row = (id: string) => toolRow(id, document.querySelector('.turn.current')!);
     await waitFor(() => expect(row('t5')).toHaveClass('status-success'));
     expect(row('t5')!.querySelector('.action-time')).toHaveTextContent('3.0 s');
     expect(thread().getByRole('status', { name: 'Action running' })).toHaveTextContent('Readsrc/List.tsx');
@@ -96,13 +102,14 @@ describe('the session page', () => {
     expect(thread().queryByRole('status', { name: 'Action running' })).toBeNull();
   });
 
-  it('past decisions are chips; a subagent is a card that opens its own thread', async () => {
+  it('past decisions are chips on the person\'s side; a subagent is a row that opens its own thread', async () => {
     const { user } = await openOtto();
     await unfoldPast(user);
-    const chip = document.querySelector('.decision-chip.accept')!;
-    expect(chip.querySelector('[data-badge="idle"]')).toHaveTextContent('Allowed');
+    const chip = document.querySelector('.decision-row.accept .decision-chip')!;
+    expect(chip.querySelector('b')).toHaveTextContent('Allowed');
     expect(chip).toHaveTextContent('npm test');
-    const card = document.querySelector<HTMLElement>('.helper-card[data-helper="h1"]')!;
+    expect(chip.closest('.cw-decision')!.querySelector('.cw-time')).toHaveTextContent(/\d\d:\d\d/);
+    const card = document.querySelector<HTMLElement>('.cw-helper[data-helper="h1"]')!;
     expect(card).toHaveTextContent('Explore');
     expect(card).toHaveTextContent('Lire le code');
     // The undecided request is pinned (task 7), never a chip.
@@ -112,7 +119,7 @@ describe('the session page', () => {
     expect(document.querySelector('.session-page')).toHaveAttribute('data-helper', 'h1');
     expect(thread().getByText('Lire le code').closest('.prompt-block')).toHaveClass('from-agent');
     expect(thread().getByText('Lire le code').closest('.prompt-block')).toHaveTextContent('Instruction from Otto');
-    expect(document.querySelector('.say-row .botn')).toHaveTextContent('Explore');
+    expect(document.querySelector('.session-thread .botn')).toBeNull();
     expect(thread().queryByText('Câble la liste')).toBeNull();
   });
 
@@ -122,15 +129,14 @@ describe('the session page', () => {
     await user.click(thread().getByRole('button', { name: "Open Explore's thread" }));
     await thread().findByText('Je lis.');
     d.upsert({ ...listSessions()[0]!, helpers: [] });
-    await waitFor(() => expect(document.querySelector('.say-row .botn')).toHaveTextContent('Explore'));
-    expect(thread().getByText('Je lis.')).toBeVisible();
+    await waitFor(() => expect(thread().getByText('Je lis.')).toBeVisible());
     expect(document.querySelector('.session-page')).toHaveAttribute('data-helper', 'h1');
   });
 
   it('a finished subagent stays in the parent thread: its card says it is done, even once gone from the session', async () => {
     const { d, user } = await openOtto();
     await unfoldPast(user);
-    const card = () => document.querySelector('.helper-card[data-helper="h1"]');
+    const card = () => document.querySelector('.cw-helper[data-helper="h1"]');
     expect(card()!.querySelector('[data-badge]')).not.toHaveAttribute('data-badge', 'done');
     d.upsert({ ...listSessions()[0]!, helpers: [{ id: 'h1', kind: 'Explore', task: 'Lire le code', state: 'exited' }] });
     await waitFor(() => expect(card()!.querySelector('[data-badge]')).toHaveAttribute('data-badge', 'done'));
@@ -144,10 +150,10 @@ describe('the session page', () => {
     d.thread('otto', ottoThread().map(i => (i.kind === 'helper' ? { ...i, agentType: undefined } : i)));
     await user.click(screen.getByRole('button', { name: /^Otto,/ }));
     await unfoldPast(user);
-    await user.click(thread().getByRole('button', { name: "Open Explore's thread" }));
     // Gone from the session, it is named by its thread row, which has no name.
     d.upsert({ ...listSessions()[0]!, helpers: [] });
-    await waitFor(() => expect(document.querySelector('.say-row .botn')).toHaveTextContent('Subagent'));
+    await waitFor(() => expect(document.querySelector('.cw-helper[data-helper="h1"] strong')).toHaveTextContent(/^Subagent$/));
+    expect(thread().getByRole('button', { name: "Open Subagent's thread" })).toBeVisible();
   });
 
   it('a subagent page before its thread came: it waits, without crashing', async () => {
@@ -186,7 +192,7 @@ describe('the session page', () => {
     expect(document.querySelector('.frozen-end')).toHaveTextContent('No news since the connection was lost');
     expect(screen.queryByRole('status', { name: 'Action running' })).toBeNull();
     expect(document.querySelector('.spin')).toHaveClass('still');
-    expect(thread().getByRole('button', { name: /Câble la liste/ })).toBeVisible();
+    expect(thread().getByText('Câble la liste')).toBeVisible();
   });
 
   it('a session that ended says so after its last exchange', async () => {
@@ -255,7 +261,7 @@ describe('the session page', () => {
       const { el, g, watched, resized, latest } = await resizable();
       // The thread's column and what is in it are watched: a new item, a card that grows.
       expect(watched.has(el)).toBe(true);
-      expect(watched.has(el.querySelector('.rail')!)).toBe(true);
+      expect(watched.has(el.querySelector('.cw')!)).toBe(true);
       resized();
       expect(latest()).toBeNull();
       g.height = 2300;                                   // the pinned card came, the pane narrowed the column, an item grew

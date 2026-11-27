@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Session, ThreadItem } from '@ledge/protocol';
-import { boot, closeDaemons, listSessions, ottoFolded, ottoThread, unfoldPast } from './helpers';
+import { boot, closeDaemons, listSessions, ottoFolded, ottoThread } from './helpers';
+import { PAST_EXCHANGES_KEY, reloadPastExchanges } from '../src/session/pastExchanges';
 import { resetAvatarForTests, setAvatar } from '../src/shell/avatar';
 
 afterEach(async () => { cleanup(); localStorage.clear(); resetAvatarForTests(); await closeDaemons(); });
@@ -18,15 +19,15 @@ async function open(name: string, id: string, items: ThreadItem[], helpers?: Ses
   return env;
 }
 
-describe('the rail (issue #34)', () => {
-  it('an exchange older than the last three unfolds from its row and folds back; the current one has no row', async () => {
-    const { user } = await open('Otto', 'otto', ottoFolded());
-    await unfoldPast(user);
-    expect(document.querySelectorAll('.turn.folded')).toHaveLength(0);
-    expect(document.querySelector('.turn.current .turn-fold')).toBeNull();
-    await user.click(thread().getByRole('button', { name: /Câble la liste/, expanded: true }));
-    expect(document.querySelectorAll('.turn.folded')).toHaveLength(1);
-    expect(thread().queryByText('Câble la liste', { exact: true })).toBeNull();
+describe('the thread (issues #34, #41)', () => {
+  it('« Past exchanges » open (#41): a past exchange shows all its work, without a « Work » fold', async () => {
+    localStorage.setItem(PAST_EXCHANGES_KEY, 'open'); reloadPastExchanges();
+    try {
+      await open('Otto', 'otto', ottoFolded());
+      expect(document.querySelector('.cw-work')).toBeNull();
+      expect(thread().getByText('Je lance les tests.')).toBeVisible();
+      expect(thread().getByText('Deux tests échouent.')).toBeVisible();
+    } finally { localStorage.removeItem(PAST_EXCHANGES_KEY); reloadPastExchanges(); }
   });
 
   it('a session that waits on you says so under its last exchange, and its exchange does not end', async () => {
@@ -47,30 +48,25 @@ describe('the rail (issue #34)', () => {
     expect(end.querySelector('.end-failed')).toHaveTextContent(/^1 failed$/);
   });
 
-  it('subagents launched one after the other share one card, counted by state', async () => {
+  it('each subagent launched is a row of its own, with its state, that opens its thread (#41)', async () => {
     await open('Nova', 'nova', [
       { kind: 'prompt', id: 'p', at: ago(60), turn: 1, text: 'Explore' },
       { kind: 'helper', id: 'h1', at: ago(50), turn: 1, task: 'Lire le code', agentType: 'Explore', state: 'exited' },
       { kind: 'helper', id: 'h2', at: ago(49), turn: 1, task: 'Lire les tests', agentType: 'Plan', state: 'working' }
     ], [{ id: 'h2', kind: 'Plan', task: 'Lire les tests', state: 'working' }]);
-    const cards = document.querySelectorAll('.helpers-card');
-    expect(cards).toHaveLength(1);
-    expect(cards[0]).toHaveClass('many');
-    expect(cards[0]!.querySelector('.helpers-head')).toHaveTextContent('Subagents launched· 1 done, 1 running');
-    expect([...cards[0]!.querySelectorAll('.helper-card')].map(c => c.getAttribute('data-helper'))).toEqual(['h1', 'h2']);
-    expect(within(cards[0] as HTMLElement).getByRole('button', { name: "Open Plan's thread" })).toBeVisible();
+    const rows = [...document.querySelectorAll<HTMLElement>('.cw-col .cw-helper')];
+    expect(rows.map(r => r.getAttribute('data-helper'))).toEqual(['h1', 'h2']);
+    expect(rows[0]).toHaveTextContent('ExploreLire le code');
+    expect(rows[0]!.querySelector('[data-badge]')).toHaveAttribute('data-badge', 'done');
+    expect(rows[1]!.querySelector('[data-badge]')).not.toHaveAttribute('data-badge', 'done');
+    expect(thread().getByRole('button', { name: "Open Plan's thread" })).toBe(rows[1]);
   });
 
-  it('your prompt\'s disc beside « You » shows your profile photo, the user icon without one (#50)', async () => {
+  it('your prompt is a bubble with no disc, photo or user icon (#41: no avatar in the thread)', async () => {
     await open('Bix', 'bix', [{ kind: 'prompt', id: 'p', at: ago(60), turn: 1, text: 'Relis la PR' }]);
-    const disc = () => thread().getByText('Relis la PR').closest('.prompt-row')!.querySelector('.n.av')!;
-    expect(disc()).toHaveAttribute('aria-hidden', 'true');
-    expect(disc().querySelector('img')).toBeNull();
-    expect(disc().querySelector('svg')).not.toBeNull();
     act(() => setAvatar('data:image/webp;base64,UklGRg=='));
-    expect(disc().querySelector('img')).toHaveAttribute('src', 'data:image/webp;base64,UklGRg==');
-    act(() => setAvatar(null));
-    expect(disc().querySelector('img')).toBeNull();
+    const prompt = thread().getByText('Relis la PR').closest<HTMLElement>('.prompt-row')!;
+    expect(prompt.querySelector('img, .av, .n')).toBeNull();
   });
 
   it('a <task-notification> opens its exchange as a task card, its notification folded', async () => {

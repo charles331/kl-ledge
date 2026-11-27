@@ -3,7 +3,7 @@ import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import type { ThreadItem, ToolItem } from '@ledge/protocol';
 import { T0 } from '@ledge/fleet/test/mockDaemon';
 import { saveReduced } from '../src/motionPreferences';
-import { boot, closeDaemons, listSessions, ottoThread, unfoldPast } from './helpers';
+import { boot, closeDaemons, listSessions, ottoThread, unfoldPast, toolRow } from './helpers';
 
 afterEach(async () => { cleanup(); saveReduced(false); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllEnvs(); await closeDaemons(); });
 
@@ -42,7 +42,7 @@ async function openOtto(extra: ThreadItem[]) {
 
 it('Escape folds the work plan before it closes the pane tab; the page stays (an IDE tab is closed, never left)', async () => {
   const { user } = await openOtto([{ ...v1, at: new Date().toISOString(), turn: 2 }]);
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="t3"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('t3')).getByRole('button', { name: 'View the change' }));
   const head = screen.getByRole('button', { name: /^Work plan/ });
   await user.click(head);
   expect(head).toHaveAttribute('aria-expanded', 'true');
@@ -55,13 +55,13 @@ it('Escape folds the work plan before it closes the pane tab; the page stays (an
   await user.keyboard('{Escape}');
   expect(document.querySelector('.session-page')).not.toBeNull();
 });
-it('an update is no action: a run shows its last update as a row of its own, a run of updates alone too', async () => {
+it('an update is no action: the thread shows no row for it, the bar and the summary say where the plan stands (#41)', async () => {
   const now = new Date().toISOString();
   await openOtto([{ ...v1, at: now, turn: 2 }, { ...v2, at: now, turn: 2 }, { kind: 'message', id: 'msg-2', at: now, turn: 2, text: 'Je continue.' }, { ...v2, id: 'd3', at: now, turn: 2 }]);
-  // Two runs: t5 with its two updates, then the update alone after the message.
-  expect([...document.querySelectorAll('.turn.current .todo-row')].map(r => r.textContent)).toEqual(['Work plan2/2 done', 'Work plan2/2 done']);
+  // t5 with its two updates is one action; the update alone after the message is none: no line of actions for it.
+  expect(document.querySelector('.turn.current .todo-row')).toBeNull();
   expect(document.querySelectorAll('.turn.current li[data-tool]')).toHaveLength(1);
-  expect(screen.queryByRole('button', { name: /work plan updated/i })).toBeNull();     // no fold under six actions
+  expect([...document.querySelectorAll('.turn.current .cw-steps-head')].map(h => h.querySelector('strong')!.textContent)).toEqual(['1 action']);
   // The bar reads the latest list.
   const head = document.querySelector('.todo-head');
   expect(head).toHaveTextContent('2/2');

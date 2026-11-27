@@ -1055,6 +1055,15 @@ export const en: Messages = {
       lostBody: 'The thread is frozen: what follows is the last known state; what the agent is doing now is not known.',
       frozenEnd: (s) => `No news since the connection was lost · ${s}`, ended: (at, s) => `Session ended at ${at} · ${s}`,
       endOf: 'End of the exchange',
+      // The « Cowork » thread (#41): the texts of the mockup and its complement, approved by the owner on 2026-11-27.
+      work: 'Work',
+      side: { label: 'Session summary', progress: 'Progress', files: 'Changed files', helpers: 'Subagents' },
+      thinks: (n) => `${n} is thinking…`,
+      aside: {
+        tag: 'btw', head: (n) => `Aside · outside the thread, ${n} keeps working`, close: 'Close the aside',
+        asking: (n) => `${n} is answering aside…`,
+        unreadable: (n) => `Ledge could not read the answer: it is in ${n}'s terminal.`, seeTerminal: 'Open the Terminal view'
+      },
       endFailed: (n, recovered) => `${n} failed` + (recovered ? ', recovered' : ''),
       subagent: 'subagent', openThread: (n) => `Open ${n}'s thread`,
       launched: (n) => pluralEn(n, 'Subagent launched', 'Subagents launched'),

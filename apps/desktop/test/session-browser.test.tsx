@@ -48,7 +48,7 @@ function renderSession({ items }: { items: ThreadItem[] }) {
 const pane = () => screen.getByRole('complementary', { name: 'Volet de lecture' });
 const selectedCell = () => pane().querySelector('[data-capture][aria-current="true"]');
 const cell = (key: string) => pane().querySelector<HTMLElement>(`[data-capture="${key}"]`)!;
-const threadThumb = (toolId: string) => document.querySelector<HTMLElement>(`.session-thread [data-tool="${toolId}"] [data-thumb]`)!;
+const threadThumb = (toolId: string) => document.querySelector<HTMLElement>(`.session-thread [data-shots="${toolId}"] [data-thumb]`)!;
 const openOn = (key: string) => act(() => threadThumb(key.split(':')[0]!).click());
 
 describe('the Navigateur tab', () => {

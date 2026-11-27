@@ -204,7 +204,8 @@ describe('OpenRig messages in a seat’s thread', () => {
     expect(packet.querySelector('pre')!.textContent).toBe('BLOCK ONE\nBLOCK TWO');
     const bad = thread().getByText('Message OpenRig illisible · affiché tel quel').closest<HTMLElement>('[data-rig="unreadable"]')!;
     expect(bad.querySelector('.rawbox')).toHaveTextContent('Relance : la maquette est-elle prête ?');
-    // The user's own words stay « Vous ».
-    expect(thread().getByText('Regarde aussi le mobile.').closest('.prompt-block')).toHaveTextContent('Vous');
+    // The user's own words stay theirs: a bubble on their side, not an agent's instruction.
+    expect(thread().getByText('Regarde aussi le mobile.')).toHaveClass('cw-bubble');
+    expect(thread().getByText('Regarde aussi le mobile.').closest('.prompt-block')).not.toHaveClass('from-agent');
   });
 });

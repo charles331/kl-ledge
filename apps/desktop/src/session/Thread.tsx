@@ -1,11 +1,10 @@
 import { Fragment, memo, useCallback, useMemo, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
 import { daemonStore, qualify, splitId, type DaemonClient } from '@ledge/fleet';
-import type { Helper, HelperItem, NoticeItem, Pending, ReceivedItem, SentItem, Session, ThreadItem, ToolItem } from '@ledge/protocol';
+import { doneCount, latestTodos, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
 import type { BotState } from '@ledge/ui/bots/poseFor';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import type { DocumentReference } from '@ledge/ui/documents/references';
-import { liveTool, target } from '@ledge/ui/thread/tools';
-import { helperThread, OPEN_TURNS } from '@ledge/ui/thread/turns';
+import { elapsedMs, liveTool, target } from '@ledge/ui/thread/tools';
 import { Badge } from '@ledge/ui/ui/Badge';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
@@ -14,37 +13,29 @@ import type { NavAction } from '../nav/state';
 import { helperState } from '../atelier/layout';
 import { cls } from '../shell/cls';
 import { SHELL_ICONS } from '../shell/icons';
-import { HelperBot, SessionBot, StateBadge } from '../shell/SessionBot';
-import { UserAvatar } from '../shell/UserAvatar';
-import { ActionGroup, KIND_ICON, Spin } from './ActionGroup';
-import { firstLine, MessageCard } from './MessageCard';
+import { StateBadge } from '../shell/SessionBot';
+import { ActionGroup, Spin } from './ActionGroup';
+import { MessageCard } from './MessageCard';
 import { NoticeLine } from './NoticeLine';
 import { foldable, packetRaw, PacketRawRow, rawOf, RigBubble, RigNoticeFold, RigNoticeLine, RigTaskCard, RigUnreadable, seatSession, type RigNotice } from './RigItems';
-import { nameOf } from './changedFiles';
+import { changedFiles, nameOf, relativeTo } from './changedFiles';
+import { parseDiff } from './diff';
 import { PlanCard } from './PlanCard';
+import { usePastExchanges } from './pastExchanges';
 import { WaitLine } from './WaitLine';
 import { waitOf, type Wait } from './waiting';
-import { clock, displayIds, docRefs, fmtDur, helperOf, kindOf, peerKey, planTitle, summarize, timeMark, verbOf, type Exchange, type Segment } from './exchanges';
+import { clock, displayIds, docRefs, fmtDur, helperOf, peerKey, planTitle, summarize, timeMark, verbOf, type Exchange, type Segment } from './exchanges';
 import { marksOf, tagLabel, taskOf, type Marked, type SynapseTags, type TaskNotice } from './markers';
+import '../styles/thread-cowork.css';
 
 type Decision = 'accept' | 'always' | 'deny' | 'unknown';
-/** A request's answer on the rail: its node's tone and icon, its badge's colour. */
-const DECIDED: Record<Decision, { node: string; icon: readonly string[]; badge: BotState }> = {
-  accept: { node: 'success', icon: ICONS.check.d, badge: 'idle' }, always: { node: 'success', icon: ICONS.check.d, badge: 'idle' },
-  deny: { node: 'danger', icon: ICONS.close.d, badge: 'error' }, unknown: { node: '', icon: SHELL_ICONS.terminal, badge: 'done' }
-};
-/** A decided plan (ExitPlanMode): approved, or sent back to planning. */
-const PLAN_DECIDED: Record<Decision, { node: string; icon: readonly string[] }> = {
-  accept: { node: 'success', icon: SHELL_ICONS.plan }, always: { node: 'success', icon: SHELL_ICONS.plan },
-  deny: { node: '', icon: SHELL_ICONS.restore }, unknown: { node: '', icon: SHELL_ICONS.plan }
-};
 /** A task notification's tone: its node, its icon, its badge's colour. */
 const TASK: Record<TaskNotice['status'], { node: string; icon: readonly string[]; badge: BotState }> = {
   killed: { node: 'warning', icon: SHELL_ICONS.stop, badge: 'question' }, completed: { node: 'success', icon: ICONS.check.d, badge: 'idle' },
   failed: { node: 'danger', icon: ICONS.close.d, badge: 'error' }, other: { node: '', icon: SHELL_ICONS.mail, badge: 'done' }
 };
 
-/** The pinned request, as the thread's last row says it: what it is, and who asks. */
+/** The pinned request, as the thread's foot says it: what it is, and who asks. */
 export interface Waiting { kind: Pending['kind']; asker: string }
 
 export interface ThreadProps {
@@ -81,14 +72,14 @@ export interface ThreadProps {
   waiting?: Waiting | null;
 }
 
-/** What the agent said, and a card for each document it names (docRefs): parsed again only when its text changes, never on
- *  the page's clock. */
-const Say = memo(function Say({ kind, text, onDocument }: { kind: 'message' | 'reply'; text: string; onDocument(path: string): void }): JSX.Element {
+/** What the agent said, as plain prose the column's width, its time under it, and a card for each document it names (docRefs):
+ *  parsed again only when its text changes, never on the page's clock. */
+const Say = memo(function Say({ kind, text, at, onDocument }: { kind: 'message' | 'reply'; text: string; at: string; onDocument(path: string): void }): JSX.Element {
   const { t } = useI18n();
   const refs = useMemo(() => docRefs(text), [text]);
   const onLink = useCallback((ref: DocumentReference) => onDocument(ref.path), [onDocument]);
   return (
-    <div className={`agent-message say ${kind}`}>
+    <li className={`cw-say agent-message say ${kind}`}>
       <div className="msg-body"><ThreadMarkdown text={text} onDocument={onLink} /></div>
       {refs.map(path => (
         <button key={path} type="button" className="document-card doc" onClick={() => onDocument(path)}>
@@ -97,7 +88,8 @@ const Say = memo(function Say({ kind, text, onDocument }: { kind: 'message' | 'r
           <span className="doc-open"><Icon d={SHELL_ICONS.file} size={13} />{t.session.thread.read}</span>
         </button>
       ))}
-    </div>
+      <span className="cw-time mono">{at}</span>
+    </li>
   );
 });
 
@@ -162,53 +154,27 @@ function ObjectiveRow({ mark, by, at }: { mark: Marked; by: string; at: string }
   );
 }
 
-/** Subagents launched one after the other: one card, a row each (its bot, name, state, task, what it did, its thread); two
- *  or more under « Sous-agents lancés · 1 terminé, 1 en cours ». A finished one stays, « Terminée ». */
-function HelpersRow({ session, items, list, offline, dispatch }: {
-  session: Session; items: readonly ThreadItem[]; list: readonly HelperItem[]; offline: boolean; dispatch(a: NavAction): void;
-}): JSX.Element {
-  const { t, lang } = useI18n();
-  const th = t.session.thread;
-  const rows = list.map(item => {
-    const h = helperOf(session, items, item.id, t.session.subagent)!;
-    const own = helperThread([...items], item.id).items.filter((i): i is ToolItem => i.kind === 'tool');
-    const ms = own.reduce((n, x) => n + (x.durationMs ?? 0), 0);
-    return { item, h, state: helperState(h), count: own.length, ms, run: offline ? undefined : liveTool(own) };
-  });
-  const tally = { done: 0, working: 0, error: 0 };
-  for (const r of rows) tally[r.state === 'done' || r.state === 'idle' ? 'done' : r.state === 'error' ? 'error' : 'working']++;
+/** The files an exchange changed, as chips under its answer: a click opens the change beside the thread. */
+function FileChips({ tools, cwd, onChange }: { tools: ToolItem[]; cwd: string; onChange(path: string): void }): JSX.Element | null {
+  const files = useMemo(() => {
+    const by = new Map<string, { plus: number; minus: number }>();
+    for (const x of tools) if (x.status === 'success') for (const f of x.files) {
+      const d = f.diff ? parseDiff(f.diff) : { plus: 0, minus: 0 };
+      const cur = by.get(f.path) ?? { plus: 0, minus: 0 };
+      by.set(f.path, { plus: cur.plus + d.plus, minus: cur.minus + d.minus });
+    }
+    return [...by];
+  }, [tools]);
+  if (files.length === 0) return null;
   return (
-    <li className="r helpers-row">
-      <span className="n node info" aria-hidden="true"><Icon d={SHELL_ICONS.subagents} size={12} /></span>
-      <div className={cls('card helpers-card', rows.length > 1 && 'many')}>
-        {rows.length > 1 && (
-          <div className="helpers-head">
-            <span>{th.launched(rows.length)}</span>
-            <span className="muted">· {(['done', 'working', 'error'] as const).filter(k => tally[k] > 0).map(k => th.tally[k](tally[k])).join(', ')}</span>
-          </div>
-        )}
-        {rows.map(({ item, h, state, count, ms, run }) => (
-          <div key={item.id} className="helper-card" data-helper={item.id}>
-            <span className="helper-bot"><HelperBot helper={h} parent={session} size={20} /></span>
-            <span className="helper-name"><strong>{h.kind}</strong><span className="muted">{th.subagent}</span></span>
-            <StateBadge state={state} offline={offline} />
-            <div className="helper-task">{item.task}</div>
-            {run && (
-              <div className="act helper-live">
-                <Spin live /><span className="vb"><Icon d={KIND_ICON[kindOf(run.tool)]} size={13} />{th.verbs[verbOf(run)]}</span>
-                <span className="tg" title={run.label}>{target(run) || run.tool}</span>
-              </div>
-            )}
-            <div className="helper-foot">
-              {count > 0 && <span className="mono muted">{th.actions(count)}{ms > 0 && ` · ${fmtDur(ms, lang)}`}</span>}
-              <button type="button" className="lnk" onClick={() => dispatch({ type: 'open', id: session.id, helper: item.id })}>
-                <Icon d={ICONS.chevronRight.d} size={12} />{th.openThread(h.kind)}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <span className="tm">{clock(list[0]!.at)}</span>
+    <li className="cw-files">
+      {files.map(([path, d]) => (
+        <button key={path} type="button" className="cw-file" title={relativeTo(path, cwd)} onClick={() => onChange(path)}>
+          <Icon d={SHELL_ICONS.file} size={14} />
+          <span>{nameOf(path)}</span>
+          <span className="cw-delta mono"><b>+{d.plus}</b>{d.minus > 0 && <i>−{d.minus}</i>}</span>
+        </button>
+      ))}
     </li>
   );
 }
@@ -219,26 +185,17 @@ const lastAt = (x: Exchange): string => {
   return ats.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a));
 };
 
-type Group = Exclude<Segment, { kind: 'helper' }> | { kind: 'helpers'; list: HelperItem[] };
-/** Subagents launched one after the other share a card. */
-const grouped = (segments: readonly Segment[]): Group[] => {
-  const out: Group[] = [];
-  for (const s of segments) {
-    const last = out.at(-1);
-    if (s.kind === 'helper' && last?.kind === 'helpers') last.list.push(s.item);
-    else out.push(s.kind === 'helper' ? { kind: 'helpers', list: [s.item] } : s);
-  }
-  return out;
-};
-
 interface TurnProps {
   client: DaemonClient;
   session: Session; helper: Helper | null; items: readonly ThreadItem[]; x: Exchange;
-  /** Its time mark, and whether it is the last exchange (the waiting, frozen or ended row goes in it). */
+  /** Its time mark, and whether it is the last exchange (the frozen or ended row goes in it). */
   at: string; last: boolean;
-  /** null: open, as it must be (the last one, what is new, what runs or waits, what the reader came back to); true:
-   *  folded to its row; false: unfolded by the reader, its row kept to fold it again. */
-  folded: boolean | null; onUnfold(key: string): void;
+  /** Its texts and actions folded under « Travail » (a past exchange, by the setting), unless what it holds must show. */
+  foldable: boolean; unfolded: boolean; onUnfold(key: string): void;
+  /** Still under way: its answer is not known yet, its files and its end not either. */
+  busy: boolean;
+  /** The id of the action the thread's foot names, left out of its run. */
+  live: string | null;
   /** The clock, for the exchanges whose times count on (an action without a duration); the others get 0 and stay still. */
   now: number;
   unread: string | null; since: string; dispatch(a: NavAction): void;
@@ -254,40 +211,26 @@ interface TurnProps {
   folded2: ReadonlySet<string>; onFold(key: string): void;
   /** The thread's `[synapse-obs]` markers, by item id. */
   marks: ReadonlyMap<string, Marked>;
-  waiting: Waiting | null;
-  /** The last exchange's wait when the agent works with no action running (waitOf), else null. */
-  wait: Wait | null;
   onReplyTo?(peer: Session, about: string): void;
 }
 
-/** One exchange on the rail: its prompt (or the task it was told of), then what the agent said, decided and did, a row each,
- *  and its end. A past one folds to one row. Rendered again only when what it shows changes: the clock's tick reaches the
- *  exchange whose action runs, not the ones before it. */
-const Turn = memo(function Turn({ client, session, helper, items, x, at, last, folded, onUnfold, now, unread, since, dispatch, flash, onChange, onCapture, onDocument, planOpen, onPlan, convOpen, onConversation, peers, convs, folded2, onFold, marks, waiting, wait, onReplyTo }: TurnProps): JSX.Element {
-  const { t } = useI18n();
+/** One exchange: the request (or the task it was told of), then what the agent said, decided and did. A past one keeps its
+ *  request and its answer in sight and folds everything between under « Travail »; the one under way shows each text as it
+ *  comes. Rendered again only when what it shows changes: the clock's tick reaches the exchange whose action runs. */
+const Turn = memo(function Turn({ client, session, helper, items, x, at, last, foldable: canFold, unfolded, onUnfold, busy, live, now, unread, since, dispatch, flash, onChange, onCapture, onDocument, planOpen, onPlan, convOpen, onConversation, peers, convs, folded2, onFold, marks, onReplyTo }: TurnProps): JSX.Element {
+  const { t, lang } = useI18n();
   const th = t.session.thread;
   const offline = session.offline === true;
   const name = helper?.kind ?? session.name;
-  const bot = (size: number) => helper ? <HelperBot helper={helper} parent={session} size={size} /> : <SessionBot session={session} size={size} />;
   const tools = x.segments.flatMap(s => (s.kind === 'tools' ? s.tools : []));
   const sum = summarize(tools, now, !offline);
   const task = x.prompt?.from === 'you' ? taskOf(x.prompt.text) : null;
-  const promptText = x.prompt ? marks.get(x.prompt.id)?.text ?? x.prompt.text : '';
-
-  const fold = folded !== null && (
-    <li className="r r-fold turn-fold">
-      <span className="n node" aria-hidden="true"><Icon d={folded ? ICONS.chevronRight.d : SHELL_ICONS.chevronDown} size={13} /></span>
-      <button type="button" className="fold-row" aria-expanded={!folded} onClick={() => onUnfold(x.key)}>
-        <span className="fold-text">
-          <strong>{th.exchange(at)}</strong>
-          {` · ${task ? task.summary : firstLine(promptText || x.received[0]?.text || '')}`}
-          {sum.count > 0 && ` · ${th.actions(sum.count)}`}{sum.files > 0 && ` ${th.files(sum.files)}`}
-        </span>
-      </button>
-      <span className="tm">{at}</span>
-    </li>
-  );
-  if (folded) return <li className="turn folded" aria-label={th.exchange(at)}><ol className="turn-rows">{fold}</ol></li>;
+  const promptMark = x.prompt ? marks.get(x.prompt.id) : undefined;
+  const promptText = x.prompt ? promptMark?.text ?? x.prompt.text : '';
+  // The answer: the last text of an exchange that is over. Folded, what came before it goes under « Travail ».
+  const answerAt = busy ? -1 : x.segments.map(s => s.kind).lastIndexOf('say');
+  const fold = canFold && answerAt > 0;
+  const body = fold && !unfolded ? x.segments.slice(answerAt) : x.segments;
 
   const marker = (id: string): ReactNode => id === unread
     ? <li className="r unread-marker" role="separator" aria-label={th.unread}><span className="n new-dot" /><span className="newsep">{th.unread}</span><span className="tm" /></li>
@@ -337,91 +280,85 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
   // The marker opens the exchange above its prompt, else above the first message received or notice that opens it.
   const opener = x.prompt?.id ?? x.openers[0]?.id;
 
+  /** An answer the person gave to a request, on their side: what they decided, on what, and when. */
   const decision = (item: Extract<Segment, { kind: 'decision' }>['item']): ReactNode => {
-    const d = item.decision!;
+    const d: Decision = item.decision!;
     if (item.tool === 'ExitPlanMode') {
       const title = planTitle(item.text);
       const plan = x.segments.find((s): s is Extract<Segment, { kind: 'plan' }> => s.kind === 'plan' && s.plan.title === title);
-      const tone = PLAN_DECIDED[d];
       return (
-        <li className="r decision-row">
-          <span className={cls('n node', tone.node)} aria-hidden="true"><Icon d={tone.icon} size={12} /></span>
-          <div className={`decision-chip plan ${d}`}>
+        <li className={cls('cw-decision decision-row plan', d)}>
+          <span className={`cw-decision-chip decision-chip plan ${d}`}>
             <span>{th.planDecided[d]}</span><strong>{th.quote(title)}</strong>
-            {plan && <button type="button" className="lnk" onClick={() => onPlan(plan.plan.key)}><Icon d={SHELL_ICONS.plan} size={12} />{t.session.plan.readPlan}</button>}
-          </div>
-          <span className="tm">{clock(item.at)}</span>
+            {plan && <button type="button" className="cw-link" onClick={() => onPlan(plan.plan.key)}>{t.session.plan.readPlan}</button>}
+          </span>
+          <span className="cw-time mono">{clock(item.at)}</span>
         </li>
       );
     }
-    const tone = DECIDED[d];
     return (
-      <li className="r decision-row">
-        <span className={cls('n node', tone.node)} aria-hidden="true"><Icon d={tone.icon} size={12} /></span>
-        <div className={`decision-chip ${d}`}><Badge state={tone.badge} label={item.byClose ? th.decided.denyByClose : th.decided[d]} /><code>{item.text}</code></div>
-        <span className="tm">{clock(item.at)}</span>
+      <li className={cls('cw-decision decision-row', d)}>
+        <span className={`cw-decision-chip decision-chip ${d}`}><b>{item.byClose ? th.decided.denyByClose : th.decided[d]}</b><code className="mono">{item.text}</code></span>
+        <span className="cw-time mono">{clock(item.at)}</span>
       </li>
     );
   };
 
-  const segment = (s: Group): ReactNode => {
+  const segment = (s: Segment): ReactNode => {
     if (s.kind === 'tools') {
-      const first = s.tools.find(x => x.id === unread);
-      const lit = flash !== null && s.tools.some(x => x.id === flash) ? flash : null;
-      return <ActionGroup key={s.key} client={client} sessionId={session.id} who={name} onCapture={onCapture} tools={s.tools} todos={s.todos} now={now} live={!offline} marker={first ? marker(first.id) : null} flash={lit} onChange={onChange} />;
+      const first = s.tools.find(tool => tool.id === unread);
+      const lit = flash !== null && s.tools.some(tool => tool.id === flash) ? flash : null;
+      const shown = s.tools.filter(tool => tool.id !== live);
+      return shown.length > 0 && <ActionGroup key={s.key} client={client} sessionId={session.id} who={name} onCapture={onCapture} tools={shown} todos={s.todos} now={now} live={!offline}
+        marker={first ? marker(first.id) : null} flash={lit} onChange={onChange} />;
     }
-    if (s.kind === 'helpers') return <Fragment key={s.list[0]!.id}>{s.list.map(h => marker(h.id))}<HelpersRow session={session} items={items} list={s.list} offline={offline} dispatch={dispatch} /></Fragment>;
     const { item } = s;
     let node: ReactNode;
     if (s.kind === 'say') {
       const mark = marks.get(item.id);
       const text = mark ? mark.text : s.item.text;
       node = <>
-        {text !== '' && (
-          <li className="r say-row">
-            <span className="n botn">{bot(26)}<span className="visually-hidden">{name}</span></span>
-            <Say kind={s.item.kind} text={text} onDocument={onDocument} />
-            <span className="tm" />
-          </li>
-        )}
+        {text !== '' && <Say kind={s.item.kind} text={text} at={clock(item.at)} onDocument={onDocument} />}
         {mark?.was !== undefined && <ObjectiveRow mark={mark} by={name} at={clock(item.at)} />}
       </>;
     } else if (s.kind === 'decision') node = decision(s.item);
-    else if (s.kind === 'plan') node = (
-      <li className="r plan-row">
-        <span className={cls('n node', s.plan.status === 'proposed' && 'warning')} aria-hidden="true"><Icon d={SHELL_ICONS.plan} size={12} /></span>
-        <PlanCard plan={s.plan} open={planOpen === s.plan.key} onOpen={onPlan} />
-        <span className="tm">{clock(item.at)}</span>
-      </li>
-    );
+    else if (s.kind === 'plan') node = <li className="cw-plan plan-row"><PlanCard plan={s.plan} open={planOpen === s.plan.key} onOpen={onPlan} /></li>;
+    else if (s.kind === 'helper') {
+      const h = helperOf(session, items, s.item.id, t.session.subagent)!;
+      node = (
+        <li className="cw-helper-row">
+          <button type="button" className="cw-helper" data-helper={s.item.id} aria-label={th.openThread(h.kind)} title={th.openThread(h.kind)} onClick={() => dispatch({ type: 'open', id: session.id, helper: s.item.id })}>
+            <span className="cw-helper-ico"><Icon d={SHELL_ICONS.subagents} size={14} /></span>
+            <span className="cw-helper-text"><strong>{h.kind}</strong><span>{s.item.task}</span></span>
+            <StateBadge state={helperState(h)} offline={offline} />
+            <Icon d={ICONS.chevronRight.d} size={13} />
+          </button>
+        </li>
+      );
+    }
     else if (s.kind === 'rigOut') node = notice(s.item);
     else node = message(s.item);
     return <Fragment key={item.id}>{marker(item.id)}{node}</Fragment>;
   };
 
-  const runs = sum.running !== null || (!offline && last && (session.state === 'working' || session.state === 'starting'));
-  const ended = tools.length > 0 && !runs && !(last && (offline || waiting !== null));
+  const ended = tools.length > 0 && !busy && !(last && offline);
   const lastTool = tools.at(-1);
   const failedText = sum.failed > 0 && th.endFailed(sum.failed, false);
   return (
-    <li className={cls('turn open', last && 'current')} aria-label={th.exchange(at)}>
+    <li className={cls('turn cw-turn', last && 'current')} aria-label={th.exchange(at)}>
       <ol className="turn-rows">
-        {fold}
         {opener !== undefined && marker(opener)}
         {task ? <TaskRow task={task} at={at} /> : x.prompt && (
-          <li className={cls('r prompt-row prompt-block', x.prompt.from === 'parent' && 'from-agent')}>
-            {x.prompt.from === 'parent'
-              ? <span className="n botn" aria-hidden="true"><SessionBot session={session} size={26} /></span>
-              : <UserAvatar className="n av" size={15} />}
-            <div className="prompt-col">
-              <span className="who prompt-author">
-                {x.prompt.from === 'parent' ? th.fromParent(session.name) : th.you}
-                {marks.get(x.prompt.id) && <Tags tags={marks.get(x.prompt.id)!.tags} />}
+          <li className={cls('cw-you prompt-row prompt-block', x.prompt.from === 'parent' && 'from-agent')}>
+            {(x.prompt.from === 'parent' || promptMark) && (
+              <span className="cw-you-who prompt-author">
+                {x.prompt.from === 'parent' && th.fromParent(session.name)}
+                {promptMark && <Tags tags={promptMark.tags} />}
               </span>
-              <p className="prompt-text">{promptText}</p>
-              {x.prompt.images && <Thumbs className="prompt-images" client={client} refs={x.prompt.images} route={{ id: session.id }} max={{ w: 420, h: 260 }} who={th.you} at={clock(x.at)} />}
-            </div>
-            <span className="tm">{at}</span>
+            )}
+            <p className="cw-bubble prompt-text">{promptText}</p>
+            {x.prompt.images && <Thumbs className="cw-images prompt-images" client={client} refs={x.prompt.images} route={{ id: session.id }} max={{ w: 420, h: 260 }} who={th.you} at={clock(x.at)} align="end" />}
+            <span className="cw-time mono">{at}</span>
           </li>
         )}
         {openerRows(x.openers).map(g => Array.isArray(g)
@@ -429,37 +366,37 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
             {/* A packet that ends inside the fold: its one raw still follows the group, folded or not. */}
             {g.map(n => { const pr = packetRaw(n, rigAll, t.session.rig.rawMany); return pr && <PacketRawRow key={`raw-${n.id}`} raw={pr} />; })}</Fragment>
           : <Fragment key={g.id}>{g.id !== opener && marker(g.id)}{g.kind === 'received' ? message(g) : notice(g)}{(() => { const pr = packetRaw(g, rigAll, t.session.rig.rawMany); return pr && <PacketRawRow raw={pr} />; })()}</Fragment>)}
-        {grouped(x.segments).map(segment)}
-        {wait && <WaitLine wait={wait} seedKey={x.key} now={now} />}
-        {last && waiting && (
-          <li className="r waiting-row">
-            <span className="n node danger" aria-hidden="true"><Icon d={SHELL_ICONS.stop} size={10} /></span>
-            <span className="waiting-text">{th.waits[waiting.kind](waiting.asker)} {th.resumes}</span>
-            <span className="tm" />
+        {fold && (
+          <li className="cw-work-row">
+            <button type="button" className={cls('cw-work', unfolded && 'open')} aria-expanded={unfolded} onClick={() => onUnfold(x.key)}>
+              <Icon d={ICONS.chevronRight.d} size={13} />
+              <strong>{th.work}</strong>
+              <span>{th.actions(sum.count)}{sum.files > 0 && ` ${th.files(sum.files)}`}</span>
+              {sum.failed > 0 && <span className="cw-tag danger">{th.failed(sum.failed).replace(/^[\s·]+/, '')}</span>}
+              <span className="cw-step-time mono">{fmtDur(sum.ms, lang)}</span>
+            </button>
           </li>
         )}
-        {ended && (
-          <li className="r end-row">
-            <span className="n pip" aria-hidden="true" />
+        {body.map(segment)}
+        {!busy && answerAt >= 0 && <FileChips tools={tools} cwd={session.cwd} onChange={onChange} />}
+        {ended && (!fold || unfolded) && (
+          <li className="cw-end end-row">
             <span className="end-text">
               {th.endOf} · {failedText && <><span className="end-failed">{failedText}</span>{lastTool?.status === 'success' && th.endFailed(sum.failed, true).slice(failedText.length)} · </>}
               {th.actions(sum.count)}{sum.files > 0 && ` ${th.files(sum.files)}`}
             </span>
-            <span className="tm">{clock(lastAt(x))}</span>
+            <span className="cw-time mono">{clock(lastAt(x))}</span>
           </li>
         )}
         {last && offline && (
-          <li className="r frozen-end">
-            <span className="n node" aria-hidden="true"><Icon d={SHELL_ICONS.offline} size={12} /></span>
+          <li className="cw-end frozen-end">
+            <Icon d={SHELL_ICONS.offline} size={13} />
             <span className="end-text">{th.frozenEnd(since)}</span>
-            <span className="tm" />
           </li>
         )}
         {last && !offline && session.state === 'exited' && (
-          <li className="r turn-end">
-            <span className="n pip" aria-hidden="true" />
+          <li className="cw-end turn-end">
             <span className="end-text">{th.ended(clock(lastAt(x)), since)}</span>
-            <span className="tm">{clock(lastAt(x))}</span>
           </li>
         )}
       </ol>
@@ -467,12 +404,83 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
   );
 });
 
+/** A card of the summary beside the thread: a title, a figure, and its rows; it folds to its title. */
+function Card({ title, count, children }: { title: string; count?: string; children: ReactNode }): JSX.Element {
+  return (
+    <details className="cw-card" open>
+      <summary><span>{title}</span>{count !== undefined && <span className="cw-count mono">{count}</span>}<Icon d={SHELL_ICONS.chevronDown} size={13} /></summary>
+      <div className="cw-card-body">{children}</div>
+    </details>
+  );
+}
+
+/** Beside the column, when the session is wide enough: where the work plan stands, which files changed, which subagents ran.
+ *  No work plan (Cursor keeps none), no Progression card. */
+function Summary({ session, helper, items, dispatch, onChange }: Pick<ThreadProps, 'session' | 'helper' | 'items' | 'dispatch' | 'onChange'>): JSX.Element {
+  const { t } = useI18n();
+  const ts = t.session.thread.side;
+  const todos = useMemo(() => latestTodos(items, helper?.id), [items, helper?.id]);
+  const files = useMemo(() => changedFiles(items, session.cwd, helper?.id), [items, session.cwd, helper?.id]);
+  const kids = helper === null ? items.filter((i): i is HelperItem => i.kind === 'helper') : [];
+  const done = todos ? doneCount(todos) : 0;
+  return (
+    <aside className="cw-side" aria-label={ts.label}>
+      {todos && todos.length > 0 && (
+        <Card title={ts.progress} count={`${done}/${todos.length}`}>
+          <span className="cw-bar" aria-hidden="true"><i style={{ width: `${(done / todos.length) * 100}%` }} /></span>
+          <ol className="cw-todos">
+            {todos.map((x, i) => (
+              <li key={i} className={`is-${x.status}`}>
+                <span className="cw-box" aria-hidden="true">{x.status === 'completed' && <Icon d={ICONS.check.d} size={11} />}</span>
+                <span>{x.text}</span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+      {files.length > 0 && (
+        <Card title={ts.files} count={String(files.length)}>
+          <ul className="cw-rows">
+            {files.map(f => (
+              <li key={f.path}>
+                <button type="button" title={f.shown} onClick={() => onChange(f.path)}>
+                  <Icon d={SHELL_ICONS.file} size={14} />
+                  <span className="cw-row-name">{nameOf(f.path)}</span>
+                  <span className="cw-delta mono"><b>+{f.plus}</b>{f.minus > 0 && <i>−{f.minus}</i>}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {kids.length > 0 && (
+        <Card title={ts.helpers} count={String(kids.length)}>
+          <ul className="cw-rows">
+            {kids.map(k => {
+              const h = helperOf(session, items, k.id, t.session.subagent)!;
+              return (
+                <li key={k.id}>
+                  <button type="button" title={k.task} onClick={() => dispatch({ type: 'open', id: session.id, helper: k.id })}>
+                    <Icon d={SHELL_ICONS.subagents} size={14} />
+                    <span className="cw-row-name">{h.kind}</span>
+                    <StateBadge state={helperState(h)} offline={session.offline === true} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+    </aside>
+  );
+}
+
 /** An action whose time counts on with the clock (running, or cut without a duration): its exchange takes every tick. */
 const ticks = (x: Exchange) => x.segments.some(s => s.kind === 'tools' && s.tools.some(tool => tool.durationMs === undefined));
 const holds = (x: Exchange, id: string) => x.segments.some(s => s.kind === 'tools' && s.tools.some(tool => tool.id === id)) || messagesOf(x).some(m => m.id === id);
 const holdsPlan = (x: Exchange, key: string) => x.segments.some(s => s.kind === 'plan' && s.plan.key === key);
-/** The wait at the end of the rail: the agent (or the subagent shown) works, online, asks nothing, and nothing in its last
- *  exchange says so already: no action runs, no subagent it launched still works (their card carries the state). */
+/** The wait at the foot of the thread: the agent (or the subagent shown) works, online, asks nothing, and nothing in its last
+ *  exchange says so already: no action runs, no subagent it launched still works (their row carries the state). */
 function useWait(session: Session, helper: Helper | null, items: readonly ThreadItem[], xs: readonly Exchange[], asking: Waiting | null, unnamed: string): Wait | null {
   const x = xs[xs.length - 1];
   const working = session.offline !== true && asking === null && (helper ?? session).state === 'working';
@@ -533,13 +541,47 @@ function useKeys(id: string): [ReadonlySet<string>, (key: string) => void] {
   return [state.id === id ? state.keys : NONE, toggle];
 }
 
-/** The rail (the mockup's track B): one list of exchanges, each a list of rows `node · content · time` strung on one line.
- *  The exchanges before the last OPEN_TURNS fold to a row, except the ones that hold what is new, what runs or waits, or
- *  what the reader came back to. Memoised: the store's changes elsewhere (another session's preview, the chat, an error)
- *  leave it alone, its props being the session, its items and their exchanges, the clock and the page's stable callbacks. */
+/** The foot of the thread: what happens now. The action running and its time, the agent's wait and its cause (WaitLine), or that
+ *  the session waits for the person (coral). */
+function Foot({ run, waiting, wait, thinking, seedKey, now }: {
+  run: ToolItem | undefined; waiting: Waiting | null; wait: Wait | null;
+  /** The name of the agent at work with nothing else to say (starting, or its subagents working): « Nova réfléchit… »; null: idle. */
+  thinking: string | null; seedKey: string; now: number;
+}): JSX.Element | null {
+  const { t, lang } = useI18n();
+  const th = t.session.thread;
+  if (waiting) return (
+    <li className="cw-foot waiting waiting-row" role="status">
+      <span className="cw-foot-mark" aria-hidden="true"><i /></span>
+      <span className="cw-foot-text waiting-text">{th.waits[waiting.kind](waiting.asker)} {th.resumes}</span>
+    </li>
+  );
+  if (run) return (
+    <li className="cw-foot" role="status" aria-label={th.liveAction}>
+      <span className="cw-foot-mark" aria-hidden="true"><Spin live /></span>
+      <span className="cw-foot-text cw-shimmer" aria-hidden="true">{th.verbs[verbOf(run)]} <code className="mono">{target(run) || run.tool}</code></span>
+      <span className="cw-step-time mono" aria-hidden="true">{fmtDur(elapsedMs(run, now), lang)}</span>
+    </li>
+  );
+  if (wait) return <WaitLine wait={wait} seedKey={seedKey} now={now} />;
+  if (thinking) return (
+    <li className="cw-foot" role="status">
+      <span className="cw-foot-mark" aria-hidden="true"><Spin live /></span>
+      <span className="cw-foot-text cw-shimmer">{th.thinks(thinking)}</span>
+    </li>
+  );
+  return null;
+}
+
+/** The session thread as a conversation, in the manner of Claude Desktop's « Cowork » (docs/mockups/ledge-thread-cowork.html,
+ *  issue #41): one reading column, what the person wrote in a bubble on the right, what the agent says as plain prose, its work
+ *  between two texts folded to one line, and, when the session is wide enough, the summary beside the column. Memoised: the
+ *  store's changes elsewhere leave it alone, its props being the session, its items and their exchanges, the clock and the
+ *  page's stable callbacks. */
 export const Thread = memo(function Thread({ client, session, helper, items, xs, now, unread, since, dispatch, flash, onChange, onCapture, onDocument, planOpen, onPlan, convOpen, onConversation, waiting = null, onReplyTo }: ThreadProps): JSX.Element {
   const { t, lang } = useI18n();
   const offline = session.offline === true;
+  const past = usePastExchanges();
   const wait = useWait(session, helper, items, xs, waiting, t.session.subagent);
   const convs = useMemo(() => conversations(xs), [xs]);
   const peers = usePeers(session, xs);
@@ -550,23 +592,32 @@ export const Thread = memo(function Thread({ client, session, helper, items, xs,
   const fresh = useMemo(() => (unread === null ? -1 : xs.findIndex(x => displayIds([x]).includes(unread))), [xs, unread]);
   // The open conversation reaches only the exchange holding its header (its first message).
   const convHead = convOpen === null ? undefined : convs.get(convOpen)?.[0];
+  const state = (helper ?? session).state;
+  const working = !offline && waiting === null && (state === 'working' || state === 'starting');
+  const lastX = xs.at(-1);
+  const run = working && lastX ? liveTool(lastX.segments.flatMap(s => (s.kind === 'tools' ? s.tools : []))) : undefined;
   return (
-    <ol className="rail">
-      {xs.map((x, i) => {
-        const last = i === xs.length - 1;
-        const lit = flash !== null && holds(x, flash);
-        const open = i >= xs.length - OPEN_TURNS || (fresh >= 0 && i >= fresh) || lit || (planOpen !== null && holdsPlan(x, planOpen)) || pending(x, !offline);
-        return (
-          <Turn key={x.key} client={client} session={session} helper={helper} items={items} x={x} at={timeMark(x.at, now, lang)} last={last}
-            folded={open ? null : !unfolded.has(x.key)} onUnfold={onUnfold}
-            now={ticks(x) || (last && wait !== null) ? now : 0} unread={unread} since={since} dispatch={dispatch}
-            flash={lit ? flash : null} onChange={onChange} onCapture={onCapture} onDocument={onDocument}
-            planOpen={planOpen !== null && holdsPlan(x, planOpen) ? planOpen : null} onPlan={onPlan}
-            convOpen={convHead !== undefined && messagesOf(x).some(m => m.id === convHead) ? convOpen : null} onConversation={onConversation}
-            peers={peers} convs={convs} folded2={folded} onFold={onFold} marks={marks} waiting={last ? waiting : null} wait={last ? wait : null} onReplyTo={onReplyTo} />
-        );
-      })}
-    </ol>
+    <div className="cw">
+      <ol className="cw-col">
+        {xs.map((x, i) => {
+          const last = i === xs.length - 1;
+          const lit = flash !== null && holds(x, flash);
+          const busy = last && (working || waiting !== null);
+          const open = last || (fresh >= 0 && i >= fresh) || lit || (planOpen !== null && holdsPlan(x, planOpen)) || pending(x, !offline);
+          return (
+            <Turn key={x.key} client={client} session={session} helper={helper} items={items} x={x} at={timeMark(x.at, now, lang)} last={last}
+              foldable={past === 'folded' && !open} unfolded={unfolded.has(x.key)} onUnfold={onUnfold} busy={busy} live={last && run ? run.id : null}
+              now={ticks(x) || (last && wait !== null) ? now : 0} unread={unread} since={since} dispatch={dispatch}
+              flash={lit ? flash : null} onChange={onChange} onCapture={onCapture} onDocument={onDocument}
+              planOpen={planOpen !== null && holdsPlan(x, planOpen) ? planOpen : null} onPlan={onPlan}
+              convOpen={convHead !== undefined && messagesOf(x).some(m => m.id === convHead) ? convOpen : null} onConversation={onConversation}
+              peers={peers} convs={convs} folded2={folded} onFold={onFold} marks={marks} onReplyTo={onReplyTo} />
+          );
+        })}
+        <Foot key="foot" run={run} waiting={waiting} wait={wait} thinking={working ? helper?.kind ?? session.name : null} seedKey={lastX?.key ?? ''} now={now} />
+      </ol>
+      <Summary session={session} helper={helper} items={items} dispatch={dispatch} onChange={onChange} />
+    </div>
   );
 });
 

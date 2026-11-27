@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Session, ThreadItem } from '@ledge/protocol';
-import { boot, closeDaemons, declarations, listSessions, ottoThread, unfoldPast } from './helpers';
+import { boot, closeDaemons, declarations, listSessions, ottoThread, unfoldPast, toolRow } from './helpers';
 import { changesTab, empty, open, serialize } from '../src/workspace/model';
 import { ATELIER_TAB, WORKSPACE_KEY } from '../src/workspace/store';
 
@@ -73,7 +73,7 @@ it('« turn 2 » brings the session\'s tab forward on its thread; « View the ch
   await user.click(within(pane()).getByRole('button', { name: /^Edit · turn 2/ }));
   expect(dvTab('Otto')).toHaveAttribute('aria-selected', 'true');
   expect(onThread()).toBe(true);
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="w1"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('w1')).getByRole('button', { name: 'View the change' }));
   expect(onThread()).toBe(true);
   expect(within(screen.getByRole('complementary', { name: 'Reading pane' })).getByText('Change · guide.md')).toBeVisible();
 });
@@ -97,7 +97,7 @@ it('« View the change » on an absolute path finds the file a relative path ope
   await showChanges(user);
   await user.click(within(screen.getByRole('navigation', { name: 'Changed files' })).getByRole('button', { name: /b\.ts/ }));
   await user.click(within(pane()).getByRole('button', { name: /^Edit · turn 2/ }));
-  await user.click(within(document.querySelector<HTMLElement>('[data-tool="k2"]')!).getByRole('button', { name: 'View the change' }));
+  await user.click(within(toolRow('k2')).getByRole('button', { name: 'View the change' }));
   const side = screen.getByRole('complementary', { name: 'Reading pane' });
   expect(side.querySelector('.side-title code')).toHaveTextContent('src/b.ts');
   expect([...side.querySelectorAll('.diff-line .code')].map(c => c.textContent)).toEqual(['x', 'y', 'y', 'z']);   // both actions' diffs

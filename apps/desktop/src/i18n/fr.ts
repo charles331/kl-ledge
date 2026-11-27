@@ -1101,7 +1101,7 @@ export const fr = {
       marks: { running: 'En cours', success: 'Réussi', failed: 'Échec', unknown: 'Interrompu' } as Record<ToolStatus, string>,
       verbs: { create: 'Création', delete: 'Suppression', read: 'Lecture', search: 'Recherche', command: 'Commande', edit: 'Modification' } as Record<Verb, string>,
       // `unknown` : seul un historique écrit avant le lot 6b le porte (un Decided sans décision ne marque plus de permission).
-      decided: { accept: 'Accordé', always: 'Toujours autorisé', deny: 'Refusé', unknown: 'Répondu dans le terminal', denyByClose: 'Refusé par la fermeture' } as Record<'accept' | 'always' | 'deny' | 'unknown' | 'denyByClose', string>,
+      decided: { accept: 'Autorisé', always: 'Toujours autorisé', deny: 'Refusé', unknown: 'Répondu dans le terminal', denyByClose: 'Refusé par la fermeture' } as Record<'accept' | 'always' | 'deny' | 'unknown' | 'denyByClose', string>,
       questionByClose: 'Refusée par la fermeture',
       captureDropped: 'Capture trop lourde pour Ledge',
       seeChange: 'Voir la modification', seeChangeShort: 'Voir',
@@ -1113,6 +1113,15 @@ export const fr = {
       // The rail (issue #34, maquette B): a folded exchange or run, the end of an exchange, a subagent's card, the waiting row,
       // the Story / Objectif markers and the task card.
       endOf: 'Fin de l’échange',
+      // Le fil « Cowork » (#41) : textes de la maquette et de son complément, validés par jde le 2026-11-27.
+      work: 'Travail',
+      side: { label: 'Résumé de la session', progress: 'Progression', files: 'Fichiers modifiés', helpers: 'Sous-agents' },
+      thinks: (n: string) => `${n} réfléchit…`,
+      aside: {
+        tag: 'btw', head: (n: string) => `En aparté · hors du fil, ${n} continue son travail`, close: 'Fermer l’aparté',
+        asking: (n: string) => `${n} répond en aparté…`,
+        unreadable: (n: string) => `Ledge n’a pas pu lire la réponse : elle est dans le terminal de ${n}.`, seeTerminal: 'Voir la vue Terminal'
+      },
       endFailed: (n: number, recovered: boolean) => plural(n, `${n} échec`, `${n} échecs`) + (recovered ? plural(n, ' rattrapé', ' rattrapés') : ''),
       subagent: 'sous-agent', openThread: (n: string) => `Ouvrir le fil ${deName(n)}`,
       launched: (n: number) => plural(n, 'Sous-agent lancé', 'Sous-agents lancés'),

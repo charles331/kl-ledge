@@ -1,0 +1,145 @@
+/* The session thread as a conversation, « Cowork » (issue #41; docs/mockups/ledge-thread-cowork.html, its sheet
+   docs/mockups/thread-cowork/cowork.css). Its surfaces and inks are the Atelier skin's (--at-*), which the Desktop always wears.
+   The rows the mockup does not draw (messages between agents, notices, OpenRig, a task, the unread marker, the wait line) keep
+   their rail row (`.r`, session.css) inside the column. */
+
+/* ---------- The column, and the summary beside it when the session is wide enough ---------- */
+.session-thread { container: cwt / inline-size; }
+.cw { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; padding: 6px 0 20px; }
+.cw-col { list-style: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 28px; }
+.cw-turn { margin: 0; }
+.cw-turn > .turn-rows { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cw-turn > .turn-rows > .r { padding: 0; }
+.cw-side { display: none; }
+@container cwt (min-width: 1020px) {
+  .cw { grid-template-columns: minmax(0, 720px) 288px; column-gap: 40px; max-width: 1048px; }
+  .cw-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 6px; align-self: start; }
+  /* The work plan is the first card of the summary: its bar over the thread would say it twice. */
+  .session-thread > .todo-bar { display: none; }
+}
+
+/* The request waiting for an answer and the reply field keep to the reading column, under the conversation. The app gives each
+   of them a 12 px margin, counted here. */
+.session-main { container: cwm / inline-size; }
+@container cwm (min-width: 784px) {
+  .ide-reply.session-reply { padding-inline: calc((100cqw - 784px) / 2); }
+}
+@container cwm (min-width: 1068px) {
+  .ide-reply.session-reply { padding-left: calc((100cqw - 1048px) / 2 - 12px); padding-right: calc((100cqw - 1048px) / 2 + 316px); }
+}
+
+/* ---------- What the person wrote: a bubble on the right ---------- */
+.cw-you { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.cw-bubble { margin: 0; max-width: 82%; padding: 9px 14px; border-radius: 16px 16px 5px 16px; background: color-mix(in srgb, var(--at-coral) 15%, var(--at-pane)); color: var(--at-ink); font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cw-time { font-size: 11px; line-height: 14px; color: var(--at-ink2); font-variant-numeric: tabular-nums; }
+.cw-you.from-agent { align-items: flex-start; }
+.cw-you.from-agent .cw-bubble { border-radius: 5px 16px 16px 16px; background: var(--at-raise); }
+.cw-you-who { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--at-ink2); }
+
+/* ---------- What the agent says: plain prose, the column's width ---------- */
+.cw-say { min-width: 0; }
+.cw-say > .cw-time { display: block; margin-top: 4px; }
+.cw-say .msg-body { font-size: 14px; line-height: 23px; color: var(--at-ink); }
+.cw-say .msg-body > :first-child { margin-top: 0; }
+.cw-say .msg-body > :last-child { margin-bottom: 0; }
+
+/* ---------- Its work, folded to one line ---------- */
+.cw-steps { min-width: 0; }
+.cw-steps-head, .cw-work { display: flex; align-items: center; gap: 8px; width: calc(100% + 8px); min-height: 30px; margin-left: -8px; padding: 0 10px 0 6px; border-radius: 10px; color: var(--at-ink2); font-size: 13px; line-height: 20px; text-align: left; cursor: pointer; }
+.cw-steps-head:hover, .cw-work:hover { background: var(--at-line); color: var(--at-ink); }
+.cw-steps-head > svg, .cw-work > svg { flex: none; transition: transform .12s; }
+.cw-steps.open > .cw-steps-head > svg, .cw-work.open > svg { transform: rotate(90deg); }
+.cw-steps-head strong, .cw-work strong { flex: none; font-weight: 500; color: var(--at-ink); }
+.cw-steps-kinds, .cw-work > span:not(.cw-tag):not(.cw-step-time) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-step-time { flex: none; margin-left: auto; padding-left: 8px; font-size: 11px; color: var(--at-ink2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cw-steps-list { list-style: none; margin: 4px 0 0; padding: 5px 4px; border-radius: 12px; background: var(--at-well); }
+.cw-step.action-row, .cw-step.action-row.status-failed { padding: 0; }
+.cw-step-line { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; font-size: 13px; line-height: 20px; }
+.cw-step-ico { flex: none; display: inline-flex; width: 16px; justify-content: center; color: var(--at-ink2); }
+.cw-step-verb { flex: none; color: var(--at-ink2); }
+.cw-step-target { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink); text-align: left; }
+.cw-step-target:not(:disabled) { cursor: pointer; }
+.cw-step-target:not(:disabled):hover { text-decoration: underline; }
+.cw-step.failed .cw-step-ico { color: var(--danger-text); }
+.cw-step.status-running .cw-step-ico, .cw-step.status-running .cw-step-time { color: var(--info); }
+.cw-step.status-unknown .cw-step-target { color: var(--at-ink2); }
+.cw-delta { flex: none; display: inline-flex; gap: 5px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.cw-delta b { font-weight: 500; color: var(--success); }
+.cw-delta i { font-style: normal; color: var(--danger-text); }
+.cw-link { flex: none; font-size: 12px; color: var(--at-ink2); cursor: pointer; }
+.cw-link:hover { color: var(--at-ink); text-decoration: underline; }
+.cw-out { margin: 2px 8px 6px 32px; padding: 8px 10px; max-height: 180px; overflow: auto; border-radius: 8px; background: var(--at-bench); color: var(--at-ink2); font-size: 11.5px; line-height: 17px; white-space: pre-wrap; }
+.cw-out.is-error { color: var(--danger-text); }
+.cw-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.cw-tag.danger { color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 16%, transparent); }
+.cw-images { max-width: 100%; }
+.cw-shots { margin-top: 6px; }
+
+/* The files an exchange changed, under its answer. */
+.cw-files { display: flex; flex-wrap: wrap; gap: 6px; }
+button.cw-file { display: inline-flex; align-items: center; gap: 7px; height: 30px; max-width: 100%; padding: 0 10px; border: 1px solid var(--at-line2); border-radius: 10px; background: var(--at-card); color: var(--at-ink); font-size: 12.5px; cursor: pointer; }
+.cw-file:hover { border-color: var(--at-ink2); }
+.cw-file > svg { flex: none; color: var(--at-ink2); }
+.cw-file > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-end { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--at-ink2); }
+.cw-end.end-row, .cw-end.turn-end, .cw-end.frozen-end { padding: 0; }
+.cw-end .end-failed { color: var(--danger-text); }
+
+/* An answer the person gave to a request: on their side. */
+.cw-decision { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.cw-decision-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 82%; min-height: 30px; padding: 0 12px; border: 1px solid var(--at-line2); border-radius: 12px 12px 5px 12px; font-size: 12.5px; }
+.cw-decision-chip b { flex: none; font-weight: 500; color: var(--success); }
+.cw-decision.deny .cw-decision-chip b { color: var(--danger-text); }
+.cw-decision.unknown .cw-decision-chip b { color: var(--at-ink2); }
+.cw-decision-chip code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink2); }
+.cw-decision.plan .cw-decision-chip > span { flex: none; color: var(--at-ink2); }
+.cw-decision.plan .cw-decision-chip > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+
+/* A subagent it launched: one row that opens its thread. */
+button.cw-helper { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 12px; border: 1px solid var(--at-line); border-radius: 12px; background: var(--at-card); color: var(--at-ink); text-align: left; cursor: pointer; }
+.cw-helper:hover { border-color: var(--at-line2); }
+.cw-helper-ico { flex: none; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 8px; background: var(--at-line); color: var(--at-ink2); }
+.cw-helper > svg:last-child { flex: none; color: var(--at-ink2); }
+.cw-helper-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; line-height: 18px; }
+.cw-helper-text strong { font-weight: 500; }
+.cw-helper-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink2); }
+.cw-plan { min-width: 0; }
+
+/* ---------- The foot of the thread: what the agent is doing now, or that it waits for the person ---------- */
+.cw-foot { display: flex; align-items: center; gap: 10px; min-height: 28px; margin-top: -10px; font-size: 13.5px; line-height: 20px; color: var(--at-ink2); }
+.cw-foot-mark { flex: none; display: inline-flex; width: 16px; height: 24px; align-items: center; justify-content: center; }
+.cw-foot-mark i { width: 8px; height: 8px; border-radius: 50%; background: var(--at-coral); }
+.cw-foot-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-foot-text code { font-size: 12px; }
+.cw-foot.waiting .cw-foot-text { white-space: normal; color: var(--at-coral); }
+.cw-foot .cw-step-time { margin-left: 0; }
+.cw-col > .wait-row { margin-top: -10px; }
+.cw-shimmer { background: linear-gradient(90deg, var(--at-ink2) 0 40%, var(--at-ink) 50%, var(--at-ink2) 60% 100%) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: cw-shimmer 2.4s linear infinite; }
+.cw-shimmer code { color: inherit; background: none; }
+@keyframes cw-shimmer { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+@media (prefers-reduced-motion: reduce) { .cw-shimmer { animation: none; background: none; color: var(--at-ink2); } }
+
+/* ---------- The summary beside the thread: cards that fold to their title ---------- */
+.cw-card { border: 1px solid var(--at-line); border-radius: 12px; background: var(--at-side); }
+.cw-card > summary { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px 0 14px; list-style: none; font-size: 12.5px; font-weight: 600; color: var(--at-ink); cursor: pointer; }
+.cw-card > summary::-webkit-details-marker { display: none; }
+.cw-card > summary > svg { margin-left: auto; color: var(--at-ink2); transition: transform .12s; }
+.cw-card:not([open]) > summary > svg { transform: rotate(-90deg); }
+.cw-count { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--at-line2); color: var(--at-ink2); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cw-card-body { padding: 0 8px 8px; }
+.cw-bar { display: block; height: 4px; margin: 0 6px 8px; border-radius: 2px; background: var(--at-line2); overflow: hidden; }
+.cw-bar i { display: block; height: 100%; border-radius: 2px; background: var(--success); }
+.cw-todos { list-style: none; margin: 0; padding: 0; }
+.cw-todos li { display: flex; align-items: flex-start; gap: 9px; padding: 5px 6px; font-size: 13px; line-height: 18px; color: var(--at-ink2); }
+.cw-box { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-top: 1px; border: 1.5px solid var(--at-line2); border-radius: 50%; }
+.cw-todos li.is-completed .cw-box { border-color: transparent; background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.cw-todos li.is-in_progress { color: var(--at-ink); font-weight: 500; }
+.cw-todos li.is-in_progress .cw-box { border-color: var(--info); }
+.cw-todos li.is-in_progress .cw-box::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--info); animation: cw-pulse 1.6s ease-in-out infinite; }
+@keyframes cw-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .cw-todos li.is-in_progress .cw-box::after { animation: none; } }
+.cw-rows { list-style: none; margin: 0; padding: 0; }
+.cw-rows button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 6px; border-radius: 8px; color: var(--at-ink); font-size: 13px; text-align: left; cursor: pointer; }
+.cw-rows button:hover { background: var(--at-line); }
+.cw-rows button > svg { flex: none; color: var(--at-ink2); }
+.cw-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
