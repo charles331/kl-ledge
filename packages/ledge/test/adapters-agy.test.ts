@@ -57,6 +57,19 @@ describe('agy adapter: reading the pane', () => {
     expect(() => agyAdapter.keysFor('always', file, fx('permission-file-access'))).toThrow(/always/);
     expect(() => agyAdapter.keysFor('deny', file, fx('permission-file-access'), 'no')).toThrow(/note/);
   });
+  it('reads an edit taller than the screen, its title gone off the top (seen live: a 58-line diff)', () => {
+    const tall = fx('permission-edit-tall');
+    expect(agyAdapter.detectPrompt(tall)).toMatchObject({ kind: 'diff', text: 'Edit /home/dev/demo/src/cache.js' });
+    expect(agyAdapter.keysFor('accept', { kind: 'diff', text: 'Edit /home/dev/demo/src/cache.js', source: 'pane' }, tall)).toEqual([{ text: '1' }]);
+    expect(agyAdapter.atRest!(tall)).toBe(false);
+  });
+  it('a command whose start went off the top is not read: what it runs cannot be shown whole', () => {
+    const lines = fx('permission-command').split('\n');
+    const rule = lines.findIndex(l => /^─{10,}$/.test(l));
+    const asks = lines.findIndex(l => l.trim() === 'Requesting permission for:');
+    const cut = [lines[rule]!, ...lines.slice(asks + 1)].join('\n'); // the rule at the top, the request line gone
+    expect(agyAdapter.detectPrompt(cut)).toBeNull();
+  });
   it('an open refusal note is still the command dialog', () => {
     expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
   });

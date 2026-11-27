@@ -54,6 +54,8 @@ const QUESTION_TITLE = 'Question';
 const TITLES: ReadonlySet<string> = new Set([COMMAND_TITLE, EDIT_TITLE, QUESTION_TITLE, FILE_TITLE]);
 /** How far above the hint a dialog's rule can be: a long command or diff takes many lines. */
 const DIALOG_MAX = 60;
+/** A dialog's rule at the very top of the screen, its end possibly cut by the terminal (seen: a stray `�` after it). */
+const TOP_RULE = /^─{10,}/;
 
 type Dialog = { title: string; body: string[]; options: string[]; focus: number; hint: string; noteOpen: boolean };
 
@@ -71,8 +73,19 @@ function parseDialog(lines: string[]): Dialog | null {
   let rule = h - 1;
   const titled = (i: number) => RULE.test(lines[i]!) && TITLES.has(lines[lastNonBlank(lines, i - 1)] ?? '');
   while (rule > 0 && h - rule <= DIALOG_MAX && !titled(rule)) rule--;
-  if (rule <= 0 || !titled(rule)) return null;
-  const title = lines[lastNonBlank(lines, rule - 1)]!.trim();
+  let title: string;
+  if (rule > 0 && titled(rule)) title = lines[lastNonBlank(lines, rule - 1)]!.trim();
+  else {
+    // A dialog taller than the screen: agy draws full screen with no scrollback, so its title goes off the top and its rule,
+    // cut, is the screen's first line. Its kind is then told by its own question, right above its options.
+    const top = lines.findIndex(l => !isBlank(l));
+    if (top < 0 || top >= h || !TOP_RULE.test(lines[top]!)) return null;
+    rule = top;
+    const asks = lines.slice(rule + 1, h).map(l => l.trim());
+    title = asks.includes('Accept this file edit?') ? EDIT_TITLE : asks.includes('Run this command?') ? COMMAND_TITLE
+      : asks.includes('Allow access to this file?') ? FILE_TITLE : asks.some(l => /^Question \d+\/\d+: /.test(l)) ? QUESTION_TITLE : '';
+    if (!title) return null;
+  }
   const inside = lines.slice(rule + 1, h);
   // The options are the block right above the hint, drawn at the dialog's own indent (`> 1.` focused, `  2.` the
   // others), read from the bottom up. Under one of them may sit its note field or the rest of a long option, indented
