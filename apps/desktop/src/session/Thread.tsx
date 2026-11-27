@@ -400,7 +400,6 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
               {th.endOf} · {failedText && <><span className="end-failed">{failedText}</span>{lastTool?.status === 'success' && th.endFailed(sum.failed, true).slice(failedText.length)} · </>}
               {th.actions(sum.count)}{sum.files > 0 && ` ${th.files(sum.files)}`}
             </span>
-            <span className="cw-time mono">{clock(lastAt(x))}</span>
           </li>
         )}
         {last && offline && (
@@ -566,9 +565,9 @@ function Foot({ run, waiting, wait, thinking, seedKey, now }: {
   const { t, lang } = useI18n();
   const th = t.session.thread;
   if (waiting) return (
-    <li className="cw-foot waiting waiting-row" role="status">
+    <li className="cw-foot waiting" role="status">
       <span className="cw-foot-mark" aria-hidden="true"><i /></span>
-      <span className="cw-foot-text waiting-text">{th.waits[waiting.kind](waiting.asker)} {th.resumes}</span>
+      <span className="cw-foot-text">{th.waits[waiting.kind](waiting.asker)} {th.resumes}</span>
     </li>
   );
   if (run) return (

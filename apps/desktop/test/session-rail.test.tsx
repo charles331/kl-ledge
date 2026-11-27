@@ -34,6 +34,8 @@ describe('the thread (issues #34, #41)', () => {
     await open('Otto', 'otto', ottoThread());
     expect(await thread().findByText(/Otto is waiting for your approval of a command\./)).toHaveTextContent('The thread resumes after your answer.');
     expect(document.querySelector('.turn.current .end-row')).toBeNull();
+    // The foot's own size, not the rail's waiting row (design-ux, conformity of 617af4e0).
+    expect(document.querySelector('.cw-foot.waiting')!.className).toBe('cw-foot waiting');
   });
 
   it('an exchange that ended counts its actions and files; a failure caught up after is « recovered »', async () => {
@@ -46,6 +48,8 @@ describe('the thread (issues #34, #41)', () => {
     const end = document.querySelector('.turn.current .end-row')!;
     expect(end.querySelector('.end-text')).toHaveTextContent('End of the exchange · 1 failed, recovered · 2 actions · 1 file changed');
     expect(end.querySelector('.end-failed')).toHaveTextContent(/^1 failed$/);
+    // No time on the end line: the last text above carries it (the mockup).
+    expect(end.querySelector('.cw-time')).toBeNull();
   });
 
   it('each subagent launched is a row of its own, with its state, that opens its thread (#41)', async () => {
