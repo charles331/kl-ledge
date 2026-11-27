@@ -9,7 +9,7 @@ interface Wait { prefs: IslandPrefs; what: string; timer: ReturnType<typeof setT
 
 /** Two island settings are the same, whatever the order of their keys (ours are spread, the daemon's come out of zod). */
 export const sameIsland = (a: IslandPrefs, b: IslandPrefs): boolean =>
-  a.visible === b.visible && a.screen === b.screen && a.position === b.position && a.discreet === b.discreet && a.islandScale === b.islandScale
+  a.visible === b.visible && a.screen === b.screen && a.position === b.position && a.islandScale === b.islandScale
   && a.panelScale === b.panelScale && a.shortcut === b.shortcut
   && a.shows.quick === b.shows.quick && a.shows.finished === b.shows.finished && a.shows.say === b.shows.say && a.shows.helpers === b.shows.helpers;
 

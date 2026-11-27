@@ -567,18 +567,14 @@ export const en: Messages = {
       preview: 'Notch preview', bubble: 'Otto needs your approval',
       caption: {
         dnd: 'Do not disturb: requests stay in the notch, without a bubble.',
-        strip: 'Discreet mode: a simple line under the maximised window.',
-        whole: 'Discreet mode off: the notch stays whole above the window.',
         rest: 'The notch at rest, three agents living in it.',
         hidden: 'The notch is hidden. Ledge Desktop still lets you know.'
       },
-      cover: 'Simulate a maximised window', uncover: 'Remove the window',
       screen: 'Screen', screens: { primary: 'Main', nth: (n) => `Screen ${n}`, missing: 'Unplugged' },
       screenHint: (size) => (size ? `The notch sits at the top of this screen (${size}).` : 'The notch sits at the top of this screen.'),
       screenSaved: { primary: 'Main screen', nth: (n) => `Screen ${n}` },
       position: 'Notch position', positionHint: 'At the centre of the top edge, or a quarter of the way along to keep titles and tabs clear.',
       positions: { left: 'Left', center: 'Centre', right: 'Right' }, positionSaved: (p) => `Position: ${p}`,
-      discreet: 'Discreet under a window', discreetHint: 'A simple line when a maximised window fills the screen; hovering unfolds it.', discreetOn: 'Discreet mode', discreetOff: 'Notch always whole',
       islandScale: 'Notch size', islandScaleHint: 'The notch and its companions at the top of the screen.', islandScaleSaved: (label) => `Notch size ${label}`,
       panelScale: 'Notch windows size', panelScaleHint: 'Bubble, list, session and chat that open from the notch.', panelScaleSaved: (label) => `Windows size ${label}`,
       does: 'What the notch does', doesNote: 'Approval requests and questions always show in the notch. The rest is up to you.',

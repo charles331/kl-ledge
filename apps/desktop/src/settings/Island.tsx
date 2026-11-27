@@ -2,7 +2,6 @@ import { useEffect, useState, type CSSProperties, type JSX } from 'react';
 import type { IslandPrefs } from '@ledge/protocol';
 import { ResidentMascot } from '@ledge/ui/bots/ResidentMascot';
 import { autoScale, UI_SCALES, type UiScale } from '@ledge/ui/scale';
-import { Button } from '@ledge/ui/ui/Button';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import { useI18n } from '../i18n/lang';
@@ -100,7 +99,6 @@ export function Island({ ctx }: { ctx: SettingsContext }): JSX.Element {
           {describedBy => <Segmented label={c.position} value={p.position} disabled={off} describedBy={describedBy} onChange={v => set('position', { position: v }, c.positionSaved(c.positions[v]))}
             options={POSITIONS.map(v => ({ value: v, label: c.positions[v] }))} />}
         </Row>
-        <SwitchRow label={c.discreet} hint={c.discreetHint} error={errorOf('discreet')} checked={p.discreet} disabled={off} onChange={on => set('discreet', { discreet: on }, on ? c.discreetOn : c.discreetOff)} />
         <Row label={c.islandScale} hint={c.islandScaleHint} error={errorOf('islandScale')} stack>
           {describedBy => <Segmented label={c.islandScale} value={toChoice(p.islandScale)} disabled={off} describedBy={describedBy} options={scaleOptions(autoScale(here.logicalHeight, 'handle'))}
             onChange={v => { const s = toScale(v); set('islandScale', { islandScale: s }, c.islandScaleSaved(scaleLabel(s))); }} />}
@@ -128,8 +126,8 @@ export function Island({ ctx }: { ctx: SettingsContext }): JSX.Element {
   );
 }
 
-/** The mockup's preview (settings.tsx, IslandPreview): every screen, the island on the one it sits on (`at`), where it is set, at its size;
- *  « Simulate a maximised window » covers them, and the discreet island turns into a line. The bubble is an agent's sentence: shown
+/** The mockup's preview (settings.tsx, IslandPreview): every screen, the island on the one it sits on (`at`), where it is set, at its size.
+ *  The bubble is an agent's sentence: shown
  *  while their words are, and never under Do not disturb. */
 function IslandPreview({ prefs, screens, at, name, paused }: { prefs: IslandPrefs; screens: readonly IslandScreen[]; at: string; name(s: IslandScreen): string; paused: boolean }): JSX.Element {
   const { t } = useI18n();
@@ -137,25 +135,22 @@ function IslandPreview({ prefs, screens, at, name, paused }: { prefs: IslandPref
   const theme = useTheme();
   const { reduced } = useMotionPreferences();
   const [dnd] = useDnd();
-  const [covered, setCovered] = useState(false);
   const k = prefs.islandScale === 'auto' ? 1 : prefs.islandScale;
-  const caption = !prefs.visible ? c.caption.hidden : dnd ? c.caption.dnd : covered && prefs.discreet ? c.caption.strip : covered ? c.caption.whole : c.caption.rest;
+  const caption = !prefs.visible ? c.caption.hidden : dnd ? c.caption.dnd : c.caption.rest;
   return (
     <figure className="island-preview" aria-label={c.preview}>
       <div className="preview-desk">
         {screens.map(s => {
           const here = prefs.visible && s.id === at;
-          const strip = here && covered && prefs.discreet;
           return (
             <div key={s.id} className={here ? 'preview-screen here' : 'preview-screen'} style={{ width: glassOf(s) }}>
               <div className="preview-glass">
-                {covered && <div className="preview-window" aria-hidden="true"><i /><i /><i /></div>}
                 {here && (
-                  <div className={`preview-notch pos-${prefs.position}${strip ? ' strip' : ''}`} style={{ '--k': k } as CSSProperties}>
-                    {!strip && <><span className="preview-mascot"><ResidentMascot size={12 * k} theme={theme} paused={paused || reduced} /></span><i className="d-approval" /><i className="d-question" /><i className="d-working" /></>}
+                  <div className={`preview-notch pos-${prefs.position}`} style={{ '--k': k } as CSSProperties}>
+                    <span className="preview-mascot"><ResidentMascot size={12 * k} theme={theme} paused={paused || reduced} /></span><i className="d-approval" /><i className="d-question" /><i className="d-working" />
                   </div>
                 )}
-                {here && !strip && !dnd && prefs.shows.say && <div className={`preview-bubble pos-${prefs.position}`}>{c.bubble}</div>}
+                {here && !dnd && prefs.shows.say && <div className={`preview-bubble pos-${prefs.position}`}>{c.bubble}</div>}
               </div>
               <span className="preview-caption"><strong>{name(s)}</strong> {sizeOf(s)}</span>
             </div>
@@ -164,7 +159,6 @@ function IslandPreview({ prefs, screens, at, name, paused }: { prefs: IslandPref
       </div>
       <figcaption>
         <span>{caption}</span>
-        <Button size="sm" variant="ghost" aria-pressed={covered} disabled={!prefs.visible} onClick={() => setCovered(v => !v)}>{covered ? c.uncover : c.cover}</Button>
       </figcaption>
     </figure>
   );

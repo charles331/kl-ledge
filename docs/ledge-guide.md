@@ -19,9 +19,19 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
   - `ledge tui` est Ledge dans un terminal ;
   - `ledge setup` et `ledge uninstall` installent et retirent les hooks et `~/.ledge`.
 - **Ledge Desktop** est l'application Windows : la fenêtre principale, un espace de travail en onglets (sessions, sièges OpenRig, MR et PR, atelier, réglages) avec le chat de Ledge à droite, et l'**encoche**.
-- **L'encoche** (l'île) est une pastille en haut de l'écran : la mascotte de Ledge, puis une mascotte par session, de la couleur de son état (rouge : une autorisation à donner ; ambre : une question ; bleu : au travail ; vert : attend une consigne).
-  - Une demande étire l'encoche en bulle, avec « Refuser » et « Autoriser ».
-  - Survoler l'encoche, ou `Ctrl+Alt+L`, ouvre la liste des sessions, le champ « Demander à Ledge » et la vue d'une session.
+- **L'encoche** (l'île) ne reste pas à l'écran. Au repos, il n'y a rien en haut de l'écran.
+  - Quand un agent a quelque chose à dire, une pastille sort du bord haut et flotte à 8 px de lui. Elle porte le logo du provider de l'agent (Claude, Codex…) et le signe de l'événement. Puis elle s'ouvre sur la notification, se referme et disparaît.
+  - Une carte par événement, avec le logo, une pastille d'état, la phrase, le projet et la branche :
+    - **tour terminé** : pastille verte et début de la dernière réponse, 6 s ;
+    - **erreur** : pastille rouge et message de l'erreur, 6 s ;
+    - **demande d'accord** : la commande, avec « Autoriser » (`Y`), « Refuser » (`N`), « Ouvrir dans Ledge » (`O`) et « Plus tard » (`Esc`) ;
+    - **question** : les réponses proposées (`1`-`9`) et un champ libre ;
+    - **plan ou diff à relire** : « Relire dans Ledge » et « Plus tard ».
+  - Un avis (tour terminé, erreur) se ferme seul : un anneau autour du logo se vide pendant les 6 s, et le survol le retient. Un clic ouvre la session dans Ledge Desktop.
+  - Une demande reste ouverte jusqu'à la réponse ou « Plus tard ». Après « Plus tard », plus rien n'est à l'écran : `Ctrl+Alt+L` rouvre la plus ancienne demande en attente.
+  - Une seule notification à la fois, les demandes avant les avis ; « +2 autres » dit ce qui attend. « Ne pas déranger » n'ouvre rien.
+  - Les avis de Ledge (le point, la question d'un rig, une routine) et « une machine est hors ligne » passent aussi par l'encoche.
+  - La musique, le chat de Ledge, la ligne d'activité, les mascottes et le réveil au survol ne sont plus dans l'encoche : le chat est dans Ledge Desktop.
   - `Ctrl+Alt+N` ouvre « Nouvelle session » dans Ledge Desktop.
   - Ses réglages sont dans Réglages › Encoche.
 - **Ledge mobile** est une application web pour le téléphone, servie par un relais. Elle se lie au PC depuis Réglages › Accès mobile.
@@ -46,7 +56,7 @@ Ledge n'attend pas qu'on l'interroge : il écrit « le point » dans le chat, de
 
 Un plafond évite que Ledge parle trop. Le daemon tient un journal des événements et écrit ce dont le chat a besoin dans ses fichiers (`journal.md`, `attentes.md`) ; Ledge n'agit jamais seul : répondre, archiver, passer un relais, écrire à un siège ou réparer une PR est toujours un clic. Une réponse irréversible demande une confirmation.
 
-**L'encoche n'a qu'une voix : Ledge.** Les bulles « session terminée » et « erreur » n'existent plus ; Ledge dit le point, ou la question d'un rig, dans une bulle courte. « Plus tard » met la bulle de côté : elle revient avec un point plus récent, ou quand la conversation est lue. Le réglage « Bulle quand un agent a terminé » ne commande plus que le son.
+**Dans l'encoche**, le point de Ledge et la question d'un rig s'ouvrent comme les autres notifications, avec leur contenu habituel. Le tour terminé et l'erreur d'une session y ont aussi leur carte de 6 s (voir « Ce qu'est Ledge »).
 
 **Sur le téléphone**, le réglage « Le point de Ledge » (Réglages › Notifications, l'ancien « Agent terminé ») active la notification d'un point. Le point et ses réponses s'y affichent comme sur le PC.
 
@@ -299,7 +309,6 @@ Photo de profil, thème (Galet clair, Signal sombre), couleur d'accent, échelle
 ##### Encoche (`island`)
 
 - Afficher l'encoche, l'écran où elle se trouve, et sa position (gauche, centre, droite).
-- « Mode discret sous une fenêtre ».
 - Taille de l'encoche et de ses fenêtres.
 - « Autoriser et répondre depuis l'encoche ».
 - « Bulle quand un agent a terminé » (ne commande plus que le son : Ledge est la seule voix de l'encoche).

@@ -604,18 +604,14 @@ export const fr = {
       preview: 'Aperçu de l’encoche', bubble: 'Otto attend votre accord',
       caption: {
         dnd: 'Ne pas déranger : les demandes restent dans l’encoche, sans bulle.',
-        strip: 'Mode discret : un simple trait sous la fenêtre maximisée.',
-        whole: 'Mode discret désactivé : l’encoche reste entière au-dessus de la fenêtre.',
         rest: 'L’encoche au repos, trois agents qui l’habitent.',
         hidden: 'L’encoche est masquée. Ledge Desktop continue de vous prévenir.'
       },
-      cover: 'Simuler une fenêtre maximisée', uncover: 'Retirer la fenêtre',
       screen: 'Écran', screens: { primary: 'Principal', nth: (n: number) => `Écran ${n}`, missing: 'Débranché' },
       screenHint: (size: string | null) => (size ? `L’encoche se pose en haut de cet écran (${size}).` : 'L’encoche se pose en haut de cet écran.'),
       screenSaved: { primary: 'Écran principal', nth: (n: number) => `Écran ${n}` },
       position: 'Position de l’encoche', positionHint: 'Au centre du bord supérieur, ou décalée au quart de l’écran pour laisser libres les titres et les onglets.',
       positions: { left: 'À gauche', center: 'Centre', right: 'À droite' } as Record<'left' | 'center' | 'right', string>, positionSaved: (p: string) => `Position : ${p}`,
-      discreet: 'Mode discret sous une fenêtre', discreetHint: 'Un simple trait quand une fenêtre maximisée occupe l’écran ; un survol la redéploie.', discreetOn: 'Mode discret', discreetOff: 'Encoche toujours entière',
       islandScale: 'Taille de l’encoche', islandScaleHint: 'L’encoche et ses compagnons en haut de l’écran.', islandScaleSaved: (label: string) => `Taille de l’encoche ${label}`,
       panelScale: 'Taille des fenêtres de l’encoche', panelScaleHint: 'Bulle, liste, session et chat qui s’ouvrent depuis l’encoche.', panelScaleSaved: (label: string) => `Taille des fenêtres ${label}`,
       does: 'Ce que fait l’encoche', doesNote: 'Les demandes d’accord et les questions s’affichent toujours dans l’encoche. Le reste est à votre choix.',

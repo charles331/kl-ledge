@@ -64,37 +64,29 @@ test('Settings › Notch: every control sends island.set with the whole settings
   await expect(page.locator('.preview-screen.here .preview-caption')).toHaveText('Screen 2 1920 × 1080');
   await expect(page.getByText('The notch sits at the top of this screen (1920 × 1080).')).toBeVisible();
   await expect(group(page, 'Notch size').getByRole('radio', { name: 'Auto (100%)' })).toBeChecked();
-  // Discreet: under a simulated maximised window the notch is a line; off, it stays whole.
-  await page.getByRole('button', { name: 'Simulate a maximised window' }).click();
-  await expect(page.locator('.preview-notch')).toHaveClass(/strip/);
-  await expect(page.locator('.preview-bubble')).toHaveCount(0);
-  await expect(caption(page)).toHaveText('Discreet mode: a simple line under the maximised window.');
-  await sw(page, 'Discreet under a window').click();
-  await expectLast(3, { discreet: false }, 'Setting saved · Notch always whole');
-  await expect(page.locator('.preview-notch')).not.toHaveClass(/strip/);
-  await expect(caption(page)).toHaveText('Discreet mode off: the notch stays whole above the window.');
-  await page.getByRole('button', { name: 'Remove the window' }).click();
-  await expect(page.locator('.preview-window')).toHaveCount(0);
+  // Discreet left with the floating island (#27): neither its switch nor the preview's maximised window remain.
+  await expect(sw(page, 'Discreet under a window')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Simulate a maximised window' })).toHaveCount(0);
   // Sizes.
   await option(page, 'Notch size', '150%').click();
-  await expectLast(4, { islandScale: 1.5 }, 'Setting saved · Notch size 150%');
+  await expectLast(3, { islandScale: 1.5 }, 'Setting saved · Notch size 150%');
   await expect(page.locator('.preview-notch')).toHaveAttribute('style', /--k: ?1\.5/);
   await option(page, 'Notch windows size', '200%').click();
-  await expectLast(5, { panelScale: 2 }, 'Setting saved · Windows size 200%');
+  await expectLast(4, { panelScale: 2 }, 'Setting saved · Windows size 200%');
   // What the notch does: the words' bubble leaves the preview.
   await sw(page, 'Agents’ words').click();
-  await expectLast(6, { shows: { quick: true, finished: true, say: false, helpers: true } }, 'Setting saved · Words hidden');
+  await expectLast(5, { shows: { quick: true, finished: true, say: false, helpers: true } }, 'Setting saved · Words hidden');
   await expect(page.locator('.preview-bubble')).toHaveCount(0);
   await sw(page, 'Allow and answer from the notch').click();
-  await expectLast(7, { shows: { quick: false, finished: true, say: false, helpers: true } }, 'Setting saved · Answers in Ledge Desktop only');
+  await expectLast(6, { shows: { quick: false, finished: true, say: false, helpers: true } }, 'Setting saved · Answers in Ledge Desktop only');
   await sw(page, 'Bubble when an agent is done').click();
-  await expectLast(8, { shows: { quick: false, finished: false, say: false, helpers: true } }, 'Setting saved · No task finished bubble');
+  await expectLast(7, { shows: { quick: false, finished: false, say: false, helpers: true } }, 'Setting saved · No task finished bubble');
   await sw(page, 'Subagents in the notch').click();
-  await expectLast(9, { shows: { quick: false, finished: false, say: false, helpers: false } }, 'Setting saved · Subagents hidden');
+  await expectLast(8, { shows: { quick: false, finished: false, say: false, helpers: false } }, 'Setting saved · Subagents hidden');
   // Each change is said once, and the whole settings went each time.
-  await expect.poll(async () => (await savedSaid(page)).length).toBe(9);
+  await expect.poll(async () => (await savedSaid(page)).length).toBe(8);
   expect(setsOf(daemon.received).at(-1)!.prefs).toEqual({
-    ...DEFAULT_ISLAND_PREFS, screen: '#1', position: 'right', discreet: false, islandScale: 1.5, panelScale: 2, shows: { quick: false, finished: false, say: false, helpers: false }
+    ...DEFAULT_ISLAND_PREFS, screen: '#1', position: 'right', islandScale: 1.5, panelScale: 2, shows: { quick: false, finished: false, say: false, helpers: false }
   });
 });
 
@@ -107,13 +99,12 @@ test('« Show the notch » off: everything else is disabled, the preview is empt
   expect(setsOf(daemon.received).map(m => m.prefs)).toEqual([{ ...DEFAULT_ISLAND_PREFS, visible: false }]);
   await expect(sw(page, 'Show the notch')).toHaveAttribute('aria-checked', 'false');
   await expect(sw(page, 'Show the notch')).toBeEnabled();
-  for (const name of ['Discreet under a window', 'Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) await expect(sw(page, name)).toBeDisabled();
+  for (const name of ['Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) await expect(sw(page, name)).toBeDisabled();
   for (const name of ['Screen', 'Notch position', 'Notch size', 'Notch windows size']) {
     await expect(group(page, name)).toHaveAttribute('aria-disabled', 'true');
     for (const r of await group(page, name).getByRole('radio').all()) await expect(r).toBeDisabled();
   }
   await expect(recorder(page)).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simulate a maximised window' })).toBeDisabled();
   await expect(page.locator('.preview-notch')).toHaveCount(0);
   await expect(page.locator('.preview-screen.here')).toHaveCount(0);
   await expect(caption(page)).toHaveText('The notch is hidden. Ledge Desktop still lets you know.');
@@ -181,7 +172,6 @@ test('the narrowest window (640 × 480): Settings › Notch fits without a side 
   await page.keyboard.press('Control+Comma');
   await tab(page, 'Notch').click();
   await expect(heading(page)).toHaveText('Notch');
-  await page.getByRole('button', { name: 'Simulate a maximised window' }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'the page does not scroll sideways').toBe(true);
   expect(await page.locator('.settings-scroll').evaluate(e => e.scrollWidth <= e.clientWidth + 1), 'the settings do not scroll sideways').toBe(true);
   await expect(page.locator('.preview-desk')).toHaveCSS('flex-direction', 'column');

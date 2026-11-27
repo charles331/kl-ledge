@@ -45,11 +45,11 @@ describe('Settings › Notch', () => {
     expect(screen.getByRole('region', { name: 'Notch' })).toHaveTextContent('The notch at the top of the screen: where it sits and what it signals.');
     expect(screen.getByRole('note')).toHaveTextContent('The notch has no settings of its own any more.');
     expect([...document.querySelectorAll('.set-card .set-label')].map(l => l.textContent)).toEqual([
-      'Show the notch', 'Screen', 'Notch position', 'Discreet under a window', 'Notch size', 'Notch windows size',
+      'Show the notch', 'Screen', 'Notch position', 'Notch size', 'Notch windows size',
       'Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch', 'Shortcut to open the notch'
     ]);
     expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['What the notch does']);
-    for (const name of ['Show the notch', 'Discreet under a window', 'Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) expect(sw(name)).toHaveAttribute('aria-checked', 'true');
+    for (const name of ['Show the notch', 'Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) expect(sw(name)).toHaveAttribute('aria-checked', 'true');
     expect(group('Screen').getByRole('radio', { name: 'Main' })).toBeChecked();
     expect(group('Notch position').getByRole('radio', { name: 'Centre' })).toBeChecked();
     expect(group('Notch position').getAllByRole('radio').map(r => r.parentElement!.textContent)).toEqual(['Left', 'Centre', 'Right']);
@@ -77,13 +77,12 @@ describe('Settings › Notch', () => {
     await waitFor(() => expect(saved()).toEqual(['Setting saved · Notch hidden']));
     expect(sw('Show the notch')).toHaveAttribute('aria-checked', 'false');
     expect(sw('Show the notch')).toBeEnabled();
-    for (const name of ['Discreet under a window', 'Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) expect(sw(name)).toBeDisabled();
+    for (const name of ['Allow and answer from the notch', 'Bubble when an agent is done', 'Agents’ words', 'Subagents in the notch']) expect(sw(name)).toBeDisabled();
     for (const name of ['Screen', 'Notch position', 'Notch size', 'Notch windows size']) {
       expect(screen.getByRole('radiogroup', { name })).toHaveAttribute('aria-disabled', 'true');
       for (const r of group(name).getAllByRole('radio')) expect(r).toBeDisabled();
     }
     expect(recorder()).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Simulate a maximised window' })).toBeDisabled();
     expect(document.querySelector('.preview-screen.here')).toBeNull();
     expect(caption()).toBe('The notch is hidden. Ledge Desktop still lets you know.');
     // Back on: everything comes back.
@@ -93,7 +92,7 @@ describe('Settings › Notch', () => {
     expect(sw('Agents’ words')).toBeEnabled();
   });
 
-  it('screen, position, discreet, sizes and what the notch does: each change sends the whole settings and is said once confirmed; the preview follows', async () => {
+  it('screen, position, sizes and what the notch does: each change sends the whole settings and is said once confirmed; the preview follows', async () => {
     const { d, user } = await open();
     await user.click(group('Notch position').getByRole('radio', { name: 'Right' }));
     expect((await confirm(d, 1)).position).toBe('right');
@@ -118,20 +117,13 @@ describe('Settings › Notch', () => {
     await confirm(d, 7);
     await user.click(sw('Bubble when an agent is done'));
     expect((await confirm(d, 8)).shows).toEqual({ quick: false, finished: false, say: false, helpers: false });
-    // Discreet: covered by a maximised window, the notch is a line; without it, it stays whole.
-    await user.click(screen.getByRole('button', { name: 'Simulate a maximised window' }));
-    expect(document.querySelector('.preview-notch.strip')).not.toBeNull();
-    expect(caption()).toBe('Discreet mode: a simple line under the maximised window.');
-    await user.click(sw('Discreet under a window'));
-    expect((await confirm(d, 9)).discreet).toBe(false);
-    await waitFor(() => expect(document.querySelector('.preview-notch.strip')).toBeNull());
-    expect(caption()).toBe('Discreet mode off: the notch stays whole above the window.');
-    expect(screen.getByRole('button', { name: 'Remove the window' })).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(saved()).toHaveLength(9));
+    // Discreet left with the floating island (#27): neither its switch nor the preview's maximised window remain.
+    expect(screen.queryByRole('switch', { name: 'Discreet under a window' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Simulate a maximised window' })).toBeNull();
+    await waitFor(() => expect(saved()).toHaveLength(8));
     expect(saved()).toEqual([
       'Setting saved · Position: Right', 'Setting saved · Screen 2', 'Setting saved · Notch size 150%', 'Setting saved · Windows size 125%',
-      'Setting saved · Words hidden', 'Setting saved · Subagents hidden', 'Setting saved · Answers in Ledge Desktop only', 'Setting saved · No task finished bubble',
-      'Setting saved · Notch always whole'
+      'Setting saved · Words hidden', 'Setting saved · Subagents hidden', 'Setting saved · Answers in Ledge Desktop only', 'Setting saved · No task finished bubble'
     ]);
   });
 
@@ -201,13 +193,13 @@ describe('useIslandSave', () => {
     const { result, rerender } = renderHook(({ island }) => useIslandSave(f, island, w => said.push(w)), { initialProps: { island: null as IslandPrefs | null } });
     expect(result.current.shown).toEqual(DEFAULT_ISLAND_PREFS);
     act(() => result.current.send('position', { ...result.current.shown, position: 'left' }, 'left'));
-    act(() => result.current.send('discreet', { ...result.current.shown, discreet: false }, 'whole'));
-    expect(f.sent.at(-1)).toMatchObject({ position: 'left', discreet: false });
-    expect(result.current.shown).toMatchObject({ position: 'left', discreet: false });
+    act(() => result.current.send('islandScale', { ...result.current.shown, islandScale: 1.5 }, 'larger'));
+    expect(f.sent.at(-1)).toMatchObject({ position: 'left', islandScale: 1.5 });
+    expect(result.current.shown).toMatchObject({ position: 'left', islandScale: 1.5 });
     expect(said).toEqual([]);
     // Both broadcasts reach one render: the second holds the first too.
-    rerender({ island: { ...DEFAULT_ISLAND_PREFS, position: 'left', discreet: false } });
-    expect(said).toEqual(['left', 'whole']);
+    rerender({ island: { ...DEFAULT_ISLAND_PREFS, position: 'left', islandScale: 1.5 } });
+    expect(said).toEqual(['left', 'larger']);
     expect(result.current.saving).toBe(false);
   });
 

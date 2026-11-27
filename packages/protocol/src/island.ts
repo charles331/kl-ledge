@@ -11,8 +11,10 @@ export const IslandPrefsSchema = z.object({
    *  name, `#index` without one). `second`, written by older fronts, is the first monitor that is not the primary. */
   screen: z.string().trim().min(1).max(200),
   position: z.enum(['center', 'left', 'right']),
-  /** A strip under a maximised window. */
-  discreet: z.boolean(),
+  /** Retired with the floating island (#27): it was a strip under a maximised window. Optional and never read, so a file or
+   *  a front that still carries it parses; still written by DEFAULT_ISLAND_PREFS because a daemon before #27 requires it in
+   *  `island.set`. */
+  discreet: z.boolean().optional(),
   islandScale: IslandScaleSchema,
   panelScale: IslandScaleSchema,
   /** What the island shows besides asks and questions, which it always shows. */
