@@ -18,6 +18,7 @@ import { ProviderLogo } from '../ProviderLogo';
 import { useDaemonPrefs, DAEMON, prefAction, isAbout, type PowerTarget } from '../openrig/prefs';
 import { rigErrorText } from '../rig/errors';
 import { MachineMenu } from './MachineMenu';
+import { RigRequests } from './RigRequests';
 import { RigConfirm, useRigConfirm } from './RigConfirm';
 import { machineEntries, powerOf, rigsViewOf, type RigDot, type RigLine, type SeatLine } from './model';
 import '../../styles/ide-rigs.css';
@@ -32,9 +33,11 @@ const Dot = ({ dot }: { dot: RigDot }): JSX.Element => <i className={`ide-rigs-d
 export interface RigsViewProps {
   client: DaemonClient; machines: readonly MachineState[]; sessions: readonly Session[]; asks: readonly HumanAsk[]; activeTab: Tab | null;
   dispatch(a: NavAction): void; onTab(t: Tab, where?: 'right'): void; onMenu?(id: string, at: { x: number; y: number }, opener: HTMLElement | null): void;
+  /** « Demandes » (#40 D1): OpenRig's requests, above the kernel and the rigs. */
+  requests?: Parameters<typeof RigRequests>[0];
 }
 
-export function RigsView({ client, machines, sessions, asks, activeTab, dispatch, onTab, onMenu }: RigsViewProps): JSX.Element {
+export function RigsView({ client, machines, sessions, asks, activeTab, dispatch, onTab, onMenu, requests }: RigsViewProps): JSX.Element {
   const { t } = useI18n();
   const v = t.ide.rigsView, o = t.openrig;
   const [machine, setMachine] = useRigsMachine(machines);
@@ -172,6 +175,7 @@ export function RigsView({ client, machines, sessions, asks, activeTab, dispatch
           onPick={id => { setMachine(id); closeMenu(); }} onManage={() => { closeMenu(); dispatch({ type: 'openrig', machine, section: 'machines' }); }} onAdd={() => { closeMenu(); dispatch({ type: 'settings', section: 'machines' }); }} />}
       </div>
       <div className="ide-rigs-main">
+        {requests && <RigRequests {...requests} />}
         {pane('kernel', t.side.kernel, null, kernelBody)}
         {pane('rigs', t.side.rigs, rv.status === 'running' ? rv.rigs.length : null, rigsBody)}
       </div>

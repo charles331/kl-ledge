@@ -17,7 +17,7 @@ import { useChatCards, usePointActs } from './useChatCards';
 import { CardModelPick } from './CardModelPick';
 import { useProjectReview } from './projectReview';
 import { useTaskCards } from './useTaskCards';
-import { HistoryPane, RightTabStrip, shownTasks, TasksPane, type ListState, type RightTabs } from './RightTabs';
+import { HistoryPane, RightTabStrip, type ListState, type RightTabs } from './RightTabs';
 import { taskClosed } from '@ledge/protocol';
 
 export interface ChatPanelProps {
@@ -120,8 +120,7 @@ export function ChatPanel({ client, view, paused, focus, askedOnly, onClose, onO
   };
   // The lists only come from the local daemon's state: before its first one, « Connexion… »; gone, the last list, dimmed.
   const listState: ListState = view.fleet.localSnapshot() === null ? 'connecting' : offline ? 'offline' : 'ready';
-  const tabBody = tabs?.tab === 'tasks' ? <TasksPane api={tabs.tasks} task={tabs.task} seen={tabs.seen} state={listState} onShow={id => tabs.onTab('tasks', id)} />
-    : tabs?.tab === 'history' ? <HistoryPane chat={chat} state={listState} onOpen={reopen} /> : undefined;
+  const tabBody = tabs?.tab === 'history' ? <HistoryPane chat={chat} state={listState} onOpen={reopen} /> : undefined;
 
   // Opening a name opens the agent's page, which closes the chat (the mockup's `open`); the light goes out first.
   const open = (id: string) => { setHovered(null); onOpenSession(id); };
@@ -133,8 +132,6 @@ export function ChatPanel({ client, view, paused, focus, askedOnly, onClose, onO
     <aside ref={panelRef} className="ledge-chat-panel" aria-label={t.side.chat} onKeyDownCapture={e => {
       if (e.key !== 'Escape' || e.nativeEvent.isComposing) return;
       e.preventDefault(); e.stopPropagation();
-      // A task's detail: Escape brings the list back first.
-      if (tabs?.tab === 'tasks' && tabs.task) { tabs.onTab('tasks', null); return; }
       // The IDE's right panel stays (Ctrl+/ hides it): Escape leaves its field, the window's single keys work again.
       if (onClose) onClose(); else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     }}>
@@ -152,7 +149,7 @@ export function ChatPanel({ client, view, paused, focus, askedOnly, onClose, onO
             onGiveTask={taskCards.giveTask} taskBusy={taskCards.taskBusy}
             onPointAnswer={points.answer} onPointSuggest={points.suggest} pointBusy={points.busy} pointConfirm={points.confirm} onPointConfirm={points.settle}
             onPointNav={(turn, n) => { const m = turnMachine(turn.qid); if (m) onPointNav?.(m, n); }} pointMachine={pointMachine} onPointSeen={onPointSeen}
-            belowHeader={tabs && <RightTabStrip tab={tabs.tab} open={shownTasks(tabs.tasks.tasks).filter(x => !taskClosed(x)).length} onTab={tab => tabs.onTab(tab)} />} body={tabBody}
+            belowHeader={tabs && <RightTabStrip tab={tabs.tab} onTab={tab => tabs.onTab(tab)} />} body={tabBody}
             onAgentHover={setHovered} inputRef={inputRef} attach={{ items: images.items, onFiles: images.add, onRemove: images.remove, ready: images.ready, error: images.error }}
             theme={theme} frozen={offline !== null} reducedMotion={paused || reduced} />
         </ChatCopyProvider>

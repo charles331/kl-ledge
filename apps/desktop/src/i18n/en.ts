@@ -802,7 +802,8 @@ export const en: Messages = {
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · context ${pct} %`, nearHint: 'near its limit', failedShort: (name: string) => `Relief of ${name} failed`, retry: 'Retry',
-    pass: 'Hand over', passTitle: 'A fresh session takes its place: it writes its brief, its tasks are passed on', later: 'Later',
+    failed: (name: string, why: string) => `Handover of ${name} failed: ${why}`,
+    pass: 'Hand over', passTitle: 'A fresh session takes its place: it writes its brief, its tasks are passed on',
     gauge: (pct: number) => `context ${pct} %`,
     state: { briefing: 'relief: brief asked', launching: 'relief: launching…', done: 'relieved', failed: 'relief failed' } as Record<'briefing' | 'launching' | 'done' | 'failed', string>,
     relievedBy: (name: string) => `relieved by ${name}`, relieves: (name: string) => `relieves ${name}`,
@@ -1473,7 +1474,9 @@ export const en: Messages = {
     settingHint: 'Tab groups, panels and an activity bar, the VS Code way. The current interface stays available while the preview lasts.',
     settingOff: 'IDE interface (preview) off',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
+    tasksView: 'Tasks (Ctrl+/)', tasksOpen: (n) => `${n} open`,
     rigsView: {
+      requests: 'Requests', requestsFold: 'Fold', requestsUnfold: 'Unfold',
       background: (n) => `${n} in the background`,
       seatBgTip: (n) => `Available · ${n} ${pluralEn(n, 'subagent', 'subagents')} working`,
       launch: 'Launch', launchTitle: 'Launch a rig…', shownMachine: (label: string) => `Shown machine: ${label}`, machine: (label) => `Machine: ${label}`, machines: 'Machines',

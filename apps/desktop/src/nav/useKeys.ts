@@ -12,6 +12,7 @@ const typing = (el: Element | null): boolean => {
 /** The IDE shell's keys (flag on). */
 export interface IdeKeys {
   toggle(panel: 'side' | 'bottom' | 'right'): void;
+  /** Ctrl /: the Tasks view, or back to the view before it when it is already shown (#40 D3). */ tasks?(): void;
   /** Ctrl \: an empty group right of the focused one. */ split?(): void;
   /** N opens the launch dialog from any tab, not only the overview (the screen's keys run first: on an approval N denies). */ newSessionAnywhere?: true;
   /** Ctrl W: the focused group's active tab closes; an empty group, the group. */ closeTab?(): void;
@@ -45,7 +46,7 @@ export function useKeys(dispatch: (a: NavAction) => void, ctx: { state: NavState
       if (tk === 'thread') { if (!state.modal && toTerminal?.()) e.preventDefault(); return; }
       if (mod && !e.altKey && key === 'k') { e.preventDefault(); dispatch({ type: 'modal', modal: { kind: 'search' } }); return; }
       // The IDE's panels, VS Code's keys: they act inside a field too (the terminal returned above).
-      if (ide && !state.modal && mod && !e.altKey && (key === 'b' || key === 'j' || e.key === '/')) { e.preventDefault(); ide.toggle(key === 'b' ? 'side' : key === 'j' ? 'bottom' : 'right'); return; }
+      if (ide && !state.modal && mod && !e.altKey && (key === 'b' || key === 'j' || e.key === '/')) { e.preventDefault(); if (e.key === '/' && ide.tasks) ide.tasks(); else ide.toggle(key === 'b' ? 'side' : key === 'j' ? 'bottom' : 'right'); return; }
       // Ctrl \ splits the focused group, as VS Code, in a field too. The key, not its place: AltGr (\ on AZERTY) reports Ctrl + Alt
       // on Windows, so Alt is allowed only as AltGr; a QWERTY Ctrl + Alt + \ is another chord.
       if (ide?.split && !state.modal && mod && e.key === '\\' && (!e.altKey || e.getModifierState('AltGraph'))) { e.preventDefault(); ide.split(); return; }
@@ -60,10 +61,8 @@ export function useKeys(dispatch: (a: NavAction) => void, ctx: { state: NavState
         e.preventDefault(); dispatch({ type: 'escape' }); return;
       }
       if (state.modal?.kind === 'search') return;
-      // / goes to Ledge's home view, its composer focused (ledge home spec §2.1); in a field, / is typed. Ctrl / asks Ledge
-      // beside what is shown, in the docked panel (already open: its field takes the focus again).
+      // Without the IDE, Ctrl / asks Ledge beside what is shown, in the docked panel. « / » alone does nothing (#40, page 1, question 4).
       if (!state.modal && e.key === '/' && mod && !e.altKey) { e.preventDefault(); dispatch({ type: 'chat', open: true }); return; }
-      if (!state.modal && e.key === '/' && !mod && !e.altKey && !typing(document.activeElement)) { e.preventDefault(); dispatch({ type: 'ledge' }); return; }
       if (state.modal || state.chat || typing(document.activeElement)) return;
 
       const { place } = state;

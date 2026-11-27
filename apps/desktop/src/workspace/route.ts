@@ -29,6 +29,8 @@ export function routeNav(a: NavAction, ctx: { isSeat(id: string): boolean; modal
     // the task's detail.
     case 'ledge': {
       const tab = a.tab ?? 'conversation';
+      // « Tâches » is a view of the activity bar (#40 D3): a « Voir dans Tâches » opens it, on the task.
+      if (tab === 'tasks') return { layout: { type: 'showView', view: 'tasks' }, chat: { tab, ...(a.task ? { task: a.task } : {}) } };
       return { ...(tab === 'conversation' ? { nav: { type: 'chat', open: true } as NavAction } : {}), layout: right(true), chat: { tab, ...(a.task ? { task: a.task } : {}) } };
     }
     case 'chat': return { nav: a, layout: right(a.open !== false) };

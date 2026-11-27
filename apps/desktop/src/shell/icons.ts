@@ -63,6 +63,8 @@ export const SHELL_ICONS = {
   // The IDE shell (docs/mockups/ledge-ide-interactive.html): the activity bar's Projets and À toi, the title bar's panel toggles.
   files: ['M4 5h6l2 2h8v12H4z'],
   inbox: ['M4 13l3-8h10l3 8v6H4z', 'M4 13h5l1 2h4l1-2h5'],
+  // #40 D3: the Tasks view (docs/mockups/ledge-remove-chat-d1-d3-d6.html, ☑).
+  tasks: ['M4 4h16v16H4z', 'm8 12 3 3 5-6'],
   panelLeft: ['M3 4h18v16H3z', 'M9 4v16'],
   panelBottom: ['M3 4h18v16H3z', 'M3 14h18'],
   panelRight: ['M3 4h18v16H3z', 'M15 4v16'],

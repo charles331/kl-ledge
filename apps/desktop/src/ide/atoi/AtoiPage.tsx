@@ -178,7 +178,6 @@ export function AtoiPage(p: AtoiPageProps): JSX.Element {
                 <span className={`atoi-mk ${failed ? 'bad' : 'near'}`} aria-hidden="true">{failed ? '!' : '◔'}</span>
                 <span className="grow" title={failed ? s.handover?.reason : t.handover.nearHint}>{failed ? t.handover.failedShort(s.name) : t.handover.nearShort(s.name, Math.round((contextShare(s.context) ?? 0) * 100))}</span>
                 <button type="button" className="fg-btn pri" title={t.handover.passTitle} onClick={() => p.onHandover?.(s.id)}>{failed ? t.handover.retry : t.handover.pass}</button>
-                {!failed && <button type="button" className="fg-btn" onClick={() => p.onLater?.(s)}>{t.handover.later}</button>}
               </div>
             );
           })}</div>

@@ -33,13 +33,13 @@ export const fr = {
   /** « À toi »: what OpenRig's rigs ask the person (docs/mockups/ledge-human-operator-ab-lot1.html). */
   asks: {
     sections: { decisions: 'Décisions', questions: 'Questions', updates: 'Nouvelles' } as Record<'decisions' | 'questions' | 'updates', string>,
-    pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de toi' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
+    pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de vous' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
     priority: { urgent: 'urgent', critical: 'critique' } as Record<'urgent' | 'critical', string>,
     recommended: (label: string) => `${label} · recommandé`,
     recommendedBy: (seat: string) => `Recommandé par ${seat}`,
     readAll: 'Tout lire', details: 'Détails',
     answerOther: 'Répondre autrement…', answerParked: 'Répondre…', writeAnswer: 'Écrire la réponse…',
-    placeholder: 'Ta réponse, en quelques mots…', placeholderParked: (seat: string) => `Ce que ${seat} doit faire…`,
+    placeholder: 'Votre réponse, en quelques mots…', placeholderParked: (seat: string) => `Ce que ${seat} doit faire…`,
     send: 'Envoyer', cancel: 'Annuler', keys: 'Ctrl Entrée · Échap', seen: 'Vu',
     progress: (n: number, total: number) => `${n}/${total} répondues · la réponse part à la dernière`,
     notSent: (why: string) => `Pas envoyée : ${why}`, retry: 'Réessayer',
@@ -51,10 +51,10 @@ export const fr = {
     partial: 'Liste peut-être incomplète : OpenRig n’a pas répondu à la dernière lecture.',
     channel: {
       no_person: { title: 'Ledge n’est pas encore le canal humain d’OpenRig.', body: 'Les rigs passent encore par Max, ou par le TUI du kernel. Leurs demandes n’arrivent pas ici.' },
-      openrig_stopped: { title: 'OpenRig est arrêté : les rigs ne peuvent pas t’écrire.', body: 'Les sessions de tes projets passent toujours par ici.' },
+      openrig_stopped: { title: 'OpenRig est arrêté : les rigs ne peuvent pas vous écrire.', body: 'Les sessions de vos projets passent toujours par ici.' },
       unreachable: { title: 'OpenRig ne répond pas.', body: '' },
       no_default: { title: 'OpenRig a plusieurs personnes, et aucune n’est désignée par défaut.', body: 'Ses demandes n’arrivent donc pas ici. Pour en désigner une :' },
-      not_installed: { title: (machine: string) => `OpenRig n’est pas installé sur ${machine}.`, body: 'Les sessions de tes projets passent toujours par ici.' }
+      not_installed: { title: (machine: string) => `OpenRig n’est pas installé sur ${machine}.`, body: 'Les sessions de vos projets passent toujours par ici.' }
     }
   },
   side: {
@@ -835,12 +835,12 @@ export const fr = {
   },
   /** A decision a session put to the user (`ledge task give ledge …`), answered from « À toi » or « Tâches » (task.answer). */
   decision: {
-    asks: (giver: string) => `${giver} attend ta décision`, answer: 'Répondre',
-    form: (title: string) => `Réponse à « ${title} »`, field: 'Ta réponse', placeholder: 'Écris ta réponse, ou choisis une option…', options: 'Options proposées',
+    asks: (giver: string) => `${giver} attend votre décision`, answer: 'Répondre',
+    form: (title: string) => `Réponse à « ${title} »`, field: 'Votre réponse', placeholder: 'Écrivez votre réponse, ou choisissez une option…', options: 'Options proposées',
     send: 'Envoyer la réponse', cancel: 'Annuler',
-    review: (giver: string) => `Ta réponse à ${giver}, telle qu’elle partira. Une réponse ne se reprend pas.`, confirm: 'Confirmer l’envoi', edit: 'Modifier', sending: 'Envoi…',
+    review: (giver: string) => `Votre réponse à ${giver}, telle qu’elle partira. Une réponse ne se reprend pas.`, confirm: 'Confirmer l’envoi', edit: 'Modifier', sending: 'Envoi…',
     failed: (reason: string) => `Réponse refusée : ${reason}`,
-    silent: 'Ledge n’a pas confirmé la réponse. Regarde la tâche avant de réessayer.',
+    silent: 'Ledge n’a pas confirmé la réponse. Regardez la tâche avant de réessayer.',
     note: {
       add: (giver: string, note: string) => `${giver} propose d’ajouter à la note ${note}`, create: (giver: string, note: string) => `${giver} propose une nouvelle note ${note}`,
       flag: (giver: string, note: string) => `${giver} signale la note ${note} comme fausse ou périmée`, source: (s: string) => `Source : ${s}`,
@@ -850,7 +850,8 @@ export const fr = {
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · contexte ${pct} %`, nearHint: 'limite proche', failedShort: (name: string) => `Relève de ${name} échouée`, retry: 'Réessayer',
-    pass: 'Passer le relais', passTitle: 'Une nouvelle session prend sa place : il écrit son bilan, ses tâches lui sont passées', later: 'Plus tard',
+    failed: (name: string, why: string) => `Relève de ${name} échouée : ${why}`,
+    pass: 'Passer le relais', passTitle: 'Une nouvelle session prend sa place : il écrit son bilan, ses tâches lui sont passées',
     gauge: (pct: number) => `contexte ${pct} %`,
     state: { briefing: 'relève : bilan demandé', launching: 'relève : lancement…', done: 'relevée', failed: 'relève échouée' } as Record<'briefing' | 'launching' | 'done' | 'failed', string>,
     relievedBy: (name: string) => `relevée par ${name}`, relieves: (name: string) => `relève de ${name}`,
@@ -1555,7 +1556,11 @@ export const fr = {
     settingHint: 'Groupes d’onglets, panneaux et barre d’activité, à la manière de VS Code. L’ancienne interface reste disponible tant que l’aperçu dure.',
     settingOff: 'Interface IDE (aperçu) désactivée',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
+    // #40 D3 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 5): the Tasks view of the activity bar.
+    tasksView: 'Tâches (Ctrl+/)', tasksOpen: (n: number) => plural(n, `${n} ouverte`, `${n} ouvertes`),
     rigsView: {
+      // #40 D1 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 1): OpenRig's requests at the top of the view.
+      requests: 'Demandes', requestsFold: 'Replier', requestsUnfold: 'Déplier',
       background: (n: number) => `${n} en arrière-plan`,
       seatBgTip: (n: number) => `Disponible · ${n} ${plural(n, 'sous-agent', 'sous-agents')} au travail`,
       launch: 'Lancer', launchTitle: 'Lancer un rig…', shownMachine: (label: string) => `Machine affichée : ${label}`, machine: (label: string) => `Machine : ${label}`, machines: 'Machines',

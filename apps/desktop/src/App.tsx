@@ -19,7 +19,7 @@ import { daemonTokenSource, onOpenTarget, shellsAvailable, onTrayAction, openUrl
 import { parseTarget, targetAction } from './open/target';
 import { useAppearance } from './shell/theme';
 import { initialNav, navReducer, reconcile, type HomeTab, type NavAction, type NavState, type OpenRigSection, type SectionId } from './nav/state';
-import { sessionOfAsk } from './asks/model';
+import { openRequests, sessionOfAsk } from './asks/model';
 import { loadOverview, saveOverview } from './nav/overview';
 import { ScreenKeysContext, type ScreenKeys } from './nav/screenKeys';
 import { dotOf, mainOrder } from './nav/agents';
@@ -86,7 +86,8 @@ import { useOpenSession } from './workspace/openPrefs';
 import { useWebglMax } from './term/webglPrefs';
 import { ATELIER_TAB, SETTINGS_TAB, createWorkspaceStore, loadWorkspace as loadIdeWorkspace, openrigTab, rigTab, useWorkspace } from './workspace/store';
 import { bootWorkspace, capture, loadBoot, loadDispositions, plan, saveCurrent, saveDispositions, signature, upsert, useCurrentDisposition, useDispositions } from './workspace/dispositions';
-import { layoutFor, loadLayout, saveLayout, type LayoutAction } from './workspace/layout';
+import { layoutFor, loadLayout, saveLayout, type LayoutAction, type SideView } from './workspace/layout';
+import { TasksView, tasksBadge, type ReportHandlers } from './tasks/TasksView';
 import { agentTerminalTab, beside, changesBeside, close as dropTab, closeGroup, cycleTab, emptyProposals, find as findTab, focusGroup, focusNth, focused, keyOf, MAIN, move as moveTab, moveActive, moveTo as moveTabTo, open as openTab, parseRigRef, pin, rigTabRef, sessionOf, reconcile as reconcileTabs, setView, split as splitGroup, windowOf, type Tab } from './workspace/model';
 import { hasTerminal, projectLabel, providerOf, tabAlert, tabView } from './workspace/sessionTab';
 import { ChangesTabLabel, SessionTabLabel } from './ide/SessionTabLabel';
@@ -227,6 +228,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const localMachine = machines.find(m => m.id === 'local');
   const asks = useOpenRigAsks(fleetClient, localMachine?.ready && localMachine.daemon?.openrigAsks ? 'local' : null);
   const [askFocus, setAskFocus] = useState<{ id: string; n: number } | null>(null);
+  // The request « Ouvrir » brought to the Rigs view's « Demandes » (#40 D1), counted as askFocus is.
+  const [requestFocus, setRequestFocus] = useState<{ id: string; n: number } | null>(null);
   // Never counts down: « À toi » forgets `askFocus` once taken in, and the next « Voir » must still be new to it.
   const askSeq = useRef(0);
   // The same for « Résumer la journée »: the right panel forgets `ask` once sent, and stays mounted with the last `n` it sent.
@@ -290,7 +293,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     if (r.nav?.type === 'chat' && r.nav.open !== false) navDispatch({ type: 'chat', open: false });
     if (r.ws) wsStore.update(r.ws);
     if (r.layout) onLayout(r.layout);
-    if (r.chat) { const c = r.chat; setRightTab(x => ({ ...x, tab: c.tab, ...(c.task !== undefined ? { task: c.task, seen: x.seen + 1 } : {}) })); }
+    // « Voir dans Tâches » (#40 D3) keeps the right panel's tab: the task is the Tasks view's.
+    if (r.chat) { const c = r.chat; setRightTab(x => ({ ...x, ...(c.tab === 'tasks' ? {} : { tab: c.tab }), ...(c.task !== undefined ? { task: c.task, seen: x.seen + 1 } : {}) })); }
   }, [wsStore, onLayout]);
   // The bottom panel: its terminals and its tab, for this run only (R15).
   const [panelStore] = useState(() => createPanelStore());
@@ -359,9 +363,13 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   useEffect(() => onOpenTarget(raw => asPreview(() => {
     const target = parseTarget(raw);
     if (target?.kind === 'terminal') showTerminal(target.id);
-    else if (target?.kind === 'ask' || target?.kind === 'atoi') {
-      // A rig's question from the notch: « À toi » in front, on that question; a decision: « À toi » in front, where it is listed.
-      if (target.kind === 'ask') setAskFocus({ id: target.id, n: ++askSeq.current });
+    else if (target?.kind === 'ask') {
+      // A rig's question from the island (#40 D1, card 4): the Rigs view, its « Demandes » unfolded, that card ringed.
+      setRequestFocus({ id: target.id, n: ++askSeq.current });
+      setLayout(l => (l.sideOpen && l.sideView === 'rigs' ? l : layoutFor(l, { type: 'view', view: 'rigs' }, window.innerWidth)));
+    }
+    else if (target?.kind === 'atoi') {
+      // A decision from the island: « À toi » in front, where it is listed.
       const tab: Tab = { kind: 'atoi', ref: 'main' };
       wsStore.update(w => openAs(w, tab));
     }
@@ -666,6 +674,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   shellsNow.current = { rows: shellRows, avail, notify };
   const opening = useRef(0);
   const layoutNow = useRef(layout);
+  /** The sidebar's view before Ctrl / showed Tasks, null when it was closed (#40 D3). */
+  const beforeTasks = useRef<SideView | null>(null);
   layoutNow.current = layout;
   const focusShell = useRef<string | null>(null);
   const claimFocus = useCallback((id: string) => { if (focusShell.current !== id) return false; focusShell.current = null; return true; }, []);
@@ -736,7 +746,13 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // The tab keys (VS Code's): Ctrl W closes the focused group's active tab (remembered for Ctrl Shift T), or the group when empty.
   // Ctrl+/ (design-ux, 2026-11-10): the right panel hidden, it shows with the focus in the chat's field; shown, it hides and the
   // focus goes back to the front tab. The other panels only toggle.
-  const ideKeys = useMemo((): IdeKeys => ({ toggle: (panel: 'side' | 'bottom' | 'right') => {
+  const ideKeys = useMemo((): IdeKeys => ({ tasks: () => {
+    // Ctrl / (#40 D3): the Tasks view; on it, back to the view shown before (the sidebar closed again if it was).
+    const l = layoutNow.current;
+    if (l.sideOpen && l.sideView === 'tasks') { const back = beforeTasks.current; onLayout(back ? { type: 'showView', view: back } : { type: 'show', panel: 'side', on: false }); return; }
+    beforeTasks.current = l.sideOpen ? l.sideView : null;
+    onLayout({ type: 'showView', view: 'tasks' });
+  }, toggle: (panel: 'side' | 'bottom' | 'right') => {
     if (panel !== 'right') { onLayout({ type: 'toggle', panel }); return; }
     if (!layoutNow.current.right) { dispatch({ type: 'chat', open: true }); return; }
     onLayout({ type: 'show', panel: 'right', on: false });
@@ -874,6 +890,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const routines = useRoutines(fleet);
   const routineProposals = useMemo(() => proposalsOf(tasksApi.tasks), [tasksApi.tasks]);
   const routineItems = useMemo(() => atoiRoutineItems(tasksApi.tasks, routines), [tasksApi.tasks, routines]);
+  // An agent's report (issue #9), answered from « À toi » and from the Tasks view (#40 D5).
+  const reportHandlers: ReportHandlers = { client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } };
   const homeOf = (m: string) => machines.find(x => x.id === m)?.daemon?.home;
   const routineSession = (r: FleetRoutine) => sessionOfRoutine(r, known, homeOf(r.machineId));
   const routineTab = (ref: string): Tab => ({ kind: 'routine', ref });
@@ -981,9 +999,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // The IDE shell: the pieces, in tabs and panels.
   const ideShell = (() => {
     const waiting = waitingSessions(sessions, waits);
-    // A routine's request counts amber like the other decisions, a failure red (routines mockup, card 14).
-    const badge = { perm: waiting.filter(s => dotOf(s) === 'approval').length + routineItems.filter(i => i.kind === 'failed').length,
-      ask: waiting.filter(s => dotOf(s) === 'question').length + routineItems.filter(i => i.kind === 'approve').length };
+    // Projects' badge (#40 D7): the sessions waiting, red for an approval, else amber for a question; the routines have their own.
+    const badge = { perm: waiting.filter(s => dotOf(s) === 'approval').length, ask: waiting.filter(s => dotOf(s) === 'question').length };
     const label = (tab: Tab): ReactNode => (tab.kind === 'session' || tab.kind === 'seat'
       ? <SessionTabLabel session={known.find(s => s.id === tab.ref)} tab={tab} title={title(tab)} client={fleetClient}
         helper={nav.place.kind === 'session' && nav.place.id === tab.ref && nav.place.helper ? { id: nav.place.helper } : null} />
@@ -1057,7 +1074,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           askSourceOf={ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; }}
           onOpenSeat={id => dispatch({ type: 'open', id })}
           routines={<IdeAtoiRoutines items={routineItems} {...routineHandlers} />}
-          report={{ client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } }} />;
+          report={reportHandlers} />;
       }
       if (tab.kind === 'pr') {
         const p = prOf(tab.ref);
@@ -1135,8 +1152,11 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           onManage: () => dispatch({ type: 'settings', section: 'workspace' }), saveAsk }}
         notice={tokenMissing && <DaemonOutdated />}
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
-        routinesBadge={routinesBadge(routines)}
-        explorer={layout.sideView === 'routines'
+        routinesBadge={routinesBadge(routines)} requestsBadge={openRequests(asks)} tasksBadge={tasksBadge(tasksApi.tasks)}
+        explorer={layout.sideView === 'tasks'
+          ? <TasksView api={tasksApi} task={rightTab.task} seen={rightTab.seen} state={localMachine?.daemon ? (localDown ? 'offline' : 'ready') : localDown ? 'offline' : 'connecting'}
+              onShow={id => setRightTab(x => ({ ...x, task: id }))} report={reportHandlers} />
+          : layout.sideView === 'routines'
           ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} machines={routineMachines} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
               running={routineActions.running} connecting={routinesConnecting} offline={localDown}
               onOpen={r => { setRoutinesLit(new Set()); onTab(routineTab(routineRef(r))); }} onNew={() => openNewRoutine()}
@@ -1149,7 +1169,10 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
               onOpen={(p, right) => onTab({ kind: 'pr', ref: p.id }, right ? 'right' : undefined)} />
           : layout.sideView === 'rigs'
           ? <IdeRigs client={fleetClient} machines={machines} sessions={sessions} asks={asks.asks} activeTab={front ?? null} dispatch={dispatch} onTab={onTab}
-              onMenu={(id, at, opener) => sessionMenu.open(id, at, opener)} />
+              onMenu={(id, at, opener) => sessionMenu.open(id, at, opener)}
+              requests={{ view: asks, sessions, machineLabel: localMachine?.label ?? 'local', focus: requestFocus, onFocused: () => setRequestFocus(null),
+                sourceOf: ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; },
+                onOpenSeat: id => dispatch({ type: 'open', id }) }} />
           : <Sidebar section={layout.sideView === 'atoi' ? 'atoi' : 'projects'} onAtoiPage={() => onTab({ kind: 'atoi', ref: 'main' })} nav={nav} dispatch={dispatch} sessions={sessions} archived={fleetView.archived} projects={projects} order={order} projectIdOf={projectIdOf} filing={filing}
             actions={actions} decisions={decisions} waits={waits} menu={sessionMenu} notify={notify} {...(orderWriter ? { orderWriter } : {})}
             broadcast={canBroadcast(machines)} broadcastSent={broadcastSent}

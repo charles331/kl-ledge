@@ -162,6 +162,8 @@ const CTX_GAUGE = ['M12 14l4-4', 'M3.3 19a10 10 0 1 1 17.4 0'];
 /** A session past « Contexte max »: the gauge and « 88 % », amber, its context in the title. Nothing below it. */
 function CtxSignal({ session, near }: { session: Session; near: number }) {
   const { t } = useI18n();
+  // #40 D10: a failed handover reads « relève échouée » in red, its reason on hover.
+  if (session.handover?.state === 'failed') return <span className="st-ctx failed" title={session.handover.reason}><Icon d={CTX_GAUGE} size={11} />{t.handover.state.failed}</span>;
   const share = contextShare(session.context);
   if (share === undefined || share < near) return null;
   const pct = Math.round(share * 100);

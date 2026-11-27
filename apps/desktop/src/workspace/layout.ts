@@ -1,9 +1,9 @@
 import { isRecord, readJson, writeJson } from '../state/storage';
 
 /** The IDE shell's panel layout: pure state, plus its persisted form (`ledge.ide.layout`). */
-export type SideView = 'projects' | 'rigs' | 'atoi' | 'prs' | 'routines';
+export type SideView = 'projects' | 'rigs' | 'atoi' | 'prs' | 'routines' | 'tasks';
 /** Every sidebar view, as the Ledge guide (docs/ledge-guide.md) describes them: a Record, so a new view fails to compile until it is listed. */
-const SIDE_VIEW: Record<SideView, true> = { projects: true, rigs: true, atoi: true, prs: true, routines: true };
+const SIDE_VIEW: Record<SideView, true> = { projects: true, rigs: true, atoi: true, prs: true, routines: true, tasks: true };
 export const SIDE_VIEWS = Object.keys(SIDE_VIEW) as SideView[];
 export interface IdeLayout { sideOpen: boolean; sideWidth: number; sideView: SideView; bottom: boolean; bottomHeight: number; right: boolean }
 
@@ -11,12 +11,14 @@ export const SIDE_DEFAULT = 248, SIDE_MIN = 120, SIDE_MAX = 440, SIDE_FOLD = 150
 export const BOTTOM_DEFAULT = 240, BOTTOM_MIN = 120, BOTTOM_MAX = 640;
 const ACTIVITY_BAR = 48;
 export const LAYOUT_KEY = 'ledge.ide.layout';
-const VIEWS: readonly SideView[] = ['projects', 'rigs', 'atoi', 'prs', 'routines'];
+const VIEWS: readonly SideView[] = ['projects', 'rigs', 'atoi', 'prs', 'routines', 'tasks'];
 
 export type LayoutAction =
   | { type: 'toggle'; panel: 'side' | 'bottom' | 'right' }
   | { type: 'show'; panel: 'side' | 'bottom' | 'right'; on: boolean }
   | { type: 'view'; view: SideView }
+  /** The sidebar open on that view, never closed (a « Voir dans Tâches », #40 D3). */
+  | { type: 'showView'; view: SideView }
   | { type: 'drag'; width: number }
   | { type: 'drop'; width: number }
   | { type: 'resetWidth' }
@@ -38,6 +40,7 @@ export function layoutReducer(s: IdeLayout, a: LayoutAction): IdeLayout {
     case 'toggle': return patch(s, { [FIELD[a.panel]]: !s[FIELD[a.panel]] });
     case 'show': return patch(s, { [FIELD[a.panel]]: a.on });
     case 'view': return s.sideView === a.view && s.sideOpen ? patch(s, { sideOpen: false }) : patch(s, { sideView: a.view, sideOpen: true });
+    case 'showView': return patch(s, { sideView: a.view, sideOpen: true });
     case 'drag': return patch(s, { sideWidth: clamp(a.width) });
     case 'drop': return a.width < SIDE_FOLD ? patch(s, { sideOpen: false, sideWidth: SIDE_DEFAULT }) : patch(s, { sideOpen: true, sideWidth: clamp(a.width) });
     case 'resetWidth': return patch(s, { sideWidth: SIDE_DEFAULT });
