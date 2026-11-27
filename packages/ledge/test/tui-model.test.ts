@@ -6,7 +6,7 @@ import { fr } from '../src/tui/i18n/fr.js';
 import { en } from '../src/tui/i18n/en.js';
 import { MESSAGES } from '../src/tui/i18n/lang.js';
 import { glyphsFor } from '../src/tui/glyphs.js';
-import { closedLedgeTasks, exchanges, keepSelection, nextWaiting, overview, step } from '../src/tui/model/overview.js';
+import { exchanges, keepSelection, overview, step } from '../src/tui/model/overview.js';
 import { answerFor, choices } from '../src/tui/model/pending.js';
 import { anchorLine, diffCount, threadImages, threadLines, threadView, wrap } from '../src/tui/model/thread.js';
 import { cells, type Line } from '../src/tui/model/cells.js';
@@ -56,9 +56,7 @@ describe('tui overview model', () => {
     expect(keepSelection(['a', 'c'], 'c', ['a', 'b', 'c'])).toBe('c');
     // The selected session left: the one before it in the old order.
     expect(keepSelection(['a', 'c'], 'b', ['a', 'b', 'c'])).toBe('a');
-    const v = overview(mockupSessions(), PROJECTS);
-    expect(nextWaiting(v.yours, 'otto')).toBe('luna');
-    expect(nextWaiting(v.yours, 'luna')).toBe('otto');
+    expect(overview(mockupSessions(), PROJECTS).yours.map(s => s.id)).toEqual(['otto', 'luna']);
   });
 
   it('lists the latest messages between sessions, newest first, by the peer’s name', () => {
@@ -293,11 +291,10 @@ describe('tui settings', () => {
 
 describe('tui overview and Ledge’s tasks', () => {
   const task = (id: string, extra: object) => ({ id, title: `Tâche ${id}`, giver: 'ledge', giverName: 'Ledge', owner: 'nova', ownerName: 'Nova', state: 'open' as const, at: '2026-10-09T16:05:00.000Z', updatedAt: '2026-10-09T16:05:00.000Z', log: [], ...extra });
-  it('Ledge is a sender in the exchanges; the closed tasks Ledge gave are items of « À toi » until seen', () => {
+  it('Ledge is a sender in the exchanges', () => {
     const given = { at: '2026-10-09T17:00:00.000Z', by: 'Ledge', what: 'confiée à Nova', op: 'give' as const, from: 'ledge', to: 'nova', fromName: 'Ledge', toName: 'Nova' };
     const tasks = [task('t000001', { state: 'done', at: '2026-10-09T17:00:00.000Z', log: [given] }), task('t000002', { state: 'done', seen: true }), task('t000003', { giver: 'otto', giverName: 'Otto', state: 'done' })];
     expect(exchanges([], 3, tasks, 'Ledge (moi)')[0]).toEqual({ at: '2026-10-09T17:00:00.000Z', from: 'Ledge (moi)', to: 'Nova', summary: 'Tâche t000001', kind: 'task' });
-    expect(closedLedgeTasks(tasks).map(x => x.id)).toEqual(['t000001']);
   });
 });
 

@@ -1,5 +1,5 @@
 import { isPending, liveHelpers, splitId } from '@ledge/fleet';
-import { contextNear, isStoppedOmpSeat, LEDGE_GIVER, openDecision, projectOf, taskClosed, transmissions, type Project, type ProjectColor, type Projects, type Session, type Task } from '@ledge/protocol';
+import { contextNear, isStoppedOmpSeat, LEDGE_GIVER, openDecision, projectOf, transmissions, type Project, type ProjectColor, type Projects, type Session, type Task } from '@ledge/protocol';
 
 /** A session row of the tree under its branch. */
 export interface BranchRow { branch: string; sessions: Session[] }
@@ -81,13 +81,6 @@ export function step(order: readonly string[], selected: string | null, by: 1 | 
   return order[(at + by + order.length) % order.length]!;
 }
 
-/** `tab`: the next session waiting for the user after the selected one, wrapping. */
-export function nextWaiting(yours: readonly Session[], selected: string | null): string | null {
-  if (yours.length === 0) return null;
-  const at = yours.findIndex(s => s.id === selected);
-  return yours[(at + 1) % yours.length]!.id;
-}
-
 /** The latest exchanges between sessions, newest first: each session's `lastMessage`, and with `tasks` every hand-over of a task
  *  (#92: a give, pass, done, refuse or cancel between any two sessions, Ledge as `ledge`). A side is named by its live session, raw
  *  or qualified id alike, else by the name the journal kept. */
@@ -105,12 +98,10 @@ export function exchanges(sessions: readonly Session[], max: number, tasks: read
     .sort((a, b) => b.at.localeCompare(a.at)).slice(0, max);
 }
 
-/** The closed tasks Ledge gave that the user has not put away: items of « À toi » */
-/** The sessions « À toi » lists for their context (context handover spec §3.2): live ones past 80 % with no relief under way, and failed reliefs. */
+/** The sessions near their context limit (context handover spec §3.2): live ones past the threshold with no relief under way, and failed
+ *  reliefs. H hands one over; the tree marks them ◔. */
 export const nearContext = (sessions: readonly Session[], near?: number): Session[] =>
   sessions.filter(s => s.state !== 'exited' && !s.archivedAt && (s.handover ? s.handover.state === 'failed' : contextNear(s.context, near)));
 
-export const closedLedgeTasks = (tasks: readonly Task[]): Task[] => tasks.filter(x => x.giver === LEDGE_GIVER && taskClosed(x) && !x.seen);
-
-/** The decisions sessions put to the user (`ledge task give ledge …`) not answered yet, oldest first: items of « À toi », answered with D. */
+/** The decisions sessions put to the user (`ledge task give ledge …`) not answered yet, oldest first: answered with D (decision.tsx). */
 export const openDecisions = (tasks: readonly Task[]): Task[] => tasks.filter(openDecision);

@@ -657,7 +657,7 @@ describe('ledge tui: new session', () => {
       expect(m.name).toMatch(/^\S+$/);
       await until(() => tui.frame().includes(`✓ ${m.name} est lancée`));
       // Back on the overview, the new session selected.
-      await until(() => tui.frame().includes('À TOI') && tui.frame().includes(m.name!.toUpperCase()));
+      await until(() => tui.frame().includes('PROJETS') && tui.frame().includes(m.name!.toUpperCase()));
     } finally { await tui.cleanup(); }
   });
 
@@ -670,7 +670,7 @@ describe('ledge tui: new session', () => {
       await until(() => tui.frame().includes('Écrivez une instruction.'));
       expect(sent(tui.daemon.received, 'session.launch')).toEqual([]);
       await tui.press(ESC);
-      await until(() => tui.frame().includes('À TOI'));
+      await until(() => tui.frame().includes('PROJETS'));
     } finally { await tui.cleanup(); }
   });
 });
@@ -686,7 +686,7 @@ describe('ledge tui: settings', () => {
       expect(tui.saved).toEqual(['en']);
       expect(tui.frame()).toContain('Setting saved.');
       await tui.press(ESC);
-      await until(() => tui.frame().includes('YOURS · 2'));
+      await until(() => tui.frame().includes('PROJECTS'));
       expect(tui.frame()).toContain('Wants to run: npm test');
     } finally { await tui.cleanup(); }
   });
@@ -727,7 +727,6 @@ describe('ledge tui: a session near its context limit (context handover spec §3
       // Its row keeps its topic, its ◔ in red (design-ux, D10); not in « À toi », which counts the sessions that wait.
       await until(() => tui.frame().includes('◔92%'));
       expect(tui.frame()).not.toContain('La relève de Nova a échoué');
-      expect(tui.frame()).toContain('À TOI · 2');
       await tui.press('j');
       await until(() => tui.frame().includes('NOVA · '));
       await tui.press('\r');

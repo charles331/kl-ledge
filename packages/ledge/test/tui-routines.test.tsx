@@ -328,7 +328,8 @@ describe('ledge tui: the Routines screen (6)', () => {
       await tui.resize(160, 40);
       tui.daemon.push({ type: 'task.updated', task: { ...base, id: 't1', title: 'x', routine: { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' } } });
       tui.daemon.push({ type: 'task.updated', task: { ...base, id: 't2', title: 'y', routine: { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' } } });
-      await until(() => tui.frame().includes('À TOI · 2'));
+      await until(() => tui.frame().includes('PROJETS'));
+      await new Promise(r => setTimeout(r, 100));
       const f = tui.frame();
       expect(f).not.toContain('veut programmer');
       expect(f).not.toContain('n’a pas pu partir');

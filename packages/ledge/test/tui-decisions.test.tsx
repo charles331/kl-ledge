@@ -23,20 +23,26 @@ describe('tui: the decisions a session puts to the user', () => {
     expect(openDecisions([])).toEqual([]);
   });
 
-  it('« À toi » lists the decision and counts it; D, the answer, its confirmation send exactly task.answer', async () => {
+  it('the tree marks the asking session « ? », tab reaches it; its Session screen says it under the crumb, and D, the answer, its confirmation send exactly task.answer (#40, PR 3)', async () => {
     const tui = await startTui();
     try {
       await tui.resize(160, 40);
-      tui.daemon.push({ type: 'task.updated', task: task('t91b0d4', { title: 'Fusionner feat/roles ?', text: 'Options : oui / non\nLa CI est verte.' }) });
-      await until(() => tui.frame().includes('Otto te demande : Fusionner feat/roles ?'));
+      tui.daemon.push({ type: 'task.updated', task: task('t91b0d4', { giver: 'bix', giverName: 'Bix', title: 'Fusionner feat/roles ?', text: 'Options : oui / non\nLa CI est verte.' }) });
+      // No « À toi » box any more: Bix carries an amber « ? » in the tree; the top bar still counts it.
+      // The window's title, written after the render, is the harness's last frame: a resize draws the screen again.
+      await until(() => tui.frame().includes('3 t’attendent')); await tui.resize(160, 41);
+      await until(() => /Bix\? /.test(tui.frame()));
       const f = tui.frame();
-      expect(f).toContain('À TOI · 3');
+      expect(f).not.toContain('À TOI');
       expect(f).toContain('3 t’attendent');
-      expect(f).toContain('Fusionner feat/roles ? · Options : oui');
-      expect(f).toMatch(/D +répondre à la décision/);
-
+      // tab goes to the sessions that wait, then to the one a decision waits on: D is offered once it is chosen.
+      for (let i = 0; i < 4 && !/BIX · /.test(tui.frame()); i++) await tui.press('\t');
+      await until(() => /BIX · /.test(tui.frame()));
+      expect(tui.frame()).toMatch(/D +répondre à la décision/);
+      await tui.press('\r');
+      await until(() => tui.frame().includes('Bix te demande : Fusionner feat/roles ? · D répondre à la décision'));
       await tui.press('D');
-      await until(() => tui.frame().includes('RÉPONDRE À OTTO'));
+      await until(() => tui.frame().includes('RÉPONDRE À BIX'));
       // ↵ on an empty field sends nothing.
       await tui.press('\r');
       expect(tui.frame()).not.toContain('UNE RÉPONSE NE SE REPREND PAS');
@@ -47,7 +53,7 @@ describe('tui: the decisions a session puts to the user', () => {
       expect(sent(tui.daemon.received, 'action.run')).toEqual([]);
       // n goes back to the field, the answer kept; a second ↵ asks again.
       await tui.press('n');
-      await until(() => tui.frame().includes('RÉPONDRE À OTTO'));
+      await until(() => tui.frame().includes('RÉPONDRE À BIX'));
       await tui.press('\r');
       await until(() => tui.frame().includes('UNE RÉPONSE NE SE REPREND PAS'));
       // Any other key (q) neither quits nor sends.
@@ -63,21 +69,28 @@ describe('tui: the decisions a session puts to the user', () => {
     } finally { await tui.cleanup(); }
   }, 20_000);
 
-  it('esc in the field leaves it, nothing sent; D does nothing without a decision', async () => {
+  it('D on the overview answers the selected session\'s decision only; esc in the field leaves it, nothing sent; answered elsewhere, it goes', async () => {
     const tui = await startTui();
     try {
+      await tui.resize(160, 40);
+      tui.daemon.push({ type: 'task.updated', task: task('t000001', { giver: 'bix', giverName: 'Bix', title: 'Quel port ?' }) });
+      // The window's title, written after the render, is the harness's last frame: a resize draws the screen again.
+      await until(() => tui.frame().includes('3 t’attendent')); await tui.resize(160, 41);
+      await until(() => /Bix\? /.test(tui.frame()));
+      // Another session is chosen: D does nothing.
+      expect(tui.frame()).not.toMatch(/BIX · /);
       await tui.press('D');
       expect(tui.frame()).not.toContain('RÉPONDRE À');
-      tui.daemon.push({ type: 'task.updated', task: task('t000001', { title: 'Quel port ?' }) });
-      await until(() => tui.frame().includes('Otto te demande : Quel port ?'));
+      for (let i = 0; i < 4 && !/BIX · /.test(tui.frame()); i++) await tui.press('\t');
+      await until(() => /BIX · /.test(tui.frame()));
       await tui.press('D');
-      await until(() => tui.frame().includes('RÉPONDRE À OTTO'));
+      await until(() => tui.frame().includes('RÉPONDRE À BIX'));
       await tui.press('5173');
       await tui.press('\u001b');
-      await until(() => !tui.frame().includes('RÉPONDRE À OTTO'));
-      // Answered elsewhere: it leaves « À toi ».
-      tui.daemon.push({ type: 'task.updated', task: task('t000001', { title: 'Quel port ?', state: 'done', result: '5173' }) });
-      await until(() => !tui.frame().includes('Otto te demande'));
+      await until(() => !tui.frame().includes('RÉPONDRE À BIX'));
+      // Answered elsewhere: its mark goes.
+      tui.daemon.push({ type: 'task.updated', task: task('t000001', { giver: 'bix', giverName: 'Bix', title: 'Quel port ?', state: 'done', result: '5173' }) });
+      await until(() => !/Bix\? /.test(tui.frame()));
       expect(sent(tui.daemon.received, 'action.run')).toEqual([]);
     } finally { await tui.cleanup(); }
   }, 20_000);

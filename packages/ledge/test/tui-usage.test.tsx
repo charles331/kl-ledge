@@ -47,7 +47,6 @@ describe('ledge tui: usage limits', () => {
       expect(a).toMatch(/Claude Code · Opus semaine atteinte · reprend .* \+1/);
       expect(a).not.toContain('5 h à 84 %');
       expect(a).not.toMatch(/✻ 5 h █/);
-      expect(a).toContain('À TOI · 2');
       tui.daemon.push(state([claude()]));
       await until(() => /✻ 5 h █/.test(tui.frame()));
       expect(f).toMatch(/Nova .*◔88%/);
