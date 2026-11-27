@@ -1,12 +1,9 @@
 import { useEffect, useState, type JSX } from 'react';
-import { LogoBot } from '@ledge/ui/bots/LogoBot';
 import { Button } from '@ledge/ui/ui/Button';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { messagesFor, useI18n, type Lang } from '../i18n/lang';
 import { LANGS } from '../i18n/messages';
 import { spanOf } from '../list/time';
-import { useMotionPreferences } from '../motionPreferences';
-import { useTheme } from '../shell/theme';
 import { getAutostart, setAutostart } from '../tauri/bridge';
 import { updater, useUpdate, type UpdatePhase } from '../update/store';
 import { notesBeforeInstall, openWhatsNew } from '../update/whatsNewView';
@@ -18,6 +15,8 @@ import { CONTEXT_NEAR_MAX, CONTEXT_NEAR_MIN, USAGE_ALERT_MAX, USAGE_ALERT_MIN } 
 import { span, usageThreshold } from '../usage/model';
 import { accountRows } from '../usage/accounts';
 import { HarnessLogo } from '../usage/UsageFooter';
+import { ProviderLogo } from '../ide/ProviderLogo';
+import { providerOf } from '../workspace/sessionTab';
 import { useNow } from '../usage/useUsageView';
 import { useResumeOnStart } from '../workspace/prefs';
 import { setDefaultView, useDefaultView } from '../session/defaultView';
@@ -36,8 +35,6 @@ export function General({ ctx }: { ctx: SettingsContext }): JSX.Element {
   const { t } = useI18n();
   const g = t.settings.general;
   const view = useDefaultView();
-  const theme = useTheme();
-  const { reduced } = useMotionPreferences();
   const [tool, setTool] = useDefaultTool();
   // The context threshold the local daemon keeps (context handover spec §3.2): set there, applied by every front.
   const near = useContextNear(ctx.client);
@@ -100,7 +97,7 @@ export function General({ ctx }: { ctx: SettingsContext }): JSX.Element {
           <Segmented label={g.tool} value={tool} onChange={v => { setTool(v); ctx.saved(g.toolSaved(t.launch.tools[v][0])); }}
             options={TOOLS.map(id => ({
               value: id,
-              label: <><span aria-hidden="true" style={{ display: 'inline-flex' }}><LogoBot tool={id} state={tool === id ? 'working' : 'idle'} size={20} theme={theme} seed={'set-' + id} paused={ctx.paused} reducedMotion={reduced} /></span>{t.launch.tools[id][0]}</>
+              label: <><span aria-hidden="true" className="set-tool-logo"><ProviderLogo provider={providerOf(id)} size={16} /></span>{t.launch.tools[id][0]}</>
             }))} />
         </Row>
         <Row label={g.view} hint={g.viewHint}>
