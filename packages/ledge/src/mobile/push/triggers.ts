@@ -72,22 +72,24 @@ export function chatEndPayload(code: ChatErrorCode | undefined, badge: number): 
   };
 }
 
-/** A decision a session just put to the user (`ledge task give ledge …`): it opens Ledge's chat, where « À toi » lists it. */
+/** A decision a session just put to the user (`ledge task give ledge …`): it opens that session's thread, whose foot answers it
+ *  (#40 D2, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 8). */
 export function decisionPayload(t: Task, badge: number): PushPayload {
   return {
     v: 1, kind: 'decision', title: cut(`${t.giverName} attend votre décision`, TITLE_MAX), name: cut(t.giverName, NAME_MAX), body: cut(t.title.trim(), BODY_MAX),
-    url: '/#/chat', badge: Math.max(0, Math.min(999, badge)), tag: safeTag(t.id)
+    url: `/#/thread/${encodeURIComponent(t.giver)}`, badge: Math.max(0, Math.min(999, badge)), tag: safeTag(t.id)
   };
 }
 
 /**
  * An urgent or critical question of a rig, pushed at once (it does not wait for the operator's point): titled « Ledge », the body
- * names the seat, and it opens « À toi », where the ask waits. A question with options asks; one without is still a request to read.
+ * names the seat, and it opens the ask itself, « Retour » leading to the Rigs tab's requests (#40 D1, card 8). A question with options
+ * asks; one without is still a request to read.
  */
 export function rigAskPayload(a: HumanAsk, badge: number): PushPayload {
   const kind = a.questions.some(q => q.answer === null) ? 'question' : 'request';
   return {
     v: 1, kind, title: 'Ledge', name: cut(a.from.seat, NAME_MAX), body: cut(`${a.from.seat} · ${a.summary.trim()}`, BODY_MAX),
-    url: '/#/', badge: Math.max(0, Math.min(999, badge)), tag: safeTag(`ask-${a.id}`)
+    url: `/#/ask/${encodeURIComponent(a.id)}`, badge: Math.max(0, Math.min(999, badge)), tag: safeTag(`ask-${a.id}`)
   };
 }
