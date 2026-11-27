@@ -112,6 +112,8 @@ export function toPhoneSession(s: Session, readAt: string, checklist?: PhoneChec
   return {
     id: s.id, name: s.name, tool: s.tool, project: s.project, title: s.title, state: s.state,
     startedAt: s.startedAt, lastActivityAt: s.lastActivityAt,
+    // Its nickname (docs/mockups/ledge-sidebar-names.html, card 2), shown before its name on the phone too.
+    ...(s.label ? { label: s.label } : {}),
     // Topics are already cut to TOPIC_MAX where they are set; clipped again so no source can swell a snapshot.
     ...(s.topic !== undefined ? { topic: clip(s.topic, TOPIC_MAX).text } : {}),
     ...pickSet(s, ['repo', 'branch', 'worktree', 'context', 'relieves', 'exitedAt', 'closedHow']),

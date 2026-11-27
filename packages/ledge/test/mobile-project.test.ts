@@ -28,6 +28,10 @@ describe('toPhoneSession', () => {
     expect(PhoneSessionSchema.safeParse(p).success).toBe(true);
   });
 
+  it('carries the nickname, and nothing when there is none (sidebar rename, v2)', () => {
+    expect(toPhoneSession(session({ label: 'KB Projet 1' }), T)).toMatchObject({ name: session({}).name, label: 'KB Projet 1' });
+    expect(toPhoneSession(session({}), T)).not.toHaveProperty('label');
+  });
   it('keeps only whitelisted keys', () => {
     const s = { ...session({ topic: 'x', pending: { kind: 'permission', text: 'ok?', tool: 'Bash', source: 'hook' } }), secret: 'x' } as Session;
     const p = toPhoneSession(s, T);

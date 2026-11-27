@@ -152,7 +152,7 @@ export const PHONE_RIG_NAME_MAX = 100;
 
 /** A session as the phone sees it: no folder, no tmux name, no machine, no message to another agent. */
 export const PhoneSessionSchema = SwitchableSessionSchema.pick({
-  id: true, name: true, tool: true, project: true, title: true, topic: true, repo: true, branch: true, worktree: true,
+  id: true, name: true, label: true, tool: true, project: true, title: true, topic: true, repo: true, branch: true, worktree: true,
   state: true, helpers: true, lastReply: true, startedAt: true, lastActivityAt: true,
   /** The commands its agent left running in the background (issue #1): with its helpers at work, `backgroundOf`. */
   background: true,
