@@ -64,6 +64,37 @@ describe('archive and delete from the sidebar tree', () => {
     await user.keyboard('{Escape}');
   });
 
+  it('F2 on a principal\'s row opens the rename dialog, as the menu\'s « Rename… F2 » (#17)', async () => {
+    const { d, side, user } = await boot({ projects: PROJECTS, sessions: listSessions(), daemon: CAN });
+    const tree = treeOf(side);
+
+    // A subagent row, a finished session and an offline one: F2 opens nothing (the menu greys Rename… for the last two).
+    await user.click(tree.getByRole('button', { name: '+1 finished' }));
+    await user.click(tree.getByRole('button', { name: /Show Otto.s subagents/ }));
+    tree.getByRole('button', { name: /^Explore/ }).focus();
+    await user.keyboard('{F2}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    tree.getByRole('button', { name: /^Bix/ }).focus();
+    await user.keyboard('{F2}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    tree.getByRole('button', { name: /^Rio/ }).focus();
+    await user.keyboard('{F2}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    tree.getByRole('button', { name: /^Otto/ }).focus();
+    await user.keyboard('{F2}');
+    const dialog = await screen.findByRole('dialog', { name: /Rename/ });
+    const field = within(dialog).getByRole('textbox');
+    expect(field).toHaveValue('Câbler la liste');
+    // F2 in the dialog's field types nothing and does not reopen anything.
+    await user.keyboard('{F2}');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await user.clear(field);
+    await user.type(field, 'Wire the tree{Enter}');
+    await waitFor(() => expect(sent(d)).toContainEqual({ type: 'session.rename', id: 'otto', topic: 'Wire the tree' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('the row\'s terminal button is the menu\'s: Otto\'s page with its terminal pane, no external terminal', async () => {
     const { d, side, user } = await boot({ projects: PROJECTS, sessions: listSessions(), daemon: CAN });
     const tree = treeOf(side);

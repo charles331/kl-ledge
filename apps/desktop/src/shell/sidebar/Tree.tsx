@@ -131,6 +131,8 @@ export function Tree(p: {
   onMenu(target: MenuTarget, at: { x: number; y: number }, opener: HTMLElement | null): void;
   onArchive(ids: string[]): void;
   onDelete(ids: string[]): void;
+  /** F2 on a principal's row: the rename dialog, as the menu's « Renommer… F2 » (a finished or offline session is refused there). */
+  onRename(s: Session): void;
   onTerminal(s: Session): void;
   onToggleHide(): void;
   onToggleDense(): void;
@@ -209,6 +211,7 @@ export function Tree(p: {
     else if (isMenuKey(e)) { if (n?.target) p.onMenu(n.target, menuPoint(e, el), el); }
     else if (k === 'e') { if (n?.session) p.onArchive([n.session.id]); }
     else if (e.key === 'Delete') { if (n?.session) p.onDelete([n.session.id]); }
+    else if (e.key === 'F2') { if (n?.session) p.onRename(n.session); }
     else if (k === 'j' || k === 'k') { /* the atelier walks with these; the tree keeps them */ }
     else if (k === 'h') p.onToggleHide();
     else if (k === 'd') p.onToggleDense();
