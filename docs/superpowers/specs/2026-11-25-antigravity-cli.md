@@ -5,11 +5,11 @@ pane read by an adapter, plus hooks. Based on probes of 2026-11-25 on agy 1.5.17
 tmux; the panes are `packages/ledge/test/fixtures/panes/agy-*.txt`. agy's own docs ship with it:
 `~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/hooks.md`.
 
-**Status.** Done: protocol, adapter, `ledge hook agy`, setup/uninstall, launch and resume, model list, the guard on
-slash commands that open a panel, thread messages, context use and file diffs from the transcript, and Ask Ledge on
-agy (read-only, see `packages/ledge/src/chat/agy.ts`). Waiting for the owner's approval of
-`docs/mockups/ledge-agy.html`: the fronts (logo, mascot, launch picker and labels in the TUI, Desktop, the island and
-the phone).
+**Status.** Done on branch `feat/agy`: the daemon side (protocol, adapter, `ledge hook agy`, setup/uninstall, launch and
+resume, models, slash-command guard, thread messages, context use and file diffs from the transcript, Ask Ledge
+read-only) and the fronts, as approved in `docs/mockups/ledge-agy.html` (Gemini's mark, the « étincelle » mascot, the
+agents' tiles in rows of three, « Modèles Gemini » on the phone). Not covered: the account's quota, a live end-to-end
+run with the daemon, the Windows build.
 
 ## Verdict
 
