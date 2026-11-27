@@ -251,7 +251,8 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
   };
 
   const name = session.name;
-  const placeholder = working ? tr.placeholder.queued(name) : sort === 'plan' ? tr.placeholder.plan : sort === 'approval' ? tr.placeholder.approval : sort === 'question' ? tr.placeholder.question(name)
+  // #44 (docs/mockups/ledge-closed-reply.html, A): a shut field invites nothing; the hint under it says why, alone.
+  const placeholder = shut ? '' : working ? tr.placeholder.queued(name) : sort === 'plan' ? tr.placeholder.plan : sort === 'approval' ? tr.placeholder.approval : sort === 'question' ? tr.placeholder.question(name)
     : session.state === 'exited' || (session.state === 'idle' && !isBusy(session)) ? tr.placeholder.done(name)
     : ide ? (session.rig ? t.ide.replyPlaceholderSeat(name) : t.ide.replyPlaceholder(name)) : tr.placeholder.idle(name);
   // In the IDE only the hints that give a reason (why the field is shut, why Enter will not send, what is under way) or say
