@@ -84,7 +84,7 @@ export function SessionActions({ store, session, onDone, order }: { store: Mobil
         { icon: 'arrowDown' as const, label: copy.sessions.reorder.down, onClick: order.down ? () => { order.down!(); onDone(); } : undefined }
       ] } : {})}
       lead={[
-        { icon: 'sessions', label: copy.atoi.openThread, onClick: () => go({ name: 'thread', sessionId: session.id }) },
+        { icon: 'sessions', label: copy.cards.openThread, onClick: () => go({ name: 'thread', sessionId: session.id }) },
         { icon: 'terminal', label: copy.thread.terminal(session.name), onClick: () => go({ name: 'terminal', sessionId: session.id }) }
       ]}
     />

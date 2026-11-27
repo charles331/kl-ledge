@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HumanAsk } from '@ledge/protocol';
 import { copy } from '../../copy';
-import { askEndOf, pillOf, sortAsks, whoOf } from '../../model/atoi';
+import { askEndOf, pillOf, sortAsks, whoOf } from '../../model/cards';
 import { href, useRoute } from '../../router';
 import { useMobile, type MobileState, type MobileStore } from '../../state/store';
 import { Box, Line } from '../../ui/kit/Box';
 import { Dot, Pill } from '../../ui/kit/marks';
 import { useWide } from '../../ui/layout';
-import { AskCard } from '../atoi/AskCard';
-import { useSticky } from '../atoi/Receipt';
+import { AskCard } from '../cards/AskCard';
+import { useSticky } from '../cards/Receipt';
 import { usePlatform } from '../device';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Lbl } from './kit';
 
 /**
@@ -47,7 +47,7 @@ export function ChannelStrip({ state, machine }: { state: MobileState; machine: 
 
 /**
  * The Rigs tab's « Demandes » (#40 D1, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 3): what OpenRig asks the person, at the
- * top of the tab, the most urgent then the most recent, each with the card « À toi » had (choices, a free answer, « Vu », the
+ * top of the tab, the most urgent then the most recent, each with the card « À toi » had before #40 (choices, a free answer, « Vu », the
  * device's check when needed). On a wide screen the list's rows open each ask beside it. It folds, and unfolds again when a new
  * ask comes; nothing shows with no ask nor anything to say about the channel.
  */

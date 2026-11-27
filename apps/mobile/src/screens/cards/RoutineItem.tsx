@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PhoneRoutine, PhoneRoutineDetail, PhoneSession } from '@ledge/protocol';
 import { copy, locale } from '../../copy';
-import { askerOf, coveredIds, failureWhy, scheduleView, sessionOf, type RoutineTask } from '../../model/routines';
-import { href } from '../../router';
+import { askerOf, coveredIds, scheduleView, sessionOf, type RoutineTask } from '../../model/routines';
 import type { MobileState, MobileStore } from '../../state/store';
 import { Card } from '../../ui/kit/Box';
 import { Pill } from '../../ui/kit/marks';
@@ -11,12 +10,12 @@ import { Spin } from './SessionCard';
 
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
-/** The head of a routine's item: what it is (« Demande », « Échec »), then « Routine · 02:10 ». */
-function Head({ failed, at }: { failed: boolean; at: string }) {
-  const A = copy.routines.atoi;
+/** The head of a routine's request: « Demande », then « Routine · 02:10 ». */
+function Head({ at }: { at: string }) {
+  const A = copy.routines.request;
   return (
     <div className="flex items-center gap-2">
-      <Pill tone={failed ? 'perm' : 'ask'}>{failed ? A.failed : A.ask}</Pill>
+      <Pill tone="ask">{A.ask}</Pill>
       <span className="text-[13px] text-muted">{A.kind} · <time dateTime={at}>{timeOf(at)}</time></span>
     </div>
   );
@@ -44,17 +43,16 @@ export interface RoutineItemProps {
 }
 
 /**
- * A routine's item in « À toi » (docs/mockups/ledge-routines.html, cards 17 and 25): an activation request, its prompt unfolded and
+ * A routine's request at the top of Routines (#40 D4) (docs/mockups/ledge-routines.html, cards 17 and 25): an activation request, its prompt unfolded and
  * « Activer » behind the device's check; several one-shots proposed together, « Activer les 3 » / « Refuser les 3 »; or a run that
  * could not leave, « Relancer » / « Voir ».
  */
 export function RoutineItem(props: RoutineItemProps) {
-  if (props.task.routine.kind === 'failed') return <FailedItem {...props} />;
   return coveredIds(props.task.routine).length > 1 ? <GroupItem {...props} /> : <AskItem {...props} />;
 }
 
 function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
-  const A = copy.routines.atoi;
+  const A = copy.routines.request;
   const id = task.routine.id;
   const listed = state.routines?.find(r => r.id === id);
   const shown = state.routineDetails[id];
@@ -82,7 +80,7 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const off = !state.fresh || busy !== null;
   return (
     <Card tone="ask" label={`${A.ask} · ${task.routine.name}`}>
-      <Head failed={false} at={task.at} />
+      <Head at={task.at} />
       {routine
         ? <Said routine={routine} session={session} frozen={!state.fresh}>
             {spec ? <><b className="font-semibold">{who}</b> {change ? A.editAsks(spec.name, scheduleView(spec.schedule).ask) : A.asks(spec.name, scheduleView(spec.schedule).ask, spec.target.cwd)}</> : A.fallbackAsk(task.routine.name)}
@@ -100,7 +98,7 @@ function AskItem({ store, task, state, canConfirm }: RoutineItemProps) {
 }
 
 function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
-  const A = copy.routines.atoi;
+  const A = copy.routines.request;
   const ids = coveredIds(task.routine);
   const listed = ids.map(id => state.routines?.find(r => r.id === id)).filter((r): r is PhoneRoutine => !!r);
   // The ones still waiting: « Activer les 3 » counts them, and a routine answered on the PC leaves the count.
@@ -139,7 +137,7 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
   const seen = new Set<string>();
   return (
     <Card tone="ask" label={`${A.ask} · ${task.routine.name}`}>
-      <Head failed={false} at={task.at} />
+      <Head at={task.at} />
       {first
         ? <Said routine={first} session={session} frozen={!state.fresh}><b className="font-semibold">{who}</b> {A.groupAsks(n)}{oneDir && <span className="text-muted"> {A.inDir(oneDir)}</span>}</Said>
         : <p className="text-body [overflow-wrap:anywhere]">{A.fallbackAsk(task.routine.name)}</p>}
@@ -168,34 +166,6 @@ function GroupItem({ store, task, state, canConfirm }: RoutineItemProps) {
         <button type="button" disabled={off} onClick={() => { void go('refuse'); }} className={routineButton()}>{busy === 'refuse' && <Spin />}{A.refuseAll(n)}</button>
       </div>
       {error ? <p role="alert" className="text-small text-destructive">{error}</p> : <p className="text-[12px] text-muted">{canConfirm ? A.verify : copy.confirm.refused.confirm_required}</p>}
-    </Card>
-  );
-}
-
-function FailedItem({ store, task, state }: RoutineItemProps) {
-  const A = copy.routines.atoi;
-  const id = task.routine.id;
-  const routine = state.routines?.find(r => r.id === id);
-  const session = routine ? sessionOf(routine, state.sessions.values()) : undefined;
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const why = failureWhy(routine, task.routine.reason);
-  // Not read yet: card 30's words, never the daemon's French task title.
-  const line = routine ? A.failedLine(routine.name, routine.target.name, why) : A.fallbackFailed(task.routine.name, why);
-  const retry = async () => {
-    setBusy(true); setError(null);
-    setError(routineError(await store.routineCmd(id, 'run')));
-    setBusy(false);
-  };
-  return (
-    <Card tone="perm" label={`${A.failed} · ${task.routine.name}`}>
-      <Head failed at={task.at} />
-      {routine ? <Said routine={routine} session={session} frozen={!state.fresh}>{line}</Said> : <p className="text-body [overflow-wrap:anywhere]">{line}</p>}
-      <div className="flex gap-2">
-        <button type="button" disabled={!state.fresh || busy} onClick={() => { void retry(); }} className={routineButton(true)}>{busy && <Spin />}{A.retry}</button>
-        <a href={href({ name: 'routines', routine: id })} className={routineButton()}>{A.see}</a>
-      </div>
-      {error && <p role="alert" className="text-small text-destructive">{error}</p>}
     </Card>
   );
 }

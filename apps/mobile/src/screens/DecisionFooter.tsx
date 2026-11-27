@@ -11,7 +11,7 @@ import { usePlatform } from './device';
 import { OnPc, RiskConfirm, type ConfirmReason } from './RiskConfirm';
 import { buttonClass } from '../ui/Button';
 import { useShortcuts } from '../ui/keys';
-import { alwaysLabel, alwaysScope } from '../model/atoi';
+import { alwaysLabel, alwaysScope } from '../model/cards';
 
 const half = (variant?: 'primary') => buttonClass({ variant, className: 'flex-1' });
 const full = (variant?: 'primary' | 'ghost') => buttonClass({ variant, block: true });
@@ -89,7 +89,7 @@ export function DecisionFooter(p: DecisionFooterProps) {
   const scope = alwaysScope(item);
   // The full request says what « Toujours » grants under the buttons: a phone has no hover (Q67). On its side the line takes the
   // hint's place at 12 px, whole, never cut: it says what the button grants beyond this request (design-ux, c8cef0d4).
-  const grants = always && <p className="text-small text-muted phone-side:text-[12px] phone-side:leading-4">{copy.atoi.scope[scope]}</p>;
+  const grants = always && <p className="text-small text-muted phone-side:text-[12px] phone-side:leading-4">{copy.cards.scope[scope]}</p>;
   // Y / N only while the buttons they stand for are shown and enabled.
   const shown = outcome.kind !== 'sending' && outcome.kind !== 'uncertain'
     && !((outcome.kind === 'rejected' || outcome.kind === 'failed') && (outcome.reason === 'no_prompt' || outcome.reason === 'nothing_to_decide' || outcome.reason === 'stale'));
@@ -139,7 +139,7 @@ export function DecisionFooter(p: DecisionFooterProps) {
       <button type="button" disabled={!enabled} onClick={() => onDecide('deny')} className={buttonClass({ className: 'min-w-[120px]' })}>{D.deny}</button>
       {always && <button type="button" disabled={!enabled} onClick={() => onDecide('always')} className={buttonClass({ variant: 'ghost' })}>{alwaysLabel(scope)}</button>}
       <span className="flex-1" />
-      <span className="font-mono text-small text-muted">{copy.atoi.keys}</span>
+      <span className="font-mono text-small text-muted">{copy.cards.keys}</span>
       {grants && <div className="basis-full">{grants}</div>}
     </div>
   ) : (

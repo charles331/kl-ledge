@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HumanAsk, PhoneSession } from '@ledge/protocol';
-import { alwaysLabel, alwaysScope, atoiOrder, cardMode, nextAfter, stepFrom, type AtoiTarget } from '../../src/model/atoi';
+import { alwaysLabel, alwaysScope, openOrder, cardMode, nextAfter, type OpenTarget } from '../../src/model/cards';
 import { requestsOf } from '../../src/model/requests';
 import { pending, session } from './fixtures';
 
@@ -9,8 +9,8 @@ const ask = (id: string, extra: Partial<HumanAsk> = {}): HumanAsk => ({
   id, kind: 'decision', alert: false, priority: 'routine', from: { seat: 'pilot-lead@ledge-dev', rig: 'ledge-dev', role: 'pilot.lead' },
   summary: id, body: '', bodyTruncated: false, detail: null, evidenceRef: null, questions: [], createdAt: at(0), updatedAt: at(0), ...extra
 } as HumanAsk);
-const req = (id: string): AtoiTarget => ({ name: 'request', sessionId: id, key: `k${id}` });
-const rig = (id: string): AtoiTarget => ({ name: 'ask', id });
+const req = (id: string): OpenTarget => ({ name: 'request', sessionId: id, key: `k${id}` });
+const rig = (id: string): OpenTarget => ({ name: 'ask', id });
 
 describe('« À toi »\'s order on a wide screen (m1-a-toi.html §12)', () => {
   it('lists the sessions\' requests, then the asks by priority, without a piece of news', () => {
@@ -18,7 +18,7 @@ describe('« À toi »\'s order on a wide screen (m1-a-toi.html §12)', () => {
       session('a', { state: 'waiting_permission', lastActivityAt: at(5), pending: pending({ key: 'ka' }) }),
       session('b', { state: 'waiting_permission', lastActivityAt: at(1), pending: pending({ key: 'kb' }) })
     ]);
-    const order = atoiOrder(items, [ask('old', { createdAt: at(0) }), ask('news', { kind: 'update' }), ask('urgent', { priority: 'urgent', createdAt: at(9) })]);
+    const order = openOrder(items, [ask('old', { createdAt: at(0) }), ask('news', { kind: 'update' }), ask('urgent', { priority: 'urgent', createdAt: at(9) })]);
     expect(order).toEqual([...items.map(i => ({ name: 'request', sessionId: i.sessionId, key: i.key })), rig('urgent'), rig('old')]);
     expect(order.filter(t => t.name === 'ask')).not.toContainEqual(rig('news'));
   });
@@ -44,23 +44,6 @@ describe('the next one once decided (nextAfter)', () => {
 
   it('a request replaced in place (same session, new key) is the same entry, never its own next', () => {
     expect(nextAfter([{ name: 'request', sessionId: 'a', key: 'ka2' }, req('b')], req('a'))).toEqual(req('b'));
-  });
-});
-
-describe('↑ / ↓ (stepFrom)', () => {
-  const order = [req('a'), req('b'), rig('r')];
-
-  it('moves one entry, and stops at both ends', () => {
-    expect(stepFrom(order, req('a'), 1)).toEqual(req('b'));
-    expect(stepFrom(order, req('b'), -1)).toEqual(req('a'));
-    expect(stepFrom(order, rig('r'), 1)).toEqual(rig('r'));
-    expect(stepFrom(order, req('a'), -1)).toEqual(req('a'));
-  });
-
-  it('starts from the top when nothing listed is open, and gives none on an empty list', () => {
-    expect(stepFrom(order, null, 1)).toEqual(req('a'));
-    expect(stepFrom(order, rig('gone'), -1)).toEqual(req('a'));
-    expect(stepFrom([], null, 1)).toBeNull();
   });
 });
 

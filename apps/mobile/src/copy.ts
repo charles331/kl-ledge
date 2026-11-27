@@ -23,36 +23,14 @@ const fr = {
   percent: (n: number) => `${n} %`,
   /** The name beside the mark, in the header of the five tabs. */
   brand: 'Ledge',
-  inbox: {
-    /** A request's first line when it has no words of its own, and an age in the list (« 3 min », « 2 j »). */
+  /** « À toi » (docs/mockups/ledge-mobile-refonte/m1-a-toi.html, 3228f5ed; m1-reponses-rig.html, adf70443): cards decided in the list, receipts. */
+  /** The request and ask cards: a session's request in its thread or on its own screen, an OpenRig ask in the Rigs tab's
+   *  « Demandes » (#40). Drawn for « À toi » (m1-a-toi.html), which they outlived. */
+  cards: {
     plan: 'Plan à valider', diff: (file: string) => `Modifier ${file}`,
     age: { s: (n: number) => `${n} s`, min: (n: number) => `${n} min`, h: (n: number) => `${n} h`, d: (n: number) => `${n} j` },
-    title: 'À toi',
-    subtitle: (n: number) => n === 0 ? 'Tout est calme' : n === 1 ? '1 demande. Choisis par où commencer.' : `${n} demandes. Choisis par où commencer.`,
-    filtersLabel: 'Filtrer les demandes',
-    filters: { all: 'Tout', permission: 'Autorisations', question: 'Questions', tasks: 'Tâches' },
-    /** With the closed tasks of Ledge (ledge home spec §2.4). */
-    subtitleTasks: (requests: number, tasks: number) => {
-      const r = requests === 0 ? '' : requests === 1 ? '1 demande' : `${requests} demandes`;
-      const t = tasks === 1 ? '1 tâche finie' : `${tasks} tâches finies`;
-      return `${r ? `${r} et ` : ''}${t}. Choisis par où commencer.`;
-    },
-    taskDone: 'Tâche finie', taskClosed: 'Tâche close',
-    finishedTitle: (title: string) => `A fini « ${title} »`, refusedTitle: (title: string) => `A refusé « ${title} »`, droppedTitle: (title: string) => `A abandonné « ${title} »`,
-    ledgeTask: 'Tâche de Ledge', seeResult: 'Voir le résultat', putAway: 'Ranger',
-    oldestFirst: 'LES PLUS ANCIENNES D’ABORD',
     examine: 'Examiner',
     lastKnown: 'Dernier état connu',
-    upToDate: 'Tu es à jour',
-    upToDateHint: 'Aucune demande n’attend de décision.',
-    seeAgents: 'Voir les sessions',
-    emptyFilter: 'Aucune demande dans ce filtre',
-    emptyFilterHint: 'Les autres demandes restent dans « Tout ».',
-    offlineNote: 'Tu peux consulter les demandes. Aucune décision ne sera envoyée hors connexion.'
-  },
-  /** « À toi » (docs/mockups/ledge-mobile-refonte/m1-a-toi.html, 3228f5ed; m1-reponses-rig.html, adf70443): cards decided in the list, receipts. */
-  atoi: {
-    count: (n: number) => (n === 1 ? '1 demande' : `${n} demandes`),
     pill: { permission: 'autorisation', question: 'question', plan: 'plan', diff: 'modifications' },
     allow: 'Autoriser', deny: 'Refuser', always: 'Toujours dans ce projet',
     readAll: 'Tout lire', other: 'Autre réponse…',
@@ -60,8 +38,6 @@ const fr = {
     /** A card as a screen reader names it: « Autorisation de Pim, ledge ». */
     region: (what: string, who: string, where: string) => `${what} de ${who}${where ? `, ${where}` : ''}`,
     kindName: { permission: 'Autorisation', question: 'Question', plan: 'Plan', diff: 'Modifications', rig: 'Demande' },
-    requests: 'Demandes', rigs: 'Rigs OpenRig', working: 'En cours',
-    more: (n: number) => `Voir les ${n} autres`,
     receipt: {
       allowed: (who: string) => `Autorisée · ${who}`, denied: (who: string) => `Refusée · ${who}`,
       allowedBody: 'Le terminal a reçu ta décision', deniedBody: 'La commande n’a pas été lancée',
@@ -75,9 +51,6 @@ const fr = {
       answeredAt: (who: string, time: string, draft: boolean) => `${who} · Répondue à ${time}. ${draft ? 'Ton brouillon n’a pas été envoyé.' : 'Aucune nouvelle réponse n’a été envoyée.'}`,
       gone: (who: string, draft: boolean) => `${who}.${draft ? ' Ton brouillon n’a pas été envoyé.' : ''}`
     },
-    noRequest: 'Rien ne t’attend.',
-    calmHint: 'Aucune session ni aucun rig n’a besoin de ta décision. Les nouvelles demandes arrivent ici, et sur l’écran verrouillé si les notifications sont activées.',
-    nothingRunning: 'Aucune session ne travaille non plus pour l’instant.',
     seeSessions: 'Voir les sessions',
     keys: 'Y / N au clavier',
     /** A request's row on a wide screen (§12): « Pim Autoriser une commande »; a question keeps its pill's word. */
@@ -121,11 +94,11 @@ const fr = {
   },
   nav: {
     label: 'Navigation principale',
-    /** The five tabs, the rail's Atelier and Réglages (docs/mockups/ledge-mobile-refonte/m0-socle.html, §1 and §2). */
-    atoi: 'À toi', sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', chat: 'Ledge', atelier: 'Atelier', settings: 'Réglages',
+    /** The three tabs (#40 D6), the rail's Atelier and Réglages (docs/mockups/ledge-mobile-refonte/m0-socle.html, §1 and §2). */
+    sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', chat: 'Ledge', atelier: 'Atelier', settings: 'Réglages',
     /** « Retour », named after the screen it leads to; plain when that screen is not known (after a reload). */
     back: 'Retour',
-    backTo: { atoi: 'Retour à À toi', sessions: 'Retour aux sessions', prs: 'Retour aux MR et PR', rigs: 'Retour aux rigs', chat: 'Retour à Ledge', atelier: 'Retour à l’Atelier', thread: 'Retour au fil', terminal: 'Retour au terminal', request: 'Retour à la demande', connection: 'Retour aux réglages', rig: 'Retour au rig', kernel: 'Retour au kernel', max: 'Retour à Max' } as Partial<Record<string, string>>
+    backTo: { sessions: 'Retour aux sessions', prs: 'Retour aux MR et PR', rigs: 'Retour aux rigs', chat: 'Retour à Ledge', atelier: 'Retour à l’Atelier', thread: 'Retour au fil', terminal: 'Retour au terminal', request: 'Retour à la demande', connection: 'Retour aux réglages', rig: 'Retour au rig', kernel: 'Retour au kernel', max: 'Retour à Max' } as Partial<Record<string, string>>
   },
   images: {
     attach: 'Joindre une image', remove: 'Retirer l\'image', tooLarge: 'Image trop lourde, même réduite', notImage: 'Ce fichier n\'est pas une image', max: '5 images au plus par message',
@@ -138,8 +111,7 @@ const fr = {
     /** The Ledge tab of a PC that does not offer the chat (design-ux, M0 point 2). */
     unavailable: {
       title: (pc: string) => `${pc} ne propose pas encore le chat à cet appareil`,
-      body: 'Le chat avec Ledge arrive avec une prochaine version de Ledge sur le PC.',
-      seeAtoi: 'Voir « À toi »'
+      body: 'Le chat avec Ledge arrive avec une prochaine version de Ledge sur le PC.'
     },
     point: {
       title: 'Le point', label: 'Le point', ago: (s: string) => `il y a ${s}`,

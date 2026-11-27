@@ -16,7 +16,7 @@ import { Dot, Pill, RuntimeTag } from '../ui/kit/marks';
 import { openDecisions } from '../model/tasks';
 import { useWide } from '../ui/layout';
 import { useNow } from '../useNow';
-import { clock } from './Inbox';
+import { clock } from '../clock';
 import { useLiftDrag, useLongPress } from './longPress';
 import { SessionActions } from './SessionHead';
 import { ProjectOrderSheet } from './SessionMore';
@@ -37,7 +37,7 @@ function useFilter(fromRoute: SessionFilter | undefined, storage?: Storage): [Se
     set(f);
     try { store?.setItem(FILTER_KEY, f); } catch { /* kept for this visit only */ }
   };
-  // « Voir les N autres » in « À toi » opens the list on « Au travail », even when it is already shown.
+  // `#/sessions/working` opens the list on « Au travail », even when it is already shown.
   useEffect(() => { if (fromRoute) choose(fromRoute); }, [fromRoute]); // eslint-disable-line react-hooks/exhaustive-deps
   return [filter, choose];
 }

@@ -62,7 +62,7 @@ export const filterItems = (items: InboxItem[], f: Filter): InboxItem[] => f ===
 
 export function ageLabel(since: string, now: number): string {
   const s = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
-  const A = copy.inbox.age;
+  const A = copy.cards.age;
   if (s < 60) return A.s(s);
   if (s < 3600) return A.min(Math.floor(s / 60));
   if (s < 86_400) return A.h(Math.floor(s / 3600));
@@ -74,8 +74,8 @@ export const firstLine = (t: string) => t.split('\n').find(l => l.trim())?.trim(
 export function headline(item: InboxItem): string {
   switch (item.kind) {
     case 'question': return item.text;
-    case 'plan': return copy.inbox.plan;
-    case 'diff': return copy.inbox.diff(firstLine(item.text)).trim();
+    case 'plan': return copy.cards.plan;
+    case 'diff': return copy.cards.diff(firstLine(item.text)).trim();
     default: return firstLine(item.text);
   }
 }

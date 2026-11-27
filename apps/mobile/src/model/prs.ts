@@ -1,5 +1,5 @@
 // What the MR/PR tab derives from the PC's requests (docs/mockups/ledge-mobile-refonte/m5-mr-pr.html): the dot of a pipeline, « prête
-// à fusionner », what blocks a merge, the stages of a pipeline, a job's duration, the tab's badge, « À toi » and a session's chip.
+// à fusionner », what blocks a merge, the stages of a pipeline, a job's duration, the tab's badge and a session's chip.
 // Words are not made here: the screens take them from the catalogue.
 import type { ForgeKind, PhoneForgeState, PhoneForgeStatus, PipeStatus, PrDetail, PrJob, PullRequest } from '@ledge/protocol';
 import type { DotState } from '../ui/kit/marks';
@@ -21,11 +21,6 @@ export function splitPrs(prs: readonly PullRequest[]): { open: PullRequest[]; cl
 /** The tab's red badge: the open requests whose pipeline failed (M0, M5 §1). */
 export const failedCount = (prs: readonly PullRequest[]): number => prs.filter(p => isOpen(p) && p.pipeline === 'fail').length;
 
-/** « À toi » › MR et PR: the failed pipelines first, then the requests ready to merge, each in the PC's order (M1 Q14, M5 §9). */
-export function atoiPrs(prs: readonly PullRequest[]): { pr: PullRequest; why: 'fail' | 'ready' }[] {
-  const open = prs.filter(isOpen);
-  return [...open.filter(p => p.pipeline === 'fail').map(pr => ({ pr, why: 'fail' as const })), ...open.filter(p => p.pipeline !== 'fail' && isReady(p)).map(pr => ({ pr, why: 'ready' as const }))];
-}
 
 /** A forge that cannot be read, for its strip above the list: missing CLI, not signed in, or failing reads (M5 §2). */
 export const unreadable = (forges: readonly PhoneForgeStatus[]): PhoneForgeStatus[] => forges.filter(f => f.status !== 'ok');

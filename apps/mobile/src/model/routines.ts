@@ -4,7 +4,7 @@ import { taskClosed } from './tasks';
 
 /*
  * The PC's routines as the phone shows them (docs/mockups/ledge-routines.html, cards 17 and 25): read-only, grouped into
- * recurring ones and one-shots, the ones waiting on the user or that failed first; and the items they put in « À toi ».
+ * recurring ones and one-shots, the ones waiting on the user or that failed first; and their requests for approval, at the top of Routines (#40 D4).
  */
 
 /** How a schedule reads on the phone. */
@@ -157,10 +157,10 @@ export function wokenSessions(routines: readonly PhoneRoutine[] | null, sessions
 export const askerOf = (r: Pick<PhoneRoutine, 'createdBy'> & { proposal?: { by: { name: string } } | undefined }): string | undefined =>
   r.proposal?.by.name ?? (r.createdBy.kind === 'session' ? r.createdBy.name : undefined);
 
-/** A task that is a routine's item of « À toi ». */
+/** A task that is a routine's request for approval, or a run that failed. */
 export type RoutineTask = PhoneTask & { routine: TaskRoutine };
 
-/** The routines' items of « À toi » still open: the activation requests, then the failures (card 17's order), each the oldest first. */
+/** The routines' tasks still open: the activation requests, then the failures (card 17's order), each the oldest first. */
 export function routineItems(tasks: Iterable<PhoneTask>): RoutineTask[] {
   const rank = (t: RoutineTask) => (t.routine.kind === 'approve' ? 0 : 1);
   return [...tasks].filter((t): t is RoutineTask => !!t.routine && !taskClosed(t)).sort((a, b) => rank(a) - rank(b) || a.at.localeCompare(b.at));

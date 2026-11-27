@@ -4,12 +4,12 @@ import { parseReply } from '@ledge/ui/reply/parse';
 import { copy } from '../copy';
 import { headline } from '../model/requests';
 import { composerState, messagesOf, TAKEN_WINDOW, threadItems, toolNames, type ThreadItem, type ToolLine } from '../model/thread';
-import { cardMode } from '../model/atoi';
+import { cardMode } from '../model/cards';
 import { outcomeFor } from '../model/requestOutcome';
 import type { InboxItem } from '../model/requests';
 import { dotOf } from '../model/sessions';
 import { DetailHeader } from '../ui/kit/Controls';
-import { SessionCard } from './atoi/SessionCard';
+import { SessionCard } from './cards/SessionCard';
 import { usePlatform } from './device';
 import { modelOff, SessionMore } from './SessionMore';
 import { href } from '../router';
@@ -77,7 +77,7 @@ function Tools({ tools }: { tools: ToolLine[] }) {
   );
 }
 
-/** The request waiting, as « À toi »'s card at the thread's foot (§3, Q19): decided here, « Toujours » where the agent offers it. */
+/** The request waiting, as its card at the thread's foot (§3, Q19): decided here, « Toujours » where the agent offers it. */
 function ThreadRequest({ store, item, onReconnect, keys }: { store: MobileStore; item: InboxItem; onReconnect?: (() => void) | undefined; keys: boolean }) {
   const state = useMobile(store);
   const platform = usePlatform();

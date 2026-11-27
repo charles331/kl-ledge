@@ -255,7 +255,7 @@ export function TabPage({ title, subtitle, wideSubtitle, actions, wideActions, c
   offlineBody?: (since: string) => string;
   /** False: on a phone the title is already in the top bar (M4 « Rigs »). */
   heading?: boolean;
-  /** False: offline, the list's head on a wide screen says its last known state without the host pill (À toi, t-tablette.html §6). */
+  /** False: offline, the list's head on a wide screen says its last known state without the host pill (t-tablette.html §6). */
   offlinePill?: boolean;
 }) {
   const wide = useWide();
@@ -263,7 +263,7 @@ export function TabPage({ title, subtitle, wideSubtitle, actions, wideActions, c
   const loading = look === 'loading';
   // Beside the list's title on a wide screen: « Connexion à WSL… » before the first state, « Dernier état connu · 14:02 »
   // offline (t-tablette.html §5, §6), else the tab's own words.
-  const headWords = loading ? copy.link.connecting(hostName(pc)) : look === 'offline' ? (since ? copy.link.lastKnownAt(since) : copy.inbox.lastKnown) : wideSubtitle;
+  const headWords = loading ? copy.link.connecting(hostName(pc)) : look === 'offline' ? (since ? copy.link.lastKnownAt(since) : copy.cards.lastKnown) : wideSubtitle;
   return (
     <>
       {wide && (

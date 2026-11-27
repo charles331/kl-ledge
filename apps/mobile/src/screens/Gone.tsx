@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { copy } from '../copy';
 import { decidedFrom } from '../model/thread';
-import { clock } from './Inbox';
+import { clock } from '../clock';
 import type { InboxItem } from '../model/requests';
 import { href } from '../router';
 import { useMobile, type MobileStore } from '../state/store';

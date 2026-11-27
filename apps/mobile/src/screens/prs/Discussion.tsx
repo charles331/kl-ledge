@@ -5,7 +5,7 @@ import { href } from '../../router';
 import { draftKey, useForge, type ForgeRun, type ForgeStore } from '../../state/forge';
 import { useMobile, type MobileStore } from '../../state/store';
 import { Icon } from '../../ui/icons';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Receipt, rigButtonClass } from '../rigs/kit';
 import { CheckedButton } from '../rigs/sheets';
 import { forgeWords, sessionsOf } from './parts';

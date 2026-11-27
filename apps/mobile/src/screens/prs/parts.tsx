@@ -5,7 +5,7 @@ import { cliOf, PIPE_DOT, type MergeCondition } from '../../model/prs';
 import { daysAgo } from '../../model/rigs';
 import { Icon } from '../../ui/icons';
 import { Dot } from '../../ui/kit/marks';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Chip, type ChipTone } from '../rigs/kit';
 
 /*

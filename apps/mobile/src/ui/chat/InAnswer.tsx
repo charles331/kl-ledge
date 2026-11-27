@@ -2,13 +2,13 @@
 // decided there with the same receipt; a line under an older answer once the request is gone.
 import type { PhoneChatStep } from '@ledge/protocol';
 import { copy } from '../../copy';
-import { cardMode } from '../../model/atoi';
+import { cardMode } from '../../model/cards';
 import { outcomeFor } from '../../model/requestOutcome';
 import type { InboxItem } from '../../model/requests';
 import { href } from '../../router';
 import { usePlatform } from '../../screens/device';
-import { useSticky } from '../../screens/atoi/Receipt';
-import { SessionCard } from '../../screens/atoi/SessionCard';
+import { useSticky } from '../../screens/cards/Receipt';
+import { SessionCard } from '../../screens/cards/SessionCard';
 import { useMobile, type MobileStore } from '../../state/store';
 import { IN_ANSWER } from './TurnView';
 

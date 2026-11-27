@@ -23,16 +23,16 @@ export const routinesEn: RoutinesCopy = {
   oneShot: 'once',
   why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
   more: (list: string, n: number) => `${list} and ${n} more`,
-  atoi: {
-    kind: 'Routine', ask: 'Request', failed: 'Failure',
+  /** A routine waiting for approval, at the top of Routines (#40 D4; cards 17, 25, 29 to 32). */
+  request: {
+    kind: 'Routine', ask: 'Request',
     asks: (name: string, when: string, dir: string) => `wants to schedule “${name}”: ${when}, in ${dir}`,
     groupAsks: (n: number) => `wants to schedule ${n} one-shot routines`,
     inDir: (dir: string) => `in ${dir}`,
     stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
-    fallbackAsk: (name: string) => `“${name}” awaits your approval`, fallbackFailed: (name: string, why: string) => `The routine ${name} could not run: ${why}`,
+    fallbackAsk: (name: string) => `“${name}” awaits your approval`,
     editAsks: (name: string, when: string) => `wants to change “${name}”: ${when}`,
-    failedLine: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
-    activate: 'Activate', refuse: 'Refuse', retry: 'Run again', see: 'View',
+    activate: 'Activate', refuse: 'Refuse',
     activateAll: (n: number) => `Activate all ${n}`, refuseAll: (n: number) => `Refuse all ${n}`,
     verify: 'Activate asks for this device’s verification (fingerprint or code), like the other sensitive actions.'
   }

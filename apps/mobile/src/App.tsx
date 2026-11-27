@@ -16,7 +16,7 @@ import { Connection } from './screens/Connection';
 import { Usage } from './screens/Usage';
 import { NotifyStep, offersNotifications } from './screens/Notifications';
 import { Denied } from './screens/Denied';
-import { clock } from './screens/Inbox';
+import { clock } from './clock';
 import { KeyChanged } from './screens/KeyChanged';
 import { Login, signinError } from './screens/Login';
 import { Replaced } from './screens/Offline';
@@ -25,9 +25,9 @@ import { Rail, ShellProvider, TabBar, TopBar, lookOf, type ShellLink } from './s
 import { remember, rigsBadge, sessionsBadge, tabOf, type Tab } from './shell/tabs';
 import { requestsOf } from './model/requests';
 import { openDecisions } from './model/tasks';
-import { atoiOrder, nextAfter, type AtoiTarget } from './model/atoi';
+import { openOrder, nextAfter, type OpenTarget } from './model/cards';
 import { RequestDetail } from './screens/RequestDetail';
-import { AskDetail } from './screens/atoi/AskDetail';
+import { AskDetail } from './screens/cards/AskDetail';
 import { StorageUnavailable } from './screens/StorageUnavailable';
 import { Terminal } from './screens/Terminal';
 import { Thread } from './screens/Thread';
@@ -113,7 +113,7 @@ export interface AppProps {
 const defaultFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
 
 /** The session's request or the OpenRig ask a route opens, if any: a wide screen moves on from it to the next once settled. */
-const atoiTarget = (r: Route): AtoiTarget | null =>
+const openTarget = (r: Route): OpenTarget | null =>
   r.name === 'request' ? { name: 'request', sessionId: r.sessionId, key: r.key } : r.name === 'ask' ? { name: 'ask', id: r.id } : null;
 
 export function App({ link, store, storage, fetchImpl = defaultFetch, updates = null, signin = null, lost = false, relay = globalThis.location.host }: AppProps) {
@@ -184,7 +184,7 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
   // it was left on, and Réglages lights the tab it was opened from.
   const lastTab = useRef<Tab>('sessions');
   /** The requests' and asks' order while the open one was still in it: where « the next one » is counted from once it left. */
-  const lastOrder = useRef<AtoiTarget[]>([]);
+  const lastOrder = useRef<OpenTarget[]>([]);
   const tab = tabOf(route);
   if (tab) lastTab.current = tab;
   useEffect(() => { remember(route); }, [route]);
@@ -212,7 +212,7 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
   // snapshot the last known PC decides, so an offline iPad keeps its Atelier.
   const atelierOff = route.name === 'atelier' && (!wide || ((mobile.fresh || mobile.daemon !== null) && !mobile.daemon?.atelier));
   useEffect(() => { if (atelierOff) replaceRoute({ name: 'sessions' }); }, [atelierOff]);
-  const open = atoiTarget(route);
+  const open = openTarget(route);
   // A device the PC knows by id but that has no name yet names itself once, after its model and browser (docs/mockups/
   // mobile-multi-device.html, part 3): the PC then shows « iPad · Safari », and so do the other devices' threads.
   const named = useRef(false);
@@ -285,11 +285,11 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
         );
     }
     // A wide screen moves on once the open request or ask is settled (m1-a-toi.html §12): the next one of its kind, else its tab.
-    const order = atoiOrder(requestsOf([...mobile.sessions.values()]), mobile.asks ?? []);
+    const order = openOrder(requestsOf([...mobile.sessions.values()]), mobile.asks ?? []);
     if (open && order.some(t => JSON.stringify(t) === JSON.stringify(open))) lastOrder.current = order;
-    const moveOn = (from: AtoiTarget) => () => {
-      const same = (t: AtoiTarget) => t.name === from.name;
-      const next = nextAfter(atoiOrder(requestsOf([...store.getState().sessions.values()]), store.getState().asks ?? []).filter(same), from, lastOrder.current.filter(same));
+    const moveOn = (from: OpenTarget) => () => {
+      const same = (t: OpenTarget) => t.name === from.name;
+      const next = nextAfter(openOrder(requestsOf([...store.getState().sessions.values()]), store.getState().asks ?? []).filter(same), from, lastOrder.current.filter(same));
       replaceRoute(next ?? (from.name === 'ask' ? { name: 'rigs' } : { name: 'sessions' }));
     };
     const shell: ShellLink = { pc: pcName, look: lookOf(mobile.fresh, !!mobile.syncedAt, link.reach()), reach: link.reach(), since: clock(mobile.syncedAt), retry, settingsDot: passkeyDot };

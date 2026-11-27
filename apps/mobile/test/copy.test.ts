@@ -28,7 +28,7 @@ describe('the languages (m0-langue.html: Français · English, French by default
     localStorage.setItem('mobile.lang', 'en');
     const m = await import('../src/copy');
     expect(m.lang).toBe('en');
-    expect(m.copy.nav.atoi).toBe('For you');
+    expect(m.copy.nav.settings).toBe('Settings');
     expect(m.locale).toBe('en-GB');
   });
 
@@ -54,8 +54,6 @@ describe('the languages (m0-langue.html: Français · English, French by default
 
   it('says the MR/PR pane as the owner validated it', () => {
     expect(copyFor('fr').prs.pane).toEqual({ title: 'Rien à afficher', body: 'Une MR ou une PR et son pipeline s’ouvrent ici.' });
-    // « À toi » is "For you" in English, as on Desktop (m0-langue.html, §2).
-    expect(copyFor('en').nav.atoi).toBe('For you');
     expect(copyFor('en').prs.pane).toEqual({ title: 'Nothing to show', body: 'An MR or PR and its pipeline open here.' });
   });
 

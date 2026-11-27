@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhoneRoutine, PhoneTask } from '@ledge/protocol';
 import { setLang } from '../../src/copy';
 import { getAssertion, platformAvailable } from '../../src/link/webauthn';
-import { Inbox } from '../../src/screens/Inbox';
 import { Routines } from '../../src/screens/Routines';
 import { Sessions } from '../../src/screens/Sessions';
 import { session } from '../model/fixtures';
@@ -153,11 +152,11 @@ describe('the Routines screen answers its requests (#40 D4, docs/mockups/ledge-r
   });
 });
 
-describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
+describe('the routines’ requests at the top of Routines (cards 17 and 25; #40 D4)', () => {
   it('an activation request reads the routine whole, unfolds its prompt, and « Activer » signs that routine and its key', async () => {
     vi.mocked(getAssertion).mockResolvedValue(ASSERTION);
     const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     expect(t.of('routine.show')).toEqual([{ type: 'routine.show', routine: 'r3f9a12' }]);
     const card = screen.getByRole('article', { name: 'Demande · point-hebdo' });
     expect(within(card).getByRole('button', { name: 'Activer' })).toBeDisabled();
@@ -179,7 +178,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
   it('a single one-off asks with its dated moment, the session that asked named (the item itself is Ledge’s)', () => {
     const r = oneShot('r000001', 'prepa-121', '2026-12-03T16:00');
     const t = pc([r], [routineTask('t1', { kind: 'approve', id: 'r000001', name: 'prepa-121' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     act(() => t.deliver({ type: 'routine.detail', id: 'r000001', routine: detail(r, 'Prépare le 121.') }));
     expect(screen.getByRole('article', { name: 'Demande · prepa-121' })).toHaveTextContent('Iris veut programmer « prepa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
   });
@@ -191,10 +190,9 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
         routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }, { title: 'Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant' }),
         routineTask('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { title: 'La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille' })
       ]);
-      render(<Inbox store={t.store} />);
+      render(<Routines store={t.store} />);
       // The request's words before its detail even comes: a new routine is the listed one.
       expect(screen.getByRole('article', { name: 'Request · point-hebdo' })).toHaveTextContent('Iris wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant');
-      expect(screen.getByRole('article', { name: 'Failure · veille' })).toHaveTextContent('The routine veille (Nova) could not run: folder not found: ~/veille');
       expect(document.body).not.toHaveTextContent('veut programmer');
       expect(document.body).not.toHaveTextContent('n’a pas pu partir');
     } finally { setLang('fr'); }
@@ -207,17 +205,16 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
         routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }, { title: 'Iris veut programmer « point-hebdo »' }),
         routineTask('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'pas remise' }, { title: 'La routine veille (Nova) n’a pas pu partir' })
       ]);
-      render(<Inbox store={t.store} />);
+      render(<Routines store={t.store} />);
       expect(screen.getByRole('article', { name: 'Request · point-hebdo' })).toHaveTextContent('“point-hebdo” awaits your approval');
       expect(within(screen.getByRole('article', { name: 'Request · point-hebdo' })).getByRole('button', { name: 'Activate' })).toBeDisabled();
-      expect(screen.getByRole('article', { name: 'Failure · veille' })).toHaveTextContent('The routine veille could not run: pas remise');
       expect(document.body).not.toHaveTextContent('veut programmer');
     } finally { setLang('fr'); }
   });
 
   it('a change says card 30’s words until its detail comes: the listed routine holds the old settings', () => {
     const t = pc([routine({ proposed: true })], [routineTask('t1', { kind: 'approve', id: 'r1a2b3c', name: 'briefing' }, { title: 'Iris veut modifier « briefing »' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     const card = screen.getByRole('article', { name: 'Demande · briefing' });
     expect(card).toHaveTextContent('« briefing » attend ton accord');
     expect(card).not.toHaveTextContent('veut');
@@ -227,7 +224,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
   it('an approval refused as stale (card 32): nothing activated, the routine read again, the amber words, Activer again on the new key', async () => {
     vi.mocked(getAssertion).mockClear().mockResolvedValue(ASSERTION);
     const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     act(() => t.deliver({ type: 'routine.detail', id: 'r3f9a12', routine: detail(pointHebdo(), 'Point.') }));
     const card = screen.getByRole('article', { name: 'Demande · point-hebdo' });
     // As the activation test: the passkey card's own checks settle first (a new prepare supersedes the one before).
@@ -253,7 +250,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
 
   it('« Refuser » needs no check', () => {
     const t = pc([pointHebdo()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     fireEvent.click(screen.getByRole('button', { name: 'Refuser' }));
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'refuse', routine: 'r3f9a12' });
     expect(t.of('confirm.prepare')).toEqual([]);
@@ -263,7 +260,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     vi.mocked(getAssertion).mockClear().mockResolvedValue(ASSERTION);
     const group = [oneShot('r000001', 'prepa-121', '2026-12-03T16:00'), oneShot('r000002', 'prepa-comite-archi', '2026-12-07T15:00'), oneShot('r000003', 'prepa-demo-compart', '2026-12-08T09:30')];
     const t = pc(group, [routineTask('t1', { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] }, { at: new Date(2026, 10, 23, 2, 58).toISOString() })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     // The review's check: the phone reads every routine of the group, not the list alone.
     expect(t.of('routine.show').map(m => m.routine)).toEqual(['r000001', 'r000002', 'r000003']);
     const card = screen.getByRole('article', { name: 'Demande · prepa-121' });
@@ -300,7 +297,7 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
   it('a session’s change to a routine says « veut modifier » with the settings it asks for and its prompt (card 29)', () => {
     const briefing = routine({ proposed: true });
     const t = pc([briefing], [routineTask('t1', { kind: 'approve', id: 'r1a2b3c', name: 'briefing' })]);
-    render(<Inbox store={t.store} />);
+    render(<Routines store={t.store} />);
     const asked = { name: 'briefing', target: briefing.target, schedule: { kind: 'recurring' as const, times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] as ('mon' | 'tue' | 'wed' | 'thu' | 'fri')[] }, prompt: 'Briefing de {slot}.', catchUp: 'once' as const };
     act(() => t.deliver({ type: 'routine.detail', id: 'r1a2b3c', routine: { ...detail(briefing, 'Briefing de {slot}.'), proposal: { spec: asked, by: { id: 'iris', name: 'Iris' }, at: '2026-11-23T02:40:00.000Z' } } }));
     const card = screen.getByRole('article', { name: 'Demande · briefing' });
@@ -309,14 +306,5 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(within(card).getByText('Briefing de {slot}.')).toBeInTheDocument();
   });
 
-  it('a run that could not leave: « Relancer » fires it again, « Voir » opens the Routines screen; both counted in the badge', () => {
-    const failed = routineTask('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'dossier introuvable : ~/veille' }, { giver: 'ledge', giverName: 'Ledge' });
-    const t = pc([veille()], [failed]);
-    render(<Inbox store={t.store} />);
-    const card = screen.getByRole('article', { name: 'Échec · veille' });
-    expect(card).toHaveTextContent('La routine veille (Nova) n’a pas pu partir : dossier introuvable : ~/veille');
-    expect(within(card).getByRole('link', { name: 'Voir' })).toHaveAttribute('href', '#/routines/r81c0d4');
-    fireEvent.click(within(card).getByRole('button', { name: 'Relancer' }));
-    expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'run', routine: 'r81c0d4' });
-  });
+
 });

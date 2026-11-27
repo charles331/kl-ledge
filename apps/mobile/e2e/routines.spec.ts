@@ -102,9 +102,9 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       await expect.poll(() => h.daemon.routineCmds.map(c => `${c.action} ${c.routine}`)).toEqual(['run r1a2b3c']);
 
       await go(page, '#/routines');  // #40 D4: the requests head Routines.
-      const request = page.getByRole('article', { name: `${R.atoi.ask} · point-hebdo` });
+      const request = page.getByRole('article', { name: `${R.request.ask} · point-hebdo` });
       await expect(request.getByText(PROMPTS.r3f9a12)).toBeVisible();
-      await expect(request.getByRole('button', { name: R.atoi.activate })).toBeEnabled();
+      await expect(request.getByRole('button', { name: R.request.activate })).toBeEnabled();
       // Under the passkey's own card (this fake PC keeps no recovery passkey): the routines' items brought into view.
       await request.evaluate(el => el.scrollIntoView({ block: 'start' }));
       await shot(page, `routines-requests-${tag}`);
@@ -117,8 +117,8 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       h.daemon.tasks = [ask(local(10, 23, 3, 40), { kind: 'approve', id: briefing.id, name: 'briefing' }), TASKS[1]!];
       await pair(page, theme, lang);
       await go(page, '#/routines');  // #40 D4: the requests head Routines.
-      const change = page.getByRole('article', { name: `${R.atoi.ask} · briefing` });
-      await expect(change).toContainText(R.atoi.editAsks('briefing', lang === 'fr' ? '07:30, 13:30, 16:30 (lun–ven)' : '07:30, 13:30, 16:30 (Mon–Fri)'));
+      const change = page.getByRole('article', { name: `${R.request.ask} · briefing` });
+      await expect(change).toContainText(R.request.editAsks('briefing', lang === 'fr' ? '07:30, 13:30, 16:30 (lun–ven)' : '07:30, 13:30, 16:30 (Mon–Fri)'));
       await change.evaluate(el => el.scrollIntoView({ block: 'start' }));
       await shot(page, `routines-change-${theme}-${lang}`);
       // #40 D4: a failed run keeps « Relancer » on its row; « Voir » of its push still scrolls to it (card 29).
@@ -138,8 +138,8 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       h.daemon.tasks = [ask(local(10, 23, 2, 58), { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })];
       await pair(page, theme, lang);
       await go(page, '#/routines');  // #40 D4: the requests head Routines.
-      const group = page.getByRole('article', { name: `${R.atoi.ask} · prepa-121` });
-      await expect(group.getByRole('button', { name: R.atoi.activateAll(3) })).toBeEnabled();
+      const group = page.getByRole('article', { name: `${R.request.ask} · prepa-121` });
+      await expect(group.getByRole('button', { name: R.request.activateAll(3) })).toBeEnabled();
       await group.evaluate(el => el.scrollIntoView({ block: 'start' }));
       await shot(page, `atoi-group-${theme}-${lang}`);
     });

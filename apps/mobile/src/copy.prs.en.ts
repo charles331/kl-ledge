@@ -128,7 +128,6 @@ export const prsEn: PrsCopy = {
   tooLargeBody: (host: string) => `Open it on ${host}.`,
   open: 'Open',
   mergedInto: (target: string, when: string) => `into ${target} · ${when}`,
-  atoi: { title: 'MR and PR', sub: 'failed pipelines, ready to merge', ready: 'pipeline passed, approved', readyNoCi: 'no CI, approved' },
   chipUnknown: (kind: string) => `${kind} ?`,
   chipTip: (forge: string, pc: string, kind: string) => `${forge} can’t be read on ${pc}: Ledge can’t tell whether this branch has ${an(kind)}.`
 };

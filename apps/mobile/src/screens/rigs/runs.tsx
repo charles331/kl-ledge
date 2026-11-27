@@ -1,7 +1,7 @@
 import { copy } from '../../copy';
 import type { Run, RigsStore } from '../../state/rigs';
 import { isApple } from '../device';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Commands, HoldBar, Receipt } from './kit';
 
 /*

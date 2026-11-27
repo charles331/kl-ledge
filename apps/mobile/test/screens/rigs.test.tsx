@@ -4,7 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PhoneServerMessage } from '@ledge/protocol';
 import { copy } from '../../src/copy';
-import { clock } from '../../src/screens/Inbox';
+import { clock } from '../../src/clock';
 import { session } from '../model/fixtures';
 import { goal, kernelGraph, ledgeGraph, openrig, routing } from '../model/openrig-fixtures';
 import { snapshot } from '../state/helpers';

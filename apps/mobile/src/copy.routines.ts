@@ -30,8 +30,9 @@ export const routinesFr = {
   /** Past three moments in a request: « jeu. 3 déc. 16:00, …, jeu. 17 déc. 16:00 et 2 autres » (card 28). */
   more: (list: string, n: number) => `${list} et ${n} autres`,
   /** The items of « À toi »: an activation request (one routine, or several proposed together), a failure. */
-  atoi: {
-    kind: 'Routine', ask: 'Demande', failed: 'Échec',
+  /** A routine waiting for approval, at the top of Routines (#40 D4; cards 17, 25, 29 to 32). */
+  request: {
+    kind: 'Routine', ask: 'Demande',
     asks: (name: string, when: string, dir: string) => `veut programmer « ${name} » : ${when}, dans ${dir}`,
     groupAsks: (n: number) => `veut programmer ${n} routines uniques`,
     /** The folder a grouped request's routines share (card 31). */
@@ -39,11 +40,10 @@ export const routinesFr = {
     /** An approval refused because the routine changed since it was shown (card 32): the new version is read, nothing activated. */
     stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
     /** Before the routine is read: never the daemon's French task title (card 30). */
-    fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
+    fallbackAsk: (name: string) => `« ${name} » attend ton accord`,
     /** A session's change to a routine (card 29): the settings it asks for, no « avant → demandé » on the phone. */
     editAsks: (name: string, when: string) => `veut modifier « ${name} » : ${when}`,
-    failedLine: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
-    activate: 'Activer', refuse: 'Refuser', retry: 'Relancer', see: 'Voir',
+    activate: 'Activer', refuse: 'Refuser',
     activateAll: (n: number) => `Activer les ${n}`, refuseAll: (n: number) => `Refuser les ${n}`,
     verify: 'Activer demande la vérification de cet appareil (empreinte ou code), comme les autres actions sensibles.'
   }

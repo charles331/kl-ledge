@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  approvalsText, atoiPrs, canMerge, canRerun, chipOf, diffTotal, duration, failedCount, failedJob, fileThreads, inFoot, isReady, logCut, mergeConditions,
+  approvalsText, canMerge, canRerun, chipOf, diffTotal, duration, failedCount, failedJob, fileThreads, inFoot, isReady, logCut, mergeConditions,
   PIPE_DOT, prRouteId, shortSha, signInCommand, splitPrs, stagesOf, threadCounts, unreadable
 } from '../../src/model/prs';
 import { detail, forgeState, mr, pr } from './forge-fixtures';
@@ -36,12 +36,7 @@ describe('the list', () => {
     expect(failedCount([])).toBe(0);
   });
 
-  it('puts the failed pipelines first in « À toi », then the ready requests', () => {
-    const ready = pr();
-    const waiting = pr({ id: 'w', pipeline: 'run' });
-    const failedReady = mr({ id: 'f', mergeable: true });
-    expect(atoiPrs([ready, waiting, mr(), failedReady]).map(e => [e.pr.id, e.why])).toEqual([[mr().id, 'fail'], ['f', 'fail'], [ready.id, 'ready']]);
-  });
+
 
   it('keeps the request id whole in a route', () => {
     const id = prRouteId(pr().id);

@@ -246,7 +246,7 @@ export const rigsEn: RigsCopy = {
     state: { sent: 'sent', taken: 'taken', asking: 'question', proposed: 'team proposed', running: 'running', done: 'done', closed: 'closed' },
     statePill: { sent: 'sent', taken: 'taken', asking: 'question', proposed: 'proposed', running: 'running', done: 'done', closed: 'closed' },
     since: (t: string) => `since ${t}`,
-    atoiNote: 'Max\'s proposals and questions also wait in the Requests, at the top of Rigs, where they are answered.',
+    requestsNote: 'Max\'s proposals and questions also wait in the Requests, at the top of Rigs, where they are answered.',
     trail: {
       sent: 'You gave it', taken: 'Max took it', note: (text: string) => `You wrote: “${text}”`, handed: (to: string) => `handed off to ${to}`, closed: 'closed'
     },

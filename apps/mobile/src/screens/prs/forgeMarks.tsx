@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import type { PhoneSession, PullRequest } from '@ledge/protocol';
 import { copy } from '../../copy';
-import { atoiPrs, chipOf, PIPE_DOT } from '../../model/prs';
+import { chipOf, PIPE_DOT } from '../../model/prs';
 import { href } from '../../router';
 import type { ForgeState, ForgeStore } from '../../state/forge';
 import type { MobileState } from '../../state/store';
 import { Icon } from '../../ui/icons';
 import { Box, Line } from '../../ui/kit/Box';
 import { Dot } from '../../ui/kit/marks';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { forgeWords, repoName } from './parts';
 
 /*
- * The requests where the other tabs show them (docs/mockups/ledge-mobile-refonte/m5-mr-pr.html §9, m1-a-toi.html §9): « À toi » ›
+ * The requests where the other tabs show them (docs/mockups/ledge-mobile-refonte/m5-mr-pr.html §9, m1-a-toi.html §9; « À toi » left with #40):
  * MR et PR, the failed pipelines then the requests ready to merge, and the chip of a session's foot. A tap opens the request in
  * the MR/PR tab. Both need a PC that sends its requests (`daemon.forge`).
  */
@@ -24,42 +24,6 @@ const nothing = () => null;
 /** The forge store's state, or null without a store (an app drawn before it, a test): the screens then show no request. */
 export function useForgeState(forge: ForgeStore | null | undefined): ForgeState | null {
   return useSyncExternalStore(forge ? forge.subscribe : noSub, forge ? forge.getState : nothing, forge ? forge.getState : nothing);
-}
-
-/** A row's line: forge, repository, why it is here (with the branch's agent on a failed pipeline); offline, the time it was read. */
-export function atoiSub(pr: PullRequest, why: 'fail' | 'ready', agent: string | null, readAt: string | null): string {
-  const what = why === 'fail' ? C.pipeline.fail : pr.pipeline === 'none' ? C.atoi.readyNoCi : C.atoi.ready;
-  if (readAt !== null) return [C.host[pr.forge], what, C.asOf(clock(readAt))].join(' · ');
-  return [C.host[pr.forge], repoName(pr.repo), what, ...(why === 'fail' && agent ? [agent] : [])].join(' · ');
-}
-
-/** « À toi » › MR et PR: not shown while nothing waits there, nor before the PC sends its requests. */
-export function AtoiPrs({ forge, mobile }: { forge: ForgeStore | null | undefined; mobile: MobileState }) {
-  const f = useForgeState(forge);
-  if (!mobile.daemon?.forge || !f?.state) return null;
-  const rows = atoiPrs(f.state.prs);
-  if (rows.length === 0) return null;
-  const offline = !mobile.fresh;
-  const agentOf = (pr: PullRequest) => { const id = pr.sessions[0]; return id ? mobile.sessions.get(id)?.name ?? null : null; };
-  return (
-    <>
-      <h2 className="mt-1 flex items-center gap-2 text-[13px] font-semibold">
-        <Icon name="pr" className="size-3.5" />{C.atoi.title}<span className="min-w-0 truncate font-normal text-muted">{C.atoi.sub}</span>
-      </h2>
-      <Box label={C.atoi.title}>
-        {rows.map(({ pr, why }) => (
-          <Line
-            key={pr.id} href={href({ name: 'pr', id: pr.id })} stale={offline}
-            lead={<Dot state={PIPE_DOT[pr.pipeline]} />}
-            title={<><b className="font-semibold">{pr.ref}</b> {pr.title}</>}
-            sub={atoiSub(pr, why, agentOf(pr), offline ? f.at : null)}
-          >
-            <Icon name="chevron" className="size-4 text-muted" />
-          </Line>
-        ))}
-      </Box>
-    </>
-  );
 }
 
 /**

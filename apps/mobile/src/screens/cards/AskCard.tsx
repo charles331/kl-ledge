@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { HumanAnswer, HumanAsk } from '@ledge/protocol';
 import { copy, locale } from '../../copy';
-import { answerLabel, answerText, pillOf, whoOf, type AskEnd } from '../../model/atoi';
+import { answerLabel, answerText, pillOf, whoOf, type AskEnd } from '../../model/cards';
 import { href } from '../../router';
 import type { MobileStore } from '../../state/store';
 import { Icon } from '../../ui/icons';
@@ -46,7 +46,7 @@ export interface AskCardProps {
  */
 export function AskCard({ store, ask, end, fresh, ghost, canConfirm, enroll, onGone, full = false, selected = false }: AskCardProps) {
   const A = copy.asks;
-  const R = copy.atoi.receipt;
+  const R = copy.cards.receipt;
   const check = useDeviceCheck(store);
   const pill = pillOf(ask);
   const who = whoOf(ask);
@@ -163,7 +163,7 @@ export function AskCard({ store, ask, end, fresh, ghost, canConfirm, enroll, onG
         : <p className="flex items-center gap-1.5 text-small text-muted"><Icon name="face" className="size-4" />{apple ? A.confirmHint : A.confirmHintDevice}</p>;
 
   return (
-    <Card tone={pill === 'update' ? 'plain' : 'rig'} selected={selected} label={copy.atoi.region(copy.atoi.kindName.rig, who.name, ask.from.rig ?? '')}>
+    <Card tone={pill === 'update' ? 'plain' : 'rig'} selected={selected} label={copy.cards.region(copy.cards.kindName.rig, who.name, ask.from.rig ?? '')}>
       <a href={open} className="-m-1 flex min-w-0 items-center gap-[7px] rounded-md p-1 active:bg-raised">
         <b className="font-semibold whitespace-nowrap">{who.name}</b>
         {ask.from.rig && <span className="min-w-0 truncate text-small text-muted">{ask.from.rig}</span>}

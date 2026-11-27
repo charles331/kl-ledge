@@ -70,7 +70,7 @@ export interface MobileState {
   pc: PcRun | null;
   /** This PC's harness limits (`usage.state`, `daemon.usage`): null until it sends them. Never cached. */
   usage: PhoneHarnessUsage[] | null;
-  /** The usage alert threshold the PC keeps (`usage.state`'s `prefs.alert`): past it a window is amber and in « À toi ». */
+  /** The usage alert threshold the PC keeps (`usage.state`'s `prefs.alert`): past it a window is amber in Réglages › Usage. */
   usageAlert: number | null;
   /** What OpenRig on this PC asks the person (`openrig.asks`, `daemon.openrig`): null until it sends them. Never cached. */
   asks: HumanAsk[] | null;
@@ -299,7 +299,7 @@ export interface MobileStore {
   ignoreTurn(qid: string, undo?: true): Promise<ChatAction>;
   /** Gives the turn's task `row` to its session, in Ledge's name. */
   giveTask(qid: string, row: number): Promise<ChatAction>;
-  /** Puts away a closed task Ledge gave: it leaves « À toi » and « À traiter ». */
+  /** Puts away a closed task Ledge gave: it leaves « À traiter ». */
   seeTask(task: string): Promise<ChatAction>;
   /** Answers a proposal about the notes from « Le point »: a « yes » asks for the device's check over that exact choice. */
   answerNote(task: string, choice: BrainChoice): Promise<ChatAction>;
@@ -552,7 +552,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         const checklists = new Map([...state.checklists].filter(([id]) => sessions.has(id)));
         set({ sessions, previews, threads, checklists, capabilities: m.capabilities, device: m.device ?? null, daemon: m.daemon, projects: m.projects ?? [], sessionOrder: m.sessionOrder ?? null, fresh: true, syncedAt: now, pc, modelFailures: failuresKept(state.modelFailures, state.sessions, sessions), ...(bootChanged ? { models: {}, commands: {} } : {}) });
         persist();
-        // OpenRig's asks, once per link: the PC then pushes them whole at each change (the amber badge of « À toi »).
+        // OpenRig's asks, once per link: the PC then pushes them whole at each change (the Rigs tab's « Demandes » and its amber badge).
         if (m.daemon.openrig && !asksAsked && ready()) { asksAsked = true; send({ type: 'openrig.asks' }); }
         // The routines, once per link: a PC that has them answers with the list, then sends each change; an older one never answers.
         if (!routinesAsked && ready()) { routinesAsked = true; send({ type: 'routine.list' }); }

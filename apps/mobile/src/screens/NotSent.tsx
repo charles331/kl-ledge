@@ -16,8 +16,6 @@ import { PaneHead } from './Chat';
  * answer A of question Q3): they stay, and say so. B4 and B5 bring Desktop's own empty states.
  */
 
-// The chat's « Voir À toi » leads to Sessions, « À toi » gone (#40 D6); the chat itself leaves in a later PR.
-const seeAtoi = (label: string) => <a href={href({ name: 'sessions' })} className={kitButtonClass({ size: 'sm' })}>{label}</a>;
 
 /** The empty state in its frame on a phone (§3); in the list's column on a wide screen, unframed, lower (§2). */
 function Frame({ label, children }: { label: string; children: ReactNode }) {
@@ -51,26 +49,6 @@ export function Rigs({ store }: { store: MobileStore }) {
   );
 }
 
-/** The Ledge tab of a PC that does not offer the chat: the same pattern, the mascot still in place of the glyph, no composer. */
-export function ChatUnavailable({ onClose }: { onClose?: () => void } = {}) {
-  const { pc } = useShell();
-  // In the tablet's Ledge pane (m3-chat.html §7): the pane's head, then the same empty state.
-  if (onClose) return (
-    <>
-      <PaneHead frozen onClose={onClose} />
-      <section aria-label={copy.chat.title} className="pt-[34px]">
-        <EmptyState framed={false} glyph={<Mascot size={64} frozen />} title={copy.chat.unavailable.title(hostName(pc))} body={copy.chat.unavailable.body} action={seeAtoi(copy.chat.unavailable.seeAtoi)} />
-      </section>
-    </>
-  );
-  return (
-    <TabPage title={copy.chat.title}>
-      <Frame label={copy.chat.title}>
-        <EmptyState framed={false} glyph={<Mascot size={64} frozen />} title={copy.chat.unavailable.title(hostName(pc))} body={copy.chat.unavailable.body} action={seeAtoi(copy.chat.unavailable.seeAtoi)} />
-      </Frame>
-    </TabPage>
-  );
-}
 
 /** The right pane of a tab on a wide screen, before anything opens there (§2): its glyph, « Rien à afficher », what will open. */
 export function EmptyPane({ icon, title, body }: { icon: 'pr' | 'rigs'; title: string; body: string }) {

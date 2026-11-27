@@ -6,7 +6,6 @@ import type { PhoneChatAction, PhoneTask } from '@ledge/protocol';
 import { copy } from '../../src/copy';
 import { closedTasks, openDecisions, openTasks } from '../../src/model/tasks';
 import { Chat } from '../../src/screens/Chat';
-import { Inbox } from '../../src/screens/Inbox';
 import { session } from '../model/fixtures';
 import { chat, snapshot } from '../state/helpers';
 import { setup } from './setup';
@@ -88,12 +87,7 @@ describe('the decisions a session puts to the user', () => {
     expect(screen.getByText(copy.chat.point.calm)).toBeInTheDocument();
   });
 
-  it('« À toi » shows no decision, open or answered', () => {
-    const t = withDecision([decision(), decision({ id: 't0a0b0c', state: 'done' })]);
-    render(<Inbox store={t.store} />);
-    expect(screen.queryByRole('article')).toBeNull();
-    expect(screen.queryByText('Fusionner feat/roles ?')).toBeNull();
-  });
+
 });
 
 describe('a proposal about the notes (docs/mockups/ledge-brain-notes.html, part 2)', () => {
