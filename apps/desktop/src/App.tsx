@@ -187,7 +187,8 @@ function useTermStore(client: DaemonClient, onThread: () => void, avail: ShellsA
   useEffect(() => {
     const root = document.documentElement;
     const mo = new MutationObserver(() => store.setTheme(rootTermTheme()));
-    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    // The skin's tokens are inline (`style`): a palette or an accent changed repaints the terminals too (issue #28).
+    mo.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-skin', 'style'] });
     return () => mo.disconnect();
   }, [store]);
   useEffect(() => client.fleet?.subscribe(() => store.refreshAgent()), [client, store]);

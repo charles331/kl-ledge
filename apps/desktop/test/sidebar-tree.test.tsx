@@ -170,4 +170,45 @@ describe('the sidebar tree', () => {
     expect(side.getByRole('button', { name: /^Bix/ })).toBeVisible();
     expect(side.getByRole('treeitem', { name: /Bix/ })).toHaveAttribute('aria-selected', 'true');
   });
+
+  // Issue #28, the « Atelier » skin (spec 2026-11-26-ide-atelier-skin §5): a principal that waits says « À toi » in place of its time.
+  it('under the skin, a waiting principal says Your turn in place of its time; the others keep their time or offline', async () => {
+    const { side, user } = await boot({ projects: PROJECTS, sessions: listSessions() });
+    const tree = within(side.getByRole('tree', { name: 'Projects, branches and sessions' }));
+    const time = (name: RegExp) => tree.getByRole('treeitem', { name }).querySelector(':scope > .st-time')!;
+    // Otto waits for an authorisation (coral), Kit for an answer (amber, by the question's class).
+    expect(time(/^Otto/).querySelector('.at-tag')).toHaveTextContent('Your turn');
+    expect(time(/^Otto/)).toHaveClass('t-approval');
+    expect(time(/^Kit/).querySelector('.at-tag')).toHaveTextContent('Your turn');
+    expect(time(/^Kit/)).toHaveClass('t-question');
+    // A session at work keeps its time; an offline one says so, even though its state was a wait's.
+    expect(time(/^Nova/).querySelector('.at-tag')).toBeNull();
+    expect(time(/^Nova/)).toHaveTextContent('3 min');
+    expect(time(/^Rio/).querySelector('.at-tag')).toBeNull();
+    expect(time(/^Rio/)).toHaveTextContent('offline');
+    // A sub-agent row is unchanged: its time, never the pill (the session page's « 1 subagent » unfolds it in the tree).
+    await user.click(side.getByRole('button', { name: /^Otto/ }));
+    await user.click(await screen.findByRole('button', { name: '1 subagent' }));
+    const explore = (await side.findByRole('button', { name: /^Explore/ })).closest('[role=treeitem]')!;
+    expect(explore.querySelector(':scope > .st-time')).toHaveTextContent(/min/);
+    expect(explore.querySelector('.at-tag')).toBeNull();
+  });
+
+  it('under the skin, a sub-agent that waits for an authorisation keeps its time, coloured, not the pill', async () => {
+    const otto = fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working', branch: 'desktop', helpers: [{ id: 'h1', kind: 'Explore', task: 'Lire', state: 'waiting_permission' }] });
+    const { side } = await boot({ projects: PROJECTS, sessions: [otto] });
+    const tree = within(side.getByRole('tree', { name: 'Projects, branches and sessions' }));
+    const helper = tree.getByRole('treeitem', { name: /^Explore/ }).querySelector(':scope > .st-time')!;
+    expect(helper).toHaveClass('t-approval');
+    expect(helper.querySelector('.at-tag')).toBeNull();
+    expect(tree.getByRole('treeitem', { name: /^Otto/ }).querySelector('.at-tag')).toBeNull();
+  });
+
+  it('under the skin, a session in error says Your turn too, with the error class (the outlined pill, the owner\'s choice A)', async () => {
+    const zed = fakeSession('zed', { name: 'Zed', cwd: '/w/ledge', state: 'error', branch: 'desktop', topic: 'Corriger le build' });
+    const { side } = await boot({ projects: PROJECTS, sessions: [...listSessions(), zed] });
+    const time = within(side.getByRole('tree', { name: 'Projects, branches and sessions' })).getByRole('treeitem', { name: /^Zed/ }).querySelector(':scope > .st-time')!;
+    expect(time).toHaveClass('t-error');
+    expect(time.querySelector('.at-tag')).toHaveTextContent('Your turn');
+  });
 });

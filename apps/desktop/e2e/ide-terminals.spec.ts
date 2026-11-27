@@ -151,6 +151,8 @@ for (const theme of ['light', 'dark'] as const) {
     const mb = await box(menu);
     expect(mb.width).toBeGreaterThan(8);
     expect(mb.height).toBeGreaterThan(8);
+    // Atelier (#28): the bottom panel is a rounded card, and the menu opens upward out of it: nothing may cut it off or take its clicks.
+    expect(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[role=menu]'), { x: mb.x + mb.width / 2, y: mb.y + 6 })).toBe(true);
     await page.screenshot({ path: info.outputPath(`ide-panel-menu-${theme}.png`), clip: { x: mb.x, y: mb.y, width: mb.width, height: mb.height } });
     await page.keyboard.press('Escape');
     // Metrics against the mockup.
@@ -159,8 +161,9 @@ for (const theme of ['light', 'dark'] as const) {
       const h = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().height;
       return { panelH: h('.ide-bottom'), tabsH: h('.ide-bp-tabs'), tileBarH: h('.ide-btile-bar'), tab: css('.ide-bp-tabs [role=tab]', ['font-size', 'text-transform', 'letter-spacing']), chip: css('.ide-btile-tools .chip-k', ['font-size', 'font-family']), gap: css('.ide-bterms', ['gap']) };
     });
-    expect(m.panelH).toBe(240); expect(m.tabsH).toBe(30); expect(m.tileBarH).toBe(30);
-    expect(m.gap).toMatchObject({ gap: '1px' });
+    // Atelier (#28, spec §4): the panel's tabs and the tiles' bars are 34 px, the tiles flush (a 1 px line between them).
+    expect(m.panelH).toBe(240); expect(m.tabsH).toBe(34); expect(m.tileBarH).toBe(34);
+    expect(m.gap).toMatchObject({ gap: '0px' });
     expect(m.tab).toMatchObject({ 'font-size': '11.5px', 'text-transform': 'uppercase' });
     expect(m.chip).toMatchObject({ 'font-size': '10.5px' });
     await panel(page).getByRole('tab', { name: 'Output' }).click();
