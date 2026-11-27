@@ -470,7 +470,8 @@ function mapAgyHelperEvent(eventName: string, p: Payload, at: string, helperId: 
 }
 
 function mapAgyEvent(eventName: string, p: Payload, at: string, tail: (path: string) => AgyStep[]): SessionEvent | null {
-  const base = { at, source: 'hook' as const };
+  const transcriptPath = str(p.transcriptPath);
+  const base = { at, source: 'hook' as const, ...(transcriptPath ? { transcriptPath } : {}) };
   const { tool, args, toolUseId } = agyCall(p);
   const call = { ...(toolUseId ? { toolUseId } : {}), ...(tool ? { toolInput: trimInput(args) ?? {} } : {}) };
   switch (eventName) {

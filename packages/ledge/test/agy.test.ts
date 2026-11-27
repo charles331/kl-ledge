@@ -39,7 +39,7 @@ describe('agy hooks', () => {
     expect(map('SessionStart', main({}), {})).toBeNull();
   });
   it('SessionStart starts the session and names the conversation a resume takes', () => {
-    expect(map('SessionStart', main({}))).toEqual({ id: 'a1b2', agent: 'agy', cwd: '/home/dev/demo', event: { name: 'SessionStart', at, source: 'hook', agentSessionId: PARENT } });
+    expect(map('SessionStart', main({}))).toEqual({ id: 'a1b2', agent: 'agy', cwd: '/home/dev/demo', event: { name: 'SessionStart', at, source: 'hook', transcriptPath: transcript(PARENT), agentSessionId: PARENT } });
   });
   it('the first model call after a prompt is the prompt; a later one, or a wake by a subagent\'s message, is not', () => {
     const first = map('PreInvocation', main({ invocationNum: 0, initialNumSteps: 1 }));
@@ -57,7 +57,7 @@ describe('agy hooks', () => {
   });
   it('the turn ends with fullyIdle, its reply read from the transcript; a Stop while a subagent works is not the end', () => {
     expect(map('Stop', main({ fullyIdle: false, terminationReason: 'NO_TOOL_CALL', error: '' }))).toBeNull();
-    expect(map('Stop', main({ fullyIdle: true, terminationReason: 'NO_TOOL_CALL', error: '' }))?.event).toEqual({ name: 'Stop', at, source: 'hook', text: 'Added `mul(a, b)` to math.js.', agentSessionId: PARENT });
+    expect(map('Stop', main({ fullyIdle: true, terminationReason: 'NO_TOOL_CALL', error: '' }))?.event).toEqual({ name: 'Stop', at, source: 'hook', text: 'Added `mul(a, b)` to math.js.', transcriptPath: transcript(PARENT), agentSessionId: PARENT });
     expect(map('Stop', main({ fullyIdle: true, terminationReason: 'ERROR', error: 'quota' }))?.event).toMatchObject({ name: 'StopFailure', text: 'quota' });
     expect(map('Stop', main({ fullyIdle: true, terminationReason: 'USER_CANCELED', error: '' }))?.event).toMatchObject({ name: 'PostToolUseFailure', interrupt: true });
   });
@@ -68,6 +68,8 @@ describe('agy hooks', () => {
     expect(map('PreInvocation', child({ invocationNum: 0, initialNumSteps: 1 }))).toBeNull();
     // Its conversation is never taken for the session's own.
     expect(map('SessionStart', child({}))?.event).not.toHaveProperty('agentSessionId');
+    expect(map('PreToolUse', child({ toolCall: { name: 'read_file' } }))?.event).not.toHaveProperty('transcriptPath');
+    expect(map('PreToolUse', main({ toolCall: { name: 'read_file' } }))?.event).toHaveProperty('transcriptPath', transcript(PARENT));
   });
   it('tells a subagent by its transcript, else by its empty prompt', () => {
     expect(agyIsHelper(child({}), read.head)).toBe(true);
