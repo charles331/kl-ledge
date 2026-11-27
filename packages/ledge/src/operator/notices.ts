@@ -7,27 +7,19 @@ const BODY_MAX = 120;
 /** A time that never changes, for an ask whose own times are unreadable: a notice must not differ between two calls. */
 const EPOCH = '1970-01-01T00:00:00.000Z';
 
-const openAtoi = (p: ChatPoint) => p.items.filter(i => i.group === 'atoi' && !i.settled);
 const validAt = (s: string): boolean => Number.isFinite(Date.parse(s)) && /^\d{4}-\d\d-\d\dT.*Z$/.test(s);
 
 /** A rig ask with every question answered has nothing left to put to the user. */
 const settledAsk = (a: HumanAsk): boolean => a.questions.length > 0 && a.questions.every(q => q.answer !== null);
 
 /**
- * What the notch and the phone are told (spec §7): the newest unfolded point that still has something waiting on the user, unless
- * the device set it aside with « Plus tard » (a newer point brings it back); and every urgent or critical rig ask not settled, with
- * its first open question's options, and the qid of the newest point holding it (none: the front answers it in « À toi »); and every open
- * decision put to the user (`tasks`). Session requests are not notices: the notch's request bubble stays fed by the sessions.
- * `points` are oldest first; `at` stands in for the time of a point none of whose rows has one.
+ * What the notch is told (spec §7): every urgent or critical rig ask not settled, with its first open question's options, and the qid
+ * of the newest point holding it (none: the front answers it in « À toi »); and every open decision put to the user (`tasks`). The
+ * point itself left the notch with the dynamic island (#27): it stays in the chat, and the phone has its own push (`pointPush`).
+ * Session requests are not notices: the notch's request cards stay fed by the sessions. `points` are oldest first.
  */
-export function noticesOf(points: Array<{ qid: string; point: ChatPoint; laterAt?: string }>, asks: readonly HumanAsk[], at: string, tasks: readonly Task[] = []): OperatorNotice[] {
+export function noticesOf(points: Array<{ qid: string; point: ChatPoint }>, asks: readonly HumanAsk[], tasks: readonly Task[] = []): OperatorNotice[] {
   const out: OperatorNotice[] = [];
-  const newest = points.filter(({ point }) => !point.foldedAt && openAtoi(point).length > 0).at(-1);
-  if (newest && !(newest.laterAt ?? newest.point.laterAt)) {
-    const open = openAtoi(newest.point);
-    const when = open.map(i => i.at).sort().at(-1) ?? at;
-    out.push({ id: `point:${newest.qid}`, kind: 'point', qid: newest.qid, text: cut(newest.point.lead, TEXT_MAX), priority: 'routine', at: when });
-  }
   /** The newest point holding a rig ask's unsettled row, set aside or not: the notch answers the ask through that point. */
   const holder = (askId: string): string | undefined =>
     points.filter(({ point }) => point.items.some(i => i.id === `rig.ask:${askId}` && !i.settled)).at(-1)?.qid;

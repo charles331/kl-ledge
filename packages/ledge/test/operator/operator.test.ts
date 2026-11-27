@@ -126,7 +126,8 @@ describe('createOperator', () => {
     expect(operator.notices().filter(n => n.kind === 'point')).toEqual([]);
     operator.read('desktop', 1);
     expect(pointsOf(desktop)[0]!.laterAt).toBeUndefined();
-    expect(operator.notices().map(n => n.id)).toEqual([`point:${qid}`]);
+    // The point left the notch (#27): it comes back in the chat, never as a notice.
+    expect(operator.notices()).toEqual([]);
     operator.stop();
   });
 

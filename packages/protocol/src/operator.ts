@@ -46,7 +46,8 @@ export type ChatPoint = z.infer<typeof ChatPointSchema>;
 
 /** A short notice the notch and the phone show about a point or a rig question. */
 export const OperatorNoticeSchema = z.object({
-  /** `decision`: a decision a session put to the user (a task given to Ledge), said at once; its `id` is `decision:<task id>`. */
+  /** `decision`: a decision a session put to the user (a task given to Ledge), said at once; its `id` is `decision:<task id>`.
+   *  `point`: sent only by daemons before #27 (the point left the dynamic island); kept so their notices still parse. */
   id: z.string(), kind: z.enum(['point', 'rig.ask', 'decision']), qid: z.string().optional(),
   text: z.string().max(300), who: z.string().max(100).optional(), rig: z.string().optional(), qitem: z.string().optional(),
   options: z.array(z.object({ id: z.string(), label: z.string().max(60) })).max(3).optional(),
