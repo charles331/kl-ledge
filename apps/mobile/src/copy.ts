@@ -457,7 +457,7 @@ const fr = {
     chip: (what: string) => `Modèle et effort : ${what}`,
   },
   detail: {
-    back: 'Retour aux demandes',
+    back: 'Retour aux sessions',
     heading: { permission: 'Une autorisation', question: 'Une question', plan: 'Un plan', diff: 'Des modifications' },
     commandTitle: 'Commande à autoriser',
     branch: 'Branche', asked: 'Demandé',
@@ -469,6 +469,8 @@ const fr = {
     destination: 'Destination'
   },
   decide: {
+    /** A decision a session put to Ledge, answered in its thread (#40 D2, docs/mockups/ledge-remove-chat-p2.html, cards 1 and 2). */
+    sent: (name: string) => `Réponse envoyée à ${name}.`, ofN: (k: number, n: number) => `${k} sur ${n}`, openSettings: 'Ouvrir les Réglages',
     deny: 'Refuser', allow: 'Autoriser',
     onPc: 'À accepter sur le PC',
     onPcHint: 'Une demande à impact élevé s’accepte sur le PC. Tu peux la refuser d’ici.',
@@ -497,7 +499,7 @@ const fr = {
     body: 'Le terminal a reçu ta décision. Elle apparaît maintenant dans le fil de cette session.',
     thread: (bot: string) => `Voir le fil de ${bot}`,
     final: 'Une décision transmise ne peut pas être annulée.',
-    back: 'Retour aux demandes'
+    back: 'Retour aux sessions'
   },
   /** Closing a session from its page, and resuming it once ended (mockup mobile-session-close). */
   sessionEnd: {
@@ -557,7 +559,7 @@ const fr = {
     suggestion: 'Suggestion pour la suite',
     capture: 'Capture',
     agentLabel: 'Réponse de l’agent',
-    awaiting: 'Décision attendue · dans « À toi »', examine: 'Examiner la demande',
+    awaiting: 'Décision attendue', examine: 'Examiner la demande',
     event: {
       accept: (from: string) => `Accord pris en compte · depuis ${from}`,
       deny: (from: string) => `Refus pris en compte · depuis ${from}`,
@@ -663,7 +665,7 @@ const fr = {
       /** The line's button (m2-sessions.html §6): it always sends with Enter. */
       lineGo: 'Taper ↵',
       /** In the read-only bar, when the session has a request waiting (§6). */
-      alsoInThread: 'La demande est aussi dans le fil et dans « À toi ».',
+      alsoInThread: 'La demande est aussi dans le fil.',
       /** The context keys for a numbered choice on the screen (§6, QUESTIONS.md « M2b · Le terminal » 3). */
       contextKeys: { yes: 'Oui', always: 'Toujours', no: 'Non' },
       pasteFailed: 'Rien à coller, ou l’appareil a refusé l’accès au presse-papiers.',
@@ -714,7 +716,7 @@ const fr = {
     agent: { title: 'Choisis un agent', body: 'Son fil et son terminal s’ouvrent ici.' }
   },
   gone: {
-    header: 'Demande', title: 'Déjà traitée sur le PC', body: 'Cette demande a été résolue ailleurs. Aucune nouvelle décision n’a été envoyée.', back: 'Retour aux demandes',
+    header: 'Demande', title: 'Déjà traitée sur le PC', body: 'Cette demande a été résolue ailleurs. Aucune nouvelle décision n’a été envoyée.', back: 'Retour aux sessions',
     /** Who answered, when the thread says it (docs/mockups/mobile-multi-device.html, part 1). */
     titleOn: (where: string) => `Déjà traitée sur ${where}`, titleElsewhere: 'Déjà traitée ailleurs',
     decided: (what: 'accept' | 'deny' | 'always', time: string) => `${what === 'deny' ? 'Refusée' : 'Acceptée'} à ${time}. Aucune nouvelle décision n’a été envoyée.`,
@@ -730,7 +732,7 @@ const fr = {
       save: 'Enregistrer', cancel: 'Annuler', failed: 'Le PC n’a pas pris le nom. Réessaie.',
       others: 'Les autres appareils liés se gèrent sur le PC, dans Ledge › Réglages › Accès mobile.'
     },
-    title: 'Réglages', section: 'Connexion', back: 'Retour à À toi', pc: 'PC', status: 'État', unknown: 'Inconnu',
+    title: 'Réglages', section: 'Connexion', back: 'Retour aux sessions', pc: 'PC', status: 'État', unknown: 'Inconnu',
     states: { online: 'Connecté', offline: 'Déconnecté', connecting: 'Connexion en cours…' },
     account: 'Compte', relay: 'Serveur', pcFingerprint: 'Empreinte du PC', version: 'Version de l’app', appFingerprint: 'Empreinte de l’app',
     /** A value not known yet (the build, before the service worker gives it). */
@@ -782,13 +784,15 @@ const fr = {
     theme: 'Thème', lang: 'Langue', langs: { fr: 'Français', en: 'English' },
     motion: 'Réduire les animations', motionHint: 'Désactivé, le réglage de l’appareil s’applique.',
     notifications: 'Notifications sur cet appareil',
+    /** Réglages › Usage (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10): the harnesses' limits, the point's « LIMITES » before. */
+    usage: 'Usage',
     notify: {
       finished: 'Le point de Ledge', finishedHint: 'Quand Ledge fait le point : sessions finies, tâches, nouvelles des rigs.',
       chat: 'Réponse de Ledge', chatHint: 'Quand Ledge a répondu à une question posée d’ici.',
       decision: 'Décision à prendre', decisionHint: 'Quand une session te demande de trancher.',
       always: 'Les demandes d’accord et les questions des agents préviennent toujours, sauf pendant une pause.'
     },
-    pause: 'Pause', pauseHint: 'Aucune notification sur cet appareil pendant ce temps, le point compris.',
+    pause: 'Pause', pauseHint: 'Aucune notification sur cet appareil pendant ce temps.',
     pauseFor: { hour: '1 h', four: '4 h', morning: 'Jusqu’à demain 8 h' },
     pauseLabel: { hour: 'Pause d’une heure', four: 'Pause de quatre heures', morning: 'Pause jusqu’à demain 8 h' },
     pausedUntil: (when: string) => `En pause jusqu’à ${when}`,
@@ -1049,7 +1053,7 @@ const fr = {
     /** `model`: the device's kind as the pairing label names it (iPad, iPhone, Android); else « Appareil ». */
     doneTitle: (pc: string, model: string) => `${model} lié à ${pc}`,
     doneBody: 'Tu peux lire, approuver et écrire. Retire cet appareil à tout moment depuis Ledge sur le PC.',
-    seePending: 'Voir ce qui attend',
+    seePending: 'Voir les sessions',
     cancelledTitle: 'Liaison annulée',
     cancelledBody: 'Des codes différents signifient que cet appareil et le PC ne voient pas les mêmes clés. Quelqu’un tente peut-être de s’interposer. Refuse aussi sur le PC.',
     expiredTitle: 'Code expiré',
@@ -1160,8 +1164,9 @@ const fr = {
   rigs: {
     title: 'Rigs', subtitle: 'OpenRig',
     notSent: (pc: string) => `${pc} ne transmet pas encore ses rigs à cet appareil`,
-    notSentBody: 'Les rigs, leurs sièges et leur file arrivent avec une prochaine version de Ledge sur le PC. Leurs demandes arrivent déjà dans « À toi ».',
-    seeAtoi: 'Voir « À toi »',
+    notSentBody: 'Les rigs, leurs sièges et leur file arrivent avec une prochaine version de Ledge sur le PC.',
+    /** The « Demandes » block at the top of the tab (#40 D1, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 3). */
+    requests: 'Demandes', fold: 'Replier', unfold: 'Déplier', list: 'Rigs',
     pane: { title: 'Rien à afficher', body: 'Les sièges et la topologie d’un rig s’ouvrent ici.' },
     ...rigsFr
   },
@@ -1188,6 +1193,8 @@ const fr = {
     helperSeat: (kind: string, parent: string, task: string) => `${kind}, sous-agent de ${parent} : ${task}`,
     desk: 'Parler à Ledge',
     watching: (n: number) => `Je veille sur ${n} ${n > 1 ? 'agents' : 'agent'}.`,
+    /** The desk's bubble while OpenRig's requests wait (#40, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 11); a tap opens Rigs. */
+    ledgeRequests: (n: number) => `${n} ${n > 1 ? 'demandes' : 'demande'}`,
     assistant: 'Ton assistant',
     unassigned: 'Sans projet',
     unassignedHint: 'Ledge ne relie ces sessions à aucun projet. On les range depuis le PC.',

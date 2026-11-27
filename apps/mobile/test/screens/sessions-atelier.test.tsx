@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import type { PhoneServerMessage } from '@ledge/protocol';
+import type { HumanAsk, PhoneServerMessage } from '@ledge/protocol';
+import { copy } from '../../src/copy';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { activeHelpers, helperDot, islandDot, islands } from '../../src/model/sessions';
 import { LONG_PRESS_MS } from '../../src/screens/longPress';
@@ -109,12 +110,21 @@ describe('the Atelier on a phone (§7)', () => {
     expect(screen.getByRole('region', { name: 'Rig kernel' })).toHaveTextContent(/^kernelOpenRigoperator/);
   });
 
-  it('Ledge\'s desk opens the Ledge tab and says how many agents it watches over', () => {
+  it('Ledge\'s desk says how many agents it watches over, and opens nothing without OpenRig\'s requests (#40, card 11)', () => {
     page();
     toAtelier();
+    expect(screen.queryByRole('link', { name: /Bureau de Ledge/ })).toBeNull();
+    expect(screen.getByText(copy.sessions.deskTitle).closest('div')).toHaveTextContent('Je veille sur 6 agents.');
+  });
+
+  it('with OpenRig\'s requests waiting, Ledge\'s desk counts them and opens Rigs (#40, card 11)', () => {
+    const t = page();
+    const ask = (id: string, kind: HumanAsk['kind']): HumanAsk => ({ id, kind, priority: 'routine', from: { seat: 'pilot-lead@ledge-dev', rig: 'ledge-dev', role: null }, summary: id, body: '', detail: null, evidenceRef: null, alert: false, bodyTruncated: false, createdAt: '2026-11-27T16:00:00Z', updatedAt: '2026-11-27T16:00:00Z', questions: [] });
+    act(() => t.deliver({ type: 'openrig.asks', channel: { state: 'ready', person: null, slack: false }, asks: [ask('q1', 'decision'), ask('q2', 'parked'), ask('q3', 'update')] } as PhoneServerMessage));
+    toAtelier();
     const desk = screen.getByRole('link', { name: /Bureau de Ledge/ });
-    expect(desk).toHaveAttribute('href', '#/chat');
-    expect(desk).toHaveTextContent('Parler à Ledge · Je veille sur 6 agents.');
+    expect(desk).toHaveAttribute('href', '#/rigs');
+    expect(desk).toHaveTextContent('2 demandes');
   });
 
   it('a tablet keeps its drawn Atelier: no « Liste · Atelier » in the list', () => {

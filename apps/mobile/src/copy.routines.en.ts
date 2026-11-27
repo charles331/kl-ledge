@@ -12,7 +12,7 @@ export const routinesEn: RoutinesCopy = {
   nextDated: (when: string) => `Next: ${when}`,
   today: 'today', tomorrow: 'tomorrow',
   runNow: 'Run now', retry: 'Run again', pause: 'Pause', resume: 'Resume',
-  pending: 'Awaits your approval', seeInAtoi: 'See in For you',
+  pending: 'Awaits your approval',
   paused: 'paused', late: 'late', never: 'never run',
   lastAt: (slot: string, outcome: string) => `${slot} · ${outcome}`,
   outcome: { delivered: 'delivered', resumed: 'resumed, then delivered', launched: 'launched', failed: 'failed' },

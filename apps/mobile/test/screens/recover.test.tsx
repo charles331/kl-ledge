@@ -67,7 +67,7 @@ describe('the recovery under way and back (1 c, 1 d)', () => {
     expect(screen.getByText('WSL affiche cette reconnexion et peut révoquer l’appareil.')).toBeInTheDocument();
     expect(screen.getByText('La réinstallation a coupé les notifications. Réactive-les pour ouvrir une demande depuis ton écran verrouillé.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: 'Plus tard' }));
-    expect(screen.getByRole('heading', { name: 'À toi' })).toBeInTheDocument();
+    expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
   });
 });
 
@@ -164,12 +164,17 @@ describe('a paired device with an old passkey (4)', () => {
   let real: PinnedPc;
   beforeEach(async () => { vi.mocked(createCredential).mockReset(); real = { ...pc, publicKey: (await generateIdentity()).publicKey }; });
 
-  it('« À toi » shows the card; the update registers a passkey that names the PC, then a receipt', async () => {
+  it('Sessions shows the coral dot on ⚙; Réglages shows the card at its top; the update registers a passkey that names the PC, then a receipt for 3 s (#40 D8)', async () => {
     vi.mocked(createCredential).mockResolvedValue(credential);
     const t = app('ready', { hash: '#/' });
     act(() => t.setPinned(real));
     act(() => t.deliver(withDevice({ confirm: true })));
+    // On Sessions: no card, the dot on Réglages.
+    expect(screen.queryByRole('heading', { name: 'Mettre à jour ta passkey' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Réglages' })).toContainElement(document.querySelector('[data-settings-dot]') as HTMLElement);
+    act(() => { globalThis.location.hash = '#/connection'; });
     expect(await screen.findByRole('heading', { name: 'Mettre à jour ta passkey' })).toBeInTheDocument();
+    expect(document.querySelector('main')!.firstElementChild).toContainElement(screen.getByRole('heading', { name: 'Mettre à jour ta passkey' }));
     expect(screen.getByText('Avec une passkey à jour, cet iPhone pourra revenir sans code après une réinstallation. Face ID sera demandé une fois.')).toBeInTheDocument();
     await waitFor(() => expect(t.of('confirm.prepare')).toHaveLength(1));
     act(() => t.deliver(challenge));
@@ -178,11 +183,13 @@ describe('a paired device with an old passkey (4)', () => {
     act(() => t.deliver({ type: 'operation.result', op: t.of('credential.register')[0]!.op, status: 'applied' }));
     expect(await screen.findByText('Passkey mise à jour')).toBeInTheDocument();
     expect(screen.getByText('Cet iPhone pourra se reconnecter sans code après une réinstallation.')).toBeInTheDocument();
+    // Then the card goes after 3 s (card 7).
+    await waitFor(() => expect(screen.queryByText('Passkey mise à jour')).not.toBeInTheDocument(), { timeout: 4000 });
   });
 
   it('a cancelled sheet says the old passkey still protects, with « Réessayer » and « Plus tard »', async () => {
     vi.mocked(createCredential).mockResolvedValue('cancelled');
-    const t = app('ready', { hash: '#/' });
+    const t = app('ready', { hash: '#/connection' });
     act(() => t.setPinned(real));
     act(() => t.deliver(withDevice({ confirm: true })));
     await waitFor(() => expect(t.of('confirm.prepare')).toHaveLength(1));
@@ -193,13 +200,17 @@ describe('a paired device with an old passkey (4)', () => {
     expect(t.of('credential.register')).toEqual([]);
   });
 
-  it('« Plus tard » hides the card for this device, and Connection keeps the row', async () => {
-    const t = app('ready', { hash: '#/' });
+  it('« Plus tard » hides the card and the dot for this device for good, and Connection keeps the row (design-ux 17:23Z)', async () => {
+    const t = app('ready', { hash: '#/connection' });
     act(() => t.setPinned(real));
     act(() => t.deliver(withDevice({ confirm: true })));
     fireEvent.click(await screen.findByRole('button', { name: 'Plus tard' }));
     expect(screen.queryByRole('heading', { name: 'Mettre à jour ta passkey' })).not.toBeInTheDocument();
     expect(localStorage.getItem('ledge.mobile.passkeyUpdateLater')).toBe('dev1');
+    expect(screen.getByText('Ta passkey doit être mise à jour une fois')).toBeInTheDocument();
+    act(() => { globalThis.location.hash = '#/sessions'; });
+    await waitFor(() => expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions'));
+    expect(document.querySelector('[data-settings-dot]')).toBeNull();
   });
 
   it('Connection: « Reconnexion sans code » to update, then « Prête »; no card for a passkey that is up to date', async () => {

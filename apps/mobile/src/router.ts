@@ -2,10 +2,9 @@ import { useSyncExternalStore } from 'react';
 
 /** Hash routes of the phone app. The sign-in, a changed key and a new version are not routes: the link's state shows them (App.tsx). `#/thread/<sid>` and `#/request/<sid>/<key>` are also the entry points of a shared link. */
 export type Route =
-  /** « À toi », the app's first screen (`#/`). */
-  | { name: 'atoi' }
-  /** « Sessions » (`#/sessions`; `#/agents`, its old address, still leads there); `#/sessions/working` opens it on « Au travail »
-   *  (« Voir les N autres » in « À toi »), `#/sessions/waiting` on « En attente ». */
+  /** « Sessions », the app's first screen (`#/sessions`; `#/`, any unknown address and the old `#/agents`, `#/atoi` and `#/chat` lead
+   *  there: #40 D6, docs/mockups/ledge-remove-chat-d1-d3-d6.html, cards 7 and 8); `#/sessions/working` opens it on « Au travail »,
+   *  `#/sessions/waiting` on « En attente ». */
   | { name: 'sessions'; filter?: 'waiting' | 'working' }
   /** « Routines » (`#/routines`), opened from the top of Sessions: the PC's routines, read-only (docs/mockups/ledge-routines.html, card 17);
    *  `#/routines/<id>` scrolls to that routine's card and rings it (« Voir » of a failure, card 29). */
@@ -16,14 +15,14 @@ export type Route =
   /** The Atelier (iPad, a PC with `daemon.atelier`); `#/atelier/<sid>` has a session's panel open over it, `#/atelier/<sid>/request/<key>`
    *  one of its requests, to decide there. */
   | { name: 'atelier'; sessionId?: string; requestKey?: string }
-  | { name: 'chat' }
   | { name: 'thread'; sessionId: string }
   | { name: 'terminal'; sessionId: string }
   | { name: 'request'; sessionId: string; key: string }
-  /** An OpenRig ask in full (`#/ask/<qitem>`), opened from its card in « À toi » (m1-a-toi.html §2, §12). */
+  /** An OpenRig ask in full (`#/ask/<qitem>`), opened from its push or its card in the Rigs tab's « Demandes » (#40 D1, card 3). */
   | { name: 'ask'; id: string }
-  /** Réglages; `#/connection/link` opens it on its « Connexion » section (the host pill). */
-  | { name: 'connection'; section?: 'link' }
+  /** Réglages; `#/connection/link` opens it on its « Connexion » section (the host pill); `#/connection/usage` is its « Usage »
+   *  screen, the harnesses' limits (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10). */
+  | { name: 'connection'; section?: 'link' | 'usage' }
   /** A rig of the Rigs tab (`#/rigs/<rig>`), the kernel and its daemon (`#/kernel`), and Max's goals (`#/max`, `#/max/<goalId>` one of them as a
    *  thread): docs/mockups/ledge-mobile-refonte/m4-rigs.html. */
   | { name: 'rig'; rig: string }
@@ -35,10 +34,10 @@ export type Route =
   | { name: 'pr'; id: string };
 
 /** Every route, as the Ledge guide (docs/ledge-guide.md) must describe them: a Record, so a new route fails to compile until it is listed here. */
-const ROUTE_NAME: Record<Route['name'], true> = { atoi: true, sessions: true, routines: true, prs: true, rigs: true, atelier: true, chat: true, thread: true, terminal: true, request: true, ask: true, connection: true, rig: true, kernel: true, max: true, launch: true, pr: true };
+const ROUTE_NAME: Record<Route['name'], true> = { sessions: true, routines: true, prs: true, rigs: true, atelier: true, thread: true, terminal: true, request: true, ask: true, connection: true, rig: true, kernel: true, max: true, launch: true, pr: true };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME) as Route['name'][];
 
-const SIMPLE = ['sessions', 'routines', 'prs', 'rigs', 'chat', 'connection', 'kernel', 'max'] as const;
+const SIMPLE = ['sessions', 'routines', 'prs', 'rigs', 'connection', 'kernel', 'max'] as const;
 /** Routes whose address is not their name. */
 const NEW = 'new';
 
@@ -50,18 +49,18 @@ export function parseRoute(hash: string): Route {
     if ((parts[0] === 'thread' || parts[0] === 'terminal') && parts.length === 2) return { name: parts[0], sessionId: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'atelier' && parts.length === 4 && parts[2] === 'request') return { name: 'atelier', sessionId: decodeURIComponent(parts[1]!), requestKey: decodeURIComponent(parts[3]!) };
     if (parts[0] === 'atelier' && parts.length <= 2) return parts[1] ? { name: 'atelier', sessionId: decodeURIComponent(parts[1]) } : { name: 'atelier' };
-    if (parts[0] === 'connection' && parts.length === 2 && parts[1] === 'link') return { name: 'connection', section: 'link' };
+    if (parts[0] === 'connection' && parts.length === 2 && (parts[1] === 'link' || parts[1] === 'usage')) return { name: 'connection', section: parts[1] };
     if (parts[0] === 'rigs' && parts.length === 2) return { name: 'rig', rig: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'prs' && parts.length === 2) return { name: 'pr', id: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'routines' && parts.length === 2) return { name: 'routines', routine: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'max' && parts.length === 2) return { name: 'max', goalId: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'sessions' && parts.length === 2 && (parts[1] === 'working' || parts[1] === 'waiting')) return { name: 'sessions', filter: parts[1] };
-  } catch { /* malformed escape: fall through to À toi */ }
+  } catch { /* malformed escape: fall through to Sessions */ }
   if (parts[0] === 'agents' && parts.length === 1) return { name: 'sessions' };
   if (parts[0] === NEW && parts.length === 1) return { name: 'launch' };
   const simple = SIMPLE.find((n) => n === parts[0]);
   if (simple && parts.length === 1) return { name: simple };
-  return { name: 'atoi' };
+  return { name: 'sessions' };
 }
 
 export function href(r: Route): string {
@@ -77,7 +76,7 @@ export function href(r: Route): string {
   if (r.name === 'max' && r.goalId) return `#/max/${encodeURIComponent(r.goalId)}`;
   if (r.name === 'sessions' && r.filter) return `#/sessions/${r.filter}`;
   if (r.name === 'launch') return `#/${NEW}`;
-  return r.name === 'atoi' ? '#/' : `#/${r.name}`;
+  return `#/${r.name}`;
 }
 
 export const navigate = (r: Route): void => { globalThis.location.hash = href(r); };

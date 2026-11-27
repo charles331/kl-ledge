@@ -11,7 +11,9 @@ import { BackLink } from '../ui/Header';
 import { OUTLINE } from '../ui/Board';
 import { Segmented } from '../ui/Segmented';
 import { setTheme, useThemeChoice, type ThemeChoice } from '../theme';
-import { ProtectRow, UpdateRow } from './Enroll';
+import { useUsageAlert } from './Usage';
+import { Icon } from '../ui/icons';
+import { ProtectRow, UpdateCard, UpdateRow, useEnroll, usePasskeyDot } from './Enroll';
 import { NotificationsRow } from './Notifications';
 import { PcSection } from './PcSection';
 import { LedgePrefs, ManagedOnPc, MotionRow, NotificationPrefs } from './Settings';
@@ -41,6 +43,10 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
   onSignOut: () => void;
 }) {
   const state = useMobile(store);
+  // One passkey update for the card at the top and the row of « Connexion »: one challenge prepared (#40 D8).
+  const update = useEnroll(store, 'update');
+  const cardUp = usePasskeyDot(store);
+  const usageAlert = useUsageAlert(store);
   const theme = useThemeChoice();
   const lang = useLang();
   useEffect(() => { if (section === 'link') document.getElementById('link-title')?.scrollIntoView({ block: 'start' }); }, [section]);
@@ -61,10 +67,12 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
     <>
       {/* Pushed over the tab it was opened from (m0-socle.html, §5): back, « Réglages ». */}
       <header className="bleed flex h-14 flex-none items-center gap-2 border-b border-line pr-1.5 pl-2.5">
-        <BackLink fallback={{ name: 'atoi' }} label={N.back} />
+        <BackLink fallback={{ name: 'sessions' }} label={N.back} />
         <h1 className="text-base font-semibold">{N.title}</h1>
       </header>
       <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pt-5 pb-[34px]">
+        {/* The passkey to update, at the top of Réglages (#40 D8, docs/mockups/ledge-remove-chat-p2.html, card 7). */}
+        <div className="flex flex-col empty:hidden"><UpdateCard store={store} enroll={update} /></div>
         <ThisDevice store={store} pinned={pinned} />
         <section aria-labelledby="appearance-title" className="flex flex-col gap-2.5">
           <h2 id="appearance-title" className="text-small font-medium text-muted">{S.appearance}</h2>
@@ -88,6 +96,16 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
             <NotificationPrefs store={store} />
           </section>
         )}
+        {/* Réglages › Usage (#40 D9, card 10): an amber dot on its row while a usage alert is on; none on ⚙ (kept for the passkey). */}
+        {state.daemon?.usage && (
+          <a href={href({ name: 'connection', section: 'usage' })} className="flex items-center justify-between gap-4 rounded-[10px] border border-line bg-surface px-4 py-3 text-body">
+            <span>{S.usage}</span>
+            <span className="flex items-center gap-2 text-muted">
+              {usageAlert && <span data-usage-dot aria-hidden="true" className="size-2 rounded-full bg-attention" />}
+              <Icon name="chevron" className="size-4" />
+            </span>
+          </a>
+        )}
         <LedgePrefs store={store} />
         <ProjectsSection store={store} />
         <PcSection store={store} appVersion={build?.version ?? null} />
@@ -101,7 +119,7 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
               </div>
             ))}
             <ProtectRow store={store} />
-            <UpdateRow store={store} />
+            <UpdateRow store={store} enroll={update} quiet={cardUp} />
           </dl>
         </section>
         <ManagedOnPc store={store} />

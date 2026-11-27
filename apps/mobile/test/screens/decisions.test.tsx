@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { requestsOf } from '../../src/model/requests';
-import { atoiBadge } from '../../src/shell/tabs';
+import { sessionsBadge } from '../../src/shell/tabs';
 import type { PhoneChatAction, PhoneTask } from '@ledge/protocol';
 import { copy } from '../../src/copy';
 import { closedTasks, openDecisions, openTasks } from '../../src/model/tasks';
@@ -55,8 +55,8 @@ describe('the decisions a session puts to the user', () => {
     const given = within(within(point).getByRole('group', { name: 'Confiées par Ledge' }));
     expect(given.getByText('t91b0d4')).toBeInTheDocument();
     expect(given.queryByText('t5d6e7f')).toBeNull();
-    // The badge of « À toi » counts only its requests: no decision there.
-    expect(atoiBadge(requestsOf([...t.store.getState().sessions.values()]))).toBeNull();
+    // The decisions count on Sessions, in amber (#40 D7, card 6).
+    expect(sessionsBadge(requestsOf([...t.store.getState().sessions.values()]), openDecisions(t.store.getState().tasks.values()).length)).toEqual({ text: '1', tone: 'amber' });
   });
 
   it('« Répondre » puts the start of the question in the chat\'s field, the caret after it, and sends nothing', async () => {

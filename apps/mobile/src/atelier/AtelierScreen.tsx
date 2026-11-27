@@ -134,7 +134,9 @@ export function AtelierScreen({ store, sessionId, requestKey, storage, onReconne
     if (sessionId) replaceRoute({ name: 'atelier', sessionId: id }); else navigate({ name: 'atelier', sessionId: id });
   };
   const close = () => replaceRoute({ name: 'atelier' });
-  const act: SceneActions = { open, room: id => { if (sessionId) close(); setSheet(id); }, chat: () => navigate({ name: 'chat' }) };
+  const act: SceneActions = { open, room: id => { if (sessionId) close(); setSheet(id); } };
+  // OpenRig's requests still open (a piece of news is no request): the desk counts them, and opens Rigs on them (#40, card 11).
+  const requests = (state.asks ?? []).filter(a => a.kind !== 'update').length;
 
   const live = sessions.filter(s => s.state !== 'exited').length;
   const waiting = sessions.filter(waitingOf).length;
@@ -180,7 +182,7 @@ export function AtelierScreen({ store, sessionId, requestKey, storage, onReconne
           <div className="overview-scroll atelier" role="region" aria-label={copy.atelier.region} ref={view.scrollRef}>
             <div className="atelier-floor">
               <div ref={view.shellRef} className={`office-shell${offline ? ' office-paused' : ''}`}>
-                <LedgeDesk count={live} frozen={offline} {...(state.device?.chat ? { onOpen: act.chat } : {})} />
+                <LedgeDesk count={live} requests={requests} frozen={offline} onOpen={() => navigate({ name: 'rigs' })} />
                 <div className={`project-grid ${rooms.length === 1 ? 'focused' : ''}`}>
                   {rooms.map(({ project, tables, rig }) => (
                     <Room key={project.id} project={project} tables={tables} {...(rig ? { rig } : {})} width={roomTileWidth(tables, MAX_SEATS, IPAD_RUG_SIDE)} act={act}>

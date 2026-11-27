@@ -24,6 +24,7 @@ import { physicalKeyboard } from '../ui/MessageField';
 import { windowLabel } from '../ui/chat/Limits';
 import { BackLink, LinkStatus, linkView } from '../ui/Header';
 import { Notice } from '../ui/Notice';
+import { TaskFoot, askedBy } from './TaskFoot';
 import { ReplyView } from '../ui/ReplyView';
 import { RigItem } from '../ui/RigThread';
 import { TaskCard } from '../ui/TaskCard';
@@ -175,6 +176,9 @@ export function Thread({ store, sessionId, storage, onReconnect, panel, forge }:
   // « Répondre » on an OpenRig message brought the person here: the composer takes the focus, after its prefix.
   const [focusOnOpen] = useState(() => takeFocus(sessionId));
   const [refused, setRefused] = useState(false);
+  // What this session put to Ledge and still waits on the person (#40 D2): it takes the composer's place, one at a time.
+  const asked = state.daemon?.taskAnswer ? askedBy(state.tasks.values(), sessionId) : [];
+  const [answered, setAnswered] = useState<string | null>(null);
   // Chips are not persisted: only the draft text is.
   const images = useAttachments(store);
   // What a send took out of the field, by op id: it comes back if the PC does not take the reply.
@@ -347,7 +351,11 @@ export function Thread({ store, sessionId, storage, onReconnect, panel, forge }:
           </button>
         </div>
       )}
-      {ending.kind === 'open'
+      {/* A decision still waits once the session ended: its foot stays, above « Session terminée » (design-ux, 19:43Z). */}
+      {ending.kind !== 'open' && (asked.length > 0 || answered !== null) && <TaskFoot store={store} session={session} tasks={asked} sent={answered} onSent={setAnswered} />}
+      {ending.kind === 'open' && (asked.length > 0 || answered !== null)
+        ? <TaskFoot store={store} session={session} tasks={asked} sent={answered} onSent={setAnswered} />
+        : ending.kind === 'open'
         ? <Reply name={session.name} focusAtEnd={focusOnOpen} composer={wide && physicalKeyboard() ? { ...composer, placeholder: `${composer.placeholder} · ${copy.sessions.keysHint}` } : composer} draft={draft} onDraft={changeDraft} onSend={send} fresh={fresh} taken={takenNow} checking={last?.phase === 'uncertain' && fresh} error={error} onReconnect={onReconnect} images={images} dialog={dialog}
           {...(state.daemon?.commands && session.tool === 'claude' && !session.readOnly ? { slash: { tool: copy.tools[session.tool], listing: state.commands[sessionId], ask: () => store.requestCommands(sessionId) } } : {})}
           alert={endError && <EndErrorNotice error={endError} fresh={fresh} onRetry={() => openSheet('close')} onReconnect={onReconnect} />}

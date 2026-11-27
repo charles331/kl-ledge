@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { copy } from '../copy';
 import { href } from '../router';
+import type { MobileStore } from '../state/store';
+import { RigsRequests } from './rigs/Requests';
 import { TabPage, hostName, useShell } from '../shell/Shell';
 import { Icon } from '../ui/icons';
 import { Box, EmptyState } from '../ui/kit/Box';
@@ -14,7 +16,8 @@ import { PaneHead } from './Chat';
  * answer A of question Q3): they stay, and say so. B4 and B5 bring Desktop's own empty states.
  */
 
-const seeAtoi = (label: string) => <a href={href({ name: 'atoi' })} className={kitButtonClass({ size: 'sm' })}>{label}</a>;
+// The chat's « Voir À toi » leads to Sessions, « À toi » gone (#40 D6); the chat itself leaves in a later PR.
+const seeAtoi = (label: string) => <a href={href({ name: 'sessions' })} className={kitButtonClass({ size: 'sm' })}>{label}</a>;
 
 /** The empty state in its frame on a phone (§3); in the list's column on a wide screen, unframed, lower (§2). */
 function Frame({ label, children }: { label: string; children: ReactNode }) {
@@ -35,13 +38,14 @@ export function Prs() {
   );
 }
 
-/** « Rigs » before B4. */
-export function Rigs() {
+/** « Rigs » before B4: OpenRig's requests above it all the same, since they do not come with the rigs (#40 D1, design-ux 17:23Z). */
+export function Rigs({ store }: { store: MobileStore }) {
   const { pc } = useShell();
   return (
     <TabPage title={copy.rigs.title} subtitle={copy.rigs.subtitle}>
+      <RigsRequests store={store} />
       <Frame label={copy.rigs.title}>
-        <EmptyState glyph={<Icon name="rigs" className="size-[22px]" />} title={copy.rigs.notSent(hostName(pc))} body={copy.rigs.notSentBody} action={seeAtoi(copy.rigs.seeAtoi)} />
+        <EmptyState glyph={<Icon name="rigs" className="size-[22px]" />} title={copy.rigs.notSent(hostName(pc))} body={copy.rigs.notSentBody} />
       </Frame>
     </TabPage>
   );

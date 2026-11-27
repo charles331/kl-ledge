@@ -105,7 +105,11 @@ function trailWords(t: Goal['trail'][number]): string {
  * A goal as a thread: what was written, the trail, what Max said and what waits in « À toi », then the replies under way. `compact`: the
  * kernel's pane on a tablet (M4 §10), without the trail nor the card's sentence.
  */
-export function GoalThread({ goal, runs, rigs, pc, compact = false }: { goal: Goal; runs: readonly Run[]; rigs: RigsStore; pc: string; compact?: boolean }) {
+export function GoalThread({ goal, runs, rigs, pc, compact = false, asks = null }: {
+  goal: Goal; runs: readonly Run[]; rigs: RigsStore; pc: string; compact?: boolean;
+  /** OpenRig's open requests: a question or proposal among them opens itself (#40 D1); else « Voir la demande » leads to Rigs. */
+  asks?: readonly { id: string }[] | null;
+}) {
   const word = maxWord(goal);
   const said = maxAt(goal);
   const open = goal.question ?? (goal.proposal && !goal.proposal.answer ? goal.proposal : null);
@@ -130,7 +134,7 @@ export function GoalThread({ goal, runs, rigs, pc, compact = false }: { goal: Go
         <div className="flex flex-col gap-2 rounded-[10px] border border-attention/45 bg-surface px-3 py-2.5">
           <span className="flex items-center gap-2"><Dot state="ask" /><b className="text-[14px] font-semibold">{goal.question ? M.question : M.proposal}</b>{said && <span className="ml-auto font-mono text-[11.5px] text-muted">{clock(iso(said))}</span>}</span>
           {!compact && <p className="text-[13px] text-muted">{goal.question ? M.questionBody : M.proposalBody}</p>}
-          <a href={href({ name: 'atoi' })} className={rigButtonClass({ size: 'sm', className: 'self-start' })}>{M.seeAtoi}</a>
+          <a href={asks?.some(a => a.id === open.askId) ? href({ name: 'ask', id: open.askId }) : href({ name: 'rigs' })} className={rigButtonClass({ size: 'sm', className: 'self-start' })}>{M.seeAsk}</a>
         </div>
       )}
       <GoalRuns runs={mine} rigs={rigs} pc={pc} bubble />
@@ -181,7 +185,7 @@ export function Max({ goalId, rigs, store }: { goalId?: string | undefined; rigs
         </header>
         <main data-tab-scroll="" className={`${scroll} justify-end`}>
           <LinkStrip body={C.offlineBody} />
-          {goal ? <div className={offline ? 'opacity-50' : ''}><GoalThread goal={goal} runs={r.runs} rigs={rigs} pc={name} /></div> : status ?? <p role="alert" className="text-[13px] text-attention">{M.goalsUnavailable}</p>}
+          {goal ? <div className={offline ? 'opacity-50' : ''}><GoalThread goal={goal} runs={r.runs} rigs={rigs} pc={name} asks={m.asks} /></div> : status ?? <p role="alert" className="text-[13px] text-attention">{M.goalsUnavailable}</p>}
         </main>
         {goal && <div className={field}><ReplyField goalId={goal.goalId} rigs={rigs} live={live} /></div>}
       </>

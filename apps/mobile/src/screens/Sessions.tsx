@@ -13,6 +13,7 @@ import { Icon } from '../ui/icons';
 import { Box, EmptyState, Line } from '../ui/kit/Box';
 import { kitButtonClass } from '../ui/kit/Controls';
 import { Dot, Pill, RuntimeTag } from '../ui/kit/marks';
+import { openDecisions } from '../model/tasks';
 import { useWide } from '../ui/layout';
 import { useNow } from '../useNow';
 import { clock } from './Inbox';
@@ -88,14 +89,17 @@ function FilterBar({ value, counts, onChange }: { value: SessionFilter; counts: 
 
 /** One session (§1): its dot, runtime, name and sub-agents at work, what it does or waits for, its branch or seat role; the small
  *  clock when a routine wakes it (docs/mockups/ledge-routines.html, card 17). */
-function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress, woken, drag }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void; woken: boolean;
+function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress, woken, decision = false, drag }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void; woken: boolean;
+  /** The session put a decision to Ledge that waits on the person (#40 D2, card 1): an amber « Décision » on its row. */
+  decision?: boolean;
   /** Issue #16: the row can be lifted and dragged within its project; `lifted`: how far it follows the finger. */
   drag?: { onLift(y: number): void; onDrag(y: number): void; onDrop(): void; onCancel(): void; lifted: number | null } | undefined }) {
   const route = useRoute();
   const longPress = useLongPress(() => onPress(s));
   const lift = useLiftDrag({ onLong: () => onPress(s), onLift: y => drag?.onLift(y), onDrag: y => drag?.onDrag(y), onDrop: () => drag?.onDrop(), onCancel: () => drag?.onCancel() });
   const press = { ...(drag ? lift : longPress), 'data-reorder-row': s.id, ...(drag?.lifted !== null && drag?.lifted !== undefined ? { style: liftedStyle(drag.lifted) } : {}) };
-  const open = (route.name === 'thread' || route.name === 'terminal') && route.sessionId === s.id;
+  // Its thread, terminal or request beside the list (a request belongs to Sessions since #40 D6).
+  const open = (route.name === 'thread' || route.name === 'terminal' || route.name === 'request') && route.sessionId === s.id;
   const dot = dotOf(s);
   const kids = activeHelpers(s);
   const pct = contextPct(s);
@@ -109,6 +113,7 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
         <b className="font-semibold"><SessionName session={s} nameClassName="font-normal text-muted" /></b>
         {woken && <span data-woken="" className="ml-1 inline-flex align-[-2px] text-muted"><Icon name="clock" className="size-[13px]" /></span>}
         {kids > 0 && <span aria-label={copy.sessions.kidsLabel(kids)} className="ml-1.5 font-mono text-small text-muted">{copy.sessions.kids(kids)}</span>}
+        {decision && <span className="ml-1.5 inline-flex align-[1px]"><Pill tone="ask">{copy.chat.point.decision}</Pill></span>}
       </>}
       // A close this phone sent says so over the state, as the list always did, until the session ends.
       sub={closing ? <span className="text-attention">{copy.chat.closing}</span> : <span className={dot === 'ask' ? 'text-attention' : undefined}>{rowLine(s, filter, now)}</span>}
@@ -181,6 +186,8 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
   const groups = sessionGroups(sessions, filter, kept);
   const order = useOrder(store, sessions, kept, offline);
   const woken = wokenSessions(state.routines, sessions);
+  // The sessions whose decision waits on the person, answered in their thread (#40 D2); only where the PC takes `task.answer`.
+  const deciding = new Set(state.daemon?.taskAnswer ? openDecisions(state.tasks.values()).map(t => t.giver).filter((g): g is string => !!g) : []);
   const threshold = state.device?.contextNear ?? CONTEXT_NEAR;
   const subtitle = offline ? (state.syncedAt ? copy.link.lastKnownAt(clock(state.syncedAt)) : copy.agents.offline) : undefined;
 
@@ -219,6 +226,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
         <SessionsAtelier
           sessions={sessions} by={by} onBy={setBy} helpers={helpers === 'shown'} onHelpers={() => setHelpers(helpers === 'shown' ? 'hidden' : 'shown')}
           rigs={!!state.daemon?.rigs} pressed={pressed} onPress={s => setPressed(s.id)}
+          requests={(state.asks ?? []).filter(a => a.kind !== 'update').length}
         />
       ) : (
         <>
@@ -236,7 +244,7 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
                 <Group group={g} {...(movable && g.project ? { drag: order.projectDrag(groups, g) } : {})}>
                   {g.sessions.flatMap((s, i) => [
                     ...(i === lineAt ? [<InsertLine key="line" />] : []),
-                    <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} woken={woken.has(s.id)}
+                    <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} woken={woken.has(s.id)} decision={deciding.has(s.id)}
                       {...(movable ? { drag: order.rowDrag(g, i) } : {})} />
                   ])}
                   {lineAt === g.sessions.length && <InsertLine />}

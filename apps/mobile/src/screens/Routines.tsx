@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PhoneRoutine, PhoneSession } from '@ledge/protocol';
 import { copy } from '../copy';
-import { failureWhy, nextLine, routineFailed, routineGroups, scheduleView, sessionOf } from '../model/routines';
+import { coveredIds, failureWhy, nextLine, routineFailed, routineGroups, routineItems, scheduleView, sessionOf } from '../model/routines';
 import { goBack, href } from '../router';
 import { TabPage } from '../shell/Shell';
 import type { ChatAction } from '../state/chat';
@@ -13,6 +13,8 @@ import { useWide } from '../ui/layout';
 import { MobileBot } from '../ui/MobileBot';
 import { useNow } from '../useNow';
 import { Spin } from './atoi/SessionCard';
+import { RoutineItem } from './atoi/RoutineItem';
+import { usePlatform } from './device';
 
 /** A routine card's 40 px buttons, side by side (card 17), each as wide as its words plus an equal share of the rest, so « Lancer
  *  maintenant » never truncates on a 390 px phone; in the kit's outline and primary colours. */
@@ -91,9 +93,7 @@ function RoutineCard({ store, routine: r, session, offline, now, focused }: { st
       <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted">{lastLine}</div>
       {failed && failureWhy(r) && <p className="text-[13px] [overflow-wrap:anywhere] text-muted">{failureWhy(r)}</p>}
       <div className="flex gap-2">
-        {pending ? (
-          <a href={href({ name: 'atoi' })} className={routineButton()}>{R.seeInAtoi}</a>
-        ) : (
+        {pending ? null : (
           <>
             <button type="button" disabled={offline || busy !== null} onClick={() => { void go('run', 'run'); }} className={routineButton()}>
               {spin('run') ?? <Icon name="play" className="size-3.5" />}<span className="truncate">{failed ? R.retry : R.runNow}</span>
@@ -131,7 +131,15 @@ export function Routines({ store, focus }: { store: MobileStore; focus?: string 
   const groups = routineGroups(state.routines ?? []);
   const offline = !state.fresh;
   const sessions = [...state.sessions.values()];
-  const cards = (list: PhoneRoutine[]) => list.map(r => <RoutineCard key={r.id} store={store} routine={r} session={sessionOf(r, sessions)} offline={offline} now={now} focused={r.id === focus} />);
+  // The routines waiting for the person's approval, at the top, answered here (#40 D4, docs/mockups/ledge-remove-chat-p2.html,
+  // card 3): Activer / Refuser, or « Activer les {n} » for several proposed together. A failed run keeps « Relancer » on its row.
+  const platform = usePlatform();
+  const asking = routineItems(state.tasks.values()).filter(t => t.routine.kind === 'approve');
+  const asked = new Set(asking.flatMap(t => coveredIds(t.routine)));
+  const requests = asking.map(task => <RoutineItem key={task.id} store={store} task={task} state={state} canConfirm={state.device?.confirm === true && platform} />);
+  // A routine whose request is shown above is not listed again.
+  const listed = (list: PhoneRoutine[]) => list.filter(r => !asked.has(r.id));
+  const cards = (list: PhoneRoutine[]) => listed(list).map(r => <RoutineCard key={r.id} store={store} routine={r} session={sessionOf(r, sessions)} offline={offline} now={now} focused={r.id === focus} />);
   return (
     <TabPage title={R.title} heading={false} bodyClassName="flex flex-col gap-2.5">
       {/* Beside the sessions on a wide screen, the pane's head already names it. */}
@@ -141,8 +149,9 @@ export function Routines({ store, focus }: { store: MobileStore; focus?: string 
         </a>
         <h1 className="text-[22px] leading-7 font-semibold tracking-[-.02em]">{R.title}</h1>
       </>}
-      {groups.recurring.length > 0 && <><GroupTitle>{R.groups.recurring}</GroupTitle>{cards(groups.recurring)}</>}
-      {groups.once.length > 0 && <><GroupTitle>{R.groups.once}</GroupTitle>{cards(groups.once)}</>}
+      {requests}
+      {listed(groups.recurring).length > 0 && <><GroupTitle>{R.groups.recurring}</GroupTitle>{cards(groups.recurring)}</>}
+      {listed(groups.once).length > 0 && <><GroupTitle>{R.groups.once}</GroupTitle>{cards(groups.once)}</>}
       <p className="px-2 text-center text-[12.5px] text-muted">{R.readonly}</p>
     </TabPage>
   );

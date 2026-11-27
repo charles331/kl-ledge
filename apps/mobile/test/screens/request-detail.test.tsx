@@ -48,7 +48,7 @@ describe('the request detail', () => {
     act(() => t.deliver({ type: 'operation.result', op: sent!.op, status: 'applied' }));
     expect(screen.getByRole('heading', { name: 'Autorisation prise en compte' })).toBeInTheDocument();
     expect(screen.getByText('Une décision transmise ne peut pas être annulée.')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Retour aux demandes' })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Retour aux sessions' })[0]).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Voir le fil de Kai' })).toHaveAttribute('href', '#/thread/a');
   });
 

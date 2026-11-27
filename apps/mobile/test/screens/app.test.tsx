@@ -161,7 +161,7 @@ describe('the app', () => {
       .toHaveAttribute('href', 'https://github.com/kl-ledge/ledge/releases/tag/v0.6.0');
     expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual(['Plus tard', 'Mettre à jour']);
     // The screen stays underneath.
-    expect(screen.getByText('À toi', { selector: 'h1' })).toBeInTheDocument();
+    expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Mettre à jour' }));
     expect(u.accept).toHaveBeenCalledTimes(1);
@@ -288,7 +288,7 @@ describe('the app', () => {
       expect(screen.queryByText('Accords à impact élevé')).not.toBeInTheDocument();
     });
 
-    it('after the pairing, the step offers the protection, and « Plus tard » leads to the inbox', async () => {
+    it('after the pairing, the step offers the protection, and « Plus tard » leads to Sessions', async () => {
       const t = app('pairing');
       act(() => { t.setPairing({ step: 'linked', pc }); t.setPinned(pc); t.set('ready'); });
       act(() => t.deliver(withDevice(false)));
@@ -296,7 +296,7 @@ describe('the app', () => {
       expect(screen.getByText('Face ID ou le code de cet appareil sera demandé pour autoriser une commande à impact élevé.')).toBeInTheDocument();
       await waitFor(() => expect(t.of('confirm.prepare')).toHaveLength(1));
       fireEvent.click(screen.getByRole('link', { name: 'Plus tard' }));
-      expect(screen.getByRole('heading', { name: 'À toi' })).toBeInTheDocument();
+      expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
     });
 
     it('after the pairing, a PC with no device offers nothing but the way in', () => {
@@ -304,7 +304,7 @@ describe('the app', () => {
       act(() => { t.setPairing({ step: 'linked', pc }); t.setPinned(pc); t.set('ready'); });
       act(() => t.deliver(snapshot([], 'PC-Desan')));
       expect(screen.queryByRole('heading', { name: 'Protéger les accords' })).not.toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Voir ce qui attend' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Voir les sessions' })).toBeInTheDocument();
     });
   });
 
@@ -316,33 +316,33 @@ describe('the app', () => {
     });
     afterEach(() => { vi.unstubAllGlobals(); });
 
-    it('after « Protéger les accords », the step « Être prévenu quand un agent attend » comes, and « Plus tard » leads to the inbox', async () => {
+    it('after « Protéger les accords », the step « Être prévenu quand un agent attend » comes, and « Plus tard » leads to Sessions', async () => {
       const t = app('pairing');
       act(() => { t.setPairing({ step: 'linked', pc }); t.setPinned(pc); t.set('ready'); });
       act(() => t.deliver(linked('off')));
-      fireEvent.click(screen.getByRole('link', { name: 'Voir ce qui attend' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Voir les sessions' }));
       expect(await screen.findByRole('heading', { name: 'Être prévenu quand un agent attend' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Activer les notifications' })).toBeInTheDocument();
       fireEvent.click(screen.getByRole('link', { name: 'Plus tard' }));
-      expect(screen.getByRole('heading', { name: 'À toi' })).toBeInTheDocument();
+      expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
     });
 
     it('a refused permission says so and keeps the step', async () => {
       const t = app('pairing');
       act(() => { t.setPairing({ step: 'linked', pc }); t.setPinned(pc); t.set('ready'); });
       act(() => t.deliver(linked('off')));
-      fireEvent.click(screen.getByRole('link', { name: 'Voir ce qui attend' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Voir les sessions' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Activer les notifications' }));
       expect(await screen.findByText(/Notifications refusées/)).toBeInTheDocument();
       expect(t.of('push.subscribe')).toEqual([]);
     });
 
-    it('a PC without push, or notifications already on, goes straight to the inbox', () => {
+    it('a PC without push, or notifications already on, goes straight to Sessions', () => {
       for (const push of ['unavailable', 'on', undefined] as const) {
         const t = app('pairing');
         act(() => { t.setPairing({ step: 'linked', pc }); t.setPinned(pc); t.set('ready'); });
         act(() => t.deliver(linked(push)));
-        fireEvent.click(screen.getByRole('link', { name: 'Voir ce qui attend' }));
+        fireEvent.click(screen.getByRole('link', { name: 'Voir les sessions' }));
         expect(screen.queryByRole('heading', { name: 'Être prévenu quand un agent attend' })).not.toBeInTheDocument();
         cleanup();
       }

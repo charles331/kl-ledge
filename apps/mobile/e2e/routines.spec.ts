@@ -85,7 +85,7 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
   const R = copyFor(lang).routines;
   test.describe(`on a phone, ${theme}, ${lang}`, () => {
     test.use(iPhone13);
-    test('the entry in Sessions, the Routines screen, « Lancer maintenant », and « À toi »', async ({ page }) => {
+    test('the entry in Sessions, the Routines screen, « Lancer maintenant », and its requests at its top', async ({ page }) => {
       const tag = `${theme}-${lang}`;
       await pair(page, theme, lang);
       await go(page, '#/sessions');
@@ -101,13 +101,13 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
       await page.getByRole('article', { name: 'briefing' }).getByRole('button', { name: R.runNow }).click();
       await expect.poll(() => h.daemon.routineCmds.map(c => `${c.action} ${c.routine}`)).toEqual(['run r1a2b3c']);
 
-      await go(page, '#/');
+      await go(page, '#/routines');  // #40 D4: the requests head Routines.
       const request = page.getByRole('article', { name: `${R.atoi.ask} · point-hebdo` });
       await expect(request.getByText(PROMPTS.r3f9a12)).toBeVisible();
       await expect(request.getByRole('button', { name: R.atoi.activate })).toBeEnabled();
       // Under the passkey's own card (this fake PC keeps no recovery passkey): the routines' items brought into view.
       await request.evaluate(el => el.scrollIntoView({ block: 'start' }));
-      await shot(page, `atoi-${tag}`);
+      await shot(page, `routines-requests-${tag}`);
     });
 
     test('a session’s change, and a failure’s « Voir » scrolling to its routine (card 29)', async ({ page }) => {
@@ -116,12 +116,13 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
         proposals: { [briefing.id]: { spec: { name: 'briefing', target: iris, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: [...weekdays] }, prompt: 'Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi.', catchUp: 'once' }, by: { id: 'iris', name: 'Iris' }, at: local(10, 23, 3, 40) } } };
       h.daemon.tasks = [ask(local(10, 23, 3, 40), { kind: 'approve', id: briefing.id, name: 'briefing' }), TASKS[1]!];
       await pair(page, theme, lang);
-      await go(page, '#/');
+      await go(page, '#/routines');  // #40 D4: the requests head Routines.
       const change = page.getByRole('article', { name: `${R.atoi.ask} · briefing` });
       await expect(change).toContainText(R.atoi.editAsks('briefing', lang === 'fr' ? '07:30, 13:30, 16:30 (lun–ven)' : '07:30, 13:30, 16:30 (Mon–Fri)'));
       await change.evaluate(el => el.scrollIntoView({ block: 'start' }));
-      await shot(page, `atoi-change-${theme}-${lang}`);
-      await page.getByRole('article', { name: `${R.atoi.failed} · veille` }).getByRole('link', { name: R.atoi.see }).click();
+      await shot(page, `routines-change-${theme}-${lang}`);
+      // #40 D4: a failed run keeps « Relancer » on its row; « Voir » of its push still scrolls to it (card 29).
+      await go(page, '#/routines/r81c0d4');
       await expect(page).toHaveURL(/#\/routines\/r81c0d4$/);
       const ringed = page.getByRole('article', { name: 'veille' }).locator('..');
       await expect(ringed).toHaveAttribute('data-focused', 'true');
@@ -136,7 +137,7 @@ for (const [lang, theme] of [['fr', 'dark'], ['en', 'light']] as const) {
         r000003: 'Prépare la démo Compart du 8 déc. à 11:00 : état du connecteur, questions ouvertes, ce qu’il faut montrer.' } };
       h.daemon.tasks = [ask(local(10, 23, 2, 58), { kind: 'approve', id: 'r000001', name: 'prepa-121', ids: ['r000001', 'r000002', 'r000003'] })];
       await pair(page, theme, lang);
-      await go(page, '#/');
+      await go(page, '#/routines');  // #40 D4: the requests head Routines.
       const group = page.getByRole('article', { name: `${R.atoi.ask} · prepa-121` });
       await expect(group.getByRole('button', { name: R.atoi.activateAll(3) })).toBeEnabled();
       await group.evaluate(el => el.scrollIntoView({ block: 'start' }));

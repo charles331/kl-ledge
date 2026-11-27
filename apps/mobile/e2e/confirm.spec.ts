@@ -5,7 +5,7 @@ import { devices, expect, test, type ConsoleMessage, type Page } from '@playwrig
 import type { PhoneClientMessage, PhoneSession } from '@ledge/protocol';
 import { copy } from '../src/copy';
 import { createDeviceCheck } from '../test/fakePc';
-import { PC_NAME, startHarness, waiting, type Harness } from './harness';
+import { PC_NAME, startHarness, waiting, type Harness, openRequest } from './harness';
 
 const { defaultBrowserType: _chromium, ...pixel } = devices['Pixel 7'];
 test.use(pixel);
@@ -68,7 +68,7 @@ test('a passkey protects the high-impact accepts: enrolled at pairing, asked at 
 
   await test.step('a high-impact accept: the device confirms, the PC verifies the assertion and applies it', async () => {
     await h.daemon.update(high('h1', 'rm -rf build'));
-    await page.getByRole('link', { name: /rm -rf build/ }).click();
+    await openRequest(page, 'h1');
     await confirmButton(page).click();
     await expect(page.getByText(copy.result.allowed)).toBeVisible();
     const [d] = decides();
@@ -79,7 +79,7 @@ test('a passkey protects the high-impact accepts: enrolled at pairing, asked at 
   await test.step('the request changes between the challenge and the tap: stale, the new request is read, a new confirmation applies', async () => {
     await h.daemon.update(high('h2', 'rm -rf dist'));
     await page.getByText(copy.result.back).click();
-    await page.getByRole('link', { name: /rm -rf dist/ }).click();
+    await openRequest(page, 'h2');
     await expect(confirmButton(page)).toBeEnabled();
     // The PC replaces the request without telling the phone; the challenge it prepared was for the old one.
     h.daemon.sessions = [high('h3', 'rm -rf node_modules')];
@@ -100,7 +100,7 @@ test('a passkey protects the high-impact accepts: enrolled at pairing, asked at 
   await test.step('the device does not verify its user: the browser refuses to sign, nothing is sent, and the next tap works', async () => {
     await h.daemon.update(high('h4', 'rm -rf coverage'));
     await page.getByText(copy.result.back).click();
-    await page.getByRole('link', { name: /rm -rf coverage/ }).click();
+    await openRequest(page, 'h4');
     await expect(confirmButton(page)).toBeEnabled();
     const asked = decides().length;
     // The phone asks for user verification (`required`): without it Chromium signs nothing, so no assertion reaches the PC.

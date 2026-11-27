@@ -99,8 +99,8 @@ test('notifications: turned on while pairing, a push shows a notification, an un
     await expect.poll(() => subscribes().length).toBe(1);
     expect(subscribes()[0]).toMatchObject({ subscription: { endpoint: ENDPOINT, keys: { p256dh: P256DH, auth: AUTH } }, key: expect.any(String) });
     expect(h.daemon.push).toBe('on');
-    // Applied: the phone goes on to the inbox.
-    await expect(page.getByRole('link', { name: /pnpm test/ })).toBeVisible();
+    // Applied: the phone goes on to Sessions (#40 D6).
+    await expect(page.getByRole('link', { name: /Otto/ })).toBeVisible();
   });
 
   // Chromium's headless shell has no notification service: the worker's `showNotification` is refused there, and

@@ -47,15 +47,13 @@ const nav = (page: Page) => page.getByRole('navigation', { name: copy.nav.label 
 for (const theme of ['dark', 'light'] as const) {
   test(`limits and indicators on the phone, ${theme}`, async ({ page }) => {
     await pair(page, theme);
-    // 1 · « Le point »: the reached window in « À toi », « LIMITES » with the logo.
-    await nav(page).getByRole('link', { name: 'Ledge' }).click();
+    // 1 · Réglages › Usage (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10): the alert at its head, the limits with the logo.
+    await page.evaluate(() => { location.hash = '#/connection/usage'; });
     const limits = page.getByRole('group', { name: copy.chat.point.limitsLabel });
     await expect(limits).toContainText('84 %');
     await expect(limits.locator('svg.harness-claude')).toBeVisible();
-    await expect(page.getByLabel('Claude · Opus atteinte')).toContainText('100 %');
-    await expect(page.getByLabel('Claude · 5 h à 84 %')).toContainText('84 %');
-    await limits.scrollIntoViewIfNeeded();
-    await shot(page, `point-${theme}`);
+    await expect(page.getByRole('main').getByRole('status').first()).toContainText('Claude Code · Opus atteinte');
+    await shot(page, `usage-${theme}`);
     // 2 · Sessions: the list (m2-sessions.html §1).
     await nav(page).getByRole('link', { name: copy.nav.sessions }).click();
     await expect(page.getByRole('link', { name: /Otto/ })).toBeVisible();
@@ -73,14 +71,13 @@ test('Cursor limits on the phone: month, Cursor and others', async ({ page }) =>
   const resetsAt = new Date(Date.now() + 24 * 86_400_000).toISOString();
   Object.assign(h.daemon, { usage: [{ harness: 'cursor', status: 'ok', readAt: at(-1), windows: [{ kind: 'month', pct: 81, resetsAt }, { kind: 'pool', pool: 'cursor', pct: 41, resetsAt }, { kind: 'pool', pool: 'other', pct: 100, resetsAt }] }] satisfies PhoneHarnessUsage[] });
   await pair(page, 'dark');
-  await nav(page).getByRole('link', { name: 'Ledge' }).click();
+  await page.evaluate(() => { location.hash = '#/connection/usage'; });
   const limits = page.getByRole('group', { name: copy.chat.point.limitsLabel });
   await expect(limits).toContainText('Mois');
   await expect(limits).toContainText('Cursor Agent');
   await expect(limits).toContainText('Autres');
   await expect(limits).toContainText('81 %');
   await expect(limits).toContainText('reprend le ');
-  await expect(page.getByRole('group', { name: copy.chat.point.yoursLabel })).toContainText('Cursor · Autres 100 %');
-  await limits.scrollIntoViewIfNeeded();
-  await shot(page, 'point-cursor-over');
+  await expect(page.getByRole('main').getByRole('status').first()).toContainText('Cursor Agent · Autres atteinte');
+  await shot(page, 'usage-cursor-over');
 });

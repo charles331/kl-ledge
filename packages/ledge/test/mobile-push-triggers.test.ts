@@ -101,7 +101,7 @@ describe('an urgent rig ask', () => {
   });
   it('is pushed as Ledge\'s question naming the seat, opening « À toi »; one with nothing to answer is a request', () => {
     const p = rigAskPayload(ask(), 3);
-    expect(p).toEqual({ v: 1, kind: 'question', title: 'Ledge', name: 'pilot-lead@ledge-dev', body: 'pilot-lead@ledge-dev · Fusionner #309 maintenant ?', url: '/#/', badge: 3, tag: 'ask-qitem-9' });
+    expect(p).toEqual({ v: 1, kind: 'question', title: 'Ledge', name: 'pilot-lead@ledge-dev', body: 'pilot-lead@ledge-dev · Fusionner #309 maintenant ?', url: '/#/ask/qitem-9', badge: 3, tag: 'ask-qitem-9' });
     expect(PushPayloadSchema.safeParse(p).success).toBe(true);
     expect(rigAskPayload(ask({ questions: [] }), 0).kind).toBe('request');
   });

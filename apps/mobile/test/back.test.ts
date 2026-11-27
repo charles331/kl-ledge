@@ -13,19 +13,19 @@ describe('« Retour »', () => {
     await tick();
     expect(globalThis.location.hash).toBe('#/sessions');
     // Replaced, not pushed: Sessions is still the first screen.
-    expect(backTarget({ name: 'atoi' }).inApp).toBe(false);
+    expect(backTarget({ name: 'sessions' }).inApp).toBe(false);
 
-    // Sessions → À toi → a request: back leads to À toi, then to Sessions.
-    await go('#/');
+    // Sessions → Rigs → a request: back leads to Rigs, then to Sessions.
+    await go('#/rigs');
     await go('#/request/s1/k1');
-    expect(backTarget({ name: 'atoi' })).toEqual({ route: { name: 'atoi' }, known: true, inApp: true });
-    goBack({ name: 'atoi' });
+    expect(backTarget({ name: 'sessions' })).toEqual({ route: { name: 'rigs' }, known: true, inApp: true });
+    goBack({ name: 'sessions' });
     await tick();
-    expect(globalThis.location.hash).toBe('#/');
-    expect(backTarget({ name: 'atoi' })).toEqual({ route: { name: 'sessions' }, known: true, inApp: true });
+    expect(globalThis.location.hash).toBe('#/rigs');
+    expect(backTarget({ name: 'rigs' })).toEqual({ route: { name: 'sessions' }, known: true, inApp: true });
 
-    // A new step after going back drops the one ahead: À toi → thread, back is À toi again.
+    // A new step after going back drops the one ahead: Rigs → thread, back is Rigs again.
     await go('#/thread/s2');
-    expect(backTarget({ name: 'sessions' }).route).toEqual({ name: 'atoi' });
+    expect(backTarget({ name: 'sessions' }).route).toEqual({ name: 'rigs' });
   });
 });

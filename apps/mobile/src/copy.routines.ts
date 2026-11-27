@@ -14,7 +14,7 @@ export const routinesFr = {
   nextDated: (when: string) => `Prochain : ${when}`,
   today: 'aujourd’hui', tomorrow: 'demain',
   runNow: 'Lancer maintenant', retry: 'Relancer', pause: 'Pause', resume: 'Reprendre',
-  pending: 'Attend ton accord', seeInAtoi: 'Voir dans À toi',
+  pending: 'Attend ton accord',
   paused: 'en pause', late: 'en retard', never: 'jamais partie',
   lastAt: (slot: string, outcome: string) => `${slot} · ${outcome}`,
   outcome: { delivered: 'remise', resumed: 'reprise, puis remise', launched: 'lancée', failed: 'échouée' },

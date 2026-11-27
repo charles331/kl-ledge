@@ -38,7 +38,7 @@ export interface MobileState {
   /** `id`, `kind`, `name`: this device as the PC knows it (absent from an older PC; `name` absent: none given yet). */
   device: { confirm: boolean; /** Its passkey can bring it back after a reinstall: without it, « Mettre à jour la passkey ». */ recover?: true; push?: 'on' | 'off' | 'stale' | 'unavailable'; chat?: true; contextNear?: number; id?: string; kind?: DeviceKind; name?: string; /** This device's own settings (`daemon.settings`). */ prefs?: DevicePrefs } | null;
   /** `update`: the PC can install a version and restart; `restart`: it can restart (both absent from daemons before 0.27.0). */
-  daemon: { version: string; name: string; boot?: string; models?: true; update?: true; restart?: true; checklist?: true; sessionClose?: true; terminal?: true; terminalInput?: true; commands?: true; /** Takes `session.broadcast` (« Écrire au groupe »). */ broadcast?: true; /** Answers `openrig.row`. */ rigRows?: true; /** Sends `projects` and places sessions in them: the iPad's Atelier. */ atelier?: true; /** Takes `device.prefs` and `context.set` (Réglages). */ settings?: true; /** Takes `project.*` (Réglages › Projets). */ projectEdit?: true; /** Browses its folders and adds them to projects. */ projectFolders?: true; /** Sends `usage.state`. */ usage?: true; /** Answers `openrig.asks` (« À toi »). */ openrig?: true; /** Answers the `rigs.*` reads and takes their actions (M4, the Rigs tab). */ rigs?: true; /** Takes `session.launch` (« Nouvelle session »). */ launch?: true; /** Keeps the device's conversations 7 days (M3 Q33). */ conversations?: true; /** Answers `forge.state` and `forge.detail`, takes `forge.act` (M5, the MR/PR tab). */ forge?: true; /** Issue #16: sends `sessionOrder`, takes `session.order`. */ sessionOrder?: true } | null;
+  daemon: { version: string; name: string; boot?: string; models?: true; update?: true; restart?: true; checklist?: true; sessionClose?: true; terminal?: true; terminalInput?: true; commands?: true; /** Takes `session.broadcast` (« Écrire au groupe »). */ broadcast?: true; /** Answers `openrig.row`. */ rigRows?: true; /** Sends `projects` and places sessions in them: the iPad's Atelier. */ atelier?: true; /** Takes `device.prefs` and `context.set` (Réglages). */ settings?: true; /** Takes `project.*` (Réglages › Projets). */ projectEdit?: true; /** Browses its folders and adds them to projects. */ projectFolders?: true; /** Sends `usage.state`. */ usage?: true; /** Answers `openrig.asks` (« À toi »). */ openrig?: true; /** Answers the `rigs.*` reads and takes their actions (M4, the Rigs tab). */ rigs?: true; /** Takes `session.launch` (« Nouvelle session »). */ launch?: true; /** Keeps the device's conversations 7 days (M3 Q33). */ conversations?: true; /** Answers `forge.state` and `forge.detail`, takes `forge.act` (M5, the MR/PR tab). */ forge?: true; /** Issue #16: sends `sessionOrder`, takes `session.order`. */ sessionOrder?: true; /** #40 D2: takes `task.answer` (a decision answered in its thread). */ taskAnswer?: true } | null;
   /** The user's projects, in their order (`daemon.atelier`): the Atelier's rooms. Kept for an offline start; empty from an older PC. */
   projects: PhoneProject[];
   /** Issue #16: this PC's sessions in the order the person chose, by project id ('' for « Sans projet »); null from an older PC. */
@@ -95,6 +95,8 @@ export type PhoneExpect = Extract<PhoneClientMessage, { type: 'session.decide' }
 export type LaunchStart = { status: 'sent'; op: string } | { status: 'cancelled' } | { status: 'noAnswer' } | { status: 'failed' } | { status: 'rejected'; reason: OperationReason };
 export type ConfirmChallenge = Extract<PhoneServerMessage, { type: 'confirm.challenge' }>;
 export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: string; expect: PhoneExpect } | { purpose: 'launch'; qid: string } | { purpose: 'launch'; launch: PhoneLaunch } | { purpose: 'close'; qid: string }
+  /** A decision a session put to Ledge, answered in its thread (#40 D2): bound to the decision and that exact answer. */
+  | { purpose: 'decision'; task: string; taskAnswer: string }
   /** A turn's generic card (`chat.act`). */
   | { purpose: 'act'; qid: string }
   /** A row of the operator's point (`point.act`): bound to the row and its exact answer, or to its suggestion. */
@@ -301,6 +303,8 @@ export interface MobileStore {
   seeTask(task: string): Promise<ChatAction>;
   /** Answers a proposal about the notes from « Le point »: a « yes » asks for the device's check over that exact choice. */
   answerNote(task: string, choice: BrainChoice): Promise<ChatAction>;
+  /** A decision a session put to Ledge, answered in its thread (#40 D2): `task.answer`, signed over that exact answer (purpose `decision`). */
+  answerTask(task: string, answer: string): Promise<ChatAction>;
   /**
    * Answers a row of the operator's point (`point.act`), or applies its suggestion (`'suggest'`): confirmed when the PC asks it, after the
    * device's check when the answer needs one (`pointCheck`). Resolves when the operation is final.
@@ -1310,6 +1314,13 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         }
         if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
         return signedOperation({ purpose: 'note', task, choice }, (w, assertion) => ({ type: 'brain.answer', op: w, task, choice, assertion }));
+      });
+    },
+
+    answerTask(task, answer) {
+      return chatAction(`decision:${task}`, async () => {
+        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
+        return signedOperation({ purpose: 'decision', task, taskAnswer: answer }, (o, assertion) => ({ type: 'task.answer', op: o, task, answer, confirmed: true, assertion }));
       });
     },
 

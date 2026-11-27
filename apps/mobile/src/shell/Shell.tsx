@@ -26,6 +26,13 @@ export interface ShellLink {
   /** When the state shown was received (« 14:02 »), '' when never. */
   since: string;
   retry: () => void;
+  /** A coral dot on Réglages' ⚙ while the passkey waits to be updated (#40 D8, docs/mockups/ledge-remove-chat-p2.html, card 7). */
+  settingsDot?: boolean;
+}
+
+/** The coral dot on Réglages (D8): not counted, only seen; its label is the button's. */
+function SettingsDot({ className }: { className: string }) {
+  return <span data-settings-dot aria-hidden="true" className={`absolute size-2 rounded-full bg-primary ${className}`} />;
 }
 
 export function lookOf(fresh: boolean, synced: boolean, reach: Reach): Look {
@@ -76,6 +83,7 @@ export function HostPill() {
 
 /** The header of the five tabs on a phone: the mark, the host pill, Réglages. */
 export function TopBar({ title }: { title?: string } = {}) {
+  const { settingsDot } = useShell();
   return (
     <header className="bleed flex h-14 flex-none items-center gap-1.5 border-b border-line pr-1.5 pl-4">
       {/* A tab with its own validated header names itself (M4 « Rigs »); the others carry Ledge's mark. */}
@@ -84,8 +92,9 @@ export function TopBar({ title }: { title?: string } = {}) {
         : <span className="mr-1 flex items-center gap-2 text-[17px] font-semibold"><LedgeMark />{copy.brand}</span>}
       <HostPill />
       <span className="flex-1" />
-      <a href={href({ name: 'connection' })} aria-label={copy.nav.settings} title={copy.nav.settings} className="grid size-11 flex-none place-items-center rounded-lg text-muted active:bg-raised">
+      <a href={href({ name: 'connection' })} aria-label={copy.nav.settings} title={copy.nav.settings} className="relative grid size-11 flex-none place-items-center rounded-lg text-muted active:bg-raised">
         <Icon name="gear" />
+        {settingsDot && <SettingsDot className="top-2.5 right-2.5" />}
       </a>
     </header>
   );
@@ -103,7 +112,7 @@ function Badge({ badge, className }: { badge: TabBadge; className: string }) {
   );
 }
 
-const ICON: Record<Tab, IconName> = { atoi: 'inbox', sessions: 'sessions', prs: 'pr', rigs: 'rigs', chat: 'ledge', atelier: 'atelier' };
+const ICON: Record<Tab, IconName> = { sessions: 'sessions', prs: 'pr', rigs: 'rigs', atelier: 'atelier' };
 
 /**
  * A tap on a tab: to the screen it was left on. On the tab already shown, its list back to the top, then, a second time, the
@@ -120,13 +129,13 @@ function useTabTap(route: Route) {
 }
 
 /**
- * The phone's five tabs, fixed, in this order. `active`: the tab lit (under Réglages, the one it was opened from). A phone on
+ * The phone's three tabs (#40 D6), fixed, in this order. `active`: the tab lit (under Réglages, the one it was opened from). A phone on
  * its side shows them as a narrow rail on the left (styles.css, `.tabbar`).
  */
 export function TabBar({ route, active, badges }: { route: Route; active: Tab | null; badges: Partial<Record<Tab, TabBadge>> }) {
   const tap = useTabTap(route);
   return (
-    <nav aria-label={copy.nav.label} className="tabbar bleed grid flex-none grid-cols-5 border-t border-line bg-sidebar">
+    <nav aria-label={copy.nav.label} className="tabbar bleed grid flex-none grid-cols-3 border-t border-line bg-sidebar">
       {PHONE_TABS.map(t => (
         <a key={t} href={tabHref(t)} onClick={tap(t, active === t)} aria-current={active === t ? 'page' : undefined} className="tab group relative flex flex-col items-center justify-center gap-[3px] text-[11px] leading-[13px] text-muted aria-[current=page]:font-medium aria-[current=page]:text-fg">
           <span className="pad grid h-7 w-[52px] place-items-center rounded-full group-aria-[current=page]:bg-raised"><Icon name={ICON[t]} /></span>
@@ -139,15 +148,14 @@ export function TabBar({ route, active, badges }: { route: Route; active: Tab | 
 }
 
 /**
- * The tablet's rail, 76 px on the left: the mark, the tabs and the Atelier (when the PC sends its projects), then, apart at the
- * bottom, Ledge and Réglages. Ledge is not a page there: its button opens and closes the Ledge pane, outlined while the pane is
- * open (m3-chat.html §7, Q36).
+ * The tablet's rail, 76 px on the left: the mark, Sessions, MR/PR, Rigs and the Atelier (when the PC sends its projects), then,
+ * apart at the bottom, Réglages, with the passkey's dot (#40 D6 and D8, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 10).
  */
-export function Rail({ route, active, badges, atelier, ledge }: {
+export function Rail({ route, active, badges, atelier }: {
   route: Route; active: Tab | 'settings' | null; badges: Partial<Record<Tab, TabBadge>>; atelier: boolean;
-  ledge: { open: boolean; onToggle: () => void };
 }) {
   const tap = useTabTap(route);
+  const { settingsDot } = useShell();
   const item = (t: Tab) => (
     <a key={t} href={tabHref(t)} onClick={tap(t, active === t)} aria-current={active === t ? 'page' : undefined} className="rb">
       <Icon name={ICON[t]} />
@@ -158,17 +166,13 @@ export function Rail({ route, active, badges, atelier, ledge }: {
   return (
     <nav aria-label={copy.nav.label} className="rail">
       <span className="mb-2"><LedgeMark size={30} /></span>
-      {(['atoi', 'sessions', 'prs', 'rigs'] as const).map(item)}
+      {(['sessions', 'prs', 'rigs'] as const).map(item)}
       {atelier && item('atelier')}
       <span className="flex-1" />
-      <button type="button" aria-pressed={ledge.open} onClick={ledge.onToggle} className="rb">
-        <Icon name={ICON.chat} />
-        {copy.nav.chat}
-      </button>
-      <span aria-hidden="true" className="my-1.5 h-px w-[34px] bg-line" />
       <a href={href({ name: 'connection' })} aria-current={active === 'settings' ? 'page' : undefined} className="rb">
         <Icon name="gear" />
         {copy.nav.settings}
+        {settingsDot && <SettingsDot className="top-[5px] right-[15px]" />}
       </a>
     </nav>
   );

@@ -99,9 +99,9 @@ describe('the Atelier tab', () => {
     wide(true);
     const { unmount } = render(<App link={t.link} store={t.store} storage={t.storage} fetchImpl={meStub() as unknown as typeof fetch} />);
     const nav = () => screen.getByRole('navigation', { name: copy.nav.label });
-    // Ledge is the pane's button there, not a link (m3-chat.html §7).
-    expect(within(nav()).getAllByRole('link').map(a => a.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.atoi, copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.settings]);
-    expect(within(nav()).getByRole('button', { name: copy.nav.chat })).toBeInTheDocument();
+    // No Ledge in the rail any more (#40 D6, card 10).
+    expect(within(nav()).getAllByRole('link').map(a => a.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.settings]);
+    expect(within(nav()).queryByRole('button', { name: copy.nav.chat })).toBeNull();
     expect(within(nav()).getByRole('link', { name: copy.nav.atelier })).toHaveAttribute('href', '#/atelier');
     unmount();
     wide(false);
@@ -161,7 +161,10 @@ describe('the Atelier screen', () => {
     expect(container.querySelectorAll('.helper-seat')).toHaveLength(1);
     // No keyboard shortcut, no menu, no drag on iPad.
     expect(container.querySelector('.seat-shortcut, .seat-more, .plaque-btn, .zoom-hint, kbd, [draggable]')).toBeNull();
-    expect(screen.getByRole('button', { name: copy.atelier.desk }).textContent).toContain('Je veille sur 6 agents.');
+    // Without OpenRig's requests, Ledge's desk says what it watches over and opens nothing (#40, card 11).
+    const desk = container.querySelector<HTMLButtonElement>('.ledge-desk')!;
+    expect(desk.textContent).toContain('Je veille sur 6 agents.');
+    expect(desk).toBeDisabled();
   });
 
   it('a seat opens its session in the panel; a sub-agent its parent’s; another seat changes the panel in place', () => {

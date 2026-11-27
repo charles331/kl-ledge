@@ -22,7 +22,7 @@ export function AskDetail({ store, id, onDone }: { store: MobileStore; id: strin
   const last = useRef<HumanAsk | undefined>(undefined);
   if (ask) last.current = ask;
   const shown = ask ?? last.current;
-  const done = onDone ?? (() => goBack({ name: 'atoi' }));
+  const done = onDone ?? (() => goBack({ name: 'rigs' }));
   const canConfirm = state.device?.confirm === true && platform;
   const enroll = platform && state.device?.confirm !== true;
 
@@ -37,7 +37,7 @@ export function AskDetail({ store, id, onDone }: { store: MobileStore; id: strin
 
   return (
     <>
-      <BackHeader title={copy.atoi.kindName.rig} fallback={{ name: 'atoi' }} label={copy.detail.back} link={linkView(state)} />
+      <BackHeader title={copy.atoi.kindName.rig} fallback={{ name: 'rigs' }} label={copy.detail.back} link={linkView(state)} />
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 pb-[22px]">{body}</main>
     </>
   );

@@ -22,7 +22,8 @@ type Problem = 'cancelled' | 'unsupported' | 'failed' | 'prepareFailed';
  * (« L1 » ‖ the pinned PC key's digest ‖ random) are ready as soon as the offer shows, so the tap opens the device's
  * prompt at once (the browser wants it inside the tap). Nothing is offered on a device that cannot verify its user.
  */
-export function useEnroll(store: MobileStore, purpose: 'protect' | 'update' = 'protect') {
+/** `active` false: a screen already holds the same enrolment (Réglages' card and row share one), so this one prepares nothing. */
+export function useEnroll(store: MobileStore, purpose: 'protect' | 'update' = 'protect', active = true) {
   const state = useMobile(store);
   const platform = usePlatform();
   const confirm = state.device?.confirm;
@@ -38,7 +39,7 @@ export function useEnroll(store: MobileStore, purpose: 'protect' | 'update' = 'p
   const refused = phase === 'rejected' || phase === 'failed';
 
   useEffect(() => {
-    if (!offered || registered) return;
+    if (!active || !offered || registered) return;
     let on = true;
     setReady(null);
     const key = store.pcKey();
@@ -47,7 +48,7 @@ export function useEnroll(store: MobileStore, purpose: 'protect' | 'update' = 'p
       () => { if (on) setProblem('prepareFailed'); }
     );
     return () => { on = false; };
-  }, [store, offered, registered, attempt]);
+  }, [store, offered, registered, attempt, active]);
 
   // The create call stays in the tap's own turn: nothing is awaited before it.
   const go = () => {
@@ -75,7 +76,7 @@ export function useEnroll(store: MobileStore, purpose: 'protect' | 'update' = 'p
   return { offered, registered, challenge: ready?.challenge ?? null, asking: asking || sending, problem: shown, go, retry };
 }
 
-type Enroll = ReturnType<typeof useEnroll>;
+export type Enroll = ReturnType<typeof useEnroll>;
 
 /** The offer's button, or « Réessayer » when a new challenge is needed, and what went wrong. */
 function Action({ e, className, label = E.go }: { e: Enroll; className: string; label?: string }) {
@@ -127,7 +128,7 @@ export function ProtectStep({ store, onDone, update = false }: {
   const e = useEnroll(store);
   const [shown, setShown] = useState(false);
   useEffect(() => { if (e.offered) setShown(true); }, [e.offered]);
-  const inbox = href({ name: 'atoi' });
+  const inbox = href({ name: 'sessions' });
   if (!shown) return <a href={inbox} onClick={onDone} className={PRIMARY}>{copy.compare.seePending}</a>;
   if (e.registered) {
     return (
@@ -150,24 +151,52 @@ export function ProtectStep({ store, onDone, update = false }: {
 }
 
 const U = copy.passkeyUpdate;
+/** How long « Passkey mise à jour » stays before the card goes (card 7). */
+export const RECEIPT_MS = 3000;
 /** « Plus tard » on the card, per device: only the row of Connection offers the update after that (P7). */
 const LATER_KEY = 'ledge.mobile.passkeyUpdateLater';
 const laterFor = (storage: Storage | undefined, device: string | undefined): boolean => {
   try { return !!device && storage?.getItem(LATER_KEY) === device; } catch { return false; }
 };
+/** Told when « Plus tard » is tapped, so Réglages' dot goes at once (#40 D8). */
+const LATER_EVENT = 'ledge:passkey-later';
 
 /**
- * The card at the top of « À toi » on a device whose passkey predates recovery (passkey-reinstall.html, 4 a–f): « Mettre à
- * jour la passkey » with Face ID, « Plus tard ». Once done, a receipt that stays until « À toi » is opened again. It is not a
- * request: it counts in no badge.
+ * Réglages' coral dot (#40 D8, docs/mockups/ledge-remove-chat-p2.html, card 7): the passkey predates recovery on a device that can
+ * update it, and the update was neither done nor put off (« Plus tard », kept for good on the device, design-ux 17:23Z).
  */
-export function UpdateCard({ store, storage = globalThis.localStorage }: { store: MobileStore; storage?: Storage }) {
-  const e = useEnroll(store, 'update');
+export function usePasskeyDot(store: MobileStore, storage: Storage | undefined = globalThis.localStorage): boolean {
+  const state = useMobile(store);
+  const platform = usePlatform();
+  const device = state.device;
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const on = () => bump(n => n + 1);
+    globalThis.addEventListener(LATER_EVENT, on);
+    return () => globalThis.removeEventListener(LATER_EVENT, on);
+  }, []);
+  return platform && device?.confirm === true && !device.recover && !laterFor(storage, device.id);
+}
+
+/**
+ * The card at the top of Réglages on a device whose passkey predates recovery (passkey-reinstall.html, 4 a–f; #40 D8,
+ * docs/mockups/ledge-remove-chat-p2.html, card 7): « Mettre à jour la passkey » with Face ID, « Plus tard ». Once done, « Passkey
+ * mise à jour » for 3 s, then the card goes. It is not a request: it counts in no badge; Réglages' dot says it waits.
+ */
+export function UpdateCard({ store, storage = globalThis.localStorage, enroll }: { store: MobileStore; storage?: Storage; enroll?: Enroll }) {
+  const own = useEnroll(store, 'update', !enroll);
+  const e = enroll ?? own;
   const device = useMobile(store).device?.id;
   const [later, setLater] = useState(() => laterFor(storage, device));
   // Shown in this visit: the receipt replaces it once the PC took the new passkey.
   const [shown, setShown] = useState(false);
   useEffect(() => { if (e.offered && !later) setShown(true); }, [e.offered, later]);
+  // The receipt says it for 3 s, then the card goes (card 7).
+  useEffect(() => {
+    if (!shown || !e.registered) return;
+    const t = setTimeout(() => setShown(false), RECEIPT_MS);
+    return () => clearTimeout(t);
+  }, [shown, e.registered]);
   if (!shown) return null;
   if (e.registered) {
     return (
@@ -180,6 +209,7 @@ export function UpdateCard({ store, storage = globalThis.localStorage }: { store
   if (later) return null;
   const putOff = () => {
     try { if (device) storage?.setItem(LATER_KEY, device); } catch { /* the card comes back next time */ }
+    globalThis.dispatchEvent(new Event(LATER_EVENT));
     setLater(true);
     setShown(false);
   };
@@ -208,8 +238,9 @@ export function UpdateCard({ store, storage = globalThis.localStorage }: { store
 const renewable = (e: Enroll) => e.problem === 'failed' || e.problem === 'prepareFailed';
 
 /** The row of Connection: « Reconnexion sans code », « Prête » or the way to update the passkey (4 g, 4 h). Nothing before the accepts are protected. */
-export function UpdateRow({ store }: { store: MobileStore }) {
-  const e = useEnroll(store, 'update');
+export function UpdateRow({ store, enroll, quiet = false }: { store: MobileStore; enroll?: Enroll; /** The card above says the outcome. */ quiet?: boolean }) {
+  const own = useEnroll(store, 'update', !enroll);
+  const e = enroll ?? own;
   const device = useMobile(store).device;
   if (!device?.confirm) return null;
   if (e.registered) {
@@ -230,7 +261,7 @@ export function UpdateRow({ store }: { store: MobileStore }) {
             className="inline-flex min-h-10 items-center justify-center rounded-control border border-line px-3 text-body font-medium disabled:opacity-45">{e.asking ? U.updating : U.update}</button>
         </dd>
       </div>
-      {e.problem && <Notice title={e.problem === 'cancelled' ? U.cancelled : U.failed(store.pcName() ?? copy.yourPc)} tone="warning" role="alert" />}
+      {e.problem && !quiet && <Notice title={e.problem === 'cancelled' ? U.cancelled : U.failed(store.pcName() ?? copy.yourPc)} tone="warning" role="alert" />}
     </div>
   );
 }

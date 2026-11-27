@@ -17,15 +17,15 @@ const ask = (id: string, kind: HumanAsk['kind']): HumanAsk => ({
   detail: null, evidenceRef: null, questions: [], createdAt: '2026-11-10T19:00:00Z', updatedAt: '2026-11-10T19:00:00Z'
 });
 const withOpenRig = (m: PhoneServerMessage) => ({ ...m, daemon: { ...(m as { daemon: object }).daemon, openrig: true } }) as PhoneServerMessage;
-const atoiTab = () => within(screen.getByRole('navigation', { name: copy.nav.label })).getByRole('link', { name: new RegExp(`^${copy.nav.atoi}`) });
+const rigsTab = () => within(screen.getByRole('navigation', { name: copy.nav.label })).getByRole('link', { name: new RegExp(`^${copy.nav.rigs}`) });
 
 describe('M0 review (qitem-20261110200447-63090a55)', () => {
-  it('asks OpenRig\'s asks of a PC that answers them, and counts its decisions and parked rows in À toi\'s amber badge', () => {
+  it('asks OpenRig\'s asks of a PC that answers them, and counts its decisions and parked rows in the Rigs tab\'s amber badge (#40 D7)', () => {
     const t = app('ready', { hash: '#/' });
     act(() => t.deliver(withOpenRig(snapshot([], 'PC-Desan'))));
     expect(t.of('openrig.asks')).toHaveLength(1);
     act(() => t.deliver({ type: 'openrig.asks', channel: { state: 'ready', person: null, slack: false }, asks: [ask('q1', 'decision'), ask('q2', 'parked'), ask('q3', 'update')] }));
-    expect(within(atoiTab()).getByText('2')).toHaveAttribute('data-badge', 'amber');
+    expect(within(rigsTab()).getByText('2')).toHaveAttribute('data-badge', 'amber');
   });
 
   it('does not ask a PC that does not answer them', () => {
@@ -34,11 +34,11 @@ describe('M0 review (qitem-20261110200447-63090a55)', () => {
     expect(t.of('openrig.asks')).toHaveLength(0);
   });
 
-  it('keeps the five tabs under a thread on a phone, Sessions lit', () => {
+  it('keeps the three tabs under a thread on a phone, Sessions lit', () => {
     const t = app('ready', { hash: '#/thread/s1' });
     act(() => t.deliver(snapshot([session('s1', { name: 'Pim' })], 'PC-Desan')));
     const nav = screen.getByRole('navigation', { name: copy.nav.label });
-    expect(within(nav).getAllByRole('link')).toHaveLength(5);
+    expect(within(nav).getAllByRole('link')).toHaveLength(3);
     expect(within(nav).getByRole('link', { name: copy.nav.sessions })).toHaveAttribute('aria-current', 'page');
   });
 

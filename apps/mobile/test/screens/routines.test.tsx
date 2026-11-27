@@ -6,7 +6,6 @@ import { getAssertion, platformAvailable } from '../../src/link/webauthn';
 import { Inbox } from '../../src/screens/Inbox';
 import { Routines } from '../../src/screens/Routines';
 import { Sessions } from '../../src/screens/Sessions';
-import { atoiBadge } from '../../src/shell/tabs';
 import { session } from '../model/fixtures';
 import { detail, NOW, oneShot, pointHebdo, routine, routineTask, veille } from '../model/routine-fixtures';
 import { snapshot } from '../state/helpers';
@@ -84,7 +83,8 @@ describe('the Routines screen (cards 17 and 25)', () => {
     const [hebdo, veilleCard, briefing, conges] = screen.getAllByRole('article');
     expect(within(hebdo!).getByText('Iris · 17:00 · ven')).toBeInTheDocument();
     expect(within(hebdo!).getByText('Attend ton accord')).toBeInTheDocument();
-    expect(within(hebdo!).getByRole('link', { name: 'Voir dans À toi' })).toHaveAttribute('href', '#/');
+    // Its request is not on this PC's list yet: no « Voir dans À toi » any more (#40 D4), no button.
+    expect(within(hebdo!).queryByRole('link')).toBeNull();
     expect(within(hebdo!).queryByRole('button')).toBeNull();
     expect(within(veilleCard!).getByText('Nova · 18:00 · tous les jours')).toBeInTheDocument();
     expect(within(veilleCard!).getByText('Prochain tir aujourd’hui 18:00')).toBeInTheDocument();
@@ -134,6 +134,22 @@ describe('the Routines screen (cards 17 and 25)', () => {
     const [cmd] = t.of('routine.cmd');
     await act(async () => { t.deliver({ type: 'operation.result', op: cmd!.op, status: 'failed' }); });
     expect(await screen.findByRole('alert')).toHaveTextContent('Pas envoyé : réessaie.');
+  });
+});
+
+describe('the Routines screen answers its requests (#40 D4, docs/mockups/ledge-remove-chat-p2.html, card 3)', () => {
+  it('puts a routine waiting for approval at the top, with Activer and Refuser, and does not list it again', async () => {
+    const t = pc([pointHebdo(), veille()], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' }), routineTask('t2', { kind: 'failed', id: 'r81c0d4', name: 'veille', reason: 'pas remise' })]);
+    render(<Routines store={t.store} />);
+    const articles = screen.getAllByRole('article');
+    expect(articles[0]).toHaveAccessibleName('Demande · point-hebdo');
+    expect(within(articles[0]!).getByRole('button', { name: 'Activer' })).toBeInTheDocument();
+    expect(within(articles[0]!).getByRole('button', { name: 'Refuser' })).toBeInTheDocument();
+    // Listed once: its request; the failed run stays a row with « Relancer », no card of its own.
+    expect(articles.map(a => a.getAttribute('aria-label'))).toEqual(['Demande · point-hebdo', 'veille']);
+    expect(within(articles[1]!).getByRole('button', { name: 'Relancer' })).toBeInTheDocument();
+    fireEvent.click(within(articles[0]!).getByRole('button', { name: 'Refuser' }));
+    await waitFor(() => expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'refuse', routine: 'r3f9a12' }));
   });
 });
 
@@ -302,7 +318,5 @@ describe('« À toi »: the routines’ items (cards 17 and 25)', () => {
     expect(within(card).getByRole('link', { name: 'Voir' })).toHaveAttribute('href', '#/routines/r81c0d4');
     fireEvent.click(within(card).getByRole('button', { name: 'Relancer' }));
     expect(t.of('routine.cmd')[0]).toMatchObject({ action: 'run', routine: 'r81c0d4' });
-    expect(atoiBadge([], [], [failed])).toEqual({ text: '1', tone: 'red' });
-    expect(atoiBadge([], [], [routineTask('t1', { kind: 'approve', id: 'r3f9a12', name: 'point-hebdo' })])).toEqual({ text: '1', tone: 'amber' });
   });
 });

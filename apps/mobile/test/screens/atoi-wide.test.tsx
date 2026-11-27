@@ -103,18 +103,6 @@ describe('the decision footer of a wide screen (m1-a-toi.html §12)', () => {
 describe('« À toi » on a wide screen, from the keyboard and after a decision', () => {
   beforeEach(() => wide(true));
 
-  it('↓ / ↑ open the next and the previous entry, the requests then the asks', () => {
-    const t = app('ready', { hash: '#/' });
-    act(() => t.deliver(withOpenRig(snapshot([perm('a'), perm('b', { lastActivityAt: at(1) })]))));
-    act(() => t.deliver(asks([ask('r1')])));
-    act(() => { key('ArrowDown'); });
-    expect(location.hash).toBe('#/request/a/ka');
-    act(() => { key('ArrowDown'); });
-    act(() => { key('ArrowDown'); });
-    expect(location.hash).toBe('#/ask/r1');
-    act(() => { key('ArrowUp'); });
-    expect(location.hash).toBe('#/request/b/kb');
-  });
 
   it('once a request is decided, its receipt shows, then the next one opens', async () => {
     const t = app('ready', { hash: '#/request/a/ka' });

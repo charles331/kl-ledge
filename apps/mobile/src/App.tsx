@@ -4,30 +4,28 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { UiCopyProvider } from '@ledge/ui/i18n/copy';
 import { MeResponseSchema } from '@ledge/protocol';
 import type { LinkState, PhoneLink } from './link/link';
-import { openFromWorker, parseRoute, replaceRoute, useRoute, type Route } from './router';
+import { openFromWorker, replaceRoute, useRoute, type Route } from './router';
 import { AtelierScreen } from './atelier/AtelierScreen';
 import { Routines } from './screens/Routines';
 import { Sessions } from './screens/Sessions';
-import { Chat } from './screens/Chat';
 import { Compare } from './screens/Compare';
 import { Choose, Recover } from './screens/Recover';
 import { usePlatform } from './screens/device';
-import { ProtectStep } from './screens/Enroll';
+import { ProtectStep, usePasskeyDot } from './screens/Enroll';
 import { Connection } from './screens/Connection';
+import { Usage } from './screens/Usage';
 import { NotifyStep, offersNotifications } from './screens/Notifications';
 import { Denied } from './screens/Denied';
-import { Inbox, clock } from './screens/Inbox';
+import { clock } from './screens/Inbox';
 import { KeyChanged } from './screens/KeyChanged';
 import { Login, signinError } from './screens/Login';
 import { Replaced } from './screens/Offline';
-import { ChatUnavailable, EmptyPane, Prs, Rigs } from './screens/NotSent';
+import { EmptyPane, Prs, Rigs } from './screens/NotSent';
 import { Rail, ShellProvider, TabBar, TopBar, lookOf, type ShellLink } from './shell/Shell';
-import { atoiBadge, remember, tabHref, tabOf, type Tab } from './shell/tabs';
-import { LedgePane } from './shell/LedgePane';
-import { setLedgePane, useLedgePane } from './state/ledgePane';
+import { remember, rigsBadge, sessionsBadge, tabOf, type Tab } from './shell/tabs';
 import { requestsOf } from './model/requests';
-import { routineItems } from './model/routines';
-import { atoiOrder, nextAfter, stepFrom, type AtoiTarget } from './model/atoi';
+import { openDecisions } from './model/tasks';
+import { atoiOrder, nextAfter, type AtoiTarget } from './model/atoi';
 import { RequestDetail } from './screens/RequestDetail';
 import { AskDetail } from './screens/atoi/AskDetail';
 import { StorageUnavailable } from './screens/StorageUnavailable';
@@ -37,7 +35,6 @@ import { Unrecognized } from './screens/Unrecognized';
 import { Update } from './screens/Update';
 import { copy, copyFor, useLang } from './copy';
 import { Split, SplitEmpty, useWide } from './ui/layout';
-import { useShortcuts } from './ui/keys';
 import { ownName } from './screens/ThisDevice';
 import { useMobile, type MobileStore } from './state/store';
 import { createRigs, type RigsStore } from './state/rigs';
@@ -115,7 +112,7 @@ export interface AppProps {
 
 const defaultFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
 
-/** The request or ask a route opens in « À toi », if any. */
+/** The session's request or the OpenRig ask a route opens, if any: a wide screen moves on from it to the next once settled. */
 const atoiTarget = (r: Route): AtoiTarget | null =>
   r.name === 'request' ? { name: 'request', sessionId: r.sessionId, key: r.key } : r.name === 'ask' ? { name: 'ask', id: r.id } : null;
 
@@ -183,32 +180,18 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
     return () => sw.removeEventListener('message', onMessage);
   }, []);
 
-  // The app opens on « À toi » (question Q7); a shared link or a notification opens the screen it names. Each tab remembers
-  // the screen it was left on, and Réglages lights the tab it was opened from.
-  const lastTab = useRef<Tab>('atoi');
-  /** « À toi »'s order while the open request was still in it: where « the next one » is counted from once it left. */
+  // The app opens on Sessions (#40 D6); a shared link or a notification opens the screen it names. Each tab remembers the screen
+  // it was left on, and Réglages lights the tab it was opened from.
+  const lastTab = useRef<Tab>('sessions');
+  /** The requests' and asks' order while the open one was still in it: where « the next one » is counted from once it left. */
   const lastOrder = useRef<AtoiTarget[]>([]);
   const tab = tabOf(route);
   if (tab) lastTab.current = tab;
   useEffect(() => { remember(route); }, [route]);
 
   const wide = useWide();
-  // The tablet has no Ledge page (m3-chat.html §7, Q36): its rail's button opens the Ledge pane over the tab. An address that
-  // names the chat (a notification, a link) opens the pane over the last tab instead.
-  const paneOpen = useLedgePane(storage);
-  const setPane = (open: boolean) => setLedgePane(open, storage);
-  // Once opened, the pane stays mounted, hidden while closed: a question being written, a past conversation and the thread's
-  // place are there again when it opens (review-qa e0065182).
-  const paneShown = useRef(false);
-  if (paneOpen && wide) paneShown.current = true;
-  const lastPage = useRef<Tab>('atoi');
-  if (tab && tab !== 'chat') lastPage.current = tab;
-  const chatPage = wide && kind === 'route' && route.name === 'chat';
-  useEffect(() => {
-    if (!chatPage) return;
-    setLedgePane(true, storage);
-    replaceRoute(parseRoute(tabHref(lastPage.current)));
-  }, [chatPage, storage]);
+  // The card's own storage (UpdateCard keeps « Plus tard » there).
+  const passkeyDot = usePasskeyDot(store);
   // OpenRig on the PC (the Rigs tab): its reads and actions live with the link, and end with it.
   const [rigs, setRigs] = useState<RigsStore | null>(null);
   useEffect(() => {
@@ -230,16 +213,6 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
   const atelierOff = route.name === 'atelier' && (!wide || ((mobile.fresh || mobile.daemon !== null) && !mobile.daemon?.atelier));
   useEffect(() => { if (atelierOff) replaceRoute({ name: 'sessions' }); }, [atelierOff]);
   const open = atoiTarget(route);
-  // ↑ / ↓ go through « À toi » on a wide screen (m1-a-toi.html §12), from the one open, else from the top. The address is read
-  // at the key itself: a key pressed before the last move reached the screen still counts from there.
-  useShortcuts(wide && kind === 'route' && tab === 'atoi', key => {
-    if (key !== 'ArrowUp' && key !== 'ArrowDown') return false;
-    const s = store.getState();
-    const to = stepFrom(atoiOrder(requestsOf([...s.sessions.values()]), s.asks ?? []), atoiTarget(parseRoute(globalThis.location.hash)), key === 'ArrowDown' ? 1 : -1);
-    if (!to) return false;
-    replaceRoute(to);
-    return true;
-  });
   // A device the PC knows by id but that has no name yet names itself once, after its model and browser (docs/mockups/
   // mobile-multi-device.html, part 3): the PC then shows « iPad · Safari », and so do the other devices' threads.
   const named = useRef(false);
@@ -311,32 +284,32 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
           />
         );
     }
-    // A wide screen's « À toi » moves on once the open request is settled (m1-a-toi.html §12): the next in the list, else none.
+    // A wide screen moves on once the open request or ask is settled (m1-a-toi.html §12): the next one of its kind, else its tab.
     const order = atoiOrder(requestsOf([...mobile.sessions.values()]), mobile.asks ?? []);
     if (open && order.some(t => JSON.stringify(t) === JSON.stringify(open))) lastOrder.current = order;
     const moveOn = (from: AtoiTarget) => () => {
-      const next = nextAfter(atoiOrder(requestsOf([...store.getState().sessions.values()]), store.getState().asks ?? []), from, lastOrder.current);
-      replaceRoute(next ?? { name: 'atoi' });
+      const same = (t: AtoiTarget) => t.name === from.name;
+      const next = nextAfter(atoiOrder(requestsOf([...store.getState().sessions.values()]), store.getState().asks ?? []).filter(same), from, lastOrder.current.filter(same));
+      replaceRoute(next ?? (from.name === 'ask' ? { name: 'rigs' } : { name: 'sessions' }));
     };
-    const shell: ShellLink = { pc: pcName, look: lookOf(mobile.fresh, !!mobile.syncedAt, link.reach()), reach: link.reach(), since: clock(mobile.syncedAt), retry };
+    const shell: ShellLink = { pc: pcName, look: lookOf(mobile.fresh, !!mobile.syncedAt, link.reach()), reach: link.reach(), since: clock(mobile.syncedAt), retry, settingsDot: passkeyDot };
     // The MR/PR tab once the PC sends its requests (`daemon.forge`, m5-mr-pr.html); before, it says the PC does not.
     const prsOn = !!mobile.daemon?.forge && forge !== null;
     const failed = prsOn ? failedCount(prs) : 0;
+    // Each badge on the tab that holds what it counts (#40 D7, docs/mockups/ledge-remove-chat-p2.html, card 6).
     const badges = {
-      atoi: atoiBadge(requestsOf([...mobile.sessions.values()]), mobile.asks ?? [], routineItems(mobile.tasks.values())),
+      // The decisions count where they are answered: in their thread, on a PC that takes `task.answer` (D2).
+      sessions: sessionsBadge(requestsOf([...mobile.sessions.values()]), mobile.daemon?.taskAnswer ? openDecisions(mobile.tasks.values()).length : 0),
+      rigs: rigsBadge(mobile.asks ?? []),
       // The open requests whose pipeline failed, in red (M0, M5 §1).
       prs: failed ? { text: failed > 99 ? '99+' : String(failed), tone: 'red' as const } : null
     };
     const prsList = prsOn ? <PrsList forge={forge} store={store} /> : <Prs />;
-    const prView = prsOn && route.name === 'pr' ? <PrView key={route.id} id={route.id} forge={forge} store={store} pane={paneOpen} /> : null;
-    const inbox = <Inbox store={store} onReconnect={retry} forge={forge} />;
+    const prView = prsOn && route.name === 'pr' ? <PrView key={route.id} id={route.id} forge={forge} store={store} pane={false} /> : null;
     const sessions = <Sessions store={store} filter={route.name === 'sessions' ? route.filter : undefined} />;
-    // The Ledge tab: the chat when the PC offers it (or, offline, while that is not known yet); else it says the PC does not.
-    const chatOn = !!mobile.device?.chat || (!mobile.fresh && !mobile.device);
-    const chat = chatOn ? <Chat store={store} onReconnect={retry} /> : <ChatUnavailable />;
     // The Rigs tab once the PC sends its rigs (`daemon.rigs`, m4-rigs.html); before, it says the PC does not.
     const rigsOn = !!mobile.daemon?.rigs && rigs !== null;
-    const rigsList = rigsOn ? <RigsList rigs={rigs} store={store} /> : <Rigs />;
+    const rigsList = rigsOn ? <RigsList rigs={rigs} store={store} /> : <Rigs store={store} />;
     const rigsDetail = (() => {
       if (!rigsOn) return null;
       if (route.name === 'rig') return <RigView key={route.rig} rig={route.rig} rigs={rigs} store={store} />;
@@ -344,14 +317,16 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
       if (route.name === 'max') return <Max key={route.goalId ?? ''} goalId={route.goalId} rigs={rigs} store={store} />;
       return null;
     })();
-    const connection = <Connection store={store} fetchImpl={fetchImpl} login={login} relay={relay} pinned={pinned} linkState={state} build={build} onSignOut={signOut} section={route.name === 'connection' ? route.section : undefined} />;
+    // Réglages › Usage is a screen of its own over the tab (#40 D9).
+    const usageScreen = route.name === 'connection' && route.section === 'usage' ? <Usage store={store} /> : null;
+    const connection = usageScreen ?? <Connection store={store} fetchImpl={fetchImpl} login={login} relay={relay} pinned={pinned} linkState={state} build={build} onSignOut={signOut} section={route.name === 'connection' && route.section === 'link' ? 'link' : undefined} />;
     // A wide screen keeps the list on the left and opens what it lists on the right (m0-socle.html, §2), the rail on its left.
     if (wide) {
       const content = (() => {
         switch (route.name) {
-          case 'atoi': return <Split list={inbox} detail={<SplitEmpty {...copy.split.request} />} />;
-          case 'ask': return <Split list={inbox} detail={<AskDetail key={route.id} store={store} id={route.id} onDone={moveOn({ name: 'ask', id: route.id })} />} />;
-          case 'request': return <Split list={inbox} detail={<RequestDetail key={route.sessionId} store={store} sessionId={route.sessionId} requestKey={route.key} onReconnect={retry} onSettled={moveOn({ name: 'request', sessionId: route.sessionId, key: route.key })} keys />} />;
+          // An OpenRig ask beside the Rigs tab's list (#40 D1), a session's request beside Sessions (D6).
+          case 'ask': return <Split list={rigsList} detail={<AskDetail key={route.id} store={store} id={route.id} onDone={moveOn({ name: 'ask', id: route.id })} />} />;
+          case 'request': return <Split tab="sessions" list={sessions} detail={<RequestDetail key={route.sessionId} store={store} sessionId={route.sessionId} requestKey={route.key} onReconnect={retry} onSettled={moveOn({ name: 'request', sessionId: route.sessionId, key: route.key })} keys />} />;
           case 'sessions': return <Split tab="sessions" list={sessions} detail={<SplitEmpty {...copy.split.agent} />} />;
           case 'routines': return <Split tab="sessions" list={sessions} detail={<Routines store={store} focus={route.routine} />} />;
           case 'thread': return <Split tab="sessions" list={sessions} detail={<Thread key={route.sessionId} store={store} sessionId={route.sessionId} storage={storage} onReconnect={retry} forge={forge} />} />;
@@ -364,26 +339,18 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
           case 'atelier': return mobile.daemon?.atelier
             ? <AtelierScreen store={store} {...(route.sessionId ? { sessionId: route.sessionId } : {})} {...(route.requestKey ? { requestKey: route.requestKey } : {})} storage={storage} onReconnect={retry} />
             : <Split list={sessions} detail={<SplitEmpty {...copy.split.agent} />} />;
-          // Left at once for the last tab, the pane open over it.
-          case 'chat': return null;
           case 'connection': return connection;
         }
       })();
-      const pane = paneShown.current && (
-        <LedgePane open={paneOpen} onClose={() => setPane(false)}>
-          {chatOn ? <Chat store={store} onReconnect={retry} onClose={() => setPane(false)} /> : <ChatUnavailable onClose={() => setPane(false)} />}
-        </LedgePane>
-      );
       return (
         <ShellProvider value={shell}>
           {content}
-          {pane}
-          <Rail route={route} active={tab ?? 'settings'} badges={badges} atelier={!!mobile.daemon?.atelier} ledge={{ open: paneOpen, onToggle: () => setPane(!paneOpen) }} />
+          <Rail route={route} active={tab ?? 'settings'} badges={badges} atelier={!!mobile.daemon?.atelier} />
         </ShellProvider>
       );
     }
-    // A phone: the five tabs, always there (m0-socle.html, §1); the header above a tab's screen, a thread, a terminal, a request
-    // and Réglages bring their own.
+    // A phone: the three tabs, always there (#40 D6); the header above a tab's screen, a thread, a terminal, a request and
+    // Réglages bring their own.
     const framed = (body: ReactNode, top: boolean | string = true) => (
       <ShellProvider value={shell}>
         {top && <TopBar {...(typeof top === 'string' ? { title: top } : {})} />}
@@ -392,7 +359,6 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
       </ShellProvider>
     );
     switch (route.name) {
-      case 'atoi': return framed(inbox);
       case 'sessions': case 'atelier': return framed(sessions);
       case 'routines': return framed(<Routines key={route.routine ?? ''} store={store} focus={route.routine} />);
       // The MR/PR tab's header (m5-mr-pr.html): « MR et PR », the host, Réglages; before the PC sends its requests, M0's.
@@ -401,8 +367,6 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
       // The Rigs tab's header (m4-rigs.html): « Rigs », the host, Réglages; before the PC sends its rigs, M0's.
       case 'rigs': return framed(rigsList, rigsOn ? copy.rigs.title : true);
       case 'rig': case 'kernel': case 'max': return rigsDetail ? framed(rigsDetail, false) : framed(rigsList, rigsOn ? copy.rigs.title : true);
-      // The Ledge tab brings its own head (m3-chat.html §1): Ledge, the host, its conversation buttons and Réglages.
-      case 'chat': return framed(chat, !chatOn);
       case 'connection': return framed(connection, false);
       case 'thread': return framed(<Thread key={route.sessionId} store={store} sessionId={route.sessionId} storage={storage} onReconnect={retry} forge={forge} />, false);
       case 'terminal': return framed(<Terminal key={route.sessionId} store={store} link={link} sessionId={route.sessionId} storage={storage} forge={forge} />, false);
