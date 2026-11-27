@@ -1,4 +1,4 @@
-import type { Helper, ProjectColor } from '@ledge/protocol';
+import { liveHelpers, type Helper, type ProjectColor } from '@ledge/protocol';
 import type { BotState } from '../bots/poseFor';
 
 /**
@@ -52,7 +52,8 @@ export function layoutTable<S extends AtelierSession>(mains: readonly S[], showH
   const extraHelpers: { helper: Helper; parent: S }[] = [];
   if (showHelpers) {
     for (const [i, parent] of seated.entries()) {
-      const helpers = parent.helpers ?? [];
+      // Issue #47: a finished or interrupted subagent no longer sits at the table (liveHelpers).
+      const helpers = liveHelpers(parent);
       const first = helpers[0];
       if (first) notes.set(parent.id, { helper: first, more: helpers.length - 1 });
       const pref: End = xOf(i) > length / 2 ? 'right' : 'left';
@@ -63,7 +64,7 @@ export function layoutTable<S extends AtelierSession>(mains: readonly S[], showH
         else extraHelpers.push({ helper, parent });
       }
     }
-    for (const parent of mains.slice(maxSeats)) for (const helper of parent.helpers ?? []) extraHelpers.push({ helper, parent });
+    for (const parent of mains.slice(maxSeats)) for (const helper of liveHelpers(parent)) extraHelpers.push({ helper, parent });
   }
   const ends: EndSeat<S>[] = (['left', 'right'] as const).flatMap(end => bins[end].map((b, slot) => ({ ...b, end, slot, count: bins[end].length })));
   const extraMains = mains.slice(maxSeats);
