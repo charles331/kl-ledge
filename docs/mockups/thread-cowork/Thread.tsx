@@ -16,6 +16,7 @@ import { parseDiff } from '../../../apps/desktop/src/session/diff';
 import { clock, fmtDur, helperOf, kindOf, summarize, timeMark, verbOf, type Exchange, type Segment } from '../../../apps/desktop/src/session/exchanges';
 import { helperState } from '../../../apps/desktop/src/atelier/layout';
 import { useI18n } from '../../../apps/desktop/src/i18n/lang';
+import { Thumbs } from '../../../apps/desktop/src/images/Thumbs';
 import { cls } from '../../../apps/desktop/src/shell/cls';
 import { SHELL_ICONS } from '../../../apps/desktop/src/shell/icons';
 import { StateBadge } from '../../../apps/desktop/src/shell/SessionBot';
@@ -55,7 +56,7 @@ function Step({ tool, now, onChange }: { tool: ToolItem; now: number; onChange(p
 
 /** A run of actions, folded to one line that says how many, of which kinds, and how long; a failed one stays in sight under
  *  it. The action still running is not in it: the foot of the thread says it. */
-function Steps({ tools, now, onChange }: { tools: ToolItem[]; now: number; onChange(path: string): void }): JSX.Element | null {
+function Steps({ tools, now, onChange, shots }: { tools: ToolItem[]; now: number; onChange(path: string): void; shots: Pick<ThreadProps, 'client' | 'onCapture'> & { id: string; who: string } }): JSX.Element | null {
   const { t, lang } = useI18n();
   const th = t.session.thread;
   const [open, setOpen] = useState(false);
@@ -75,6 +76,11 @@ function Steps({ tools, now, onChange }: { tools: ToolItem[]; now: number; onCha
       {open
         ? <ol className="cw-steps-list">{done.map(x => <Step key={x.id} tool={x} now={now} onChange={onChange} />)}</ol>
         : s.failed > 0 && <ol className="cw-steps-list">{done.filter(x => x.status === 'failed').map(x => <Step key={x.id} tool={x} now={now} onChange={onChange} />)}</ol>}
+      {/* What the actions captured (a browser screenshot) stays in sight under the line, folded or not. */}
+      {tools.filter(x => x.images?.length).map(x => (
+        <Thumbs key={x.id} className="cw-images" client={shots.client} refs={x.images!} route={{ id: shots.id }} max={{ w: 420, h: 260 }} who={shots.who} at={clock(x.at)} alt={t.images.capture} tag
+          onOpen={shots.onCapture && (i => shots.onCapture!(x.id, i))} />
+      ))}
     </div>
   );
 }
@@ -104,11 +110,11 @@ function FileChips({ tools, cwd, onChange }: { tools: ToolItem[]; cwd: string; o
   );
 }
 
-interface TurnProps extends Pick<ThreadProps, 'session' | 'items' | 'now' | 'dispatch' | 'onChange' | 'onDocument' | 'planOpen' | 'onPlan'> { x: Exchange; last: boolean; at: string; busy: boolean }
+interface TurnProps extends Pick<ThreadProps, 'client' | 'onCapture' | 'session' | 'items' | 'now' | 'dispatch' | 'onChange' | 'onDocument' | 'planOpen' | 'onPlan'> { x: Exchange; last: boolean; at: string; busy: boolean }
 
 /** One exchange: the request, then what the agent said and did. A past exchange keeps its request and its answer in sight and
  *  folds everything between the two under « Travail »; the one under way shows each text as it comes. */
-const Turn = memo(function Turn({ x, last, at, busy, session, items, now, dispatch, onChange, onDocument, planOpen, onPlan }: TurnProps): JSX.Element {
+const Turn = memo(function Turn({ x, last, at, busy, client, onCapture, session, items, now, dispatch, onChange, onDocument, planOpen, onPlan }: TurnProps): JSX.Element {
   const { t, lang } = useI18n();
   const th = t.session.thread;
   const [unfolded, setUnfolded] = useState(false);
@@ -121,7 +127,7 @@ const Turn = memo(function Turn({ x, last, at, busy, session, items, now, dispat
 
   const segment = (s: Segment, i: number): ReactNode => {
     if (s.kind === 'say') return s.item.text !== '' && <div key={s.item.id} className="cw-say agent-message"><div className="msg-body"><ThreadMarkdown text={s.item.text} onDocument={ref => onDocument(ref.path)} /></div></div>;
-    if (s.kind === 'tools') return <Steps key={s.key} tools={s.tools} now={now} onChange={onChange} />;
+    if (s.kind === 'tools') return <Steps key={s.key} tools={s.tools} now={now} onChange={onChange} shots={{ client, onCapture, id: session.id, who: session.name }} />;
     if (s.kind === 'decision') return (
       <div key={s.item.id} className={cls('cw-decision', s.item.decision)}>
         <span className="cw-decision-chip"><b>{DECIDED[s.item.decision!]}</b><code className="mono">{s.item.text}</code></span>
@@ -149,6 +155,7 @@ const Turn = memo(function Turn({ x, last, at, busy, session, items, now, dispat
         <div className={cls('cw-you', x.prompt.from === 'parent' && 'from-agent')}>
           {x.prompt.from === 'parent' && <span className="cw-you-who">{th.fromParent(session.name)}</span>}
           <p className="cw-bubble">{x.prompt.text}</p>
+          {x.prompt.images && <Thumbs className="cw-images" client={client} refs={x.prompt.images} route={{ id: session.id }} max={{ w: 420, h: 260 }} who={th.you} at={clock(x.at)} align="end" />}
           <span className="cw-time mono">{at}</span>
         </div>
       )}
@@ -180,7 +187,7 @@ function Card({ title, count, children }: { title: string; count?: string; child
   );
 }
 
-function Cowork({ session, helper, items, xs, now, dispatch, onChange, onDocument, planOpen, onPlan, waiting = null }: ThreadProps): JSX.Element {
+function Cowork({ client, onCapture, session, helper, items, xs, now, dispatch, onChange, onDocument, planOpen, onPlan, waiting = null }: ThreadProps): JSX.Element {
   const { t, lang } = useI18n();
   const th = t.session.thread;
   const offline = session.offline === true;
@@ -199,7 +206,7 @@ function Cowork({ session, helper, items, xs, now, dispatch, onChange, onDocumen
       <ol className="cw-col">
         {xs.map((x, i) => (
           <Turn key={x.key} x={x} last={i === xs.length - 1} at={timeMark(x.at, now, lang)} busy={i === xs.length - 1 && (working || waiting !== null)}
-            session={session} items={items} now={now} dispatch={dispatch} onChange={onChange} onDocument={onDocument} planOpen={planOpen} onPlan={onPlan} />
+            client={client} onCapture={onCapture} session={session} items={items} now={now} dispatch={dispatch} onChange={onChange} onDocument={onDocument} planOpen={planOpen} onPlan={onPlan} />
         ))}
         {(working || waiting) && (
           <li key="foot" className={cls('cw-foot', waiting && 'waiting')} role="status">

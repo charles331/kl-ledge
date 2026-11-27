@@ -170,3 +170,6 @@ button.cw-send { flex: none; display: inline-flex; align-items: center; justify-
 button.cw-send:disabled { background: var(--at-raise); color: var(--at-ink2); cursor: default; }
 button.cw-send.stop { background: var(--at-ink); color: var(--at-pane); }
 button.cw-send.stop i { width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+
+/* Images of a request, captures of an action: thumbnails in the column. */
+.cw-images { max-width: 100%; }

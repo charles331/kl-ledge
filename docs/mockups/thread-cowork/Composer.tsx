@@ -19,12 +19,18 @@ export function useComposerMode(id: string): Mode {
   return cowork ? mode : null;
 }
 
-export function Composer({ client, session, filled, shut, btw }: { client?: DaemonClient; session: Session; filled: boolean; shut: boolean; btw: boolean }): JSX.Element | null {
+export function Composer({ client, session, filled, shut, btw, ownStop, stopping }: {
+  client?: DaemonClient; session: Session; filled: boolean; shut: boolean; btw: boolean;
+  /** A harness driven over its own protocol (OMP) stops with its own command, which gives back what waited in its queue, and can
+   *  be stopped while it waits too: Reply.tsx's `stop`, when it applies. */
+  ownStop?: () => void; stopping: boolean;
+}): JSX.Element | null {
   const cowork = useSyncExternalStore(subscribeVariant, getVariant, getVariant) === 'cowork';
   const mode = useComposerMode(session.id);
   if (!cowork) return null;
   const working = session.state === 'working' && session.offline !== true;
-  const stops = working && !filled;
+  // The other harnesses are interrupted where the session bar did it: at work, reachable, and nothing typed.
+  const stops = !filled && (ownStop !== undefined || working);
   return (
     <div className={cls('cw-tools', btw && 'btw')}>
       <span className="cw-bar-slot" />
@@ -34,7 +40,8 @@ export function Composer({ client, session, filled, shut, btw }: { client?: Daem
         {mode === 'voice' ? <span className="cw-wave" aria-hidden="true"><i /><i /><i /><i /></span> : <Icon d={MIC} size={15} />}
       </button>
       {stops
-        ? <button type="button" className="cw-send stop" aria-label={`Interrompre ${session.name}`} title={`Interrompre ${session.name}`} onClick={() => client?.send({ type: 'session.interrupt', id: session.id })}><i aria-hidden="true" /></button>
+        ? <button type="button" className="cw-send stop" aria-label={`Interrompre ${session.name}`} title={`Interrompre ${session.name}`} disabled={stopping}
+            onClick={ownStop ?? (() => client?.send({ type: 'session.interrupt', id: session.id }))}><i aria-hidden="true" /></button>
         : <button type="submit" className="cw-send" disabled={!filled || shut} aria-label={btw ? 'Demander en aparté' : 'Envoyer'} title={btw ? 'Demander en aparté' : 'Envoyer'}><Icon d={ICONS.send.d} size={15} /></button>}
     </div>
   );
