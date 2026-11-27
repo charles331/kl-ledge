@@ -1016,6 +1016,7 @@ export const en: Messages = {
       queueLabel: 'Waiting instructions', queued: (n: number) => `Waiting (${n})`, queueSteer: 'redirect', queueAfter: 'after this turn', restore: 'Interrupt and take back', restoreTitle: 'Stops the work and puts the waiting instructions back in the field',
       queueTitle: (n: number) => pluralEn(n, `${n} message waiting`, `${n} messages waiting`), queueOrder: 'sent in order', queueNow: 'now', queueLater: 'after the turn', queueTakeBack: 'Stop and take back',
       // The reply field's bottom row (#41, #39), approved by the owner on 2026-11-27.
+      asideWait: (n: string) => `${n} is answering aside: you can send once it has answered.`,
       interruptName: (n: string) => `Interrupt ${n}`, askAside: 'Ask aside', btwNote: (n: string) => `Aside: ${n} answers without stopping, outside the thread`,
       dictate: 'Dictate', dictateTitle: 'Dictate (Win+H) · Windows voice typing', dictateUnavailable: 'Dictation is only available in Ledge Desktop.',
       noNote: 'This agent takes no message with a refusal: deny with N.', tooLong: (max) => `A note holds ${max} characters at most.`
@@ -1068,7 +1069,21 @@ export const en: Messages = {
       aside: {
         tag: 'btw', head: (n) => `Aside · outside the thread, ${n} keeps working`, close: 'Close the aside',
         asking: (n) => `${n} is answering aside…`,
-        unreadable: (n) => `Ledge could not read the answer: it is in ${n}'s terminal.`, seeTerminal: 'Open the Terminal view'
+        // Failure by cause, an answer cut short, a lost connection: proposed by design-ux, approved by the owner on 2026-11-27 (review of #41).
+        failed: {
+          unreadable: (n) => `Ledge could not read the answer: it is in ${n}’s terminal.`,
+          timeout: (n) => `The answer took too long: it may be incomplete, in ${n}’s terminal.`,
+          not_empty: (n) => `Unsent text is waiting in ${n}’s terminal: the aside was not asked. Send or clear that text, then ask again.`,
+          busy: (n) => `${n} cannot take an aside right now: ask again in a moment.`,
+          no_panel: (n) => `${n} did not open the aside: nothing was answered. This Claude Code may not know /btw.`,
+          interrupted: (n) => `The aside was cut off before the answer, by a request or by ${n} stopping.`,
+          invalid: () => 'The aside did not go through.',
+          unsupported: () => 'The aside did not go through: Ledge cannot type /btw into this session.',
+          read_only: () => 'The aside did not go through: Ledge cannot type /btw into this session.'
+        },
+        truncated: (n) => `Answer cut short: the rest is in ${n}’s terminal.`,
+        offline: (m, n) => `The connection to ${m} dropped before the answer: check ${n}’s terminal once reconnected.`,
+        seeTerminal: 'Open the Terminal view'
       },
       endFailed: (n, recovered) => `${n} failed` + (recovered ? ', recovered' : ''),
       subagent: 'subagent', openThread: (n) => `Open ${n}'s thread`,

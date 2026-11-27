@@ -93,4 +93,52 @@ describe('the thread (issues #34, #41)', () => {
     await waitFor(() => expect([...document.querySelectorAll('.session-menu-head small')].map(x => x.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('ST7-123'), expect.stringContaining('Implementation')])));
     expect(thread().getByText('Je m’y mets.')).toBeVisible();
   });
+
+  it('a past exchange kept open by an action still running neither ends nor shows its files until it stops (#41 review)', async () => {
+    const edit = { kind: 'tool' as const, id: 'e', at: ago(110), turn: 1, tool: 'Edit', label: '/w/ledge/a.ts', status: 'success' as const, durationMs: 100, files: [{ path: '/w/ledge/a.ts', change: 'edit' as const, diff: '- a\n+ b' }] };
+    const bg = { kind: 'tool' as const, id: 'bg', at: ago(105), turn: 1, tool: 'Bash', label: 'npm run watch', status: 'running' as const, files: [] };
+    const { d } = await open('Bix', 'bix', [
+      { kind: 'prompt', id: 'p1', at: ago(120), turn: 1, text: 'Lance la veille' }, edit, bg,
+      { kind: 'reply', id: 'r1', at: ago(100), turn: 1, text: 'Lancée.' },
+      { kind: 'prompt', id: 'p2', at: ago(60), turn: 2, text: 'Et ensuite ?' }, { kind: 'reply', id: 'r2', at: ago(50), turn: 2, text: 'On attend.' }
+    ]);
+    const past = () => thread().getByText('Lance la veille').closest<HTMLElement>('.turn')!;
+    expect(past().querySelector('.end-row')).toBeNull();
+    expect(past().querySelector('.cw-files')).toBeNull();
+    d.threadItem('bix', { ...bg, status: 'success', durationMs: 4000 });
+    await waitFor(() => expect(past().querySelector('.cw-files')).not.toBeNull());
+  });
+
+  it('an action that fails after it showed opens its output (#41 review)', async () => {
+    const run = { kind: 'tool' as const, id: 't', at: ago(30), turn: 1, tool: 'Bash', label: 'npm test', status: 'running' as const, files: [] };
+    const { d } = await open('Bix', 'bix', [{ kind: 'prompt', id: 'p', at: ago(40), turn: 1, text: 'Teste' }, run, { kind: 'tool', id: 'u', at: ago(20), turn: 1, tool: 'Read', label: '/w/ledge/a.ts', status: 'running', files: [] }]);
+    expect(document.querySelector('[data-tool="t"]')).not.toBeNull();
+    d.threadItem('bix', { ...run, status: 'failed', durationMs: 900, error: 'exit 1' });
+    await waitFor(() => expect(document.querySelector('[data-tool="t"] .action-output')).toHaveTextContent('exit 1'));
+  });
+
+  it('an exchange that ends on actions alone still shows the files it changed (#41 review)', async () => {
+    await open('Bix', 'bix', [
+      { kind: 'prompt', id: 'p', at: ago(40), turn: 1, text: 'Corrige' },
+      { kind: 'tool', id: 'e', at: ago(30), turn: 1, tool: 'Edit', label: '/w/ledge/a.ts', status: 'success', durationMs: 100, files: [{ path: '/w/ledge/a.ts', change: 'edit', diff: '- a\n+ b' }] }
+    ]);
+    expect(document.querySelector('.turn.current .cw-files')).toHaveTextContent('a.ts+1−1');
+  });
+
+  it('a subagent at work shows its running action in place of its task; done, how many actions and how long (#41 review)', async () => {
+    const { d } = await open('Nova', 'nova', [
+      { kind: 'prompt', id: 'p', at: ago(60), turn: 1, text: 'Explore' },
+      { kind: 'helper', id: 'h1', at: ago(50), turn: 1, task: 'Lire le code', agentType: 'Explore', state: 'working' },
+      { kind: 'tool', id: 'h-a', at: ago(45), turn: 1, helperId: 'h1', tool: 'Read', label: '/w/ledge/src/App.tsx', status: 'success', durationMs: 2000, files: [] },
+      { kind: 'tool', id: 'h-b', at: ago(40), turn: 1, helperId: 'h1', tool: 'Grep', label: 'useKeys', status: 'running', files: [] }
+    ], [{ id: 'h1', kind: 'Explore', task: 'Lire le code', state: 'working' }]);
+    const row = () => document.querySelector<HTMLElement>('.cw-helper[data-helper="h1"]')!;
+    expect(row().querySelector('.cw-helper-doing')).toHaveTextContent('Search useKeys');
+    expect(row()).toHaveAttribute('title', 'Lire le code');
+    expect(row().querySelector('.cw-helper-tally')).toBeNull();
+    d.threadItem('nova', { kind: 'tool', id: 'h-b', at: ago(40), turn: 1, helperId: 'h1', tool: 'Grep', label: 'useKeys', status: 'success', durationMs: 1000, files: [] });
+    d.upsert({ ...listSessions().find(x => x.id === 'nova')!, helpers: [{ id: 'h1', kind: 'Explore', task: 'Lire le code', state: 'exited' }] });
+    await waitFor(() => expect(row().querySelector('.cw-helper-tally')).toHaveTextContent('2 actions · 3.0 s'));
+    expect(row()).toHaveTextContent('Lire le code');
+  });
 });

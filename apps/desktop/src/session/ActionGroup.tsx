@@ -40,7 +40,9 @@ export function Spin({ live }: { live: boolean }): JSX.Element {
 function Step({ tool, now, live, flash, onChange }: { tool: ToolItem; now: number; live: boolean; flash: boolean; onChange(path: string): void }): JSX.Element {
   const { t, lang } = useI18n();
   const th = t.session.thread;
-  const [open, setOpen] = useState(tool.status === 'failed');
+  // Flipped by the reader from what its state shows: a failed action's output is open, even one that failed after it showed.
+  const [flipped, setFlipped] = useState(false);
+  const open = flipped !== (tool.status === 'failed');
   const f = tool.files[0];
   const delta = useMemo(() => (f?.diff ? parseDiff(f.diff) : null), [f?.diff]);
   const running = tool.status === 'running';
@@ -57,7 +59,7 @@ function Step({ tool, now, live, flash, onChange }: { tool: ToolItem; now: numbe
             : <Icon d={KIND_ICON[kindOf(tool.tool)]} size={13} />}
         </span>
         <span className="cw-step-verb action-verb">{th.verbs[verbOf(tool)]}</span>
-        <button type="button" className="cw-step-target action-target mono" title={tool.label} disabled={!detail} aria-expanded={detail ? open : undefined} onClick={() => setOpen(o => !o)}>{target(tool) || tool.tool}</button>
+        <button type="button" className="cw-step-target action-target mono" title={tool.label} disabled={!detail} aria-expanded={detail ? open : undefined} onClick={() => setFlipped(f => !f)}>{target(tool) || tool.tool}</button>
         {failed && <span className="cw-tag danger">{th.marks.failed}</span>}
         {tool.byClose && <span className="cw-tag danger">{th.questionByClose}</span>}
         {delta && <span className="cw-delta mono"><b>+{delta.plus}</b>{delta.minus > 0 && <i>−{delta.minus}</i>}</span>}

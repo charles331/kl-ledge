@@ -29,7 +29,7 @@ import { ArchivedBanner } from '../manage/ArchivedBanner';
 import type { SessionActions } from '../manage/useSessionActions';
 import { Reply } from './Reply';
 import { SessionBar } from './SessionBar';
-import { forgetAsides } from './asides';
+import { failAsking, forgetAsides } from './asides';
 import { usePublishTabExtras } from '../ide/tabExtras';
 import { reliefText } from './relief';
 import type { Link } from '../workspace/model';
@@ -512,6 +512,8 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
   const onAsideTerminal = seat === 'stopped' ? undefined : onAsideTerminalStable;
   // Asides do not outlive the session's page (its tab): they are outside the thread (#41).
   useEffect(() => () => forgetAsides(session.id), [session.id]);
+  // Offline, an aside still waiting will not be answered: the daemon keeps them in memory only.
+  useEffect(() => { if (session.offline === true) failAsking(session.id); }, [session.offline, session.id]);
   // The session bar goes in the reply field's bottom row when there is a field (#41).
   const barInField = !!p.ide && view === 'thread' && !archived && seat === null && session.offline !== true && session.source !== 'hook_only' && !helper;
   const sessionBar = (inField: boolean) => (

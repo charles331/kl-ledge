@@ -7,14 +7,16 @@ import type { Aside, Session } from '@ledge/protocol';
  * here are kept: a daemon replays its last asides after each snapshot, which serves a reconnection while one is under way, not a
  * history (they do not outlive the session's tab: `forgetAsides`).
  */
-const bySession = new Map<string, readonly Aside[]>();
+/** An aside as this window holds it: what its daemon said, and `offline` when it failed because its machine went offline. */
+export type HeldAside = Aside & { offline?: true };
+const bySession = new Map<string, readonly HeldAside[]>();
 const listeners = new Set<() => void>();
-const NONE: readonly Aside[] = [];
+const NONE: readonly HeldAside[] = [];
 let next = 0;
 const emit = () => { for (const l of listeners) l(); };
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 
-export const asidesOf = (id: string): readonly Aside[] => bySession.get(id) ?? NONE;
+export const asidesOf = (id: string): readonly HeldAside[] => bySession.get(id) ?? NONE;
 
 /** Asks `question` aside of session `id` (its qualified id). The aside shows at once, « asking », until the daemon answers. */
 export function askAside(client: DaemonClient, id: string, question: string): void {
@@ -30,13 +32,21 @@ export function closeAside(id: string, rid: string): void {
   emit();
 }
 
+/** A session's asides still waiting for their answer fail: its machine went offline, and the daemon that comes back has lost them. */
+export function failAsking(id: string): void {
+  const list = asidesOf(id);
+  if (!list.some(a => a.state === 'asking')) return;
+  bySession.set(id, list.map(a => (a.state === 'asking' ? { ...a, state: 'failed', cause: 'interrupted', offline: true } : a)));
+  emit();
+}
+
 /** Forgets a session's asides: its tab closed. */
 export function forgetAsides(id: string): void {
   if (bySession.delete(id)) emit();
 }
 
 /** A session's asides, kept up to date with what its daemon says of the ones asked here. */
-export function useAsides(client: DaemonClient, id: string): readonly Aside[] {
+export function useAsides(client: DaemonClient, id: string): readonly HeldAside[] {
   useEffect(() => client.onMessage(m => {
     if (m.type !== 'session.aside' || m.id !== id || !('aside' in m)) return;
     const list = asidesOf(id);

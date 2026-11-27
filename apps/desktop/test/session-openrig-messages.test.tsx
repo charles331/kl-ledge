@@ -53,6 +53,8 @@ describe('OpenRig messages in a seat’s thread', () => {
     expect(card).toHaveAttribute('data-rig', 'message');
     expect(thread().queryByText('Vous')).toBeNull();
     expect(card).toHaveTextContent(/De.*Bix.*pilot-lead/);
+    // The sender by name alone: no mascot in the thread (#41, the owner, 2026-11-27).
+    expect(card.querySelector('.bot')).toBeNull();
     // Same rig as the thread's session: no rig tag.
     expect(card.querySelector('.rigtag')).toBeNull();
     expect(within(card).getByRole('button', { name: 'voir son fil' })).toBeVisible();

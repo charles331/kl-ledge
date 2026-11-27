@@ -1,10 +1,11 @@
 import { Fragment, memo, useCallback, useMemo, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
 import { daemonStore, qualify, splitId, type DaemonClient } from '@ledge/fleet';
-import { doneCount, latestTodos, type Aside, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
+import { doneCount, latestTodos, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
 import type { BotState } from '@ledge/ui/bots/poseFor';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import type { DocumentReference } from '@ledge/ui/documents/references';
 import { elapsedMs, liveTool, target } from '@ledge/ui/thread/tools';
+import { helperThread } from '@ledge/ui/thread/turns';
 import { Badge } from '@ledge/ui/ui/Badge';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
@@ -23,7 +24,8 @@ import { parseDiff } from './diff';
 import { PlanCard } from './PlanCard';
 import { usePastExchanges } from './pastExchanges';
 import { WaitLine } from './WaitLine';
-import { closeAside, useAsides } from './asides';
+import { closeAside, useAsides, type HeldAside } from './asides';
+import { machineOf } from '../nav/agents';
 import { waitOf, type Wait } from './waiting';
 import { clock, displayIds, docRefs, fmtDur, helperOf, peerKey, planTitle, summarize, timeMark, verbOf, type Exchange, type Segment } from './exchanges';
 import { marksOf, tagLabel, taskOf, type Marked, type SynapseTags, type TaskNotice } from './markers';
@@ -82,7 +84,7 @@ const Say = memo(function Say({ kind, text, at, onDocument }: { kind: 'message' 
   const refs = useMemo(() => docRefs(text), [text]);
   const onLink = useCallback((ref: DocumentReference) => onDocument(ref.path), [onDocument]);
   return (
-    <li className={`cw-say agent-message say ${kind}`}>
+    <li className={`cw-say agent-message ${kind}`}>
       <div className="msg-body"><ThreadMarkdown text={text} onDocument={onLink} /></div>
       {refs.map(path => (
         <button key={path} type="button" className="document-card doc" onClick={() => onDocument(path)}>
@@ -328,12 +330,20 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
     else if (s.kind === 'plan') node = <li className="cw-plan plan-row"><PlanCard plan={s.plan} open={planOpen === s.plan.key} onOpen={onPlan} /></li>;
     else if (s.kind === 'helper') {
       const h = helperOf(session, items, s.item.id, t.session.subagent)!;
+      const state = helperState(h);
+      // Its activity (validated with design-ux, 2026-11-27): the action it runs in place of its task, then, once it stopped
+      // working, how many actions it made and how long they took.
+      const own = helperThread([...items], s.item.id).items.filter((i): i is ToolItem => i.kind === 'tool');
+      const doing = offline ? undefined : liveTool(own);
+      const ms = own.reduce((n, x) => n + (x.durationMs ?? 0), 0);
       node = (
         <li className="cw-helper-row">
-          <button type="button" className="cw-helper" data-helper={s.item.id} aria-label={th.openThread(h.kind)} title={th.openThread(h.kind)} onClick={() => dispatch({ type: 'open', id: session.id, helper: s.item.id })}>
+          <button type="button" className="cw-helper" data-helper={s.item.id} aria-label={th.openThread(h.kind)} title={s.item.task} onClick={() => dispatch({ type: 'open', id: session.id, helper: s.item.id })}>
             <span className="cw-helper-ico"><Icon d={SHELL_ICONS.subagents} size={14} /></span>
-            <span className="cw-helper-text"><strong>{h.kind}</strong><span>{s.item.task}</span></span>
-            <StateBadge state={helperState(h)} offline={offline} />
+            <span className="cw-helper-text"><strong>{h.kind}</strong>
+              {doing ? <span className="cw-helper-doing">{th.verbs[verbOf(doing)]} <code className="mono">{target(doing) || doing.tool}</code></span> : <span>{s.item.task}</span>}</span>
+            {!doing && state !== 'working' && own.length > 0 && <span className="cw-helper-tally mono">{th.actions(own.length)}{ms > 0 && ` · ${fmtDur(ms, lang)}`}</span>}
+            <StateBadge state={state} offline={offline} />
             <Icon d={ICONS.chevronRight.d} size={13} />
           </button>
         </li>
@@ -344,7 +354,9 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
     return <Fragment key={item.id}>{marker(item.id)}{node}</Fragment>;
   };
 
-  const ended = tools.length > 0 && !busy && !(last && offline);
+  // An action still running keeps the exchange from ending, past or not (a command left in the background).
+  const running = sum.running !== null;
+  const ended = tools.length > 0 && !busy && !running && !(last && offline);
   const lastTool = tools.at(-1);
   const failedText = sum.failed > 0 && th.endFailed(sum.failed, false);
   return (
@@ -381,7 +393,7 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
           </li>
         )}
         {body.map(segment)}
-        {!busy && answerAt >= 0 && <FileChips tools={tools} cwd={session.cwd} onChange={onChange} />}
+        {!busy && !running && <FileChips tools={tools} cwd={session.cwd} onChange={onChange} />}
         {ended && (!fold || unfolded) && (
           <li className="cw-end end-row">
             <span className="end-text">
@@ -578,9 +590,13 @@ function Foot({ run, waiting, wait, thinking, seedKey, now }: {
 
 /** An aside (« /btw », #41) under the thread, marked as outside it: its question, then « Nova répond en aparté… », its answer, or
  *  that Ledge could not read it (any failure: the answer is in the terminal). */
-function AsideCard({ aside, name, onClose, onDocument, onTerminal }: { aside: Aside; name: string; onClose(): void; onDocument(path: string): void; onTerminal?(): void }): JSX.Element {
+function AsideCard({ aside, name, machine, onClose, onDocument, onTerminal }: { aside: HeldAside; name: string; machine: string; onClose(): void; onDocument(path: string): void; onTerminal?(): void }): JSX.Element {
   const { t } = useI18n();
   const ta = t.session.thread.aside;
+  const cause = aside.cause ?? 'invalid';
+  // The Terminal view helps wherever the answer or the reason is on the agent's screen: not where Ledge cannot type, nor offline.
+  const link = onTerminal && !aside.offline && cause !== 'unsupported' && cause !== 'read_only'
+    && <button type="button" className="cw-link" onClick={onTerminal}>{ta.seeTerminal}</button>;
   return (
     <li className="cw-aside">
       <div className="cw-aside-head">
@@ -588,10 +604,12 @@ function AsideCard({ aside, name, onClose, onDocument, onTerminal }: { aside: As
         <button type="button" aria-label={ta.close} title={ta.close} onClick={onClose}><Icon d={ICONS.close.d} size={13} /></button>
       </div>
       <p className="cw-aside-q">{aside.question}</p>
-      {aside.state === 'answered' && aside.answer !== undefined
-        ? <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={aside.answer} onDocument={ref => onDocument(ref.path)} /></div></div>
+      {aside.state === 'answered' && aside.answer !== undefined ? <>
+        <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={aside.answer} onDocument={ref => onDocument(ref.path)} /></div></div>
+        {aside.truncated && <div className="cw-aside-cut"><span>{ta.truncated(name)}</span>{onTerminal && <button type="button" className="cw-link" onClick={onTerminal}>{ta.seeTerminal}</button>}</div>}
+      </>
         : aside.state === 'asking' ? <p className="cw-aside-wait cw-shimmer" role="status">{ta.asking(name)}</p>
-        : <div className="cw-aside-failed" role="status"><span>{ta.unreadable(name)}</span>{onTerminal && <button type="button" className="cw-link" onClick={onTerminal}>{ta.seeTerminal}</button>}</div>}
+        : <div className="cw-aside-failed" role="status"><span>{aside.offline ? ta.offline(machine, name) : ta.failed[cause](name)}</span>{link}</div>}
     </li>
   );
 }
@@ -599,7 +617,7 @@ function AsideCard({ aside, name, onClose, onDocument, onTerminal }: { aside: As
 /** The asides asked here of the session, under the thread: their own component, so their store's changes leave the thread alone. */
 function Asides({ client, session, onDocument, onTerminal }: Pick<ThreadProps, 'client' | 'session' | 'onDocument' | 'onTerminal'>): JSX.Element {
   const asides = useAsides(client, session.id);
-  return <>{asides.map(a => <AsideCard key={a.rid} aside={a} name={session.name} onClose={() => closeAside(session.id, a.rid)} onDocument={onDocument} onTerminal={onTerminal} />)}</>;
+  return <>{asides.map(a => <AsideCard key={a.rid} aside={a} name={session.name} machine={machineOf(session)} onClose={() => closeAside(session.id, a.rid)} onDocument={onDocument} onTerminal={onTerminal} />)}</>;
 }
 
 /** The session thread as a conversation, in the manner of Claude Desktop's « Cowork » (docs/mockups/ledge-thread-cowork.html,

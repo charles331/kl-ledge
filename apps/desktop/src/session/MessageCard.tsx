@@ -1,11 +1,10 @@
-import { useState, type JSX, type ReactNode } from 'react';
+import { useState, type JSX } from 'react';
 import type { ReceivedItem, SentItem, Session } from '@ledge/protocol';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
 import { cls } from '../shell/cls';
 import { SHELL_ICONS } from '../shell/icons';
-import { SessionBot } from '../shell/SessionBot';
 
 /** A delivery's mark: on the card, its folded line, and the Conversation tab's bubbles. */
 export const STATUS_MARK: Record<SentItem['status'], string> = { delivered: '✓', read: '✓✓', sending: '…', failed: '✕' };
@@ -52,7 +51,6 @@ export function MessageCard({ item, self, peer, header, folded, lit, time, onFol
   const peerName = peer?.name ?? (sent ? item.to : item.from);
   const me = { name: self.name, session: self }, them = { name: peerName, session: peer };
   const [from, to] = sent ? [me, them] : [them, me];
-  const bot = (who: typeof me | typeof them, size: number): ReactNode => who.session ? <SessionBot session={who.session} size={size} /> : null;
   const paired = sent ? item.received : item.sent;
   const lineText = sent && item.summary ? item.summary : firstLine(item.text);
   const node = <span className="n node" aria-hidden="true"><Icon d={sent ? SHELL_ICONS.mail : SHELL_ICONS.restore} size={12} /></span>;
@@ -78,7 +76,7 @@ export function MessageCard({ item, self, peer, header, folded, lit, time, onFol
     <li className={`r message-row ${item.kind}`}>
       {node}
       <button type="button" className={cls('message-line', item.kind, lit && 'lit')} data-message={item.id} onClick={onFold}>
-        <span className="message-route">{bot(from, 14)}<strong>{from.name}</strong><Icon d={SHELL_ICONS.arrowRight} size={11} /><strong>{to.name}</strong></span>
+        <span className="message-route"><strong>{from.name}</strong><Icon d={SHELL_ICONS.arrowRight} size={11} /><strong>{to.name}</strong></span>
         <span className="message-line-text">{lineText}</span>
         {sent && <Status item={item} peer={peerName} short />}
       </button>
@@ -93,7 +91,7 @@ export function MessageCard({ item, self, peer, header, folded, lit, time, onFol
       <div className={cls('message-card', item.kind, lit && 'lit')} data-message={item.id} role="article">
         <span className="visually-hidden message-kicker">{sent ? tm.sent : tm.received}</span>
         <span className="who message-route">
-          {sent ? tm.to : tm.from} {bot(sent ? to : from, 14)}<strong>{peerName}</strong>
+          {sent ? tm.to : tm.from} <strong>{peerName}</strong>
           {sent && <> · <Status item={item} peer={peerName} /></>}
           {peer && (!sent || paired) && <> · <button type="button" className="lnk message-link" title={tm.seeIn(peerName)} onClick={onOpenPeer}>{tm.seeTheirs}</button></>}
           {onFollow && <> · <button type="button" className="lnk message-link" title={tc.followTitle(peerName)} onClick={onFollow}>{tc.follow}</button></>}

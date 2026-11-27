@@ -256,9 +256,9 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
     : ide ? (session.rig ? t.ide.replyPlaceholderSeat(name) : t.ide.replyPlaceholder(name)) : tr.placeholder.idle(name);
   // In the IDE only the hints that give a reason (why the field is shut, why Enter will not send, what is under way) or say
   // what Enter does when it does not plainly send: a refusal's note, a plan's revision, a queued turn, a slash command.
-  const reason = !btw && !!(stopping || (chosen && !pending) || bare || (withImages && pending) || askCard || optionsOnly || noteless || tooLong
-    || (isNote && text) || (working && text));
-  const hint = stopping ? tr.stopping
+  const reason = asking || (!btw && !!(stopping || (chosen && !pending) || bare || (withImages && pending) || askCard || optionsOnly || noteless || tooLong
+    || (isNote && text) || (working && text)));
+  const hint = asking && !stopping ? tr.asideWait(name) : stopping ? tr.stopping
     : chosen?.blocked && !pending ? <span className="slash-warn">{t.session.slash.blocked[chosen.blocked]}</span>
     : bare ? <span className="slash-warn">{t.session.slash.bare(chosen!.name)}</span>
     : chosen && !pending ? <><Kbd>↵</Kbd> {t.session.slash.sends(name)}</>
@@ -322,7 +322,7 @@ export function Reply({ session, helper, asker, since, decisions, memory, memoKe
                     aria-label={stoppable ? (stopping ? tr.stopping : tr.stop(name)) : tr.interruptName(name)} title={stoppable ? tr.stopTitle : tr.interruptName(name)}>
                     {stopping ? <span className="reply-stop-spin" aria-hidden="true" /> : <i aria-hidden="true" />}</button>
                 : <button type="submit" className="cw-send" disabled={asking || (btw ? !asideQuestion(text) : (!text && !withImages) || shut || tooLong || busy || !imagesOk)}
-                    aria-label={btw ? tr.askAside : sort === 'approval' ? tr.denyWith : working ? tr.queue : tr.send} title={btw ? tr.askAside : undefined}><Icon d={ICONS.send.d} size={15} /></button>}
+                    aria-label={btw ? tr.askAside : sort === 'approval' ? tr.denyWith : working ? tr.queue : tr.send} title={asking ? tr.asideWait(name) : btw ? tr.askAside : undefined}><Icon d={ICONS.send.d} size={15} /></button>}
             </div>
           ) : stoppable && client && !text && !askCard
             ? <Button variant="primary" size="icon" type="button" className="reply-stop" onClick={stop} disabled={stopping} aria-label={stopping ? tr.stopping : tr.stop(session.name)} title={tr.stopTitle}

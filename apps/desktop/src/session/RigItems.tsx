@@ -16,7 +16,6 @@ import { useRigRow } from '@ledge/fleet/openrig';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import { useI18n } from '../i18n/lang';
 import { cls } from '../shell/cls';
-import { SessionBot } from '../shell/SessionBot';
 import { STATUS_MARK } from './MessageCard';
 import { clock } from './exchanges';
 
@@ -79,7 +78,7 @@ export function RawDetails({ raw, label }: { raw: string; label: string }): JSX.
   );
 }
 
-/** Who wrote it: « De » / « À », the bot when Ledge knows the seat, its name, its seat in mono, its rig when it is not the thread's. */
+/** Who wrote it: « De » / « À », its name alone (no mascot in the thread, #41), its seat in mono, its rig when it is not the thread's. */
 function Who({ dir, address, session, selfRig, extra }: { dir: 'from' | 'to'; address: string | undefined; session: Session | null; selfRig?: string; extra?: ReactNode }): JSX.Element {
   const { t } = useI18n();
   const r = t.session.rig;
@@ -87,7 +86,6 @@ function Who({ dir, address, session, selfRig, extra }: { dir: 'from' | 'to'; ad
   return (
     <span className="who rig-who">
       <span>{dir === 'from' ? r.from : r.to}</span>
-      {session && <SessionBot session={session} size={14} />}
       <strong>{nameOf(address, session)}</strong>
       {address && <span className="seat">{seatOf(address)}</span>}
       {rig && rig !== selfRig && <span className="rigtag">{rig}</span>}

@@ -1071,6 +1071,7 @@ export const fr = {
       queueLabel: 'Consignes en attente', queued: (n: number) => `En attente (${n})`, queueSteer: 'réorienter', queueAfter: 'après ce tour', restore: 'Interrompre et récupérer', restoreTitle: 'Arrête le travail et remet les consignes en attente dans le champ',
       queueTitle: (n: number) => plural(n, `${n} message en attente`, `${n} messages en attente`), queueOrder: 'partent dans l’ordre', queueNow: 'maintenant', queueLater: 'après le tour', queueTakeBack: 'Arrêter et reprendre',
       // La rangée du bas du champ (#41, #39), validée par jde le 2026-11-27.
+      asideWait: (n: string) => `${n} répond en aparté : vous pourrez envoyer après sa réponse.`,
       interruptName: (n: string) => `Interrompre ${n}`, askAside: 'Demander en aparté', btwNote: (n: string) => `En aparté : ${n} répond sans s’interrompre, hors du fil`,
       dictate: 'Dicter', dictateTitle: 'Dicter (Win+H) · saisie vocale de Windows', dictateUnavailable: 'La dictée n’est disponible que dans Ledge Desktop.',
       noNote: 'Cet agent ne prend pas de message avec un refus : refusez avec N.', tooLong: (max: number) => `Une note tient en ${max} caractères au plus.`
@@ -1126,7 +1127,21 @@ export const fr = {
       aside: {
         tag: 'btw', head: (n: string) => `En aparté · hors du fil, ${n} continue son travail`, close: 'Fermer l’aparté',
         asking: (n: string) => `${n} répond en aparté…`,
-        unreadable: (n: string) => `Ledge n’a pas pu lire la réponse : elle est dans le terminal de ${n}.`, seeTerminal: 'Voir la vue Terminal'
+        // Échec par cause, réponse coupée, déconnexion : proposés par design-ux, validés par jde le 2026-11-27 (revue de #41).
+        failed: {
+          unreadable: (n: string) => `Ledge n’a pas pu lire la réponse : elle est dans le terminal de ${n}.`,
+          timeout: (n: string) => `La réponse a pris trop de temps : elle est peut-être incomplète, dans le terminal de ${n}.`,
+          not_empty: (n: string) => `Un texte non envoyé attend dans le terminal de ${n} : l’aparté n’a pas été posé. Envoyez ou effacez ce texte, puis redemandez.`,
+          busy: (n: string) => `${n} ne peut pas prendre d’aparté pour l’instant : redemandez dans un moment.`,
+          no_panel: (n: string) => `${n} n’a pas ouvert l’aparté : rien n’a été répondu. Ce Claude Code ne connaît peut-être pas /btw.`,
+          interrupted: (n: string) => `L’aparté a été coupé avant la réponse, par une demande ou un arrêt de ${n}.`,
+          invalid: (_n: string) => 'L’aparté n’a pas abouti.',
+          unsupported: (_n: string) => 'L’aparté n’a pas abouti : Ledge ne peut pas écrire /btw dans cette session.',
+          read_only: (_n: string) => 'L’aparté n’a pas abouti : Ledge ne peut pas écrire /btw dans cette session.'
+        } as Record<'unreadable' | 'timeout' | 'not_empty' | 'busy' | 'no_panel' | 'interrupted' | 'invalid' | 'unsupported' | 'read_only', (n: string) => string>,
+        truncated: (n: string) => `Réponse coupée : la suite est dans le terminal de ${n}.`,
+        offline: (m: string, n: string) => `La connexion avec ${m} s’est coupée avant la réponse : regardez le terminal de ${n} à la reconnexion.`,
+        seeTerminal: 'Voir la vue Terminal'
       },
       endFailed: (n: number, recovered: boolean) => plural(n, `${n} échec`, `${n} échecs`) + (recovered ? plural(n, ' rattrapé', ' rattrapés') : ''),
       subagent: 'sous-agent', openThread: (n: string) => `Ouvrir le fil ${deName(n)}`,

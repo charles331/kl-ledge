@@ -9,7 +9,7 @@ import type { Decisions } from '../../src/fleet/decisions';
 import { createSessionMemory } from '../../src/session/memory';
 import { Reply } from '../../src/session/Reply';
 import { Thread } from '../../src/session/Thread';
-import { resetAsidesForTests } from '../../src/session/asides';
+import { failAsking, resetAsidesForTests } from '../../src/session/asides';
 
 // Ledge Desktop or not, and what the voice command was asked.
 const voice = vi.hoisted(() => ({ available: false, calls: 0 }));
@@ -141,8 +141,8 @@ describe('« /btw »: an aside (#41)', () => {
     const { user, sent, emit } = shown({}, { thread: true });
     await user.type(field(), '/btw why?{Enter}');
     const { rid } = sent.find(m => m.type === 'session.aside') as Extract<ClientMessage, { type: 'session.aside' }>;
-    emit({ type: 'session.aside', id: 'otto', aside: { rid, question: 'why?', askedAt: new Date().toISOString(), state: 'failed', cause: 'timeout' } } as ServerMessage);
-    expect(document.querySelector('.cw-aside-failed')).toHaveTextContent('Ledge could not read the answer: it is in Otto\'s terminal.');
+    emit({ type: 'session.aside', id: 'otto', aside: { rid, question: 'why?', askedAt: new Date().toISOString(), state: 'failed', cause: 'unreadable' } } as ServerMessage);
+    expect(document.querySelector('.cw-aside-failed')).toHaveTextContent('Ledge could not read the answer: it is in Otto’s terminal.');
     await user.click(screen.getByRole('button', { name: 'Open the Terminal view' }));
     expect(onTerminal).toHaveBeenCalledOnce();
   });
@@ -160,5 +160,49 @@ describe('« /btw »: an aside (#41)', () => {
     await asked.user.type(field(), '/btw why?');
     expect(row()).not.toHaveClass('btw');
     expect(asked.sent.some(m => m.type === 'session.aside')).toBe(false);
+  });
+
+  it('while an aside is answered, send waits and says why; stopping stays', async () => {
+    const { user } = shown({ state: 'working' }, { thread: true });
+    await user.type(field(), '/btw why?{Enter}');
+    expect(document.querySelector('.reply-hint')).toHaveTextContent('Otto is answering aside: you can send once it has answered.');
+    expect(screen.getByRole('button', { name: 'Interrupt Otto' })).toBeEnabled();
+    await user.type(field(), 'next');
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('title', 'Otto is answering aside: you can send once it has answered.');
+  });
+
+  it.each([
+    ['not_empty', 'Unsent text is waiting in Otto’s terminal: the aside was not asked. Send or clear that text, then ask again.', true],
+    ['busy', 'Otto cannot take an aside right now: ask again in a moment.', true],
+    ['no_panel', 'Otto did not open the aside: nothing was answered. This Claude Code may not know /btw.', true],
+    ['timeout', 'The answer took too long: it may be incomplete, in Otto’s terminal.', true],
+    ['interrupted', 'The aside was cut off before the answer, by a request or by Otto stopping.', true],
+    ['invalid', 'The aside did not go through.', true],
+    ['read_only', 'The aside did not go through: Ledge cannot type /btw into this session.', false]
+  ] as const)('a failed aside says why by its cause: %s', async (cause, text, link) => {
+    const { user, sent, emit } = shown({}, { thread: true });
+    await user.type(field(), '/btw why?{Enter}');
+    const { rid } = sent.find(m => m.type === 'session.aside') as Extract<ClientMessage, { type: 'session.aside' }>;
+    emit({ type: 'session.aside', id: 'otto', aside: { rid, question: 'why?', askedAt: new Date().toISOString(), state: 'failed', cause } } as ServerMessage);
+    expect(document.querySelector('.cw-aside-failed')).toHaveTextContent(text);
+    expect(screen.queryByRole('button', { name: 'Open the Terminal view' }) !== null).toBe(link);
+  });
+
+  it('an answer cut short says the rest is in the terminal', async () => {
+    const { user, sent, emit } = shown({}, { thread: true });
+    await user.type(field(), '/btw why?{Enter}');
+    const { rid } = sent.find(m => m.type === 'session.aside') as Extract<ClientMessage, { type: 'session.aside' }>;
+    emit({ type: 'session.aside', id: 'otto', aside: { rid, question: 'why?', askedAt: new Date().toISOString(), state: 'answered', answer: 'Because…', truncated: true } } as ServerMessage);
+    expect(document.querySelector('.cw-aside-cut')).toHaveTextContent('Answer cut short: the rest is in Otto’s terminal.');
+  });
+
+  it('an aside still waiting when its machine goes offline fails, without the Terminal link', async () => {
+    const { user } = shown({}, { thread: true });
+    await user.type(field(), '/btw why?{Enter}');
+    act(() => failAsking('otto'));
+    expect(document.querySelector('.cw-aside-failed')).toHaveTextContent(/^The connection to .+ dropped before the answer: check Otto’s terminal once reconnected\.$/);
+    expect(screen.queryByRole('button', { name: 'Open the Terminal view' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send' })).not.toHaveAttribute('title');
   });
 });
