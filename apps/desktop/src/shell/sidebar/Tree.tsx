@@ -237,7 +237,7 @@ export function Tree(p: {
   reorder?: { write?: OrderWriter; all(project: string | null): readonly Session[]; notify(text: string): void };
 }): JSX.Element {
   const { t } = useI18n();
-  // Issue #28: under the « Atelier » skin a session that waits says « À toi » in place of its time.
+  // Issue #28: under the « Atelier » skin a session that waits says what it waits for (« Accord », « Question », « Erreur », #40 PR 3) in place of its time.
   const skin = useSkin();
   // What the eye shows of a group (its finished sessions may be hidden, unless « +N finished » showed them): a move steps over the rest.
   const shownIn = (s: Session, g: { project: string | null; branch?: string }) => {

@@ -3,7 +3,7 @@ import type { Lang, Messages } from '../i18n/messages';
 
 /**
  * How a routine's schedule reads on Desktop (docs/mockups/ledge-routines.html): the one module that reads a schedule's `times`,
- * `days`, `every` and `at`, for the sidebar, the page, « À toi » and the explorer's clock, and that turns the form's draft back
+ * `days`, `every` and `at`, for the sidebar, the page and the explorer's clock, and that turns the form's draft back
  * into a schedule. Instants (`nextRuns`, a run's `at`) are shown in this PC's zone; nothing here computes a firing: the daemon does.
  */
 

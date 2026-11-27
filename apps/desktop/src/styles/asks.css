@@ -1,4 +1,4 @@
-/* « À toi »: OpenRig's asks (docs/mockups/ledge-human-operator-ab-lot1.html, « Lot 1 cards »). Values from the mockup, on the tokens. */
+/* OpenRig's asks, in the Rigs view's « Demandes » (#40 D1) (docs/mockups/ledge-human-operator-ab-lot1.html, « Lot 1 cards »). Values from the mockup, on the tokens. */
 .ask-col { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .ask-col button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
 .ask-sec { display: flex; flex-direction: column; gap: 8px; }
@@ -76,9 +76,6 @@
 .ask-banner-text b { font-size: 13px; font-weight: 600; }
 .ask-banner-text p { margin: 0; font-size: 12.5px; line-height: 18px; color: var(--muted-foreground); overflow-wrap: anywhere; }
 
-/* The sidebar's « À toi » line for an ask: the same urgency pill, smaller. */
-.st-ask-urgent { flex: none; font: 500 9.5px 'Geist Mono', monospace; padding: 0 5px; border-radius: 999px; background: var(--sidebar-primary); color: #fff; }
-.st-rig-ask .st-bot { display: grid; place-items: center; }
 
 /* A piece of news waits on no answer: its section's count is neutral (design-ux). */
 .ask-n.neutral { background: var(--muted); color: var(--muted-foreground); }

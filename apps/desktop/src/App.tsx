@@ -222,7 +222,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // Issue #9: the Desktop's version goes with a report (the daemon does not know it).
   const [desktopVersion, setDesktopVersion] = useState<string | null>(null);
   useEffect(() => { void appVersion().then(setDesktopVersion, () => {}); }, []);
-  // « À toi »: what OpenRig's rigs ask the person, on this computer (lot 1: one machine), once its daemon reads them.
+  // What OpenRig's rigs ask the person (the Rigs view's « Demandes »), on this computer (lot 1: one machine), once its daemon reads them.
   const localMachine = machines.find(m => m.id === 'local');
   const asks = useOpenRigAsks(fleetClient, localMachine?.ready && localMachine.daemon?.openrigAsks ? 'local' : null);
   // The request « Ouvrir » brought to the Rigs view's « Demandes » (#40 D1). Never counts down: the view forgets it once taken
@@ -526,7 +526,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     saveCurrent({ name, sig: signature(wsStore.get(), panels) });
     notify(list.some(x => x.name === name) ? t.ide.dispositions.replaced(name) : t.ide.dispositions.saved(name));
   }, [wsStore, panelStore, termStore, layout.bottom, layout.right, notify, t]);
-  // The IDE's « À toi » has no usage card: each alert is told once, in a toast (the user, 2026-11-09).
+  // Each usage alert is told once, in a toast (the user, 2026-11-09).
   useUsageTold(true, usage.alerts, notify, a => {
     const u = t.usage, w = a.window;
     const at = w.resetsAt ? resetShort(w.resetsAt, Date.now(), lang) : null;
@@ -559,7 +559,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     onRenameStart: () => { if (!(layout.sideOpen && layout.sideView === 'projects')) onLayout({ type: 'view', view: 'projects' }); } });
   const shared = useDecisions({ client: fleetClient, sessions, errors, notify });
   // Answering a request or sending a message keeps the session's tab, should it be a preview, from wherever it is done (spec
-  // 2026-11-26-preview-tabs §5.4): its tab, « À toi », the status bar.
+  // 2026-11-26-preview-tabs §5.4): its tab, the status bar.
   const decisions = useMemo((): Decisions => {
     const keep = (s: Session) => wsStore.update(w => pin(pin(w, keyOf({ kind: 'session', ref: s.id })), keyOf({ kind: 'seat', ref: s.id })));
     return { ...shared, decide: (s, ...a) => { keep(s); return shared.decide(s, ...a); }, reply: (s, ...a) => { keep(s); return shared.reply(s, ...a); }, answer: (s, ...a) => { keep(s); return shared.answer(s, ...a); } };
@@ -870,11 +870,11 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const forge = useForge(fleet);
   // Issue #3: a request's tab reads in the whole list (followed and the account's own); the filter of « MR et PR » lives with the window.
   const prOf = (id: string) => forge.listed.find(p => p.id === id);
-  // Routines (docs/mockups/ledge-routines.html): every machine's, their « À toi » items (tasks given to Ledge that carry
+  // Routines (docs/mockups/ledge-routines.html): every machine's, their requests (tasks given to Ledge that carry
   // `routine`), the session each wakes, and what its page tells the app (unsaved changes, the close question).
   const routines = useRoutines(fleet);
   const routineProposals = useMemo(() => proposalsOf(tasksApi.tasks), [tasksApi.tasks]);
-  // An agent's report (issue #9), answered from « À toi » and from the Tasks view (#40 D5).
+  // An agent's report (issue #9), answered from the Tasks view (#40 D5).
   const reportHandlers: ReportHandlers = { client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } };
   const homeOf = (m: string) => machines.find(x => x.id === m)?.daemon?.home;
   const routineSession = (r: FleetRoutine) => sessionOfRoutine(r, known, homeOf(r.machineId));
@@ -975,7 +975,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       : tab.kind === 'changes' || (tab.kind === 'terminal' && sessionOf(tab) !== null) ? <ChangesTabLabel session={known.find(s => s.id === sessionOf(tab))} title={title(tab)} />
       : tab.kind === 'pr' ? <IdePrTabLabel pr={prOf(tab.ref)} title={title(tab)} />
       : tab.kind === 'routine' ? <RoutineTabLabel title={title(tab)} dirty={dirtyRoutines.has(keyOf(tab))} />
-      // « À toi 2 » (mockup v27): the requests waiting, the tab's name staying its title.
       // The title in `.tab-name`, as every other label: what a preview's italic applies to.
       : <span className="tab-name" {...(shellTip(tab) ? { title: shellTip(tab) } : {})}>{title(tab)}</span>);
     const alert = (tab: Tab) => (tab.kind === 'session' || tab.kind === 'seat' ? tabAlert(known.find(s => s.id === tab.ref)) : null);

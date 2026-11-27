@@ -4,7 +4,7 @@ import { useI18n } from '../i18n/lang';
 import '../styles/forge.css';
 
 /** A merge's confirmation on the spot (docs/mockups/ledge-ide-prs-states.html, states 7 and 8), in a request's tab and on the
- *  page « À toi »: the machine and the daemon's exact command; « Fusion… » while it goes; done, a toast and `onDone`. It keeps
+ *  request page: the machine and the daemon's exact command; « Fusion… » while it goes; done, a toast and `onDone`. It keeps
  *  the head shown when it opened and sends it, so the daemon's `stale` check guards what the person read; a push while it is
  *  open turns it to « Relire » at once (`onReload`). Refused by the forge: its reason as is, to try again or cancel. Its
  *  « Fusionner » is off while `blocked` (a condition fails, the machine is down: the review of lot 8b). */

@@ -176,3 +176,27 @@ describe('the start (« Au démarrage »)', () => {
     expect(r.current).toBeNull();
   });
 });
+
+// #40 PR 3 (review-qa, blocking): a layout saved by 0.68 can hold the « À toi » tab, a kind Ledge no longer has. That tab goes;
+// the rest of the layout, and the dispositions holding it, stay whole.
+describe('a saved « À toi » tab (#40 PR 3)', () => {
+  const ws = (active: number) => JSON.stringify({ version: 1, windows: [MAIN], groups: [
+    { id: 'g1', window: MAIN, tabs: [{ kind: 'session', ref: 'local:otto' }, { kind: 'atoi', ref: 'main' }, { kind: 'pr', ref: 'gh:x#1' }], active, link: null },
+    { id: 'g2', window: MAIN, tabs: [{ kind: 'atoi', ref: 'main' }], active: 0, link: null }
+  ], focus: 'g1', next: 3 });
+  it('deserialize drops it, keeps every other tab and group, and the active tab stays the same tab or the one that took its place', async () => {
+    const { deserialize } = await import('../../src/workspace/model');
+    const kept = (a: number) => deserialize(ws(a))!;
+    expect(kept(0).groups[0]!.tabs.map(t => t.kind)).toEqual(['session', 'pr']);
+    expect(kept(0).groups[0]!.active).toBe(0);           // the session, still active
+    expect(kept(2).groups[0]!.active).toBe(1);           // the PR, still active
+    expect(kept(1).groups[0]!.active).toBe(1);           // « À toi » was active: the PR took its place
+    expect(kept(0).groups.find(g => g.id === 'g2')?.tabs ?? []).toEqual([]);
+    expect(deserialize(ws(0).replace('"atoi"', '"nope"'))).toBeNull();   // an unknown kind is still malformed
+  });
+  it('a disposition holding it is kept, without that tab', () => {
+    const list = parseDispositions([{ name: 'Revue', ws: ws(1), bottom: false, right: true, panel: [], shells: {} }]);
+    expect(list.map(x => x.name)).toEqual(['Revue']);
+    expect(list[0]!.ws.groups[0]!.tabs.map(t => t.kind)).toEqual(['session', 'pr']);
+  });
+});

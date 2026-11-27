@@ -374,7 +374,7 @@ export const en: Messages = {
       // « Past exchanges » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), approved by the owner on 2026-11-27.
       past: 'Past exchanges', pastHint: 'In a session\'s thread, a finished exchange keeps its request and its answer in sight; the work between them folds under “Work”. The last exchange stays open.',
       pastChoices: { folded: 'Folded', open: 'Open' }, pastSaved: { folded: 'Past exchanges: folded', open: 'Past exchanges: open' },
-      context: 'Max context', contextHint: 'Past it, a session is near its limit: « Your turn » offers to hand it over, and Ledge relieves on its own a session that works without asking.',
+      context: 'Max context', contextHint: 'Past it, a session is near its limit: the tree shows it (◔), “Hand over” is in its menu, and Ledge relieves on its own a session that works without asking.',
       usageAlert: 'Usage limit alert', usageAlertHint: 'Past it, Ledge Desktop tells you once that a harness usage window (5 h, week, per model) is nearing its limit. Limits are the account’s, read on each machine.',
       usageAlertSaved: (pct) => `Usage limit alert: ${pct} %`, usageAlertUnknown: 'No machine gives its harnesses’ limits yet: update Ledge, or sign in to Claude Code.',
       accounts: 'Accounts read', accountsHint: 'The accounts whose limits Ledge reads, per machine.', signInNeeded: 'sign-in needed',
@@ -1556,7 +1556,7 @@ export const en: Messages = {
       seatsByRole: 'Seats per role', seatsLocked: '· editable while the rig runs', apply: 'Apply', applying: 'Working…', revert: 'Cancel',
       planAdd: (ids: readonly string[]) => `Adds ${ids.join(', ')}`, planRemove: (ids: readonly string[]) => `Removes ${ids.join(', ')}`,
       lastSnapshot: 'Last snapshot', noSnapshot: 'No snapshot', snapshotNow: 'Snapshot now',
-      queue: 'OpenRig queue', queueTruncated: 'The oldest are not shown', needsInput: 'Your turn: this line waits for an answer',
+      queue: 'OpenRig queue', queueTruncated: 'The oldest are not shown', needsInput: 'This line waits for your answer',
       state: { pending: 'pending', 'in-progress': 'in progress', blocked: 'blocked' } as Record<string, string>,
       age: (a: 'now' | { n: number; unit: 'min' | 'h' | 'd' }) => (a === 'now' ? '< 1 min' : `${a.n} ${a.unit}`),
       role: 'Role', roleBody: ['OpenRig’s own rig. The ', 'operator', ' helps you compose and launch a team; the ', 'advisor', ' reviews the plans; the ', 'queue worker', ' routes queue lines between the seats.'] as readonly string[],

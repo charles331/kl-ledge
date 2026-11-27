@@ -25,7 +25,7 @@ export function IdeExplorer(p: { width: number; onLayout(a: LayoutAction): void;
     window.addEventListener('mouseup', up);
   };
   return (
-    // Its lines (Projets, Archives, Rigs, À toi, MR et PR, Routines) open previews (spec 2026-11-26-preview-tabs §5.2).
+    // Its lines (Projets, Archives, Rigs, MR et PR, Routines, Tâches) open previews (spec 2026-11-26-preview-tabs §5.2).
     <aside ref={root} className="ide-explorer" style={{ width: p.width }} onClickCapture={e => noteClick(e.nativeEvent)}>
       <div className="ide-explorer-body">{p.children}</div>
       <div className="ide-resize" title={t.ide.resizeEdge} onMouseDown={start} onDoubleClick={() => p.onLayout({ type: 'resetWidth' })} />

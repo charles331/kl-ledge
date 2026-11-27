@@ -6,7 +6,7 @@ type ForgeSource = Pick<Fleet, 'prs' | 'forges' | 'onForge'> & Partial<Pick<Flee
 /** A request, `stale` when its machine has fallen: shown as last read, dimmed, without actions (state 4). */
 export type ShownPr = FleetPullRequest & { stale?: boolean };
 export interface ForgeSnapshot {
-  /** The followed requests (the badge, « À toi », a session's request). */
+  /** The followed requests (the badge, a session's request). */
   prs: readonly ShownPr[]; forges: readonly FleetForgeStatus[];
   /** « MR et PR » (issue #3): the followed requests and the account's own, one row per request (listedPrs). A request's tab reads here. */
   listed: readonly ShownPr[];

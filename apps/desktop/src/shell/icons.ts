@@ -60,7 +60,7 @@ export const SHELL_ICONS = {
   browser: ['M3 4h18v16H3z', 'M3 9h18', 'M6 6.5h.01', 'M9 6.5h.01'],
   /** The detached Atelier (#21): out to its own window. */
   detach: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v6H4V6h6'],
-  // The IDE shell (docs/mockups/ledge-ide-interactive.html): the activity bar's Projets and À toi, the title bar's panel toggles.
+  // The IDE shell (docs/mockups/ledge-ide-interactive.html): the activity bar's Projets, the title bar's panel toggles.
   files: ['M4 5h6l2 2h8v12H4z'],
   inbox: ['M4 13l3-8h10l3 8v6H4z', 'M4 13h5l1 2h4l1-2h5'],
   // #40 D3: the Tasks view (docs/mockups/ledge-remove-chat-d1-d3-d6.html, ☑).

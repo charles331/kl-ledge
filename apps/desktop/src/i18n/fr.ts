@@ -30,7 +30,7 @@ const upFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Desktop's copy in French: the source of truth, whose shape is `Messages` (see messages.ts, which loads it on demand). */
 export const fr = {
-  /** « À toi »: what OpenRig's rigs ask the person (docs/mockups/ledge-human-operator-ab-lot1.html). */
+  /** What OpenRig's rigs ask the person, in the Rigs view's « Demandes » (docs/mockups/ledge-human-operator-ab-lot1.html, #40 D1). */
   asks: {
     sections: { decisions: 'Décisions', questions: 'Questions', updates: 'Nouvelles' } as Record<'decisions' | 'questions' | 'updates', string>,
     pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de vous' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
@@ -409,7 +409,7 @@ export const fr = {
       // « Échanges passés » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), validé par jde le 2026-11-27.
       past: 'Échanges passés', pastHint: 'Dans le fil d’une session, un échange terminé garde sa demande et sa réponse en vue ; le travail entre les deux se replie sous « Travail ». Le dernier échange reste ouvert.',
       pastChoices: { folded: 'Repliés', open: 'Ouverts' }, pastSaved: { folded: 'Échanges passés : repliés', open: 'Échanges passés : ouverts' },
-      context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : « À toi » propose de passer le relais, et Ledge relève de lui-même une session qui travaille sans demander.',
+      context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : l’arbre le montre (◔), « Passer le relais » est dans son menu, et Ledge relève de lui-même une session qui travaille sans demander.',
       usageAlert: 'Alerte de limite d’usage', usageAlertHint: 'Au-delà, Ledge Desktop vous prévient une seule fois qu’une fenêtre d’usage d’un harnais (5 h, semaine, par modèle) approche de sa limite. Les limites sont celles du compte, lues sur chaque machine.',
       usageAlertSaved: (pct: number) => `Alerte de limite d’usage : ${pct} %`, usageAlertUnknown: 'Aucune machine ne donne encore les limites de ses harnais : mettez à jour Ledge, ou connectez Claude Code.',
       // « Comptes lus » (docs/mockups/ledge-usage-sign-in.html, #301, validated 2026-11-13).
@@ -834,7 +834,7 @@ export const fr = {
     },
     history: { none: 'Aucune conversation aujourd’hui.', open: 'Voir dans la conversation' }
   },
-  /** A decision a session put to the user (`ledge task give ledge …`), answered from « À toi » or « Tâches » (task.answer). */
+  /** A decision a session put to the user (`ledge task give ledge …`), answered from the Tasks view (task.answer). */
   decision: {
     asks: (giver: string) => `${giver} attend votre décision`, answer: 'Répondre',
     form: (title: string) => `Réponse à « ${title} »`, field: 'Votre réponse', placeholder: 'Écrivez votre réponse, ou choisissez une option…', options: 'Options proposées',
@@ -1641,7 +1641,7 @@ export const fr = {
       seatsByRole: 'Sièges par rôle', seatsLocked: '· modifiables quand le rig tourne', apply: 'Appliquer', applying: 'En cours…', revert: 'Annuler',
       planAdd: (ids: readonly string[]) => `Ajoute ${ids.join(', ')}`, planRemove: (ids: readonly string[]) => `Retire ${ids.join(', ')}`,
       lastSnapshot: 'Dernier snapshot', noSnapshot: 'Aucun snapshot', snapshotNow: 'Snapshot maintenant',
-      queue: 'File OpenRig', queueTruncated: 'Les plus anciennes ne sont pas montrées', needsInput: 'À toi : cette ligne attend une réponse',
+      queue: 'File OpenRig', queueTruncated: 'Les plus anciennes ne sont pas montrées', needsInput: 'Cette ligne attend votre réponse',
       state: { pending: 'en attente', 'in-progress': 'en cours', blocked: 'bloquée' } as Record<string, string>,
       age: (a: 'now' | { n: number; unit: 'min' | 'h' | 'd' }) => (a === 'now' ? '< 1 min' : `${a.n} ${a.unit === 'd' ? 'j' : a.unit}`),
       role: 'Rôle', roleBody: ['Le rig d’OpenRig lui-même. L’', 'operator', ' t’aide à composer et lancer une équipe ; l’', 'advisor', ' relit les plans ; le ', 'queue worker', ' route les lignes de queue entre les sièges.'] as readonly string[],
@@ -1819,7 +1819,7 @@ export const fr = {
     emptyUnread: 'Ledge ne peut lire aucune forge pour l’instant : voir ci-dessus.',
     prKind: { github: 'PR', gitlab: 'MR' } as Record<'github' | 'gitlab', string>
   },
-  // Routines (spec 2026-11-23-routines-design, docs/mockups/ledge-routines.html: cards 1-14, 19-24), tutoiement as « À toi ».
+  // Routines (spec 2026-11-23-routines-design, docs/mockups/ledge-routines.html: cards 1-14, 19-24), tutoiement as the routine cards had it.
   routines: {
     view: 'Routines', add: 'Nouvelle routine', newTitle: 'Nouvelle routine',
     sub: 'Ledge réveille une session à heures fixes et lui tape un prompt. Les heures sont celles de ce PC.',

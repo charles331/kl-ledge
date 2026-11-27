@@ -1,7 +1,7 @@
 import type { UsageHarness, UsageWindow } from '@ledge/protocol';
 import type { Messages } from '../i18n/messages';
 
-/** What a usage alert's window is called, in « À toi » and in the notification: the 5 hours, the week, a model, or for
+/** What a usage alert's window is called, in the status bar and in the notification: the 5 hours, the week, a model, or for
  *  Cursor the month's or week's total and a pool. */
 export function alertWindowName(u: Messages['usage'], harness: UsageHarness, w: UsageWindow): string {
   if (w.kind === 'five_hour') return u.alertFive;

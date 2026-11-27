@@ -153,7 +153,7 @@ export const USAGE_NOTIFY_MS = 2 * 60_000;
 /**
  * A harness's usage window reached (docs/mockups/ledge-harness-usage.html, M6): the system notification, only at 100 %, once
  * per alert (`at` is when the daemon first saw it, kept across restarts: an old one is not announced again), only while
- * Desktop is behind or in the tray, never in Do not disturb. Past the threshold, « À toi » alone says it.
+ * Desktop is behind or in the tray, never in Do not disturb. Past the threshold, the status bar says it.
  */
 export function useUsageNotify(alerts: readonly UsageAlert[], say: (a: UsageAlert) => { title: string; body: string }, deps: Pick<AlertDeps, 'toast' | 'focused' | 'now'> = {}): void {
   const [dnd] = useDnd();

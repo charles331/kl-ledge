@@ -503,10 +503,6 @@ body.ide-popout > .dv-popout-window { flex: 1 1 auto; min-height: 0; position: r
 }
 .ide-tear-banner.out { background: color-mix(in srgb, var(--ide-link-violet) 14%, var(--card)); border-style: solid; }
 
-/* The « À toi » view's header (mockup explorer `atoi`): the keys and « Page ». */
-.ide-ex-tools { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; }
-.ide-ex-btn { height: 20px; padding: 0 7px; border: 1px solid var(--input); border-radius: 5px; font-size: 11px; color: var(--foreground); }
-.ide-ex-btn:hover { background: var(--muted); }
 
 /* « Dispositions » in the status bar (mockup statusbar() `.lay`, menuHtml() `layout`, `.save-in`): it opens upward, right-aligned. */
 .ide-lay-wrap { position: relative; display: flex; flex: none; }

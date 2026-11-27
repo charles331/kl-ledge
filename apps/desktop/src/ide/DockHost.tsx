@@ -32,7 +32,7 @@ export interface DockHostProps {
   /** A bottom-panel tile (its ref: `shell:<n>`, `agent:<id>`) dropped on a group, a tab of its strip, its right edge or
    *  « nouveau groupe »: where it goes. The host moves it (the model and the panel); the dock only says where. */
   onPanelDrop?(ref: string, to: { group: string; index?: number } | { rightOf: string } | { window: 'new' }): void;
-  /** A detached window's name, from its active tab (v27: « Pim · ledge », « dev-front · ledge-dev », « À toi »). Absent: its title. */
+  /** A detached window's name, from its active tab (v27: « Pim · ledge », « dev-front · ledge-dev »). Absent: its title. */
   windowTitle?(t: Tab): string;
   /** A detached window closed by the user: `n` tabs came back to the main window (the toast). */
   onWindowClosed?(n: number): void;

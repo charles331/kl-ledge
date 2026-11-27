@@ -205,7 +205,7 @@ export function SessionPage(p: SessionPageProps): JSX.Element {
     if (viewNow.current !== 'thread') { returning.current = 'restore'; onView('thread'); }
   }, [onView]);
   const openDoc = useCallback((path: string) => openTab({ kind: 'doc', path }), [openTab]);
-  // Arriving with a file to show (« À toi »'s source, docs/mockups/ledge-human-operator-ab-lot1.html): each arrival opens it once.
+  // Arriving with a file to show (a request's source, docs/mockups/ledge-human-operator-ab-lot1.html): each arrival opens it once.
   const arrivedDoc = p.nav.place.kind === 'session' ? p.nav.place.doc : undefined;
   useEffect(() => { if (arrivedDoc) openDoc(arrivedDoc); }, [p.nav.place, arrivedDoc, openDoc]);
   const openDiff = useCallback((path: string) => openTab({ kind: 'diff', path }), [openTab]);

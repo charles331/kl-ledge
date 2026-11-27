@@ -6,7 +6,7 @@ import { CONTEXT_NEAR, contextNear, contextShare, LEDGE_GIVER, openDecision, tas
  *  broadcast (`task.updated`, `sessions.updated`) changes what is shown. */
 export interface TasksApi {
   tasks: Task[];
-  /** Puts a closed task Ledge gave away from « À toi ». */
+  /** Puts a closed task Ledge gave away (`seen`). */
   seen(task: string): void;
   /** Hands a session over to a fresh one (context handover spec §3.3): null once asked, else why not. */
   handover(session: string): Promise<string | null>;
@@ -82,7 +82,7 @@ export function nearLimit(sessions: readonly Session[], later: ReadonlyMap<strin
   });
 }
 
-/** A closed task Ledge gave and the user has not put away: an item of « À toi » (roles spec §3.7). */
+/** A closed task Ledge gave and the user has not put away: listed in the Tasks view (roles spec §3.7). */
 export const closedLedgeTasks = (tasks: readonly Task[]): Task[] => tasks.filter(t => t.giver === LEDGE_GIVER && taskClosed(t) && !t.seen);
 
 /** The decisions sessions put to the user (`ledge task give ledge …`), not answered yet: items of « À toi », oldest first. A

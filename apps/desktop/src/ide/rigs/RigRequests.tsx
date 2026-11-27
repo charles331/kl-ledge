@@ -23,7 +23,7 @@ export const requestsShown = (view: OpenRigAsksView | undefined): boolean =>
 
 /**
  * « Demandes » at the top of the Rigs view (#40 D1, docs/mockups/ledge-remove-chat-d1-d3-d6.html, cards 1 to 4): what OpenRig asks
- * the person, every card whole (AskCard, as « À toi » showed it), the most urgent first. Hidden with nothing to show. It folds
+ * the person, every card whole (AskCard), the most urgent first. Hidden with nothing to show. It folds
  * (« Replier »), and opens again by itself when a new request comes. `focus` (« Ouvrir » on the island, Ledge's desk) unfolds it and
  * rings that card 1.5 s.
  */
