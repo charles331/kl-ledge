@@ -209,24 +209,35 @@ describe('point.later and operator.read', () => {
     const chatDeps: ChatDeps = { store, tmux: { async capture() { return null; } } as never, home, env: async () => ({ ...process.env }) };
     const desktop = createChat({ ...chatDeps, home: join(home, 'd') });
     const journal = openJournal(':memory:');
-    const told: string[][] = [];
+    let told = 0;
     const all = (): Array<[DeviceId, Chat]> => [['desktop', desktop]];
     const operator = createOperator({ journal, machine: 'm', threads: { all, emitterOf: () => (_m: ChatMessage) => {} }, live: () => ({ sessions: [], asks: [], tasks: [], lang: 'fr' }),
-      tool: () => 'claude', chatDeps, onNotices: n => told.push(n.map(x => x.id)), onPointPush: () => {} });
-    return { operator, desktop, journal, told };
+      tool: () => 'claude', chatDeps, onPointsChanged: () => { told++; }, onPointPush: () => {} });
+    return { operator, desktop, journal, told: () => told };
   }
 
-  it('later sets the point aside, a newer point is not, and neither is ever a notch notice (#27)', () => {
+  it('later sets the point aside, a newer point is not, and the daemon is told the points changed', () => {
     const { operator, desktop, told } = operatorSetup();
     const qid = desktop.postPoint({ since: AT, lead: 'one', leadBy: 'daemon', items: [{ ...requestItem }] }, [], () => {});
-    operator.refreshNotices();
-    expect(told.at(-1)).toEqual([]);
     operator.later('desktop', qid);
     expect(desktop.points().find(p => p.qid === qid)!.point.laterAt).toBeDefined();
+    expect(told()).toBe(1);
     const next = desktop.postPoint({ since: AT, lead: 'two', leadBy: 'daemon', items: [{ ...requestItem }] }, [], () => {});
-    operator.refreshNotices();
     expect(desktop.points().find(p => p.qid === next)!.point.laterAt).toBeUndefined();
-    expect(told.at(-1)).toEqual([]);
+  });
+
+  it('holder names the newest desktop point holding an unsettled rig ask row, set aside or not', () => {
+    const { operator, desktop } = operatorSetup();
+    const row = (over: Partial<PointItem> = {}): PointItem => ({ id: 'rig.ask:r1', event: 2, group: 'atoi', tone: 'ask', who: 'max', text: 'Which team?', at: AT, ...over });
+    expect(operator.holder('r1')).toBeUndefined();
+    const older = desktop.postPoint({ since: AT, lead: 'older', leadBy: 'daemon', items: [row()] }, [], () => {});
+    expect(operator.holder('r1')).toBe(older);
+    const newer = desktop.postPoint({ since: AT, lead: 'newer', leadBy: 'daemon', items: [row()] }, [], () => {});
+    operator.later('desktop', newer);
+    expect(operator.holder('r1')).toBe(newer);
+    desktop.postPoint({ since: AT, lead: 'settled', leadBy: 'daemon', items: [row({ settled: { at: AT, where: 'phone' } })] }, [], () => {});
+    expect(operator.holder('r1')).toBe(newer);
+    expect(operator.holder('r2')).toBeUndefined();
   });
 
   it('operator.read moves only the sender device cursor', () => {

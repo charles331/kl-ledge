@@ -22,7 +22,7 @@ import { FolderPathSchema, ProjectColorSchema, ProjectIdSchema, ProjectNameSchem
 import { MachineIdSchema } from './machines.js';
 import { ForgeActionSchema } from './forge.js';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, PhoneForgeErrorSchema, PhoneForgeRejectedSchema, PhoneForgeStateSchema, PhonePrDetailSchema } from './phoneForge.js';
-import { BrainChoiceSchema } from './tasks.js';
+import { BrainChoiceSchema, TASK_TEXT_MAX } from './tasks.js';
 import { BrainProposalSchema } from './tasks.js';
 import { PHONE_ROUTINE_CWD_MAX, PhoneRoutineActionSchema, RoutineIdSchema, RoutineKeySchema, RoutineSchema, RoutineTargetSchema, ROUTINES_ACTIVE_MAX, ROUTINES_MAX, TaskRoutineSchema } from './routines.js';
 
@@ -207,7 +207,7 @@ export type Assertion = z.infer<typeof AssertionSchema>;
 /** `rigs`: an OpenRig action that stops something or drops the prompts (`rigs.act`), or a change of seats that removes one (`rigs.seats`),
  *  bound to that very action or change (`daemon.rigs`). */
 /** `routine`: activating a routine a session asked for (« Activer », routines spec §3.4), bound to that routine. */
-export const ConfirmPurposeSchema = z.enum(['register', 'decide', 'launch', 'close', 'act', 'pc', 'terminal', 'rig', 'note', 'project', 'folder', 'rigs', 'forge', 'routine']);
+export const ConfirmPurposeSchema = z.enum(['register', 'decide', 'launch', 'close', 'act', 'pc', 'terminal', 'rig', 'note', 'project', 'folder', 'rigs', 'forge', 'routine', 'decision']);
 export type ConfirmPurpose = z.infer<typeof ConfirmPurposeSchema>;
 
 /** The phone's chat: no folder, no path, no machine, no free error text; every object is strict, `pick` included. */
@@ -427,6 +427,8 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
     /** A `pc` challenge: what it is for, and for an update the version it covers. */ action: PcActionSchema.optional(), version: z.string().regex(SEMVER).optional(),
     /** A `rig` challenge: the OpenRig row and the exact answer it covers. */ qitem: z.string().min(1).max(200).optional(), answer: HumanAnswerSchema.optional(),
     /** A `note` challenge: the proposal (a task) and the exact choice it covers. */ task: z.string().min(1).max(40).optional(), choice: BrainChoiceSchema.optional(),
+    /** A `decision` challenge (#40): the decision (`task`) and the exact answer it covers, as `task.answer` will send it. */
+    taskAnswer: z.string().trim().min(1).max(TASK_TEXT_MAX).optional(),
     /** A `project` challenge: the project deleted and where its agents go (null: no project). */ project: ProjectIdSchema.optional(), moveTo: ProjectIdSchema.nullable().optional(),
     /** A `folder` challenge: the project (`project`) and the folder of this PC added to it. */ path: FolderPathSchema.optional(),
     /** A `folder` challenge for a project being created (issue #2): its name, in place of `project`. */ newProject: ProjectNameSchema.optional(),
@@ -550,6 +552,9 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
   /** The user's answer to a proposal about the notes (brain spec, lot 4): a `yes` carries an assertion of purpose `note` bound to the
    *  task and that exact choice; a `no` needs none. */
   z.object({ type: z.literal('brain.answer'), op: OperationIdSchema, task: z.string().min(1).max(40), choice: BrainChoiceSchema, assertion: AssertionSchema.optional() }),
+  /** The user's answer to a decision a session put to them (`ledge task give ledge`, #40): destructive, so always `confirmed`, and backed
+   *  by an assertion of purpose `decision` bound to that decision and that exact answer. Sent only to a daemon with `daemon.taskAnswer`. */
+  z.object({ type: z.literal('task.answer'), op: OperationIdSchema, task: z.string().min(1).max(40), answer: z.string().trim().min(1).max(TASK_TEXT_MAX), confirmed: z.literal(true), assertion: AssertionSchema.optional() }).strict(),
   /** Puts a closed task Ledge gave away from « À traiter ». */
   z.object({ type: z.literal('task.seen'), op: OperationIdSchema, task: z.string().min(1).max(40) }),
   /** The routines (routines spec §3.7): answered by `routines`, then each change comes as `routine.changed`. */
@@ -658,6 +663,8 @@ export const PhoneServerMessageSchema = z.discriminatedUnion('type', [
     projectEdit: z.literal(true).optional(),
     /** Issue #16: the snapshot and `projects` carry `sessionOrder`, and the daemon takes `session.order`. */
     sessionOrder: z.literal(true).optional(),
+    /** The daemon takes `task.answer` (#40): a decision answered from the phone, outside the chat. */
+    taskAnswer: z.literal(true).optional(),
     /** The daemon takes `device.prefs` and `context.set` (the phone's Réglages); the device then carries its `prefs`. */
     settings: z.literal(true).optional(),
     /** The daemon sends `usage.state` (its harnesses' limits). */ usage: z.literal(true).optional(),

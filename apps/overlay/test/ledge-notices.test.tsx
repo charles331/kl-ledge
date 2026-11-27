@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { RoutineCmdSchema, type ClientMessage, type OperatorNotice, type Task } from '@ledge/protocol';
+import { RoutineCmdSchema, type ClientMessage, type OpenRigAnswered, type OperatorNotice, type ServerMessage, type Task } from '@ledge/protocol';
 import type { FleetRoutine, RoutineAsk } from '@ledge/fleet/routines';
 import type { DaemonClient } from '../src/daemon/client';
 import { daemonStore } from '../src/daemon/store';
@@ -29,14 +29,22 @@ function fleetClient(o: { tasks?: Task[]; routines?: FleetRoutine[]; groups?: bo
     rereadRoutines: (machine: string) => { rereads.push(machine); },
     routineCmd: async (machine: string, ask: RoutineAsk) => { cmds.push({ machine, ask }); if (fail) throw fail; return { type: 'routine.result', rid: 'x' }; }
   };
-  const client = { connect() {}, close() {}, send: () => {}, status: () => 'open', onMessage: () => () => {}, onStatus: () => () => {}, fleet } as unknown as DaemonClient;
+  // What the island sends through the client itself (`openrig.answer`, routed by the fleet on its machineId), and what it hears back.
+  const direct: ClientMessage[] = [];
+  const heard = new Set<(m: ServerMessage) => void>();
+  const client = { connect() {}, close() {}, send: (m: ClientMessage) => { direct.push(m); }, status: () => 'open',
+    onMessage: (fn: (m: ServerMessage) => void) => { heard.add(fn); return () => heard.delete(fn); }, onStatus: () => () => {}, fleet } as unknown as DaemonClient;
+  const hear = (m: ServerMessage) => act(() => { heard.forEach(fn => fn(m)); });
   const set = (next: Record<string, OperatorNotice[]>) => act(() => { notices = new Map(Object.entries(next)); listeners.forEach(fn => fn()); });
   const ready = (id: string, on: boolean) => act(() => { machines = machines.map(m => (m.id === id ? { ...m, ready: on, status: on ? 'open' : 'closed' } : m)); listeners.forEach(fn => fn()); });
-  return { client, sent, cmds, rereads, set, ready, failWith: (message: string, code = 'not_pending') => { fail = { code, message }; } };
+  return { client, sent, direct, hear, cmds, rereads, set, ready, failWith: (message: string, code = 'not_pending') => { fail = { code, message }; } };
 }
 
 const AT = '2026-11-13T14:32:00.000Z';
 const rigAsk = (qitem: string, extra: Partial<OperatorNotice> = {}): OperatorNotice => ({ id: `rig.ask:${qitem}`, kind: 'rig.ask', qid: 'p1', text: 'Merge #309 now?', who: 'pilot-lead', rig: 'ledge-dev', qitem, options: [{ id: 'merge', label: 'Merge' }, { id: 'wait', label: 'Wait for qa' }], priority: 'urgent', at: AT, ...extra });
+/** A rig's question as a daemon with #40 says it: the question its options answer, and no point (the operator may be off). */
+const rigAsk40 = (qitem: string, extra: Partial<OperatorNotice> = {}): OperatorNotice => { const { qid: _q, ...n } = rigAsk(qitem, { questionId: 'q', ...extra }); return n; };
+const answered = (requestId: string, extra: Partial<OpenRigAnswered> = {}): OpenRigAnswered => ({ type: 'openrig.answered', requestId, machineId: 'dev', qitemId: 'q1', ok: true, outcome: 'answered', ...extra });
 const point = (qid: string): OperatorNotice => ({ id: `point:${qid}`, kind: 'point', qid, text: 'Two things for you.', priority: 'routine', at: AT });
 const island = () => document.querySelector('.di-island') as HTMLElement | null;
 const card = () => document.querySelector('.di-card') as HTMLElement;
@@ -81,6 +89,57 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
     expect(card()).toHaveTextContent('Received');
     tick(900);
     expect(surface()).toHaveAttribute('data-closing', 'true');
+  });
+
+  it('#40: a rig’s question from a daemon without the point (no qid): its buttons show; a click answers through OpenRig on its machine, « Received »', () => {
+    const f = fleetClient(); mount(f);
+    f.set({ dev: [rigAsk40('q1')] });
+    const buttons = [...card().querySelectorAll('.di-actions .ledge-btn')];
+    expect(buttons.map(b => b.textContent)).toEqual(['Merge', 'Wait for qa']);
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    expect(f.sent).toEqual([]);
+    expect(f.direct).toEqual([{ type: 'openrig.answer', requestId: expect.any(String), machineId: 'dev', qitemId: 'q1', answer: { kind: 'choice', questionId: 'q', optionId: 'merge' } }]);
+    f.hear(answered((f.direct[0] as { requestId: string }).requestId));
+    expect(card()).toHaveTextContent('Received');
+    tick(900);
+    expect(surface()).toHaveAttribute('data-closing', 'true');
+  });
+
+  it('#40: with the point there too (qid and questionId), the answer still goes through OpenRig, never point.act', () => {
+    const f = fleetClient(); mount(f);
+    f.set({ dev: [rigAsk('q1', { questionId: 'q' })] });
+    fireEvent.click(screen.getByRole('button', { name: 'Wait for qa' }));
+    expect(f.sent).toEqual([]);
+    expect(f.direct).toEqual([expect.objectContaining({ type: 'openrig.answer', answer: { kind: 'choice', questionId: 'q', optionId: 'wait' } })]);
+  });
+
+  it('#40: an answer OpenRig refuses brings the question back with its reason, at the head of the line; one already closed does not', () => {
+    const f = fleetClient(); mount(f);
+    f.set({ dev: [rigAsk40('q1'), rigAsk40('q2', { at: '2026-11-13T14:33:00.000Z' })] });
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    f.hear(answered((f.direct[0] as { requestId: string }).requestId, { ok: false, error: 'refused', message: 'The row changed' }));
+    tick(900 + 240);
+    expect(card().querySelector('.di-sentence')).toHaveTextContent('Merge #309 now?');
+    expect(card().querySelector('.di-note[data-tone="bad"]')).toHaveTextContent('The row changed');
+    expect(card()).toHaveTextContent('+1 more');
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    f.hear(answered((f.direct[1] as { requestId: string }).requestId, { ok: false, error: 'closed' }));
+    tick(900 + 240);
+    expect(card().querySelector('.di-note[data-tone="bad"]')).toBeNull();
+    expect(card()).not.toHaveTextContent('+1 more');
+  });
+
+  it('#40: an answer whose end never comes stays aside, as through the point (no new words); the machine offline says the island’s own', () => {
+    const f = fleetClient(); mount(f);
+    f.set({ dev: [rigAsk40('q1')] });
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    tick(45_000 + 900 + 240);
+    expect(island()).toBeNull();
+    f.set({ dev: [rigAsk40('q2')] });
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    f.hear(answered((f.direct[1] as { requestId: string }).requestId, { ok: false, error: 'offline' }));
+    tick(900 + 240);
+    expect(card().querySelector('.di-note[data-tone="bad"]')).toHaveTextContent('Offline: reconnecting to the daemon');
   });
 
   it('a rig’s answer refused by the daemon brings the question back with its reason, at the head of the line (review 575f5fb8, 3)', () => {

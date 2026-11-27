@@ -68,7 +68,8 @@ import { createPhoneGateway, type PhoneGateway } from '../mobile/gateway.js';
 import { phoneLaunch } from '../mobile/launch.js';
 import { createNotifier } from '../mobile/push/notifier.js';
 import { chatEndPayload, decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
-import { createNoticeFeed, pointPush } from '../operator/notices.js';
+import { pointPush } from '../operator/notices.js';
+import { createAskWatch, createNoticeFeed, noticesOf } from './notices.js';
 import { createAsides, type Asides } from './aside.js';
 import { pushFor, resolvedFor } from '../mobile/push/triggers.js';
 import { createChallengeStore } from '../mobile/challenges.js';
@@ -361,7 +362,14 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   };
   const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: pushGoals });
   /** « À toi »: OpenRig followed from the first front (desktop, TUI or phone) that asks; each change goes to all of them, and moves the goals. */
-  const followAsks = () => human.start(l => { rigAsks = l.asks; operator?.asksChanged(l); broadcast({ type: 'openrig.asksChanged', ...l }); pushGoals(); });
+  const followAsks = () => human.start(l => {
+    rigAsks = l.asks; operator?.asksChanged(l);
+    // The island's notices and the urgent asks' push (#40, D11): the daemon's own, operator or not.
+    const fresh = askWatch.read(l);
+    if (fresh.length > 0) notifyAsks?.(fresh);
+    tellNotices();
+    broadcast({ type: 'openrig.asksChanged', ...l }); pushGoals();
+  });
   /** The seats recognised before and idle since (no hook to bring them): looked for again at start and at each OpenRig read. */
   const adoptSeats = () => { for (const s of store.all()) if (s.rig) adoptSeat(s.id, s.rig.seat); };
   adoptSeats();
@@ -493,8 +501,13 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   let notifyPoint: ((lead: string, qidByDevice: Map<DeviceId, string>) => void) | undefined;
   /** The urgent rig asks, pushed to every paired phone as they arrive (set once the notifier is). */
   let notifyAsks: ((asks: HumanAsk[]) => void) | undefined;
-  /** The notices the notch last got (`operator.state`), replayed after every snapshot; undefined while the operator is off. */
+  /** The notices the island last got (`operator.state`), replayed after every snapshot: the daemon's own (#40, D11), told from the start. */
   const notices = createNoticeFeed(n => broadcast({ type: 'operator.state', notices: n }));
+  /** OpenRig's asks as the notices and the urgent push see them (a channel not ready changes nothing). */
+  const askWatch = createAskWatch();
+  /** Tells the island's notices again (only when they change): the urgent rig asks and the open decisions, and while the operator runs,
+   *  the chat point holding each ask, for the islands that still answer through it. */
+  const tellNotices = () => notices.tell(noticesOf(askWatch.asks(), tasks.all(), operator ? id => operator?.operator.holder(id) : undefined));
   /** Every local front gets it; the phone gateway passes on only what it knows. */
   const broadcast = (msg: ServerMessage) => { for (const c of localClients) send(c, msg); gateway?.forward(msg); };
   // The browsers' states reach the local fronts only: neither a phone nor a remote peer.
@@ -603,6 +616,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const tasks = createTasks({ store, mailbox, now, ...(opts.tasks ? { journal: opts.tasks } : {}), brain: (p, answer, by, at) => applyProposal(p, answer, by, at, notesDir()), onTask: (task, entry) => {
     broadcast({ type: 'task.updated', task });
     operator?.tasksChanged();
+    tellNotices();
     // The card that gave it follows it, on whichever thread holds it: only Ledge gives from a card.
     if (givenByLedge(task)) for (const [thread, c] of cardThreads.all()) c.followTask?.(task, cardThreads.emitterOf(thread) ?? broadcast);
     // A session that handed it over sees it in its thread, as a message it sent (issue #92); Ledge has no thread.
@@ -624,6 +638,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     onChange: m => { broadcast(m); if (routines) operator?.routinesChanged(routines.all()); } });
   const routineList = routines;
   operator?.routinesChanged(routineList.all());
+  // The island's notices from the start (the open decisions; the asks once OpenRig is read): replayed after every snapshot.
+  tellNotices();
   /** Each session's state last seen: a turn's end (→ idle) is when its context is read again. */
   const lastState = new Map<string, Session['state']>();
   /** Reads a session's context after a turn (§3.1). */
@@ -2232,6 +2248,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   }
 
   if (opts.operator) {
+    // OpenRig's asks are followed from the start where it is installed, operator or not: the island's notices and the urgent asks'
+    // push need them (#40, D11). The first list read is their baseline.
+    void openrig.state().then(st => { if (st.installed) followAsks(); }).catch(e => log(`openrig: asks not followed: ${(e as Error).message}`));
     // The journal needs `node:sqlite`: on an older Node the daemon runs on without the operator rather than not at all.
     let mod: typeof import('../operator/index.js') | undefined;
     try { mod = await (opts.loadOperator ?? (() => import('../operator/index.js').then(m => { m.requireSqlite(); return m; })))(); }
@@ -2242,16 +2261,15 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         devices: () => (mobile?.state().enabled ? mobile.state().devices.map(d => d.id) : []),
         contextNear: () => contextPrefs.near, tool: () => threads.deviceTool(), chatDeps: { ...chatDeps, thread: 'desktop' },
         // The notch hears the notices when they change; each paired phone gets its one push per point.
-        onNotices: n => notices.tell(n),
-        onPointPush: (lead, qidByDevice) => notifyPoint?.(lead, qidByDevice), onUrgentAsks: asks => notifyAsks?.(asks) });
+        onPointsChanged: () => tellNotices(),
+        onPointPush: (lead, qidByDevice) => notifyPoint?.(lead, qidByDevice) });
       operator.start();
       // The routines as they are at start: their baseline, so a firing from before it is not news.
       operator.routinesChanged(routineList.all());
-      // OpenRig's asks are followed for the journal too, where OpenRig is installed; the first list read is the baseline.
-      // Max's goals too: the first list read is their baseline.
+      // Max's goals are followed for the journal, where OpenRig is installed: the first list read is their baseline.
       void openrig.state().then(st => {
         if (!st.installed) return;
-        followAsks(); goalsFollowed = true;
+        goalsFollowed = true;
         void goals.list().then(l => { lastGoals = JSON.stringify(l); rigGoals = l.goals; operator?.goalsChanged(l); }).catch(e => log(`operator: goals not read: ${(e as Error).message}`));
       }).catch(e => log(`operator: OpenRig not read: ${(e as Error).message}`));
     } catch (e) {

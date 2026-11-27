@@ -169,8 +169,37 @@ describe('startServer({ operator: true })', () => {
     const srv = await startServer({ store: new Store(), tmux: fakeTmux(), port: 0, operator: true, loadOperator: () => Promise.reject(new Error('No such built-in module: node:sqlite')) });
     close.push(() => srv.close());
     const a = await open(srv.port); close.push(async () => { a.ws.close(); });
-    await until(() => a.got.some(m => m.type === 'snapshot'));
-    expect(a.got.some(m => m.type === 'operator.state')).toBe(false);
+    // The island's notices are the daemon's own (#40, D11): sent after the snapshot, operator or not.
+    await until(() => a.got.some(m => m.type === 'operator.state'));
+    expect(a.got.find(m => m.type === 'operator.state')).toEqual({ type: 'operator.state', notices: [] });
     expect(existsSync(join(paths().dir, 'ledge.sqlite'))).toBe(false);
+  });
+
+  it('without the operator, a new urgent rig ask still reaches the island (with its qitem, no qid) and the phone\'s push (#40, D11)', async () => {
+    const { mobile, pushes } = fakeMobile();
+    const rig = fakeOpenRig();
+    const srv = await startServer({ store: new Store(), tmux: fakeTmux(), port: 0, mobile, human: rig.human, openrig: rig.openrig, goals: rig.goals, operator: true,
+      loadOperator: () => Promise.reject(new Error('No such built-in module: node:sqlite')) });
+    close.push(() => srv.close());
+    const a = await open(srv.port); close.push(async () => { a.ws.close(); });
+    await until(() => a.got.some(m => m.type === 'snapshot'));
+    // OpenRig is followed from the start, with no front asking for it.
+    await until(() => rig.followed());
+    rig.asks([]);
+    const ask: HumanAsk = { id: 'qitem-9', kind: 'decision', alert: false, priority: 'urgent', from: { seat: 'pilot-lead@ledge-dev', rig: 'ledge-dev', role: null }, summary: 'Fusionner ?',
+      body: '', bodyTruncated: false, detail: null, evidenceRef: null, createdAt: T0, updatedAt: T0, questions: [] };
+    rig.asks([ask, { ...ask, id: 'qitem-10', priority: 'routine' }]);
+    await until(() => pushes.some(p => p.topic === 'ask-qitem-9'));
+    expect(pushes.some(p => p.topic === 'ask-qitem-10')).toBe(false);
+    const states = () => a.got.filter((m): m is Extract<ServerMessage, { type: 'operator.state' }> => m.type === 'operator.state');
+    await until(() => states().some(m => m.notices.length > 0));
+    expect(states().at(-1)!.notices).toEqual([{ id: 'rig.ask:qitem-9', kind: 'rig.ask', text: 'Fusionner ?', who: 'pilot-lead@ledge-dev', rig: 'ledge-dev', qitem: 'qitem-9', priority: 'urgent', at: T0 }]);
+    // Read again, the ask is not news: no second push.
+    rig.asks([ask]);
+    await new Promise(r => setTimeout(r, 50));
+    expect(pushes.filter(p => p.topic === 'ask-qitem-9')).toHaveLength(1);
+    // Answered elsewhere, it leaves the island.
+    rig.asks([]);
+    await until(() => states().at(-1)!.notices.length === 0);
   });
 });
