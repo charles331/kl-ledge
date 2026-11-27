@@ -56,10 +56,11 @@ import { Modal } from './shell/Modal';
 import { ShortcutsHelp } from './shell/ShortcutsHelp';
 import { Toast, useToast } from './shell/Toast';
 import { preloadPlaces } from './shell/preload';
-import { useFiling } from './atelier/filing';
+import { useFiling, type FileResult } from './atelier/filing';
 import { useSessionActions, type SessionActions } from './manage/useSessionActions';
 import { useContextMenu } from './manage/useContextMenu';
 import { SessionMenuHost, type SessionMenuIde } from './manage/SessionMenu';
+import type { OrderWriter } from './shell/sidebar/useReorder';
 import { ConfirmDialog } from './manage/ConfirmDialog';
 import { BroadcastDialog } from './broadcast/BroadcastDialog';
 import { AgentTerminalPlace, ChangesPlace, FreeShellPlace, loadedWorkspace, loadWorkspace, SessionPlace } from './session/lazy';
@@ -187,7 +188,8 @@ function useTermStore(client: DaemonClient, onThread: () => void, avail: ShellsA
   useEffect(() => {
     const root = document.documentElement;
     const mo = new MutationObserver(() => store.setTheme(rootTermTheme()));
-    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    // The skin's tokens are inline (`style`): a palette or an accent changed repaints the terminals too (issue #28).
+    mo.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-skin', 'style'] });
     return () => mo.disconnect();
   }, [store]);
   useEffect(() => client.fleet?.subscribe(() => store.refreshAgent()), [client, store]);
@@ -474,6 +476,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     return (id && projects?.projects.find(p => p.id === id)?.name) || t.side.unassigned;
   }, [projectIdOf, projects, t]);
   const waits = useWaits(sessions);
+  // Issue #16: the order the person chose, kept by the daemon (orderedSessions, shared with the phone and the TUI).
   const order = useMemo(() => mainOrder(sessions, projects), [sessions, projects]);
   // Putting an agent away: drag and drop or « Ranger dans… » write a folder rule; the toast says how it went.
   const { notice, action: noticeAction, mark: noticeMark, notify, act: toastAct, undo } = useToast();
@@ -538,6 +541,21 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     return t.ide.usageOnce(u.harness[a.harness] ?? a.harness, alertWindowName(u, a.harness, w), line);
   });
   const filing = useFiling({ fleet, projects, sessions, projectIdOf, notify });
+  // Issue #16: the order of projects and sessions, written to the local daemon (sessions.order, projects.set); a refusal is said.
+  const orderWriter = useMemo<OrderWriter | undefined>(() => {
+    if (!fleet) return undefined;
+    const run = (send: () => void): FileResult => {
+      if (!fleet.projects()) return 'outdated';
+      try { send(); return 'sent'; } catch (e) { const name = e instanceof Error ? e.name : ''; return name === 'DaemonOffline' ? 'offline' : name === 'DaemonOutdated' ? 'outdated' : 'invalid'; }
+    };
+    return {
+      sessions: (project, ids) => run(() => fleet.orderSessions(project, ids)),
+      projects: next => run(() => fleet.setProjects(next)),
+      onRefused: fn => fleet.onMachineMessage((machine, m) => {
+        if (machine === 'local' && m.type === 'error' && m.request === 'sessions.order') fn(m.code ?? '');
+      })
+    };
+  }, [fleet]);
   // Allow / Deny from the session (and the sidebar): one send per request; a refusal or a silence is said in the toast.
   // End, archive, resume, restore, delete (lot 8): the confirmation below; the atelier and the session page hand it their menus.
   const actions = useSessionActions({ client: fleetClient, sessions, archived: fleetView.archived, machines, errors, notify });
@@ -980,7 +998,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         const s = known.find(x => x.id === tab.ref);
         if (!s) return null;
         const tp = prefsOfTab(tab, s);
-        return <SessionPlace client={fleetClient} session={s} nav={tnav} dispatch={dispatch} decisions={decisions} waits={waits} memory={memory} notify={notify} actions={actions} tasksApi={tasksApi}
+        return <SessionPlace client={fleetClient} session={s} nav={tnav} dispatch={dispatch} decisions={decisions} waits={waits} memory={memory} notify={notify} actions={actions} tasksApi={tasksApi} onRename={sessionMenu.rename}
           prefs={tp.prefs} setPrefs={tp.set} onRevealCurrent={() => setRevealCurrent(n => n + 1)} ide onShell={(s, intro) => { const at = sessionShell(s, machines); panelShell(at.kind, false, { dir: at.dir, intro: intro(at) }); }}
           project={projectLabel(s, projectName)} besideLink={changesBeside(ws, keyOf(tab))}
           pr={prOfSession(forge.prs, s.id) ?? null} onPr={() => { const p = prOfSession(forge.prs, s.id); if (p) onTab({ kind: 'pr', ref: p.id }); }}
@@ -1130,7 +1148,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
           ? <IdeRigs client={fleetClient} machines={machines} sessions={sessions} asks={asks.asks} activeTab={front ?? null} dispatch={dispatch} onTab={onTab}
               onMenu={(id, at, opener) => sessionMenu.open(id, at, opener)} />
           : <Sidebar section={layout.sideView === 'atoi' ? 'atoi' : 'projects'} onAtoiPage={() => onTab({ kind: 'atoi', ref: 'main' })} nav={nav} dispatch={dispatch} sessions={sessions} archived={fleetView.archived} projects={projects} order={order} projectIdOf={projectIdOf} filing={filing}
-            actions={actions} decisions={decisions} waits={waits} menu={sessionMenu} notify={notify}
+            actions={actions} decisions={decisions} waits={waits} menu={sessionMenu} notify={notify} {...(orderWriter ? { orderWriter } : {})}
             broadcast={canBroadcast(machines)} broadcastSent={broadcastSent}
             onTerminal={sessionMenu.terminal} revealArchives={revealArchives} revealCurrent={revealCurrent}
             tasksApi={tasksApi}

@@ -20,7 +20,7 @@ PC. Il n'est présent qu'avec `daemon.atelier` (les projets). Absent (PC plus an
 
 ```
 → { type: 'session.launch', op, launch: PhoneLaunch, assertion }
-PhoneLaunch = { project, tool, folders: [chemin, …], prompt, model?, effort?, approval? }      // strict : rien d'autre
+PhoneLaunch = { project, tool, folders: [chemin, …], prompt, model?, effort?, approval?, name? }      // strict : rien d'autre
 ← operation.result { op, status: received → applied | rejected | failed, reason?, id? }
 ```
 
@@ -31,6 +31,7 @@ PhoneLaunch = { project, tool, folders: [chemin, …], prompt, model?, effort?, 
 | Agent | `tool` | `claude`, `codex`, `cursor`, `omp` |
 | Modèle et effort | `model?`, `effort?` | un choix de `models.listing` pour cet agent ; absents, l'agent prend son défaut |
 | — (OMP seul) | `approval?` | `always-ask`, `write`, `yolo` ; refusé pour un autre agent |
+| Nom (#15, « Définir un nom ? ») | `name?` | le nom-adresse de la session, nettoyé comme tout nom (`cleanName`) ; vide ou rien après nettoyage : le premier nom libre ; déjà pris (casse ignorée, « Otto-2 » rend « Otto » pris, « ledge » réservé) : refus `name_taken`. Le passkey couvre le nom |
 | Premier message | `prompt` | obligatoire, non vide après `trim`, au plus `MESSAGE_MAX` |
 
 - **Pas de nom** : le PC choisit le nom de l'agent (« Nova »), comme pour un lancement sans nom sur Desktop. Le premier
@@ -90,6 +91,7 @@ Codes de refus (`reason`) :
 | Code | Cas |
 |---|---|
 | `not_found` | un dossier n'est plus là sur le PC |
+| `name_taken` | le nom choisi est déjà pris (#15) : `nameRefusal` de `@ledge/protocol` le dit avant « Lancer », ce refus n'arrive qu'en cas de course |
 | `invalid` | ce que l'agent ne prend pas : plusieurs dossiers pour Codex ou Cursor, un dossier en double, `approval` hors OMP, un modèle absent du `models.listing` de l'agent, un effort que ce modèle (ou, sans modèle, celui par défaut) ne prend pas ; ou un dossier trop large (le dossier personnel ou au-dessus, ou un lien symbolique qui y mène). Quand le PC n'a pas pu lire les modèles de l'agent, il ne refuse ni modèle ni effort : l'agent le dit alors dans son terminal |
 | `stale` | le projet n'existe plus, ou un dossier n'est plus déclaré par le projet, ou appartient à une autre machine : recharger les projets |
 | `confirm_required` | pas de passkey enregistrée, ou pas d'assertion |

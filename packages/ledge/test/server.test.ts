@@ -2082,7 +2082,7 @@ describe('server', () => {
       expect(store.get(resumed.id)!.transcriptPath).toBeUndefined();
       c.close();
     });
-    it('picks a free name when none is given or the wanted one is live, and never a live id', async () => {
+    it('picks a free name when none is given, and never a live id; a name given and live is refused (#15)', async () => {
       mkdirSync(join(home(), 'p'));
       store.upsert(mk('a', { name: 'Otto' })); store.upsert(mk('b', { name: 'Pim', state: 'exited' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
@@ -2090,9 +2090,12 @@ describe('server', () => {
       const first = await c.next('session.launched');
       expect(store.get(first.id)!.name).toBe('Pim'); // exited sessions free their name
       expect(['a', 'b']).not.toContain(first.id);
-      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'Otto' });
+      // #15: the name given is the user's choice: taken (whatever its case), it is refused, never turned into « Otto-2 ».
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'otto' });
+      expect(await c.next('error')).toEqual({ type: 'error', message: 'le nom Otto est déjà pris : Otto porte ce nom', request: 'session.launch', code: 'name_taken' });
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'Ida' });
       const second = await c.next('session.launched');
-      expect(store.get(second.id)!.name).toBe('Otto-2');
+      expect(store.get(second.id)!.name).toBe('Ida');
       expect(tmux.created.map(x => x.command[0])).toEqual(['codex', 'cursor-agent']);
       // Codex hooks run in a shared daemon: the session id reaches them through a per-thread config override.
       // Its key goes the same way (#93): the daemon checks the `by` of its commands against it.
@@ -2103,14 +2106,35 @@ describe('server', () => {
       expect(tmux.created[1]!.env.LEDGE_CODEX_SESSION).toBeUndefined();
       c.close();
     });
-    it('skips a base name a numbered session holds, and reuses a name once that session is archived', async () => {
+    it('refuses a base name a numbered session holds and « ledge »; reuses a name once its session is archived; a name that cleans to nothing is no name (#15)', async () => {
       mkdirSync(join(home(), 'q'));
       store.upsert(mk('a', { name: 'Otto-2' }));
       store.upsert(mk('old', { name: 'Pim', state: 'idle', archivedAt: T0 }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
       c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'Otto' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Otto est déjà pris : Otto-2 porte ce nom' });
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'Ledge' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Ledge est déjà pris' });
+      expect(tmux.created).toHaveLength(0);
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'pim' });
+      expect(store.get((await c.next('session.launched')).id)!.name).toBe('Pim');
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: ' @!, ' });
+      expect(store.get((await c.next('session.launched')).id)!.name).toBe('Nova');
+      c.close();
+    });
+    it('two launches of one name at once (the PC and the phone, a double send): one starts, the other is refused, never « Rex-2 » (#15)', async () => {
+      mkdirSync(join(home(), 'race'));
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'rex' });
       const launched = await c.next('session.launched');
-      expect(store.get(launched.id)!.name).toBe('Pim');
+      expect(await c.next('error')).toMatchObject({ request: 'session.launch', code: 'name_taken' });
+      expect(store.all().map(x => x.name)).toEqual(['Rex']);
+      expect(tmux.created).toHaveLength(1);
+      // Once recorded, the name is the session's, and the hold is gone: another launch of it is refused by the store itself.
+      expect(store.get(launched.id)!.name).toBe('Rex');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Rex est déjà pris : Rex porte ce nom' });
       c.close();
     });
     it('expands ~ and refuses a missing folder or a file with an error for the requester', async () => {
@@ -2506,6 +2530,41 @@ describe('projects', () => {
     expect(await set(reordered)).toMatchObject({ type: 'projects', projects: reordered });
     expect(await set({ ...old, projects: [old.projects[0]] })).toMatchObject({ type: 'projects' });
     a.close(); await s.close();
+  });
+  it('sessions.order keeps a project\'s sessions\' order: written, broadcast, still there after a restart; a projects.set keeps it (#16)', async () => {
+    writeProjects(projectsState as Projects);
+    const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0 });
+    const a = await open(s.port), b = await open(s.port); const gotA = collect(a), gotB = collect(b);
+    await until(() => gotB.some(m => m.type === 'projects'));
+    const last = (got: ServerMessage[]) => got.filter(m => m.type === 'projects').at(-1) as Extract<ServerMessage, { type: 'projects' }>;
+    a.send(JSON.stringify({ type: 'sessions.order', project: 'ledge', ids: ['srv:b', 'local:a', 'local:a'] }));
+    a.send(JSON.stringify({ type: 'sessions.order', project: '', ids: ['local:x'] }));
+    await until(() => last(gotB)?.projects.order?.[''] !== undefined);
+    expect(last(gotB).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    // An unknown project: refused, nothing written.
+    a.send(JSON.stringify({ type: 'sessions.order', project: 'nope', ids: ['local:a'] }));
+    await until(() => gotA.some(m => m.type === 'error'));
+    expect(gotA.find(m => m.type === 'error')).toMatchObject({ request: 'sessions.order', code: 'stale' });
+    // Réglages saving its projects (without the order, or with an old one) never changes it.
+    const n = gotB.filter(m => m.type === 'projects').length;
+    a.send(JSON.stringify({ type: 'projects.set', projects: { ...projectsState, order: { ledge: ['local:old'] } } }));
+    await until(() => gotB.filter(m => m.type === 'projects').length > n);
+    expect(last(gotB).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    expect(JSON.parse(readFileSync(paths().projects, 'utf8')).order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    a.close(); b.close(); await s.close();
+    // After a restart, the same order.
+    const s2 = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0 });
+    const c = await open(s2.port); const gotC = collect(c);
+    await until(() => gotC.some(m => m.type === 'projects'));
+    expect(last(gotC).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    // The project deleted: its order goes, « Sans projet » keeps its own; an empty list clears one.
+    c.send(JSON.stringify({ type: 'projects.set', projects: { projects: [], rules: [] } }));
+    await until(() => gotC.filter(m => m.type === 'projects').length === 2);
+    expect(last(gotC).projects.order).toEqual({ '': ['local:x'] });
+    c.send(JSON.stringify({ type: 'sessions.order', project: '', ids: [] }));
+    await until(() => gotC.filter(m => m.type === 'projects').length === 3);
+    expect(last(gotC).projects.order).toEqual({});
+    c.close(); await s2.close();
   });
   it('the chat reads the projects the daemon holds at each question: a later projects.set is in the next context', async () => {
     const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0, agentEnv: async () => ({ ...process.env, FAKE_CLAUDE_MODE: 'projects' }), claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))] });

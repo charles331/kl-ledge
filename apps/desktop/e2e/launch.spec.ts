@@ -59,8 +59,9 @@ test('N, a message, Claude Code, the second folder, Ctrl Enter twice: one launch
   expect(launch).toMatchObject({ tool: 'claude', cwd: '/w/ledge-docs', prompt: 'Fix the failing tests' });
   expect(launch).not.toHaveProperty('dirs');
   expect(launch).not.toHaveProperty('machineId');
-  const name = launch.name!;
-  expect(name).toBeTruthy();
+  // « Définir un nom ? » off (#15): no name goes, the daemon names the session (here the test plays it, with the first free name).
+  expect(launch.name).toBeUndefined();
+  const name = 'Lu';
   const started = session('launched-1', { name, tool: 'claude', cwd: '/w/ledge-docs', project: 'ledge', title: `${name} · ledge`, state: 'starting' });
   daemon.launched(started);
   await expect(form).toBeHidden();

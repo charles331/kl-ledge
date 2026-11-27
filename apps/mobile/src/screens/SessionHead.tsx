@@ -65,7 +65,7 @@ export function SessionHead({ store, session, current, onLeave, onReconnect, dis
  * A long press on a seat of the Atelier or a row of the list (m2-sessions.html §8, Q22): « Plus d'actions » led by « Ouvrir le
  * fil » and « Ouvrir le terminal », and the sheets it opens. A rig's seat says « siège dev.front · ledge-dev », a session its project.
  */
-export function SessionActions({ store, session, onDone }: { store: MobileStore; session: PhoneSession; onDone: () => void }) {
+export function SessionActions({ store, session, onDone, order }: { store: MobileStore; session: PhoneSession; onDone: () => void; /** Issue #16: Monter / Descendre in its project. */ order?: { up?: (() => void) | undefined; down?: (() => void) | undefined } }) {
   const state = useMobile(store);
   const now = useNow();
   const [pane, setPane] = useState<'menu' | 'model' | 'close'>('menu');
@@ -79,6 +79,10 @@ export function SessionActions({ store, session, onDone }: { store: MobileStore;
     <SessionMore
       store={store} session={session} closable={closable} closing={shut} onClose={onDone} who={who}
       onModel={() => setPane('model')} onCloseSession={() => setPane('close')}
+      {...(order ? { order: [
+        { icon: 'arrowUp' as const, label: copy.sessions.reorder.up, onClick: order.up ? () => { order.up!(); onDone(); } : undefined },
+        { icon: 'arrowDown' as const, label: copy.sessions.reorder.down, onClick: order.down ? () => { order.down!(); onDone(); } : undefined }
+      ] } : {})}
       lead={[
         { icon: 'sessions', label: copy.atoi.openThread, onClick: () => go({ name: 'thread', sessionId: session.id }) },
         { icon: 'terminal', label: copy.thread.terminal(session.name), onClick: () => go({ name: 'terminal', sessionId: session.id }) }

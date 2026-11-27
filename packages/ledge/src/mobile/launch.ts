@@ -7,7 +7,7 @@ import { resolveFolder } from '../daemon/folders.js';
 import { folderTooWide } from '../chat/service.js';
 import { PhoneLaunchRefused } from './gateway.js';
 
-export type PhoneLaunchReq = { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval };
+export type PhoneLaunchReq = { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval; name?: string };
 
 /** An agent's models as `models.listing` gives them; `error` when the agent could not be asked. */
 export type ListModels = (tool: Tool) => Promise<{ models: ModelChoice[]; error?: string }>;
@@ -37,6 +37,10 @@ export function phoneLaunch(launch: (req: PhoneLaunchReq) => Promise<Session>, h
       if (wide) throw new PhoneLaunchRefused('invalid', `the folder is ${wide}`);
     }
     try { return { id: (await launch(req)).id }; }
-    catch (e) { if (/^launch: /.test((e as Error).message)) throw new PhoneLaunchRefused('invalid', (e as Error).message); throw e; }
+    catch (e) {
+      if ((e as { code?: unknown }).code === 'name_taken') throw new PhoneLaunchRefused('name_taken', (e as Error).message);
+      if (/^launch: /.test((e as Error).message)) throw new PhoneLaunchRefused('invalid', (e as Error).message);
+      throw e;
+    }
   };
 }

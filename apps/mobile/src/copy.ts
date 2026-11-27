@@ -323,6 +323,17 @@ const fr = {
   },
   /** « Sessions » (docs/mockups/ledge-mobile-refonte/m2-sessions.html §1, Q24, Q25): the filters, the groups, a row's line. */
   sessions: {
+    /** Issue #16 (docs/mockups/ledge-reorder.html, cards 6 and 7): the same words as Desktop, the failures as design-ux wrote them
+     *  for the phone. `i` is already an ordinal (« 1re », « 2e »). */
+    reorder: {
+      up: 'Monter', down: 'Descendre',
+      moved: (n: string, i: string, total: number, p: string) => `${n} est maintenant ${i} sur ${total} dans ${p}.`,
+      movedProject: (n: string, i: string, total: number) => `${n} est maintenant ${i} sur ${total} projets.`,
+      offline: (n: string) => `Impossible de déplacer ${n} : le PC n'est pas joignable.`,
+      outdated: (n: string) => `Impossible de déplacer ${n} : mets à jour Ledge sur le PC.`,
+      stale: (n: string) => `${n} n'a pas été déplacé : la liste a changé entre-temps. Réessaie.`,
+      ordinal: (i: number, feminine: boolean) => (i === 1 ? (feminine ? '1re' : '1er') : `${i}e`)
+    },
     filter: { label: 'Filtrer les sessions', all: 'Toutes', waiting: 'En attente', working: 'Au travail' } as Record<'label' | 'all' | 'waiting' | 'working', string>,
     rigGroup: (name: string) => `Rig ${name}`,
     line: {
@@ -1209,9 +1220,16 @@ const fr = {
     ideas: ['Relire la dernière pull request', 'Corriger les tests qui échouent', 'Mettre à jour la documentation'],
     pick: (model: string, effort: string | null) => (effort ? `${model} · ${effort}` : model),
     summary: (tool: string, model: string | null, machine: string, project: string) => `${model ? `${tool} · ${model}` : tool} sur ${machine}, dans ${project}`,
+    // Issue #15 (docs/mockups/ledge-launch-name.html, card 6): an optional name, behind a switch on the Project label's right.
+    nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laisse vide pour ${n}`,
+    nameHint: 'Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.',
+    nameCleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
+    nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisis un autre nom, ou laisse vide.`,
+    nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,
+    nameReserved: 'ledge est réservé à Ledge lui-même. Choisis un autre nom.',
     launchCheck: 'Lancer avec Face ID', launchDevice: 'Lancer avec mon appareil', launching: 'Lancement…',
     missing: {
-      prompt: 'Écris la consigne', machine: 'Aucune machine en ligne', setup: 'Protège d’abord tes accords',
+      prompt: 'Écris la consigne', machine: 'Aucune machine en ligne', setup: 'Protège d’abord tes accords', name: 'Choisis un autre nom',
       pcOld: (machine: string) => `${machine} ne lance pas encore depuis le téléphone`
     },
     setupBody: 'Lancer demande la passkey de cet appareil, comme fermer une session.', openSettings: 'Ouvrir Réglages',

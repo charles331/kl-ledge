@@ -1,0 +1,63 @@
+/* « Atelier » (issue #28): the explorer under the skin. Its session row (« À toi », the session one is in), the projects' tree
+   reworked so a session keeps its text, and the count bubbles. Kept apart from atelier-skin.css (the frame, the panels, the
+   small parts) so the two can be worked on separately. Ported from docs/mockups/ide-atelier/atelier.css. */
+
+/* The session one is in (the tab in front of the focused group) stands out in the list when its row is visible there: a neutral
+   raised row and its name in semi-bold. Never coral: the colour belongs to the pill of a session that wants the person. */
+:root[data-skin="atelier"] .st-agent.sel { background: var(--at-raise); color: var(--at-ink); }
+:root[data-skin="atelier"] .st-agent.sel .st-main strong { font-weight: 600; }
+/* The explorer's row: « À toi » on a session that waits (Tree.tsx, under the skin). */
+:root[data-skin="atelier"] .st-agent .st-time { display: inline-flex; align-items: center; }
+:root[data-skin="atelier"] .at-tag { display: inline-flex; height: 18px; align-items: center; padding: 0 8px; border-radius: 9px; background: var(--at-coral); color: var(--at-coral-ink); font: 600 11px/1 var(--font-sans, 'Geist', sans-serif); white-space: nowrap; }
+:root[data-skin="atelier"] .st-time.t-question .at-tag { background: var(--warning); color: var(--at-warning-ink); }
+/* A session in error waits for the person too, but neither coral (an authorisation) nor amber (a question): « À toi » outlined in the
+   error colour of today's time (the owner's choice A, 2026-11-26; docs/mockups/ledge-ide-atelier-focus.html, card 4). The same box as a
+   filled pill: the 1.5 px line is an inset shadow, which a 1× screen does not round down to 1 px nor add to the width as a border would. */
+:root[data-skin="atelier"] .st-time.t-error .at-tag { background: transparent; box-shadow: inset 0 0 0 1.5px var(--danger-text); color: var(--danger-text); }
+:root[data-skin="atelier"] .st-row { border-radius: 8px; }
+:root[data-skin="atelier"] .st-project, :root[data-skin="atelier"] .st-branch { min-height: 30px; }
+
+/* ---------- The projects' tree, reworked so a session keeps its text ---------- */
+/* Today a session's name starts 78 px into a 248 px panel and shares its line with the time: names, branches and topics are cut.
+   Here the tree is flatter (project at 4 px, branch at 12, session at 28, the sub-agents' chevron in the gutter), a branch's name
+   takes its whole line, and the time moves to the session's second line, so the first one is the name's and its chips'. */
+/* One heading, not two: the view's title gives way to the list's own line, which carries the tools. */
+:root[data-skin="atelier"] .sidebar:has(> .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label) > .ide-ex-h { display: none; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { padding-top: 10px; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--at-ink); }
+:root[data-skin="atelier"] .st-tree .st-branch { padding-left: 12px; }
+:root[data-skin="atelier"] .st-tree .st-branch > .st-fill { display: none; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) { padding-left: 28px; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-gap { display: none; }
+:root[data-skin="atelier"] .st-tree .st-agent:not(.helper) > .st-chev { position: absolute; left: 9px; }
+:root[data-skin="atelier"] .st-tree .st-agent.helper { padding-left: 52px; }
+:root[data-skin="atelier"] .st-tree .st-agent.helper > .st-gap { display: none; }
+/* The time, on the second line's right; « À toi » stays on the first, where it is looked for. */
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-time:not(:has(.at-tag)) { position: absolute; right: 8px; bottom: 6px; margin: 0; }
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper) > .st-main > span { padding-right: 46px; }
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent:not(.helper):has(.at-tag) > .st-main > span { padding-right: 0; }
+/* « Hors ligne » is wider than a time: its row keeps more room for it. */
+:root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent.off:not(.helper) > .st-main > span { padding-right: 78px; }
+/* A project's name may take the room its counts leave (today it stops at 60 % of it). */
+:root[data-skin="atelier"] .st-project .st-main strong { max-width: 100%; flex: 0 1 auto; }
+:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { margin-bottom: 4px; }
+
+/* ---------- Count bubbles: one shape wherever a number is shown ---------- */
+/* 16 px high, at least as wide, a full pill, the figure centred in tabular digits. A count of a state wears that state's colour on a
+   tint of it; a plain count is neutral. The dot that stood before the figure goes: the bubble's colour says the same. */
+:root[data-skin="atelier"] .ide-badge, :root[data-skin="atelier"] .st-tally > span, :root[data-skin="atelier"] .st-count,
+:root[data-skin="atelier"] .ide-bp-count, :root[data-skin="atelier"] .rt-tabs .n, :root[data-skin="atelier"] .st-kids {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 3px; flex: none;
+  min-width: 16px; height: 16px; padding: 0 5px; border: 0; border-radius: 8px;
+  font: 600 10px/16px 'Geist', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root[data-skin="atelier"] .st-count, :root[data-skin="atelier"] .ide-bp-count, :root[data-skin="atelier"] .rt-tabs .n, :root[data-skin="atelier"] .st-kids:not(.on) { background: var(--at-line2); color: var(--at-ink2); }
+:root[data-skin="atelier"] .st-tally { gap: 4px; align-items: center; }
+:root[data-skin="atelier"] .st-tally > span { background: color-mix(in srgb, currentColor 18%, transparent); }
+:root[data-skin="atelier"] .st-tally > span > i:not(.st-kids-spin) { display: none; }
+:root[data-skin="atelier"] .st-tally > .t-bg > i { display: block; width: 6px; height: 6px; }
+:root[data-skin="atelier"] .st-kids.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
+:root[data-skin="atelier"] .st-kids { margin-top: 6px; }
+/* On an icon of the activity bar: solid, ringed in the bench's colour so it cuts cleanly out of the icon under it. */
+:root[data-skin="atelier"] .ide-badge { top: 1px; right: 0; background: var(--at-coral); color: var(--at-coral-ink); box-shadow: 0 0 0 2px var(--at-bench); }
+:root[data-skin="atelier"] .ide-badge.amber { background: var(--warning); color: var(--at-warning-ink); }

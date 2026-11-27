@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';
 import { createConnection } from 'node:net';
 import type { Session, Tool } from '@ledge/protocol';
-import { PROTOCOL_PORT, namesInUse, openName } from '@ledge/protocol';
+import { PROTOCOL_PORT, cleanName, nameHolder, nameRefusal, namesInUse, openName } from '@ledge/protocol';
 import { connect, DaemonRefusedError, type Client } from '../client.js';
 import { realTmux, type Tmux } from '../tmux.js';
 import { ensureLedgeDir } from '../paths.js';
@@ -85,6 +85,14 @@ export async function ensureDaemon(opts: { port?: number; spawnDaemon?: () => vo
 /** The daemon accepted the connection but failed during session creation: launch untracked instead. */
 export class DaemonError extends Error {}
 
+/** Issue #15: `--name` names a session that already has it (or its base, or « ledge »): nothing is launched. */
+export class NameTakenError extends Error {
+  constructor(name: string, holder?: string) {
+    super(`the name ${name} is taken${holder && holder !== name ? ` (${holder} holds it)` : ''}: choose another --name, or leave it out for a free one`);
+    this.name = 'NameTakenError';
+  }
+}
+
 /** Spawns the agent's tmux session (see `spawnSession`) with names and ids free in the daemon's snapshot, then registers it. */
 export async function createSession(opts: { tool: TmuxTool; args: string[]; command?: string[]; recordExit?: boolean; name?: string; cwd: string; tmux: Tmux; client: Client | null; now?: () => string; env?: NodeJS.ProcessEnv }): Promise<Session> {
   const names: string[] = []; const ids: string[] = [];
@@ -94,6 +102,10 @@ export async function createSession(opts: { tool: TmuxTool; args: string[]; comm
     catch (e) { throw new DaemonError(`daemon did not answer: ${(e as Error).message}`); }
     names.push(...namesInUse(snap.sessions));
     for (const s of snap.sessions) ids.push(s.id);
+    // A name given and taken is refused, as the daemon's own launch refuses it (#15): never changed behind the user's back.
+    if (opts.name !== undefined && nameRefusal(names, opts.name)) {
+      throw new NameTakenError(cleanName(opts.name), nameHolder(snap.sessions.filter(s => s.state !== 'exited' && !s.archivedAt), opts.name)?.name);
+    }
   }
   const session = await spawnSession({ ...opts, name: openName(names, opts.name), taken: { names, ids } });
   // The agent already runs: a lost register only means an untracked session, never a failed launch.
@@ -158,6 +170,11 @@ export async function launch(tool: TmuxTool, argv: string[], opts: LaunchOptions
   let session: Session;
   try { session = await create(client); }
   catch (e) {
+    if (e instanceof NameTakenError) {
+      console.error(`ledge: ${e.message}`);
+      if (client) await closeQuietly(client);
+      return 1;
+    }
     if (!(e instanceof DaemonError)) throw e;
     log(e.message);
     if (client) void closeQuietly(client);

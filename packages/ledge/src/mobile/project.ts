@@ -4,7 +4,7 @@ import { PHONE_COMMANDS_MAX, PhoneSlashCommandSchema, type PhoneSlashCommand, ty
 import { CHECKLIST_TASKS_MAX, CHECKLIST_TEXT_MAX, doneCount } from '@ledge/protocol';
 import type { PhoneChecklist, PhoneChecklistSummary, Todo } from '@ledge/protocol';
 import type { RigInfo, CapabilitiesByTool, FileChange, Pending, PhonePending, PhoneSession, PhoneTask, Session, Task, ThreadItem, Tool } from '@ledge/protocol';
-import { PHONE_PROJECTS_MAX, PHONE_RIG_NAME_MAX, projectOf, type PhoneProject, type Projects } from '@ledge/protocol';
+import { PHONE_PROJECTS_MAX, PHONE_RIG_NAME_MAX, projectOf, type PhoneProject, type PhoneSessionOrder, type Projects } from '@ledge/protocol';
 import { PHONE_ROUTINE_CWD_MAX, type PhoneRoutine, type PhoneRoutineDetail, type Routine } from '@ledge/protocol';
 import { adapterFor } from '../adapters/index.js';
 import { routineKey } from '../routineKey.js';
@@ -80,6 +80,17 @@ export function checklistSummary(todos: readonly Todo[] | null): PhoneChecklistS
 /** The user's projects for the Atelier: id, name and colour, in their order. Never a folder nor a rule. */
 export function toPhoneProjects(p: Projects): PhoneProject[] {
   return p.projects.slice(0, PHONE_PROJECTS_MAX).map(x => ({ id: x.id, name: clip(x.name, 80).text, color: x.color }));
+}
+
+/** Issue #16: the order of this PC's sessions per project, as the phone knows them (their own ids); undefined when there is none. */
+export function toPhoneSessionOrder(p: Projects): PhoneSessionOrder | undefined {
+  if (!p.order) return undefined;
+  const out: PhoneSessionOrder = {};
+  for (const [k, keys] of Object.entries(p.order)) {
+    const local = keys.filter(x => x.startsWith('local:')).map(x => { try { return decodeURIComponent(x.slice(6)); } catch { return ''; } }).filter(x => x && x.length <= 200);
+    if (local.length) out[k] = local;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /**

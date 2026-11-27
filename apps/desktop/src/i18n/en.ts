@@ -39,6 +39,15 @@ export const en: Messages = {
     }
   },
   side: {
+    reorder: {
+      grip: 'Drag to move · Alt+↑ / Alt+↓',
+      moved: (n, i, total, p) => `${n} is now ${i} of ${total} in ${p}.`,
+      movedProject: (n, i, total) => `${n} is now ${i} of ${total} projects.`,
+      fileInto: (n, p) => `Release to file ${n} in ${p}`,
+      offline: (n) => `Could not move ${n}: the local Ledge daemon is not reachable.`,
+      outdated: (n) => `Could not move ${n}: update the local Ledge daemon, it can't keep the order yet.`,
+      stale: (n) => `${n} was not moved: the list changed meanwhile. Try again.`
+    },
     rigs: 'Rigs', kernel: 'Kernel', rigOf: (name) => `The rig ${name} on the OpenRig page`, rigAsks: (n) => `${n} ${pluralEn(n, 'request', 'requests')}`, 
     label: 'Sidebar', newSession: 'New session', searchLabel: 'Search a session',
     views: 'Views', atelier: 'Atelier', chat: 'Chat Ledge', projects: 'Projects', newProject: 'New project', unassigned: 'No project',
@@ -682,7 +691,7 @@ export const en: Messages = {
     title: 'Keyboard shortcuts',
     intro: 'Active while the window has focus. Navigation keys stay available for typing and the terminal when they have focus.',
     outro: 'Ctrl / ⌘ K opens the search from any view. Y and N only act on the pinned request of the open session, never while typing.',
-    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['/','Focus Ask Ledge'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (chat field, task detail, atelier filter)'],['?','Show these shortcuts']],
+    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['Alt ↑ / ↓','Move the session or the project up / down (sidebar)'],['Alt Home','To the top of the project, or of the list (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['/','Focus Ask Ledge'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (chat field, task detail, atelier filter)'],['?','Show these shortcuts']],
     ide: { title: 'Tabs and groups', rows: [['Ctrl W','Close the tab, or the empty group'],['Ctrl ⇧ T','Reopen the last closed tab'],['Ctrl Tab / Ctrl ⇧ Tab','Next / previous tab of the group'],['Ctrl PgDn / PgUp','Next / previous tab of the group'],['Ctrl 1…9','Go to group N, from a terminal too'],['Ctrl ⇧ `','Leave the terminal for its tab (← / → walk the tabs), or go back into it'],['Ctrl Alt ← / →','Move the tab to the group on the left / right'],['Ctrl \\','Split right'],['Ctrl B','Show / hide the sidebar'],['Ctrl J','Show / hide the bottom panel (terminals)'],['Ctrl /','Show / hide Ledge’s chat']] }
   },
   tray: { open: 'Open Ledge Desktop', newSession: 'New session', dnd: 'Do not disturb', dndOff: 'Resume alerts', quit: 'Quit Ledge Desktop' },
@@ -858,6 +867,7 @@ export const en: Messages = {
   manage: {
     menu: {
       label: (name) => `Manage ${name}`, more: 'Manage the session (right click)',
+      up: 'Move up', down: 'Move down', top: 'To the top of the project', topList: 'To the top of the list', upKey: 'Alt ↑', downKey: 'Alt ↓', topKey: 'Alt Home',
       open: 'Open session', terminal: 'Terminal', rename: 'Rename…', moveTo: 'Move to…', end: 'End session', resume: 'Resume session',
       archive: 'Archive', endAndArchive: 'End and archive…', delete: 'Delete…',
       kids: (n, name) => `${n} ${pluralEn(n, 'subagent leaves', 'subagents leave')} with ${name}.`,
@@ -1230,7 +1240,7 @@ export const en: Messages = {
     agentName: 'Agent name', agentNameAuto: (n) => `${n} (random)`, agentNameHint: 'It is its address: other agents write to it by this name. Letters, digits, - and _; a name already taken gets a suffix.',
     pastNames: 'Used in this project before',
     newAgent: 'A new agent', joins: (n, t) => `${n} will join the ${t} table`, seat: (n, m, r) => `Seat ${n} · ${m} · ${r}`, noRepo: 'no folder or repository',
-    missing: { prompt: 'Write the instruction', machine: 'No machine online', repos: 'Choose at least one folder or repository' },
+    missing: { prompt: 'Write the instruction', machine: 'No machine online', repos: 'Choose at least one folder or repository', name: 'Choose another name for the session' },
     cancel: 'Cancel', launch: 'Launch', launching: 'Launching…',
     started: (n, t) => `${n} is starting at the ${t} table.`, startedNoTable: (n) => `${n} is starting, with no project.`, refused: (m) => `Launch refused: ${m}`,
     timeout: 'The launch did not answer. Check the machine, then try again.',
@@ -1254,7 +1264,13 @@ export const en: Messages = {
       open: 'Open', openActive: 'In the active group', openRight: 'On the right',
       limit: (pct, reset) => `5 h limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitMonth: (pct, reset) => `Monthly limit ${pct}${reset ? ` · resets ${reset}` : ''}`,
       limitWeek: (pct, reset) => `Weekly limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitUnread: 'Limit not read',
-      offline: 'offline', launch: 'Launch', launchKeys: 'Ctrl Enter', cancel: 'Cancel'
+      offline: 'offline', launch: 'Launch', launchKeys: 'Ctrl Enter', cancel: 'Cancel',
+      nameToggle: 'Set a name?', name: 'Name', namePlaceholder: (n) => `Leave empty for ${n}`,
+      nameHint: 'It is its address: other sessions write to it under this name (ledge who, SendMessage). Letters, digits, - and _.',
+      cleaned: (n) => `The session will be called ${n}: spaces and punctuation are removed.`,
+      nameTaken: (n, p) => `${n} is already the name of a session in ${p}. Choose another name, or leave it empty.`,
+      nameTakenBy: (n, o) => `${n} is already taken: ${o} has it.`,
+      nameReserved: 'ledge is reserved for Ledge itself. Choose another name.'
     }
   },
   projects: {

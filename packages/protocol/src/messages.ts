@@ -19,7 +19,7 @@ import { RoutingContextSchema, RouteResultSchema } from './routing.js';
 import { SshAliasSchema } from './ssh.js';
 import { MachinesSchema } from './machines.js';
 import { IslandPrefsSchema } from './island.js';
-import { ProjectsSchema } from './projects.js';
+import { ProjectsSchema, SESSION_ORDER_MAX } from './projects.js';
 import { ThreadItemSchema } from './thread.js';
 import { DecidedBySchema, DecisionSchema, NOTE_MAX } from './decisions.js';
 import { DeviceNameSchema, MobileRecoveryEventSchema, MobileStateSchema, RelayUrlSchema } from './mobile.js';
@@ -391,6 +391,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('machines.set'), machines: MachinesSchema }),
   /** Replaces the local daemon's projects and rules as a whole; refused unless valid. */
   z.object({ type: z.literal('projects.set'), projects: ProjectsSchema }),
+  /** Issue #16: one project's sessions' order (its id, or NO_PROJECT ''), as session keys (placeSessions); answered by `projects`. */
+  z.object({ type: z.literal('sessions.order'), project: z.string().max(64), ids: z.array(z.string().min(1).max(300)).max(SESSION_ORDER_MAX) }),
   /** Replaces the island's settings as a whole; refused unless valid. */
   z.object({ type: z.literal('island.set'), prefs: IslandPrefsSchema }),
   /** Mobile access (lot 3), local fronts only. A changed `relayUrl` drops the relay session. */

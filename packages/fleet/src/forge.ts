@@ -18,16 +18,18 @@ export const openPrs = <T extends PullRequest>(prs: readonly T[]): T[] => prs.fi
 /** The merged ones, most recently updated first. */
 export const mergedPrs = <T extends PullRequest>(prs: readonly T[]): T[] => prs.filter(p => p.state === 'merged').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 /**
- * The list of « MR et PR » (issue #3): the followed requests and the account's own, one row per request (its id: forge host, repository
- * and number) however many machines read it or under however many titles. The row kept for a request read twice is the one to ask
+ * The list of « MR et PR » (issue #3): the followed requests and the account's own, one row per request (its forge address, #11) however many machines read it or under however many titles. The row kept for a request read twice is the one to ask
  * for its detail and actions: a fresh one over a stale one (a machine down cannot act, review C2), then a followed one (its agent, its
  * pipeline), then the latest read;
  * its roles and sessions are the union of all. Order: as given (the callers sort).
  */
+/** One request whatever its id: the forge's address (#11), as two machines whose remotes name its repository otherwise (case, old
+ *  name) give it under two ids; the id when there is no address. */
+const requestKey = (p: Pick<PullRequest, 'id' | 'url'>): string => (p.url ?? '').trim().replace(/\/+$/, '').toLowerCase() || p.id;
 export function listedPrs<T extends FleetPullRequest & { stale?: boolean }>(prs: readonly T[], mine: readonly T[]): T[] {
   const rank = (p: T) => (p.stale ? 0 : 2) + (p.sessions.length > 0 ? 1 : 0);
   const byId = new Map<string, T[]>();
-  for (const p of [...prs, ...mine]) { const l = byId.get(p.id); if (l) l.push(p); else byId.set(p.id, [p]); }
+  for (const p of [...prs, ...mine]) { const k = requestKey(p); const l = byId.get(k); if (l) l.push(p); else byId.set(k, [p]); }
   return [...byId.values()].map(all => {
     const best = all.reduce((a, b) => (rank(b) > rank(a) || (rank(b) === rank(a) && b.updatedAt > a.updatedAt) ? b : a));
     if (all.length === 1) return best;

@@ -72,7 +72,9 @@ export function headOf(config: string, branch: string, listed: ForgeRepo): { hea
   return { head: f && f.host === listed.host ? f.path : listed.path, branch: name || branch };
 }
 /** `followed`: read for a session's branch (else only as one of the account's own); `roles`: the account's roles on it, if any. */
-interface Entry { pr: ReadPr; repo: ForgeRepo; followed: boolean; roles?: PrRole[] }
+/** `also`: the same request read under another id, from a remote naming its repository otherwise (case, old name: #11); its
+ *  sessions are this entry's too. */
+interface Entry { pr: ReadPr; repo: ForgeRepo; followed: boolean; roles?: PrRole[]; also?: ReadPr[] }
 const kindOf = (cli: ForgeCli): ForgeKind => (cli === 'gh' ? 'github' : 'gitlab');
 const hostKey = (repo: ForgeRepo): string => `${repo.cli}:${repo.host}`;
 const strip = ({ blockers: _b, head: _h, notStarted: _n, ...pr }: ReadPr, sessions: string[], roles?: PrRole[]): PullRequest => ({ ...pr, sessions, ...(roles?.length ? { roles } : {}) });
@@ -259,19 +261,25 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
 
   function rebuild(fl: Map<string, Followed>): void {
     const next = new Map<string, Entry>();
+    // One entry per request, by the forge's address (#11): remotes naming one repository in another case, or by its old name,
+    // are repositories of their own here, and each read gives that request under another id.
+    const byUrl = new Map<string, Entry>();
     for (const [r, f] of fl) {
       for (const pr of byRepo.get(r) ?? []) {
         if (!f.targets.has(targetKey(pr))) continue;
-        next.set(pr.id, { pr, repo: f.repo, followed: true });
+        const had = byUrl.get(sameRequestKey(pr)) ?? next.get(pr.id);
+        if (had) { if (had.pr.id !== pr.id) (had.also ??= []).push(pr); continue; }
+        const e: Entry = { pr, repo: f.repo, followed: true };
+        next.set(pr.id, e);
+        byUrl.set(sameRequestKey(pr), e);
       }
     }
     // The account's own: one entry per request, a followed one taking its roles. Matched by the forge's address, not the id: a
     // followed id comes from the git remote, whose case or (renamed) name may differ from the forge's (review of 8c552e4a, M1).
     const keepFrom = now() - MINE_KEEP_MS;
-    const followedBy = new Map([...next.values()].map(e => [sameRequestKey(e.pr), e] as const));
     for (const { prs } of mine.values()) for (const m of prs) {
       if ((m.pr.state === 'merged' || m.pr.state === 'closed') && Date.parse(m.pr.updatedAt) < keepFrom) continue;
-      const had = followedBy.get(sameRequestKey(m.pr)) ?? next.get(m.pr.id);
+      const had = byUrl.get(sameRequestKey(m.pr)) ?? next.get(m.pr.id);
       if (had) had.roles = m.roles;
       else next.set(m.pr.id, { pr: m.pr, repo: m.repo, followed: false, roles: m.roles });
     }
@@ -287,12 +295,18 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
   function sessionsOf(pr: ReadPr, fl = followed()): string[] {
     return (fl.get(forgeOf(`https://${pr.host}/${pr.repo}`)?.repo ?? '')?.targets.get(targetKey(pr))?.sessions ?? []).map(s => s.id);
   }
+  /** An entry's sessions, those of the same request read under another id included (#11), most recently active first. */
+  function sessionsOfEntry(e: Entry, fl = followed()): string[] {
+    if (!e.also?.length) return sessionsOf(e.pr, fl);
+    const all = [e.pr, ...e.also].flatMap(p => fl.get(forgeOf(`https://${p.host}/${p.repo}`)?.repo ?? '')?.targets.get(targetKey(p))?.sessions ?? []);
+    return [...new Map(all.map(s => [s.id, s])).values()].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)).map(s => s.id);
+  }
 
   function state(): ForgeStateMessage {
     const fl = followed();
     const newest = (a: PullRequest, b: PullRequest): number => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
     const all = [...entries.values()];
-    const prs = all.filter(e => e.followed).map(e => strip(e.pr, sessionsOf(e.pr, fl), e.roles)).filter(p => p.sessions.length).sort(newest);
+    const prs = all.filter(e => e.followed).map(e => strip(e.pr, sessionsOfEntry(e, fl), e.roles)).filter(p => p.sessions.length).sort(newest);
     const own = all.filter(e => !e.followed).map(e => strip(e.pr, [], e.roles)).sort(newest);
     const used = new Set([...fl.values()].map(f => hostKey(f.repo)));
     const followedSessions = [...fl.values()].flatMap(f => [...f.targets.values()].flatMap(t => t.sessions.map(s => ({ session: s.id, forge: kindOf(f.repo.cli), host: f.repo.host, repo: f.repo.path }))))
@@ -379,7 +393,7 @@ export function createForgeService(deps: { store: Store; run?: ForgeRun; env?: (
       await knowCi(e.repo);
       const pr = withCi(d.pr, e.repo);
       const mergeBlockers = pr.notStarted ? [...d.mergeBlockers.filter(b => b !== 'pipeline' && b !== 'pipeline_not_started'), 'pipeline_not_started' as const] : d.mergeBlockers;
-      const detail: PrDetail = { ...d, mergeBlockers, pr: strip(pr, e.followed ? sessionsOf(e.pr) : [], e.roles) };
+      const detail: PrDetail = { ...d, mergeBlockers, pr: strip(pr, e.followed ? sessionsOfEntry(e) : [], e.roles) };
       details.set(key, { at: now(), detail });
       return detail;
     },

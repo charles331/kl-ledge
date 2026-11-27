@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nom de la session</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#15 : un champ « Nom » facultatif dans « Nouvelle session ». Base : apps/desktop/src/launch/LaunchModal.tsx
+   (.launch-modal, grille 150 px + champ) et apps/mobile/src/screens/NewSession.tsx. Règle des noms : packages/protocol/src/names.ts
+   (cleanName, nameTaken, « ledge » réservé). Tokens : packages/ui tokens.css, clair et sombre. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --background:oklch(0.145 0 0);--foreground:oklch(0.985 0 0);--card:oklch(0.205 0 0);--popover:oklch(0.205 0 0);--muted:oklch(0.269 0 0);--muted-foreground:oklch(0.708 0 0);
+  --primary:oklch(0.444 0.177 26.899);--border:#ffffff1a;--input:#ffffff26;--ring:oklch(0.556 0 0);--accent:#ffffff10;
+  --pane:#111112;--page:#000;--shell:#0d0d0d;--note:#a78bfa;--danger:#f87171;--ok:#34d399;--side:#141414;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --background:oklch(1 0 0);--foreground:oklch(0.145 0 0);--card:oklch(1 0 0);--popover:oklch(1 0 0);--muted:oklch(0.97 0 0);--muted-foreground:oklch(0.556 0 0);
+  --primary:oklch(0.505 0.213 27.518);--border:oklch(0.922 0 0);--input:oklch(0.922 0 0);--ring:oklch(0.708 0 0);--accent:#0000000a;
+  --pane:#fff;--page:oklch(0.95 0 0);--shell:oklch(0.985 0 0);--note:#7c3aed;--danger:#dc2626;--ok:#059669;--side:oklch(0.975 0 0);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11.5px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1400px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid;color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:560px}
+/* La fenêtre (Modal + .launch-modal). */
+.modal{width:780px;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px #0007;flex-shrink:0}
+.mt{display:flex;align-items:flex-start;padding:10px 12px 0 22px}
+.mt h2{margin:0;padding-top:10px;font-size:15px;font-weight:600}
+.mt .x{margin-left:auto;width:28px;height:28px;display:grid;place-items:center;color:var(--muted-foreground)}
+.lm{padding:0 22px 22px;display:flex;flex-direction:column;gap:16px}
+.lm-sub{margin:0;color:var(--muted-foreground);font-size:12px}
+.fld{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px 16px;align-items:start;font-size:12.5px}
+.lbl{color:var(--muted-foreground);padding-top:5px}
+.lbl small{display:block;font-size:11px}
+.inp{width:100%;min-height:30px;display:flex;align-items:center;gap:8px;padding:5px 9px;border:1px solid var(--input);border-radius:7px;background:var(--background)}
+.inp b{font-weight:500}.inp .car{margin-left:auto;color:var(--muted-foreground);font-size:10px}
+.inp.focus{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 25%,transparent)}
+.inp.err{border-color:color-mix(in srgb,var(--danger) 70%,var(--input))}
+.inp .ph{color:var(--muted-foreground)}
+.inp .cur{display:inline-block;width:1px;height:15px;background:var(--foreground);margin-left:-6px}
+.new{box-shadow:0 0 0 1px color-mix(in srgb,var(--note) 60%,transparent);border-radius:8px}
+.hint{display:block;margin-top:5px;font-size:11.5px;color:var(--muted-foreground)}
+.ferr{display:block;margin-top:5px;font-size:11.5px;color:var(--danger)}
+.agents{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.agent{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px}
+.agent.on{border-color:var(--foreground);background:color-mix(in srgb,var(--foreground) 3%,transparent)}
+.agent .an{display:flex;align-items:center;gap:8px;font-weight:600}
+.agent .lg{width:16px;height:16px;border-radius:4px}
+.agent small{font-size:11px;color:var(--muted-foreground)}
+.ta{min-height:80px;padding:8px 10px;border:1px solid var(--input);border-radius:7px;background:var(--background)}
+.radios{display:flex;gap:16px;padding-top:5px}
+.radios label{display:flex;gap:6px;align-items:center}
+.rd{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--muted-foreground)}
+.rd.on{border:4px solid var(--foreground)}
+.go{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--input);font-size:12.5px;display:inline-flex;align-items:center;gap:8px;background:var(--background)}
+.btn.pri{background:var(--primary);border-color:transparent;color:#fff}
+.btn.dis{opacity:.5}
+kbd{font:10px 'Geist Mono',monospace;border:1px solid #ffffff55;border-radius:4px;padding:0 4px}
+.alert{font-size:12px;color:var(--danger)}
+/* Barre latérale, après le lancement. */
+.side{width:300px;background:var(--side);border:1px solid var(--border);border-radius:8px;padding:6px 4px 8px;font-size:12.5px}
+.slab{padding:4px 8px 6px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.r{display:flex;align-items:flex-start;gap:6px;padding:3px 6px 3px 22px;border-radius:6px}
+.r.p{padding-left:6px;font-weight:600}.r.on{background:var(--accent)}
+.r .lg{width:14px;height:14px;border-radius:4px;margin-top:2px;flex:none}
+.r .m{flex:1;display:flex;flex-direction:column;min-width:0}
+.r .m span{font-size:11.5px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .tm{font:11px 'Geist Mono',monospace;color:var(--muted-foreground)}
+.term{width:360px;background:#0c0c0c;color:#d4d4d8;border-radius:8px;padding:10px 12px;font:11px/16px 'Geist Mono',monospace;white-space:pre;border:1px solid #ffffff1a}
+.term .p{color:#71717a}.term .g{color:#34d399}
+/* Téléphone. */
+.phone{width:340px;border-radius:30px;border:1px solid var(--border);background:var(--pane);padding:14px 14px 12px;display:flex;flex-direction:column;gap:12px;font-size:13.5px}
+.phone .top{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600}
+.phone .top .x{margin-left:auto;color:var(--muted-foreground);font-size:15px}
+.pf{display:flex;flex-direction:column;gap:6px}
+.pf>span{font-size:12px;font-weight:500;color:var(--muted-foreground)}
+.prow{min-height:44px;border:1px solid var(--input);border-radius:10px;padding:8px 11px;display:flex;align-items:center;gap:9px;background:var(--background)}
+.prow small{display:block;font-size:11.5px;color:var(--muted-foreground)}
+.pin{min-height:44px;border:1px solid var(--input);border-radius:10px;padding:0 11px;display:flex;align-items:center;background:var(--background)}
+.pin.err{border-color:color-mix(in srgb,var(--danger) 70%,var(--input))}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pgrid div{border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-weight:500;font-size:12.5px}
+.pgrid div.on{border-color:var(--foreground)}
+.pbtn{height:46px;border-radius:12px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:500}
+.pbtn.dis{opacity:.5}
+.sw{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:12.5px;color:var(--foreground);flex:none}
+.sw i{width:30px;height:17px;border-radius:9px;background:var(--muted);border:1px solid var(--input);position:relative;display:inline-block}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--muted-foreground)}
+.sw.on i{background:var(--primary);border-color:transparent}.sw.on i::after{left:15px;background:#fff}
+.sw.focus i{box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 35%,transparent)}
+.prj{display:flex;gap:12px;align-items:center}.prj .inp{flex:1}
+.plab{display:flex;align-items:center;justify-content:space-between}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const T = {
+  fr: {
+    h1:'Nouvelle session — un nom dès la création', hsub:'Issue kl-ledge/ledge#15. À valider par l’utilisateur.',
+    title:'Nouvelle session', opensIn:'S’ouvre dans le groupe actif. Ctrl+Entrée lance, Échap ferme.',
+    project:'Projet', toggle:'Définir un nom ?', name:'Nom', optional:'facultatif', namePh:n=>`Laissez vide pour ${n}`,
+    nameHint:'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
+    taken:(n,o)=>`${n} est déjà le nom d’une session de ${o}. Choisissez un autre nom, ou laissez vide.`, takenNum:(n,o)=>`${n} est déjà pris : ${o} porte ce nom.`,
+    reserved:'ledge est réservé à Ledge lui-même. Choisissez un autre nom.',
+    cleaned:(n)=>`La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
+    nameMissing:'Choisissez un autre nom pour la session',
+    where:'Où travailler', onBranch:'Sur <span class="mono">⎇ main</span>, dans le dossier du projet', agent:'Agent', model:'Modèle', message:'Premier message', open:'Ouvrir', active:'Dans le groupe actif', right:'À droite',
+    launch:'Lancer', cancel:'Annuler', msg:'Relis la PR #231 et dis-moi si elle peut partir.',
+    started:(n)=>`${n} démarre à la table ledge.`,
+    pToggle:'Définir un nom ?', pTitle:'Nouvelle session', pNamePh:n=>`Laisse vide pour ${n}`, pHint:'Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.',
+    pTaken:(n,o)=>`${n} est déjà le nom d’une session de ${o}. Choisis un autre nom, ou laisse vide.`, pMissing:'Choisis un autre nom', pLaunch:'Lancer avec mon appareil', pMsg:'Que doit faire l’agent ? Décris le résultat attendu.',
+  },
+  en: {
+    h1:'New session — a name from the start', hsub:'Issue kl-ledge/ledge#15. For the user to validate.',
+    title:'New session', opensIn:'Opens in the active group. Ctrl+Enter launches, Esc closes.',
+    project:'Project', toggle:'Set a name?', name:'Name', optional:'optional', namePh:n=>`Leave empty for ${n}`,
+    nameHint:'It is its address: other sessions write to it under this name (ledge who, SendMessage). Letters, digits, - and _.',
+    taken:(n,o)=>`${n} is already the name of a session in ${o}. Choose another name, or leave it empty.`, takenNum:(n,o)=>`${n} is already taken: ${o} has it.`,
+    reserved:'ledge is reserved for Ledge itself. Choose another name.',
+    cleaned:(n)=>`The session will be called ${n}: spaces and punctuation are removed.`,
+    nameMissing:'Choose another name for the session',
+    where:'Where to work', onBranch:'On <span class="mono">⎇ main</span>, in the project folder', agent:'Agent', model:'Model', message:'First message', open:'Open', active:'In the active group', right:'On the right',
+    launch:'Launch', cancel:'Cancel', msg:'Review PR #231 and tell me whether it can go.',
+    started:(n)=>`${n} starts at the ledge table.`,
+    pToggle:'Set a name?', pTitle:'New session', pNamePh:n=>`Leave empty for ${n}`, pHint:'Its address: other sessions write to it under this name. Letters, digits, - and _.',
+    pTaken:(n,o)=>`${n} is already the name of a session in ${o}. Choose another name, or leave it empty.`, pMissing:'Choose another name', pLaunch:'Launch with my device', pMsg:'What should the agent do? Describe the expected result.',
+  }
+};
+let L = 'fr';
+const t = () => T[L];
+const LOGO = { claude:'#d97757', codex:'#10a37f', cursor:'#8b8b8b', omp:'#a78bfa' };
+
+/* o = {on, swFocus, val, focus, err, errText, cleaned, missing} */
+function modal(o={}){
+  const x = t();
+  const sw = `<span class="sw new ${o.on?'on':''} ${o.swFocus?'focus':''}" style="padding:2px 6px"><i></i>${x.toggle}</span>`;
+  const nameInput = `<div class="new"><div class="inp ${o.focus?'focus':''} ${o.err?'err':''}">${o.val?`${o.val}${o.focus?'<span class="cur" style="margin-left:1px"></span>':''}`:`${o.focus?'<span class="cur" style="margin-left:0"></span>':''}<span class="ph">${x.namePh('Nova')}</span>`}</div>
+    ${o.err?`<span class="ferr" role="alert">${o.errText}</span>`:o.cleaned?`<span class="hint" style="color:var(--foreground)">${x.cleaned(o.cleaned)}</span>`:`<span class="hint">${x.nameHint}</span>`}</div>`;
+  return `<div class="modal"><div class="mt"><h2>${x.title}</h2><span class="x">✕</span></div><div class="lm"><p class="lm-sub">${x.opensIn}</p><div class="fld">
+    <span class="lbl">${x.project}</span><div class="prj"><div class="inp"><b>ledge</b><span class="mut">· ~/Workspace/ledge · PC</span><span class="car">▾</span></div>${sw}</div>
+    ${o.on?`<span class="lbl new" style="padding:5px 6px 0;margin:0 -6px">${x.name}</span>${nameInput}`:''}
+    <span class="lbl">${x.where}</span><div style="padding-top:5px">${x.onBranch}</div>
+    <span class="lbl">${x.agent}</span><div class="agents">${[['claude','Claude Code','Anthropic'],['codex','Codex','OpenAI'],['cursor','Cursor Agent','Cursor'],['omp','OMP','Oh My Pi']].map(([k,n,p],i)=>`<div class="agent ${i===0?'on':''}"><span class="an"><span class="lg" style="background:${LOGO[k]}"></span>${n}</span><small>${p}</small><small>${L==='fr'?'Limite 5 h':'5 h limit'} <b>${[34,12,8,0][i]} %</b></small></div>`).join('')}</div>
+    <span class="lbl">${x.model}</span><div class="inp" style="width:260px"><b>Sonnet 5.5</b><span class="car">▾</span></div>
+    <span class="lbl">${x.message}</span><div class="ta">${x.msg}</div>
+    <span class="lbl">${x.open}</span><div class="radios"><label><span class="rd on"></span>${x.active}</label><label><span class="rd"></span>${x.right}</label></div>
+    <span></span><div class="go"><button class="btn pri ${o.err?'dis':''}">${x.launch}<kbd>Ctrl Entrée</kbd></button><button class="btn">${x.cancel}</button>${o.missing?`<span class="alert">${x.nameMissing}</span>`:''}</div>
+  </div></div></div>`;
+}
+function side(name, topic){
+  return `<div class="side"><div class="slab">${L==='fr'?'Projets':'Projects'}</div><div class="r p">▾ ledge</div>
+    <div class="r"><span class="lg" style="background:${LOGO.claude}"></span><span class="m"><b style="font-weight:500">Otto</b><span>${L==='fr'?'Lot 13 : tests e2e':'Lot 13: e2e tests'}</span></span><span class="tm">4 min</span></div>
+    <div class="r on"><span class="lg" style="background:${LOGO.claude}"></span><span class="m"><b style="font-weight:500">${name}</b><span>${topic}</span></span><span class="tm">${L==='fr'?'maint.':'now'}</span></div></div>`;
+}
+function phone(o={}){
+  const x = t();
+  return `<div class="phone"><div class="top">${x.pTitle}<span class="x">✕</span></div>
+    <div class="pf"><div class="plab"><span style="font-size:12px;font-weight:500;color:var(--muted-foreground)">${x.project}</span><span class="sw new ${o.on?'on':''}" style="padding:2px 6px;font-size:13px"><i></i>${x.pToggle}</span></div><div class="prow"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span><div><b style="font-weight:500">ledge</b><small>PC</small></div></div></div>
+    ${o.on?`<div class="pf new" style="padding:4px;margin:-4px"><span>${x.name}</span><div class="pin ${o.err?'err':''}">${o.val?o.val:`<span class="mut">${x.pNamePh('Nova')}</span>`}</div>${o.err?`<span class="ferr">${x.pTaken(o.val,'ledge')}</span>`:`<span class="hint" style="font-size:12px">${x.pHint}</span>`}</div>`:''}
+    <div class="pf"><span>${x.where}</span><div class="prow">⎇ main</div></div>
+    <div class="pf"><span>${x.agent}</span><div class="pgrid"><div class="on">Claude Code</div><div>Codex</div><div>Cursor Agent</div><div>OMP</div></div></div>
+    <div class="pf"><span>${x.message}</span><div class="prow" style="min-height:64px;align-items:flex-start;color:var(--muted-foreground)">${x.pMsg}</div></div>
+    <div class="pbtn ${o.err?'dis':''}">${o.err?x.pMissing:x.pLaunch}</div></div>`;
+}
+
+function cards(){
+  const x = t(), C = [], F = L==='fr';
+  C.push({title:F?'Par défaut : un interrupteur, éteint':'By default: a switch, off',
+    why:`Demande de l’utilisateur (« réduire la taille du formulaire ») : le champ ne s’affiche plus d’office. À droite du champ <b>Projet</b>, sur la même ligne, un interrupteur <b>« Définir un nom ? »</b>, éteint par défaut. La boîte garde exactement sa hauteur d’aujourd’hui ; la session reçoit son nom par défaut, comme aujourd’hui. Le cadre violet ne marque que la nouveauté sur la maquette.`,
+    keys:F?'Nouveau : launch.modal.nameToggle':'New: launch.modal.nameToggle',
+    scene: modal({})});
+  C.push({title:F?'Allumé : le champ apparaît sous Projet':'On: the field appears under Project',
+    why:`Allumer l’interrupteur (clic, ou Espace quand il a le focus) fait apparaître la ligne <b>Nom</b> sous Projet, avec sa phrase d’aide (inchangée), et <b>met le focus dans le champ</b> (question 5). Vide, le champ montre le nom que Ledge donnerait ; laissé vide, la session reçoit ce nom, comme interrupteur éteint. Rempli, le nom est nettoyé comme tout nom de session et l’aide dit le résultat quand il change.`,
+    keys:F?'Repris de la v1 : launch.modal.name, .namePlaceholder(n), .nameHint, .cleaned(n)':'From v1: launch.modal.name, .namePlaceholder(n), .nameHint, .cleaned(n)',
+    scene: `<div>${modal({on:true, focus:true})}<div class="cap">${F?'Allumé, champ vide, focus dedans':'On, empty field, focus inside'}</div></div><div>${modal({on:true, val:'Revue PR', focus:true, cleaned:'RevuePR'})}<div class="cap">${F?'Rempli : l’aide dit ce qui sera gardé':'Filled: the hint says what will be kept'}</div></div>`});
+  C.push({title:F?'Nom déjà pris, ou réservé':'Name already taken, or reserved',
+    why:`Inchangé depuis la v1 : la fenêtre le dit avant de lancer, le champ passe en rouge, et « Lancer » ne part pas (« Choisissez un autre nom pour la session » au clic). Éteindre l’interrupteur lève le blocage : le nom tapé est ignoré.`,
+    keys:F?'Repris de la v1 : .nameTaken(n, p), .nameReserved, launch.missing.name':'From v1: .nameTaken(n, p), .nameReserved, launch.missing.name',
+    scene: modal({on:true, val:'Otto', err:true, errText:x.taken('Otto','ledge'), missing:true})});
+  C.push({title:F?'Éteindre après avoir tapé un nom':'Switching off after typing a name',
+    why:`Le champ disparaît et <b>le nom n’est pas utilisé</b> au lancement : la session reçoit son nom par défaut. Recommandé (question 6) : le nom tapé est <b>gardé</b> tant que la boîte est ouverte, et revient si on rallume ; il est oublié à la fermeture de la boîte.`,
+    keys:'—',
+    scene: `<div>${modal({})}<div class="cap">${F?'« RevuePR » tapé puis interrupteur éteint : boîte à sa taille, nom ignoré':'“RevuePR” typed then switch off: box at its size, name ignored'}</div></div>`});
+  C.push({title:F?'Après le lancement : le nom partout':'After launch: the name everywhere',
+    why:`Inchangé depuis la v1 : la session naît sous ce nom (barre latérale, onglet, <code>ledge who</code>) ; le titre reste tiré du premier message.`,
+    keys:'—',
+    scene: `<div>${side('RevuePR', F?'Relis la PR #231 et dis-moi si elle peut partir.':'Review PR #231 and tell me whether it can go.')}</div>
+      <div><div class="term"><span class="p">otto@ledge $</span> ledge who
+<span class="g">RevuePR</span>  claude  ledge  ${F?'au travail':'working'}
+Otto     claude  ledge  ${F?'au repos':'idle'}</div></div>`});
+  C.push({title:F?'Téléphone : le même interrupteur':'Phone: the same switch',
+    why:`L’interrupteur « Définir un nom ? » se place à droite du libellé <b>Projet</b> (la boîte garde sa hauteur) ; allumé, le champ Nom apparaît sous le projet, avec les mêmes règles et le tutoiement de l’app.`,
+    keys:F?'Mobile : launch.nameToggle (+ les textes de la v1)':'Mobile: launch.nameToggle (+ v1 texts)',
+    scene: `<div>${phone({})}<div class="cap">${F?'Éteint (défaut)':'Off (default)'}</div></div><div>${phone({on:true})}<div class="cap">${F?'Allumé, vide':'On, empty'}</div></div><div>${phone({on:true, val:'Otto', err:true})}<div class="cap">${F?'Nom pris':'Name taken'}</div></div>`});
+  return C;
+}
+
+function fiche(){
+  return `<section class="fiche"><h2>Fiche de transmission (dev-front, dev-back) · v2, avec l’interrupteur</h2><table>
+  <tr><th>Point</th><th>Règle</th></tr>
+  <tr><td>Interrupteur</td><td>Dans la ligne Projet de <code>LaunchModal</code>, à droite du sélecteur : <code>role="switch"</code>, libellé « Définir un nom ? » / “Set a name?”, éteint à chaque ouverture. Allumé : la paire Nom apparaît sous Projet et prend le focus. Éteint : la paire disparaît, <code>form.name</code> n’est pas envoyé.</td></tr>
+  <tr><td>Nom</td><td>Le nom-adresse de la session (<code>session.name</code>), pas le titre (<code>topic</code>). Nettoyé par <code>cleanName</code> ; vide (allumé) = nom par défaut. Placeholder = le prochain nom libre.</td></tr>
+  <tr><td>Pris</td><td><code>nameTaken(namesInUse(sessions), nom)</code> et nom réservé, seulement quand l’interrupteur est allumé ; « Lancer » bloqué tant que le nom est pris. Course entre deux lancements : si le daemon refuse avec <code>name_taken</code> (nom pris entre la vérification et le lancement), le téléphone affiche un reçu d’échec dont le titre est la phrase du nom pris (« {n} est déjà le nom d’une session de {projet}. Choisis un autre nom, ou laisse vide. »), sans corps ni Réessayer ; Desktop dit « Démarrage refusé : {message} » comme tout refus. Dans les deux cas le champ passe en rouge dès que la liste des sessions arrive (complément du 26/11, sans texte nouveau).</td></tr>
+  <tr><td>Saisie gardée</td><td>Le nom tapé reste en mémoire dans la boîte quand on éteint, et revient si on rallume ; oublié à la fermeture (selon la question 6).</td></tr>
+  <tr><td>Téléphone</td><td><code>NewSession.tsx</code> : l’interrupteur à droite du libellé Projet, mêmes règles, tutoiement ; le daemon accepte un nom venant du téléphone (dev-back).</td></tr>
+  <tr><td>Textes</td><td>Nouveaux (FR · EN) : Définir un nom ? · Set a name? ; Nom · Name ; Laissez vide pour {n} · Leave empty for {n} ; la phrase d’aide ; La session s’appellera {n} : … ; {n} est déjà le nom d’une session de {projet}. … ; ledge est réservé à Ledge lui-même. … ; Choisissez un autre nom pour la session. Téléphone au tutoiement. (« facultatif » n’est plus nécessaire : l’interrupteur le dit.)</td></tr>
+  </table>
+  <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
+  <ol>
+    <li><b>Ce que le nom règle</b> : « Renommer… » change aujourd’hui le titre, pas l’adresse. A) le nom-adresse (en gras dans la barre latérale, celui de <code>ledge who</code>) ; le titre reste tiré du premier message (recommandé) ; B) le titre, comme « Renommer… » ; C) les deux, deux champs.</li>
+    <li><b>Un nom déjà pris</b> : A) la fenêtre le dit et bloque « Lancer » (recommandé) ; B) Ledge ajoute un numéro (« Otto-3 ») ; C) comme aujourd’hui, un autre nom au hasard.</li>
+    <li><b>Le téléphone</b> : A) même interrupteur et même champ tout de suite (recommandé) ; B) Desktop d’abord.</li>
+    <li><b>Les textes nouveaux</b> (fiche) : d’accord ?</li>
+    <li><b>Le focus en allumant l’interrupteur</b> : A) il va dans le champ Nom (recommandé : on allume pour taper) ; B) il reste sur l’interrupteur.</li>
+    <li><b>Éteindre après avoir tapé un nom</b> : le nom n’est jamais utilisé tant que l’interrupteur est éteint. A) il est gardé et revient si on rallume, jusqu’à la fermeture de la boîte (recommandé) ; B) il est effacé.</li>
+    <li><b>L’emplacement de l’interrupteur</b> : A) sur la ligne Projet, à droite (recommandé : la boîte garde sa hauteur) ; B) une ligne à lui sous Projet ; C) dans le pied, à côté de « Lancer ».</li>
+  </ol></section>`;
+}
+
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag">${L==='fr'?'nouveau':'new'}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>

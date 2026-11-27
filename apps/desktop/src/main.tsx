@@ -11,6 +11,9 @@ import { bootLanguages, BOOT_FAILURE } from './i18n/boot';
 import { recordToastsForTests } from './shell/Toast';
 import type { PtyBackend } from './term/backend';
 import type { ShellsAvailable } from './term/shells';
+// Last, over every other sheet: the « Atelier » skin (issue #28), scoped to :root[data-skin="atelier"].
+import './styles/atelier-skin.css';
+import './styles/atelier-tree.css';
 
 purgeObsolete();
 

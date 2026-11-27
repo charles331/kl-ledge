@@ -8,6 +8,7 @@ import {
   LEDGE_GIVER, SEMVER, pcSubject, PHONE_PROJECTS_MAX, type AttachmentRef, type ChatErrorCode, type ChatTurn, type CloseHow, type ClientMessage, type PhoneTask, type Task, type OperationReason, type OperationStatus, type PhoneClientMessage, type PhoneServerMessage, type ServerMessage, type Session, type ThreadItem, type HarnessUsage, type UsagePrefs } from '@ledge/protocol';
 import { ModelRefusalSchema, type HumanAnswer, type ModelRefusal, type OpenRigAnswered, type OpenRigAsksChanged, type Tool } from '@ledge/protocol';
 import { PHONE_LAUNCH_MULTI, type OmpApproval, type PhoneLaunch, type RepoInfo } from '@ledge/protocol';
+import { NO_PROJECT, placeSessions, sessionOrderKey, sortSessions } from '@ledge/protocol';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, type ForgeStateMessage } from '@ledge/protocol';
 import { forgeSubject, phoneForgeDetail, phoneForgeState } from './forge.js';
 import { latestTodos, TODO_TOOLS, type PhoneChecklist, type PhoneChecklistSummary } from '@ledge/protocol';
@@ -34,7 +35,7 @@ import { createTerminalHost, type SpawnControl, type TerminalHost } from './term
 import { humanAnswerOf } from '../operator/act.js';
 import { fingerprint, OperationRegistry, type Outcome, type PhoneOperation, type Report } from './operations.js';
 import { capabilities, clip, forPhone, phoneTasks, toPhoneFullRequest, toPhoneItem, toPhoneSession, toPhoneTask, toPhoneThread } from './project.js';
-import { atelierOf, toPhoneProjects } from './project.js';
+import { atelierOf, toPhoneProjects, toPhoneSessionOrder } from './project.js';
 import { canSwitch, toPhoneCommands, toPhoneModels } from './project.js';
 import { checklistSummary, toPhoneChecklist } from './project.js';
 import { routineKey, toPhoneRoutine, toPhoneRoutineDetail } from './project.js';
@@ -108,7 +109,7 @@ export const launchSubject = (l: PhoneLaunch): string => `new:${createHash('sha2
 
 /** A launch the PC turns down: `not_found` (a folder is not there) or `invalid` (too wide a folder, an option the agent does not take). */
 export class PhoneLaunchRefused extends Error {
-  constructor(readonly reason: 'not_found' | 'invalid', message: string) { super(message); this.name = 'PhoneLaunchRefused'; }
+  constructor(readonly reason: 'not_found' | 'invalid' | 'name_taken', message: string) { super(message); this.name = 'PhoneLaunchRefused'; }
 }
 
 /** What a `rigs` challenge is bound to: that very OpenRig action, or that very change of a rig's seats, so an assertion approves nothing else. */
@@ -210,7 +211,7 @@ export function createPhoneGateway(deps: {
    * Starts a session as the PC's own `session.launch` does (« Nouvelle session », M2 §9), and returns it. Throws `PhoneLaunchRefused`
    * for a request the PC turns down (a folder gone, too wide, an option the agent does not take); anything else is a failure.
    */
-  launch?: (req: { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval }) => Promise<{ id: string }>;
+  launch?: (req: { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval; name?: string }) => Promise<{ id: string }>;
   /**
    * The daemon's own update and restart, for the phone only (spec 2026-10-28 mobile daemon update): never a `ClientMessage`.
    * Each runs on its own; its progress and refusals are broadcast, and `reply` gets a refusal meant for the asker alone (busy).
@@ -359,8 +360,9 @@ export function createPhoneGateway(deps: {
     if (f) f.pushStatus = push;
     const message: Extract<PhoneServerMessage, { type: 'snapshot' }> = {
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: deps.sessions().filter(s => !isArchived(s)).map(s => projected(deviceId, s)), capabilities: capabilities(), daemon: { version: deps.version, boot: deps.boot, name: clip(hostname(), 40).text, ...(deps.pc?.canUpdate ? { update: true as const } : {}), ...(deps.pc?.canRestart ? { restart: true as const } : {}), checklist: true as const, commands: true as const, rigRows: true as const, ...(deps.closeSession ? { sessionClose: true as const } : {}),
-      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}), ...(deps.chats ? { conversations: true as const } : {}) },
+      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const, sessionOrder: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}), ...(deps.chats ? { conversations: true as const } : {}) },
     ...(projects ? { projects: toPhoneProjects(projects) } : {}),
+    ...(projects && toPhoneSessionOrder(projects) ? { sessionOrder: toPhoneSessionOrder(projects)! } : {}),
     device: { confirm: deps.credential(deviceId) !== null, ...(deps.credential(deviceId)?.recover ? { recover: true as const } : {}), push, ...(deps.chats ? { chat: true as const } : {}), ...(deps.contextNear ? { contextNear: deps.contextNear() } : {}), id: deviceId, ...ownInfo(deviceId), ...(settings ? { prefs: mobile.prefsOf!(deviceId) } : {}) }
     };
     // The daemon takes `session.model` and lists an agent's models (#58).
@@ -433,7 +435,7 @@ export function createPhoneGateway(deps: {
   };
 
   /** The operations that act on a tracked session: the registry's own, the credential's, the device's and the chat's are handled before it. */
-  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' | 'routine.cmd' }>;
+  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'session.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' | 'routine.cmd' }>;
   /** Whether the operation needs the device's own check: an accept of a request that is not low, or a reply to an OMP (rpc) dialog, which is never low. */
   const needsAssertion = (msg: SessionOperation, s: Session): boolean => {
     if (msg.type === 'session.decide') return msg.decision !== 'deny' && riskOf(s)?.risk !== 'low';
@@ -626,7 +628,7 @@ export function createPhoneGateway(deps: {
     const [cwd, ...dirs] = l.folders as [string, ...string[]];
     try {
       const { id } = await deps.launch({ tool: l.tool, cwd, ...(dirs.length ? { dirs } : {}), prompt: l.prompt,
-        ...(l.model ? { model: l.model } : {}), ...(l.effort ? { effort: l.effort } : {}), ...(l.approval ? { approval: l.approval } : {}) });
+        ...(l.model ? { model: l.model } : {}), ...(l.effort ? { effort: l.effort } : {}), ...(l.approval ? { approval: l.approval } : {}), ...(l.name !== undefined ? { name: l.name } : {}) });
       return { status: 'applied', launched: id };
     } catch (e) {
       if (e instanceof PhoneLaunchRefused) return { status: 'rejected', reason: e.reason };
@@ -1284,6 +1286,27 @@ export function createPhoneGateway(deps: {
    * Réglages › Projets: the change asked, made on the daemon's projects as they are now, then written by its own `projects.set`
    * (checked there as the desktop's). Folders and rules are never the phone's: a deletion moves or drops them as the desktop's does.
    */
+  /**
+   * Issue #16: some of a project's sessions on this PC in a new order. The project's order, other machines' sessions included,
+   * keeps every other place (placeSessions); a session not in that project, gone or archived, makes it stale.
+   */
+  const sessionOrder = async (msg: Extract<PhoneOperation, { type: 'session.order' }>): Promise<Outcome> => {
+    if (!deps.projects) return { status: 'rejected', reason: 'unavailable' };
+    const state = deps.projects();
+    const project = msg.project ?? NO_PROJECT;
+    if (msg.project !== null && !state.projects.some(p => p.id === msg.project)) return { status: 'rejected', reason: 'stale' };
+    const mine = deps.sessions().filter(s => !isArchived(s) && (atelierOf(s, state).projectId ?? NO_PROJECT) === project);
+    const known = new Set(mine.map(s => s.id));
+    if (new Set(msg.ids).size !== msg.ids.length || !msg.ids.every(id => known.has(id))) return { status: 'rejected', reason: 'stale' };
+    const listed = state.order?.[project] ?? [];
+    const keyOf = (id: string) => sessionOrderKey({ id });
+    const unlisted = sortSessions(mine.filter(s => !listed.includes(keyOf(s.id))), { projectIds: [], projectOf: () => null, keyOf: s => keyOf(s.id) }).map(s => keyOf(s.id));
+    const ids = placeSessions([...listed, ...unlisted], msg.ids.map(keyOf));
+    let error: { code?: string } | undefined;
+    await deps.dispatch({ type: 'sessions.order', project, ids }, m => { if (m.type === 'error') error ??= { code: m.code }; });
+    return error ? { status: 'rejected', reason: 'stale' } : { status: 'applied' };
+  };
+
   const projectChange = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'project.edit' | 'project.order' | 'project.create' | 'project.delete' }>): Promise<Outcome> => {
     if (!deps.projects) return { status: 'rejected', reason: 'unavailable' };
     const state = deps.projects();
@@ -1403,6 +1426,7 @@ export function createPhoneGateway(deps: {
     }
     if (msg.type === 'project.folder.add' || msg.type === 'project.folder.remove') return folderChange(deviceId, msg);
     if (msg.type === 'project.edit' || msg.type === 'project.order' || msg.type === 'project.create' || msg.type === 'project.delete') return projectChange(deviceId, msg);
+    if (msg.type === 'session.order') return sessionOrder(msg);
     if (msg.type === 'device.prefs') {
       if (!settings) return { status: 'rejected', reason: 'unavailable' };
       mobile.setPrefs!(deviceId, msg.prefs);
@@ -1921,11 +1945,12 @@ export function createPhoneGateway(deps: {
     projects = next;
     if (followers.size === 0) return;
     const list = toPhoneProjects(next);
-    const listChanged = JSON.stringify(toPhoneProjects(before)) !== JSON.stringify(list);
+    const order = toPhoneSessionOrder(next);
+    const listChanged = JSON.stringify([toPhoneProjects(before), toPhoneSessionOrder(before)]) !== JSON.stringify([list, order]);
     const moved = deps.sessions().filter(s => !isArchived(s) && atelierOf(s, before).projectId !== atelierOf(s, next).projectId);
     for (const [deviceId, f] of followers) {
       if (!f.subscribed) continue;
-      if (listChanged) push(deviceId, { type: 'projects', projects: list }, 'projects');
+      if (listChanged) push(deviceId, { type: 'projects', projects: list, ...(order ? { sessionOrder: order } : {}) }, 'projects');
       // Behind the list, even over an update of it already queued ahead: the phone never gets a project it does not know yet.
       for (const s of moved) push(deviceId, { type: 'session.updated', session: projected(deviceId, s) }, `session.updated:${s.id}`, { last: true });
     }

@@ -5,6 +5,7 @@ import { createMockDaemon } from '@ledge/fleet/test/mockDaemon';
 import { createDesktopFleet } from '../src/fleet/useFleet';
 import { App } from '../src/App';
 import { resetAppearanceForTests, setAccent, setTheme } from '../src/shell/theme';
+import { accentTokens } from '@ledge/ui/accent';
 
 type Daemon = Awaited<ReturnType<typeof createMockDaemon>>;
 let daemon: Daemon | null = null;
@@ -21,8 +22,10 @@ describe('the App owns the root theme and accent', () => {
     act(() => setTheme('dark'));
     expect(document.documentElement.dataset.theme).toBe('dark');
     act(() => setAccent('#3366FF'));
-    expect(document.documentElement.style.getPropertyValue('--primary')).not.toBe('');
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe(accentTokens('#3366ff', 'dark').sidebarPrimary);
     act(() => setAccent(null));
-    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+    // Issue #28: without an accent the « Atelier » skin's own coral (palette « Établi », dark).
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#f27a63');
+    expect(document.documentElement.dataset.skin).toBe('atelier');
   });
 });
