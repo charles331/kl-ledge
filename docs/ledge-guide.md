@@ -30,8 +30,9 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
   - Un avis (tour terminé, erreur) se ferme seul : un anneau autour du logo se vide pendant les 6 s, et le survol le retient. Un clic ouvre la session dans Ledge Desktop.
   - Une demande reste ouverte jusqu'à la réponse ou « Plus tard ». Après « Plus tard », plus rien n'est à l'écran : `Ctrl+Alt+L` rouvre la plus ancienne demande en attente.
   - Une seule notification à la fois, les demandes avant les avis ; « +2 autres » dit ce qui attend. « Ne pas déranger » n'ouvre rien.
-  - Les avis de Ledge (le point, la question d'un rig, une routine) et « une machine est hors ligne » passent aussi par l'encoche.
+  - Les avis de Ledge (la question d'un rig, une décision, une routine) et « une machine est hors ligne » passent aussi par l'encoche. Le point de Ledge, lui, reste dans le chat de Ledge Desktop.
   - La musique, le chat de Ledge, la ligne d'activité, les mascottes et le réveil au survol ne sont plus dans l'encoche : le chat est dans Ledge Desktop.
+  - `Ctrl+Alt+L` rouvre la plus ancienne demande en attente ; sans demande, il ne fait rien.
   - `Ctrl+Alt+N` ouvre « Nouvelle session » dans Ledge Desktop.
   - Ses réglages sont dans Réglages › Encoche.
 - **Ledge mobile** est une application web pour le téléphone, servie par un relais. Elle se lie au PC depuis Réglages › Accès mobile.
@@ -56,7 +57,7 @@ Ledge n'attend pas qu'on l'interroge : il écrit « le point » dans le chat, de
 
 Un plafond évite que Ledge parle trop. Le daemon tient un journal des événements et écrit ce dont le chat a besoin dans ses fichiers (`journal.md`, `attentes.md`) ; Ledge n'agit jamais seul : répondre, archiver, passer un relais, écrire à un siège ou réparer une PR est toujours un clic. Une réponse irréversible demande une confirmation.
 
-**Dans l'encoche**, le point de Ledge et la question d'un rig s'ouvrent comme les autres notifications, avec leur contenu habituel. Le tour terminé et l'erreur d'une session y ont aussi leur carte de 6 s (voir « Ce qu'est Ledge »).
+**Le point ne passe pas par l'encoche** : il s'écrit dans le chat de Ledge Desktop. La question d'un rig, elle, s'ouvre dans l'encoche comme une demande. Le tour terminé et l'erreur d'une session y ont leur carte de 6 s (voir « Ce qu'est Ledge »).
 
 **Sur le téléphone**, le réglage « Le point de Ledge » (Réglages › Notifications, l'ancien « Agent terminé ») active la notification d'un point. Le point et ses réponses s'y affichent comme sur le PC.
 
@@ -309,11 +310,11 @@ Photo de profil, thème (Galet clair, Signal sombre), couleur d'accent, échelle
 ##### Encoche (`island`)
 
 - Afficher l'encoche, l'écran où elle se trouve, et sa position (gauche, centre, droite).
-- Taille de l'encoche et de ses fenêtres.
+- Un aperçu : l'encoche ouverte sur une demande, à la position et à la taille choisies.
+- Taille de l'encoche, qui règle aussi ses cartes.
 - « Autoriser et répondre depuis l'encoche ».
-- « Bulle quand un agent a terminé » (ne commande plus que le son : Ledge est la seule voix de l'encoche).
-- Bulles de parole, sous-agents.
-- Raccourci d'ouverture.
+- « Avis quand un agent a terminé » : la carte « Terminé » de 6 s.
+- « Raccourci pour rouvrir une demande » (`Ctrl+Alt+L` par défaut).
 
 ##### Notifications (`notifications`)
 
@@ -341,7 +342,7 @@ Les notes de l'utilisateur (`~/.ledge/context`) : chacune avec son titre, « qua
 
 ##### Raccourcis clavier (`shortcuts`)
 
-Les raccourcis valables partout dans Windows. Le raccourci de l'encoche se change ici.
+Les raccourcis valables partout dans Windows. Le raccourci qui rouvre la plus ancienne demande se change dans Réglages › Encoche.
 
 ##### À propos (`about`)
 

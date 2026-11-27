@@ -16,19 +16,20 @@ export const IslandPrefsSchema = z.object({
    *  `island.set`. */
   discreet: z.boolean().optional(),
   islandScale: IslandScaleSchema,
-  panelScale: IslandScaleSchema,
+  /** Retired with the floating island (#27): the island's size sizes its cards too. Optional and never read; still written by
+   *  DEFAULT_ISLAND_PREFS for daemons before #27, which require it. */
+  panelScale: IslandScaleSchema.optional(),
   /** What the island shows besides asks and questions, which it always shows. */
   shows: z.object({
     /** Allow, deny or answer in a line from the island; off, its cards only say « Open in Ledge ». */
     quick: z.boolean(),
-    /** The 6 s bubble when an agent finishes. */
+    /** The 6 s « Done » card when an agent finishes its turn. */
     finished: z.boolean(),
-    /** An agent's sentence in a bubble. */
-    say: z.boolean(),
-    /** The sub-agents next to their main agent. */
-    helpers: z.boolean()
+    /** Retired with the floating island (#27), like `helpers`: optional and never read, still written by default for older daemons. */
+    say: z.boolean().optional(),
+    helpers: z.boolean().optional()
   }),
-  /** The global shortcut that opens the island, as shown (`Ctrl Alt L`). */
+  /** The global shortcut that reopens the oldest waiting request, as shown (`Ctrl Alt L`). */
   shortcut: z.string().trim().min(1).max(40)
 });
 export type IslandPrefs = z.infer<typeof IslandPrefsSchema>;

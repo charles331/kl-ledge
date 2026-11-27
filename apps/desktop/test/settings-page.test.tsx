@@ -82,7 +82,7 @@ describe('the Settings page', () => {
     await user.click(tab('Keyboard shortcuts'));
     expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Anywhere in Windows', 'In Ledge Desktop', 'Tabs and groups']);
     const rowsOf = (name: string) => [...screen.getByRole('region', { name }).querySelectorAll('.set-row')].map(r => [r.querySelector('.set-label')!.textContent, r.querySelector('kbd')!.textContent]);
-    await waitFor(() => expect(rowsOf('Anywhere in Windows')[0]).toEqual(['Open the notch’s list', 'Ctrl Shift K']));
+    await waitFor(() => expect(rowsOf('Anywhere in Windows')[0]).toEqual(['Reopen the oldest request', 'Ctrl Shift K']));
     expect(rowsOf('Anywhere in Windows').slice(1)).toEqual([['New session', 'Ctrl Alt N'], ['Switch the theme', 'Ctrl Alt T'], ['Do not disturb, from the notch', 'D']]);
     const rows = rowsOf('In Ledge Desktop');
     expect(rows[0]).toEqual(['Open the settings', 'Ctrl ,']);

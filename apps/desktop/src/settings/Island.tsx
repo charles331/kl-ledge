@@ -1,13 +1,10 @@
 import { useEffect, useState, type CSSProperties, type JSX } from 'react';
 import type { IslandPrefs } from '@ledge/protocol';
-import { ResidentMascot } from '@ledge/ui/bots/ResidentMascot';
 import { autoScale, UI_SCALES, type UiScale } from '@ledge/ui/scale';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import { useI18n } from '../i18n/lang';
-import { useMotionPreferences } from '../motionPreferences';
 import { useDnd } from '../notify/prefs';
-import { useTheme } from '../shell/theme';
 import { Card, Row, Segmented, SwitchRow } from './controls';
 import { screenHere, screenValue, useIslandScreens, type IslandScreen } from './screens';
 import { useIslandSave } from './useIslandSave';
@@ -90,7 +87,7 @@ export function Island({ ctx }: { ctx: SettingsContext }): JSX.Element {
         {!localUp ? <div role="status" className="set-well"><span>{t.offline}</span></div>
           : island === undefined && <div role="status" className="set-well"><span>{c.outdated}</span></div>}
         <SwitchRow label={c.show} hint={c.showHint} error={errorOf('visible')} checked={p.visible} onChange={on => set('visible', { visible: on }, on ? c.shown : c.hidden)} />
-        <div className="set-row stack"><IslandPreview prefs={p} screens={screens} at={here.id} name={screenName} paused={ctx.paused} /></div>
+        <div className="set-row stack"><IslandPreview prefs={p} screens={screens} at={here.id} name={screenName} /></div>
         <Row label={c.screen} hint={c.screenHint(sizeOf(here))} error={errorOf('screen')}>
           {describedBy => <Segmented label={c.screen} value={screenAt} disabled={off} describedBy={describedBy} options={screenOptions}
             onChange={v => { const s = screens.find(x => x.id === v); if (s) set('screen', { screen: v }, s.primary ? c.screenSaved.primary : c.screenSaved.nth(s.n)); }} />}
@@ -103,16 +100,10 @@ export function Island({ ctx }: { ctx: SettingsContext }): JSX.Element {
           {describedBy => <Segmented label={c.islandScale} value={toChoice(p.islandScale)} disabled={off} describedBy={describedBy} options={scaleOptions(autoScale(here.logicalHeight, 'handle'))}
             onChange={v => { const s = toScale(v); set('islandScale', { islandScale: s }, c.islandScaleSaved(scaleLabel(s))); }} />}
         </Row>
-        <Row label={c.panelScale} hint={c.panelScaleHint} error={errorOf('panelScale')} stack>
-          {describedBy => <Segmented label={c.panelScale} value={toChoice(p.panelScale)} disabled={off} describedBy={describedBy} options={scaleOptions(autoScale(here.logicalHeight, 'panel'))}
-            onChange={v => { const s = toScale(v); set('panelScale', { panelScale: s }, c.panelScaleSaved(scaleLabel(s))); }} />}
-        </Row>
       </Card>
       <Card title={c.does} hint={c.doesNote}>
         <SwitchRow label={c.quick} hint={c.quickHint} error={errorOf('quick')} checked={p.shows.quick} disabled={off} onChange={on => show('quick', on, on ? c.quickOn : c.quickOff)} />
         <SwitchRow label={c.finished} hint={c.finishedHint} error={errorOf('finished')} checked={p.shows.finished} disabled={off} onChange={on => show('finished', on, on ? c.finishedOn : c.finishedOff)} />
-        <SwitchRow label={c.say} hint={c.sayHint} error={errorOf('say')} checked={p.shows.say} disabled={off} onChange={on => show('say', on, on ? c.sayOn : c.sayOff)} />
-        <SwitchRow label={c.helpers} hint={c.helpersHint} error={errorOf('helpers')} checked={p.shows.helpers} disabled={off} onChange={on => show('helpers', on, on ? c.helpersOn : c.helpersOff)} />
         <Row label={c.shortcut} hint={recording ? c.recordingHint : c.shortcutHint} error={errorOf('shortcut')}>
           {describedBy => (
             <button type="button" className={recording ? 'key-recorder recording' : 'key-recorder'} disabled={off} aria-label={c.recorder(keys)} aria-describedby={describedBy}
@@ -126,14 +117,12 @@ export function Island({ ctx }: { ctx: SettingsContext }): JSX.Element {
   );
 }
 
-/** The mockup's preview (settings.tsx, IslandPreview): every screen, the island on the one it sits on (`at`), where it is set, at its size.
- *  The bubble is an agent's sentence: shown
- *  while their words are, and never under Do not disturb. */
-function IslandPreview({ prefs, screens, at, name, paused }: { prefs: IslandPrefs; screens: readonly IslandScreen[]; at: string; name(s: IslandScreen): string; paused: boolean }): JSX.Element {
+/** The preview (dynamic island mockup, settings R1): every screen, and on the one the island sits on (`at`) the island open on a
+ *  request, where it is set and at its size. At rest nothing is on screen, so a request is what there is to show; under Do not
+ *  disturb nothing opens, and the island is not drawn. */
+function IslandPreview({ prefs, screens, at, name }: { prefs: IslandPrefs; screens: readonly IslandScreen[]; at: string; name(s: IslandScreen): string }): JSX.Element {
   const { t } = useI18n();
   const c = t.settings.island;
-  const theme = useTheme();
-  const { reduced } = useMotionPreferences();
   const [dnd] = useDnd();
   const k = prefs.islandScale === 'auto' ? 1 : prefs.islandScale;
   const caption = !prefs.visible ? c.caption.hidden : dnd ? c.caption.dnd : c.caption.rest;
@@ -145,12 +134,12 @@ function IslandPreview({ prefs, screens, at, name, paused }: { prefs: IslandPref
           return (
             <div key={s.id} className={here ? 'preview-screen here' : 'preview-screen'} style={{ width: glassOf(s) }}>
               <div className="preview-glass">
-                {here && (
-                  <div className={`preview-notch pos-${prefs.position}`} style={{ '--k': k } as CSSProperties}>
-                    <span className="preview-mascot"><ResidentMascot size={12 * k} theme={theme} paused={paused || reduced} /></span><i className="d-approval" /><i className="d-question" /><i className="d-working" />
+                {here && !dnd && (
+                  <div className={`preview-island pos-${prefs.position}`} style={{ '--k': k } as CSSProperties} aria-hidden="true">
+                    <i className="preview-logo" /><span className="preview-lines"><i /><i /><i className="preview-command" /></span>
+                    <span className="preview-actions"><i /><i className="preview-allow" /></span>
                   </div>
                 )}
-                {here && !dnd && prefs.shows.say && <div className={`preview-bubble pos-${prefs.position}`}>{c.bubble}</div>}
               </div>
               <span className="preview-caption"><strong>{name(s)}</strong> {sizeOf(s)}</span>
             </div>
