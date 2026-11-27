@@ -784,7 +784,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       let before: string | null = null;
       if (requirePrompt) {
         before = s.tmuxSession ? await tmux.capture(s.tmuxSession, DETECT_LINES) : null;
-        if (before === null || !adapter.promptStillVisible(bottomLines(before))) throw new Refusal(NO_PROMPT, 'no_prompt');
+        if (before === null || !(adapter.promptVisible ? adapter.promptVisible(before) : adapter.promptStillVisible(bottomLines(before)))) throw new Refusal(NO_PROMPT, 'no_prompt');
         // The request checked before the capture may have been replaced while it ran: no key for one the user did not see.
         if (!stillTheSame()) throw new Refusal(STALE, 'stale');
         // Nor for another dialog already on screen whose hook has not come yet: the daemon still holds the old request.

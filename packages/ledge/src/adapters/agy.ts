@@ -192,6 +192,8 @@ function detectPrompt(pane: string): PanePromptMatch | null {
   const lines = toLines(pane);
   const t = parseTrust(lines);
   if (t) return { kind: 'permission', text: `Trust this folder? ${t.path}`.trim(), options: ['Yes, I trust this folder', 'No, exit'] };
+  const sub = parseSubagentAsk(lines);
+  if (sub) return { kind: 'permission', text: `${sub.who}: ${sub.call}` };
   const d = parseDialog(lines);
   if (!d) return null;
   if (d.title === QUESTION_TITLE) return { kind: 'question', text: questionText(d), options: d.options.filter(o => !WRITE_IN.test(o)) };
@@ -241,15 +243,59 @@ function inputTop(lines: string[]): number {
   if (!footer && !RULE.test(lines[end]!.trim())) return -1;
   const bottom = footer ? lastNonBlank(lines, end - 1) : end;
   if (bottom < 0 || !RULE.test(lines[bottom]!.trim())) return -1;
-  let top = bottom - 1;
-  while (top >= 0 && !RULE.test(lines[top]!.trim())) top--;
-  return top;
+  // Under the input box, while subagents run, sits a panel of their states between rules (seen live:
+  // `● Agent(research: Month Runner) · Gemini 4 Hydrogen  Blocked · Bash`): the box is the pair of rules around `>`.
+  let lower = bottom;
+  for (let tries = 0; tries < 4; tries++) {
+    let top = lower - 1;
+    while (top >= 0 && !RULE.test(lines[top]!.trim())) top--;
+    if (top < 0) return -1;
+    if (lines.slice(top + 1, lower).some(l => /^>/.test(l))) return top;
+    lower = top;
+  }
+  return -1;
 }
+
+// A subagent asking for a tool does not open a dialog: a box over the input box says so, and the footer stays at rest.
+//
+//    ┃ research needs approval for Bash
+//    ┃ ─────────────────────────────
+//    ┃
+//    ┃ ● Bash(date +%m)
+//    ┃
+//    ┃ ctrl+k approve · alt+j manage
+//   ──────────────────────────────── the input box
+//
+// Ctrl-K approves. Alt-J opens the subagent's panel, whose « ⚠ Approval Required » offers `1. Yes, approve` and
+// `2. No, deny` (a number answers at once); Esc closes the panel.
+const SUB_ASK = /^ ┃ (.+) needs approval for (\S+)$/;
+const SUB_KEYS = /^ ┃ ctrl\+k approve\b/;
+const SUB_CALL = /^ ┃ ● (.+)$/;
+
+/** The subagent request right over the input box: who asks, and the call (`Bash(date +%m)`), or null. */
+function parseSubagentAsk(lines: string[]): { who: string; call: string } | null {
+  const top = inputTop(lines);
+  if (top < 0) return null;
+  const keys = lastNonBlank(lines, top - 1);
+  if (keys < 0 || !SUB_KEYS.test(lines[keys]!)) return null;
+  let head = keys - 1;
+  while (head >= 0 && keys - head < 40 && lines[head]!.startsWith(' ┃') && !SUB_ASK.test(lines[head]!)) head--;
+  const ask = head >= 0 ? lines[head]!.match(SUB_ASK) : null;
+  if (!ask) return null;
+  // The box is one block of ` ┃` lines: a line of the transcript between would make it something else.
+  if (lines.slice(head, keys + 1).some(l => !l.startsWith(' ┃'))) return null;
+  const call = lines.slice(head + 1, keys).map(l => l.match(SUB_CALL)?.[1]).find(Boolean);
+  return call ? { who: ask[1]!, call: call.trim() } : null;
+}
+
+/** The subagent's panel (Alt-J) with its approval open, and the option under it. */
+const panelAsks = (lastLines: string) => { const t = toLines(lastLines).map(l => l.trim()); return t.includes('⚠ Approval Required') && t.some(l => /^2\. No, deny$/.test(l)); };
+const panelAnswered = (lastLines: string) => !toLines(lastLines).some(l => l.trim() === '⚠ Approval Required');
 
 /** At rest: the input box and `? for shortcuts` end the pane, with no dialog on it. */
 function atRest(pane: string): boolean {
   const lines = toLines(pane);
-  if (parseDialog(lines) || parseTrust(lines)) return false;
+  if (parseDialog(lines) || parseTrust(lines) || parseSubagentAsk(lines)) return false;
   const end = lastNonBlank(lines);
   // `? for shortcuts` under the box, or no footer at all (a draft typed): a turn running always says `esc to cancel`.
   return end >= 0 && !BUSY_FOOTER.test(lines[end]!.trim()) && inputTop(lines) >= 0;
@@ -314,6 +360,8 @@ function notePlan(d: Dialog, note: string): KeyPlan {
   ];
 }
 
+/** Pause between a subagent's panel showing and the key that answers in it. */
+const PANEL_READY_MS = 400;
 /** Pause between Esc and the next key: a key read right after Esc is taken as Alt+key (the `R` of a prompt was lost). */
 const AFTER_ESC_MS = 300;
 /** Pause between the typed `/exit` and its Enter, so the Enter is not taken as part of a paste. */
@@ -323,6 +371,8 @@ export const agyAdapter: Adapter = {
   tool: 'agy',
   detectPrompt,
   promptStillVisible,
+  // A subagent's request sits above the input box, its footer and the subagents' panel: the whole capture is read.
+  promptVisible: pane => detectPrompt(pane) !== null,
   promptGone,
   previewLines,
   atRest,
@@ -336,6 +386,14 @@ export const agyAdapter: Adapter = {
       // Enter takes the focused choice: Yes is focused when the dialog opens.
       if (decision === 'accept') return t.onYes ? [{ keys: ['Enter'] }] : [{ keys: ['Up'] }, { until: p => !!parseTrust(toLines(p))?.onYes }, { keys: ['Enter'] }];
       return t.onYes ? [{ keys: ['Down'] }, { until: p => parseTrust(toLines(p))?.onYes === false }, { keys: ['Enter'] }] : [{ keys: ['Enter'] }];
+    }
+    if (parseSubagentAsk(lines)) {
+      // A subagent's request: Ctrl-K approves it; refusing goes through its panel (Alt-J), « 2 » once the approval is
+      // shown there, then Esc closes the panel once it is answered. Neither offers « always » nor a note.
+      if (decision === 'always' || note) throw new Refusal(decision === 'always' ? NO_ALWAYS : NO_NOTE, 'not_offered');
+      if (decision === 'accept') return [{ keys: ['C-k'] }];
+      // The panel draws before it takes keys (seen live: a « 2 » sent as it appeared was lost): a pause after it shows.
+      return [{ keys: ['M-j'] }, { until: panelAsks }, { waitMs: PANEL_READY_MS }, { text: '2' }, { until: panelAnswered }, { keys: ['Escape'] }];
     }
     const d = parseDialog(lines);
     if (!d) {

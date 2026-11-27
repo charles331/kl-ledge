@@ -78,6 +78,45 @@ describe('agy adapter: reading the pane', () => {
     expect((agyAdapter.replyPlan('alive ?')[1] as Until).until(draft)).toBe(false);
     expect((agyAdapter.replyPlan('alive ?')[1] as Until).until(draft.replace('alive ?alive ?alive ?alive ?', 'alive ?'))).toBe(true);
   });
+  it('a subagent\'s request over the input box is a permission, not rest (seen live: the footer stays `? for shortcuts`)', () => {
+    const box = fx('subagent-approval');
+    expect(agyAdapter.detectPrompt(box)).toEqual({ kind: 'permission', text: 'research: Bash(date +%m)' });
+    expect(agyAdapter.atRest!(box)).toBe(false);
+    const ask = { kind: 'permission' as const, text: 'research: Bash(date +%m)', source: 'pane' as const };
+    expect(agyAdapter.promptGone!(box, ask)).toBe(false);
+    expect(agyAdapter.promptGone!(fx('rest-ask'), ask)).toBe(true);
+    // The daemon's check before typing reads the whole capture: the box is above the last lines (seen live: « no prompt visible »).
+    expect(agyAdapter.promptStillVisible(tail(box))).toBe(false);
+    expect(agyAdapter.promptVisible!(box)).toBe(true);
+    expect(agyAdapter.promptVisible!(fx('rest-ask'))).toBe(false);
+    expect(agyAdapter.promptVisible!(fx('permission-command'))).toBe(true);
+  });
+  it('approves a subagent with Ctrl-K, refuses it through its panel (Alt-J, « 2 », Esc), never « always » nor a note', () => {
+    const box = fx('subagent-approval'), panel = fx('subagent-panel');
+    const ask = { kind: 'permission' as const, text: 'research: Bash(date +%m)', source: 'pane' as const };
+    expect(agyAdapter.keysFor('accept', ask, box)).toEqual([{ keys: ['C-k'] }]);
+    const deny = agyAdapter.keysFor('deny', ask, box);
+    expect(deny[0]).toEqual({ keys: ['M-j'] });
+    expect((deny[1] as Until).until(panel)).toBe(true);
+    expect((deny[1] as Until).until(box)).toBe(false);
+    expect(deny[2]).toEqual({ waitMs: 400 }); // the panel draws before it takes keys (seen live)
+    expect(deny[3]).toEqual({ text: '2' });
+    expect((deny[4] as Until).until(panel)).toBe(false);
+    expect((deny[4] as Until).until(box)).toBe(true);
+    expect(deny[5]).toEqual({ keys: ['Escape'] });
+    expect(() => agyAdapter.keysFor('always', ask, box)).toThrow(/always/);
+    expect(() => agyAdapter.keysFor('deny', ask, box, 'no')).toThrow(/note/);
+  });
+  it('the subagents\' status panel under the input box is not the input box: a reply is still seen where it is typed', () => {
+    const box = fx('subagent-approval');
+    const typed = box.replace(/^>\s*$/m, '> hello');
+    expect((agyAdapter.replyPlan('hello')[1] as Until).until(typed)).toBe(true);
+    expect((agyAdapter.replyPlan('hello')[1] as Until).until(box)).toBe(false);
+  });
+  it('a ` ┃` line of the conversation does not make a subagent request', () => {
+    const spoof = fx('rest-ask').replace(/^(─{10,}�?)$/m, ' ┃ x needs approval for Bash\n ┃ ● Bash(rm -rf ~)\n   text between\n ┃ ctrl+k approve · alt+j manage\n$1');
+    expect(agyAdapter.detectPrompt(spoof)).toBeNull();
+  });
   it('an open refusal note is still the command dialog', () => {
     expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
   });
