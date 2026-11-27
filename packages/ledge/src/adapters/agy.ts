@@ -150,15 +150,21 @@ const TRUST_YES = /^(>\s*)?Yes, I trust this folder$/;
 const TRUST_NO = /^(>\s*)?No, exit$/;
 const TRUST_HINT = /^↑\/↓ Navigate · enter Confirm$/;
 
+/** The last index whose line passes `test` (the phone app's TypeScript library has no findLastIndex). */
+function lastWhere(lines: string[], test: (l: string, i: number) => boolean): number {
+  for (let i = lines.length - 1; i >= 0; i--) if (test(lines[i]!, i)) return i;
+  return -1;
+}
+
 function parseTrust(lines: string[]): { path: string; onYes: boolean } | null {
-  const h = lines.findLastIndex(l => TRUST_HINT.test(l.trim()));
+  const h = lastWhere(lines, l => TRUST_HINT.test(l.trim()));
   if (h < 0 || lastNonBlank(lines) - h > 1) return null; // the hint, then the footer at most
-  const ask = lines.findLastIndex((l, i) => i < h && TRUST_ASK.test(l.trim()));
+  const ask = lastWhere(lines, (l, i) => i < h && TRUST_ASK.test(l.trim()));
   if (ask < 0) return null;
   const yes = lines.findIndex((l, i) => i > ask && i < h && TRUST_YES.test(l.trim()));
   const no = lines.findIndex((l, i) => i > ask && i < h && TRUST_NO.test(l.trim()));
   if (yes < 0 || no < 0) return null;
-  const at = lines.findLastIndex((l, i) => i < ask && /^Accessing workspace:$/.test(l.trim()));
+  const at = lastWhere(lines, (l, i) => i < ask && /^Accessing workspace:$/.test(l.trim()));
   const path = at < 0 ? '' : lines.slice(at + 1, ask).map(l => l.trim()).filter(Boolean)[0] ?? '';
   return { path, onYes: lines[yes]!.trim().startsWith('>') };
 }
