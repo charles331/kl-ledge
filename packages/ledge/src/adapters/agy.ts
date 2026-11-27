@@ -39,16 +39,19 @@ const BUSY_FOOTER = /^esc to cancel\b/;
 //
 // A number key answers at once. Tab on the focused option opens a note under it (`4. No, and tell Antigravity CLI what
 // to do differently`, hint `enter Submit`); Tab again closes it and puts the focus back on 1.
-const HINT = /^↑\/↓ Navigate · /;
+/** The hint under a dialog's options; the file-access dialog's is « ↑/↓ Navigate » alone. */
+const HINT = /^↑\/↓ Navigate( · |$)/;
 const NOTE_HINT = /^enter Submit$/;
 const OPTION = /^(>\s*)?(\d+)\.\s+(.*)$/;
 /** An option as the dialog draws it, at the pane's left edge: `> 1. …` focused, `  2. …` not. */
 const DIALOG_OPTION = /^(>| ) (\d+)\.\s+(.*)$/;
 const COMMAND_TITLE = 'Command';
 const EDIT_TITLE = 'Pending edit';
+/** agy 1.5.18 asks before reading some files in the asking mode: `Read: <path>`, `Allow access to this file?`, Yes / No. */
+const FILE_TITLE = 'File access';
 const QUESTION_TITLE = 'Question';
 /** The titles of the dialogs Ledge reads: the line right above a dialog's rule. */
-const TITLES: ReadonlySet<string> = new Set([COMMAND_TITLE, EDIT_TITLE, QUESTION_TITLE]);
+const TITLES: ReadonlySet<string> = new Set([COMMAND_TITLE, EDIT_TITLE, QUESTION_TITLE, FILE_TITLE]);
 /** How far above the hint a dialog's rule can be: a long command or diff takes many lines. */
 const DIALOG_MAX = 60;
 
@@ -181,6 +184,11 @@ function detectPrompt(pane: string): PanePromptMatch | null {
     return { kind: 'diff', text: `Edit ${e.path}`, ...(e.diff ? { body: e.diff } : {}) };
   }
   if (d.title === COMMAND_TITLE) { const text = commandText(d); return text ? { kind: 'permission', text } : null; }
+  if (d.title === FILE_TITLE) {
+    // What it asks to do with which file (`Read: /path`), the lines above its question.
+    const text = between(['', ...d.body], /^$/, /^Allow access to this file\?$/).map(l => l.trim()).filter(Boolean).join(' ');
+    return text ? { kind: 'permission', text } : null;
+  }
   return null;
 }
 

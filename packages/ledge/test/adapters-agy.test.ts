@@ -47,6 +47,16 @@ describe('agy adapter: reading the pane', () => {
     // A block whose numbers do not run 1, 2, 3… is not a dialog Ledge answers.
     expect(agyAdapter.detectPrompt(fx('permission-command').replace('  3. Yes, and always', '  5. Yes, and always'))).toBeNull();
   });
+  it('reads the file-access dialog (agy 1.5.18, seen live under Ledge): 1 allows, 2 denies, no « always » nor note', () => {
+    const file = { kind: 'permission' as const, text: 'Read: /home/dev/demo/TASK.md', source: 'pane' as const };
+    expect(agyAdapter.detectPrompt(fx('permission-file-access'))).toEqual({ kind: 'permission', text: 'Read: /home/dev/demo/TASK.md' });
+    expect(agyAdapter.promptStillVisible(tail(fx('permission-file-access')))).toBe(true);
+    expect(agyAdapter.atRest!(fx('permission-file-access'))).toBe(false);
+    expect(agyAdapter.keysFor('accept', file, fx('permission-file-access'))).toEqual([{ text: '1' }]);
+    expect(agyAdapter.keysFor('deny', file, fx('permission-file-access'))).toEqual([{ text: '2' }]);
+    expect(() => agyAdapter.keysFor('always', file, fx('permission-file-access'))).toThrow(/always/);
+    expect(() => agyAdapter.keysFor('deny', file, fx('permission-file-access'), 'no')).toThrow(/note/);
+  });
   it('an open refusal note is still the command dialog', () => {
     expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
   });
