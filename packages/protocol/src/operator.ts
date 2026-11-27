@@ -51,6 +51,9 @@ export const OperatorNoticeSchema = z.object({
   id: z.string(), kind: z.enum(['point', 'rig.ask', 'decision']), qid: z.string().optional(),
   text: z.string().max(300), who: z.string().max(100).optional(), rig: z.string().optional(), qitem: z.string().optional(),
   options: z.array(z.object({ id: z.string(), label: z.string().max(60) })).max(3).optional(),
+  /** The question `options` belong to (#40): an option picked is `openrig.answer`'s `choice` with this `questionId`. Absent from daemons
+   *  before #40, and when there are no options. */
+  questionId: z.string().optional(),
   priority: z.enum(['routine', 'urgent', 'critical']), at: z.string().datetime()
 });
 export type OperatorNotice = z.infer<typeof OperatorNoticeSchema>;

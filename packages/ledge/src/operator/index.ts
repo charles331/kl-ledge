@@ -1,4 +1,4 @@
-import { openDecision, taskClosed, type ChatAction, type ChatPoint, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type OperatorNotice, type PointItem, type Routine, type Task, type Tool } from '@ledge/protocol';
+import { openDecision, taskClosed, type ChatAction, type ChatPoint, type DecidedBy, type ForgeStateMessage, type Goal, type HumanAsk, type OpenRigAction, type OpenRigState, type PointItem, type Routine, type Task, type Tool } from '@ledge/protocol';
 import type { Chat, ChatDeps, ChatMessage } from '../chat/service.js';
 import type { Store } from '../daemon/store.js';
 import { log } from '../log.js';
@@ -7,7 +7,6 @@ import { openJournal, type DeviceId, type Journal, type JournalEvent } from './j
 
 export { requireSqlite } from './journal.js';
 import { runLead as defaultRunLead } from './lead.js';
-import { noticesOf } from './notices.js';
 import { buildPoint, daemonLead, foldIfDone, goneOf, isWaiting, settleItem, type LiveState } from './point.js';
 import { createWakes } from './wakes.js';
 
@@ -26,7 +25,9 @@ export interface OperatorDeps {
   /** The user's chat harness: a wake runs it as a question with no explicit tool would. */
   tool: () => Tool | Promise<Tool>;
   chatDeps: ChatDeps;
-  onNotices: (n: OperatorNotice[]) => void;
+  /** The chat points changed (a point posted, a row settled, set aside): the daemon tells the island's notices again, since a notice names
+   *  the point that holds its ask (`holder`). */
+  onPointsChanged: () => void;
   onPointPush: (lead: string, qidByDevice: Map<DeviceId, string>) => void;
   /** The ids of the paired devices with the chat: each gets its point, its thread opened if need be. */
   devices?: () => readonly string[];
@@ -47,9 +48,8 @@ export interface Operator {
   reconcile(skip?: ReadonlySet<string>): void;
   read(device: DeviceId, eventId: number): void;
   later(device: DeviceId, qid: string): void;
-  notices(): OperatorNotice[];
-  /** Tells the notices again: an urgent rig ask that just arrived should not wait for a wake. */
-  refreshNotices(): void;
+  /** The chat point that holds a rig ask, for the island's notices (`noticesOf`'s `holder`). */
+  holder(askId: string): string | undefined;
   start(): void; stop(): void;
 }
 
@@ -72,13 +72,12 @@ export function createOperator(deps: OperatorDeps): Operator {
   const now = deps.now ?? (() => new Date().toISOString());
   const runLead = deps.runLead ?? defaultRunLead;
   const emitOf = (id: DeviceId) => threads.emitterOf(id) ?? (() => {});
-  /** The notch's notices: the urgent rig asks (with the desktop thread's point that holds each) and the open decisions, as the daemon sees them now. */
-  const notices = (): OperatorNotice[] => {
+  /** The newest point of the desktop thread holding a rig ask's unsettled row, set aside or not: older islands answer the ask through it. */
+  const holder = (askId: string): string | undefined => {
     const desktop = threads.all().find(([id]) => id === 'desktop')?.[1];
-    const live = deps.live();
-    return noticesOf(desktop?.points() ?? [], live.asks, live.tasks);
+    return desktop?.points().filter(({ point }) => point.items.some(i => i.id === `rig.ask:${askId}` && !i.settled)).at(-1)?.qid;
   };
-  const tellNotices = () => { try { deps.onNotices(notices()); } catch (e) { log(`operator notices: ${(e as Error).message}`); } };
+  const tellNotices = () => { try { deps.onPointsChanged(); } catch (e) { log(`operator notices: ${(e as Error).message}`); } };
   /** Where the answers under way through Ledge's own handlers come from, by `${subjectKind}:${subjectId}`. */
   const hints = new Map<string, { where: SettledWhere; answer?: string }>();
 
@@ -206,8 +205,7 @@ export function createOperator(deps: OperatorDeps): Operator {
       chat?.updatePoint(qid, p => ({ ...p, laterAt: now() }), emitOf(device));
       tellNotices();
     },
-    notices,
-    refreshNotices: tellNotices,
+    holder,
     start() { wakes.start(); },
     stop() { wakes.stop(); }
   };
@@ -226,9 +224,7 @@ export interface OperatorWiring {
   contextNear: () => number;
   tool: OperatorDeps['tool']; chatDeps: ChatDeps;
   devices?: OperatorDeps['devices'];
-  onNotices?: OperatorDeps['onNotices']; onPointPush?: OperatorDeps['onPointPush'];
-  /** New urgent or critical rig asks, told at once (the phone's push): they do not wait for a wake. */
-  onUrgentAsks?: (asks: HumanAsk[]) => void;
+  onPointsChanged?: OperatorDeps['onPointsChanged']; onPointPush?: OperatorDeps['onPointPush'];
   lang?: LiveState['lang'];
 }
 
@@ -265,7 +261,7 @@ export function wireOperator(w: OperatorWiring) {
   const operator = createOperator({
     journal, machine: w.machine, threads: w.threads, tool: w.tool, chatDeps: w.chatDeps, ...(w.devices ? { devices: w.devices } : {}),
     live: () => ({ sessions: w.store.all(), asks: asks ?? [], tasks: w.tasks(), lang: w.lang ?? 'fr', asksKnown, ...(routines ? { routines } : {}), now: Date.now() }),
-    onNotices: w.onNotices ?? (() => {}), onPointPush: w.onPointPush ?? (() => {})
+    onPointsChanged: w.onPointsChanged ?? (() => {}), onPointPush: w.onPointPush ?? (() => {})
   });
   let stopped = false;
   /** The daemon's listeners call it: a journal that fails (or is closed at shutdown) never breaks them. */
@@ -292,8 +288,6 @@ export function wireOperator(w: OperatorWiring) {
     }
     tasksBefore = after;
     record(drafts);
-    // A decision that came or left changes the notch's notices now (told only when they change).
-    if (!stopped) operator.refreshNotices();
   }
 
   const ownAct = (rig: string) => {
@@ -330,13 +324,10 @@ export function wireOperator(w: OperatorWiring) {
       if (firstWhole && !stopped) {
         try { operator.reconcile(SESSION_AND_TASK_KINDS); } catch (e) { log(`operator: asks not reconciled: ${(e as Error).message}`); }
       }
-      if (!before) { if (!stopped) operator.refreshNotices(); return; }
+      if (!before) return;
       const fresh = fromAsks(before, l.asks);
       record(fresh);
-      const urgent = l.asks.filter(a => fresh.some(d => d.subjectId === a.id && d.urgency === 'immediate'));
-      if (urgent.length > 0 && !stopped) { try { w.onUrgentAsks?.(urgent); } catch (e) { log(`operator: urgent asks not told: ${(e as Error).message}`); } }
       for (const a of before) if (!asks.some(x => x.id === a.id)) settle('rig.ask', a.id, 'elsewhere');
-      if (!stopped) operator.refreshNotices();
     },
     /** An ask answered through Ledge (`desktop`: a PC front, `phone`: the gateway): settled there, unless questions still wait. */
     askAnswered(qitemId: string, where: SettledWhere, r: { ok: boolean; outcome?: string }): void {
@@ -387,8 +378,8 @@ export function wireOperator(w: OperatorWiring) {
       const stale = setInterval(tasksChanged, STALE_EVERY_MS); stale.unref?.();
       timers.push(daily, stale);
       operator.start();
-      // A point that stayed open across a restart reaches the notch now, not at the next event.
-      operator.refreshNotices();
+      // A point that stayed open across a restart names its asks' holder now, not at the next event.
+      try { w.onPointsChanged?.(); } catch (e) { log(`operator notices: ${(e as Error).message}`); }
     },
     stop(): void {
       stopped = true;

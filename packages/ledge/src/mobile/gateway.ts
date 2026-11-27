@@ -17,7 +17,7 @@ import { PHONE_ROW_SUMMARY_MAX } from '@ledge/protocol';
 import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects, type Routine, ROUTINES_MAX } from '@ledge/protocol';
 import { listFolder, resolveFolder } from '../daemon/folders.js';
 import { newProjectId, withoutProject } from '@ledge/fleet/projects';
-import { taskClosed } from '@ledge/protocol';
+import { openDecision, taskClosed } from '@ledge/protocol';
 import {
   PHONE_GOALS_MAX, PHONE_RIG_ROWS_MAX, PHONE_RIG_SEATS_MAX, PHONE_RIG_SUMMARY_MAX, PHONE_RIG_TEXT_MAX, PHONE_RIGS_MAX, RIG_SNAPSHOTS_MAX, phoneRigError, rigActNeedsCheck,
   type OpenRigAction, type OpenRigState, type PhoneOpenRigState, type RigRoutingEntry, type RigRow
@@ -90,6 +90,13 @@ export const RIG_PHONE_ASKS = 50, RIG_PHONE_BODY = 4000, RIG_PHONE_DETAIL = 2000
 /** What a `note` challenge is bound to: the proposal and the exact choice, so the assertion covers what is written. */
 export const noteSubject = (task: string, choice: BrainChoice): string =>
   `note:${task}:${createHash('sha256').update(JSON.stringify([choice.yes, choice.text ?? null, choice.title ?? null, choice.when ?? null])).digest('base64url')}`;
+
+/** What a `decision` challenge is bound to (#40): the decision and a digest of the exact answer, so an assertion sends that answer only. */
+export const decisionSubject = (task: string, answer: string): string =>
+  `decision:${task}:${createHash('sha256').update(answer).digest('base64url')}`;
+
+/** A decision a session put to the user, still open: what `task.answer` answers (a proposal about the notes is `brain.answer`'s). */
+const openUserDecision = (t: Task | undefined): t is Task => !!t && openDecision(t) && !t.brain;
 
 /** JSON with each object's keys sorted, so the phone's and the PC's copies of the same action give the same digest. */
 const stableJson = (v: unknown): string =>
@@ -360,7 +367,7 @@ export function createPhoneGateway(deps: {
     if (f) f.pushStatus = push;
     const message: Extract<PhoneServerMessage, { type: 'snapshot' }> = {
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: deps.sessions().filter(s => !isArchived(s)).map(s => projected(deviceId, s)), capabilities: capabilities(), daemon: { version: deps.version, boot: deps.boot, name: clip(hostname(), 40).text, ...(deps.pc?.canUpdate ? { update: true as const } : {}), ...(deps.pc?.canRestart ? { restart: true as const } : {}), checklist: true as const, commands: true as const, rigRows: true as const, ...(deps.closeSession ? { sessionClose: true as const } : {}),
-      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const, sessionOrder: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}), ...(deps.chats ? { conversations: true as const } : {}) },
+      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const, sessionOrder: true as const } : {}), ...(deps.tasks ? { taskAnswer: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}), ...(deps.chats ? { conversations: true as const } : {}) },
     ...(projects ? { projects: toPhoneProjects(projects) } : {}),
     ...(projects && toPhoneSessionOrder(projects) ? { sessionOrder: toPhoneSessionOrder(projects)! } : {}),
     device: { confirm: deps.credential(deviceId) !== null, ...(deps.credential(deviceId)?.recover ? { recover: true as const } : {}), push, ...(deps.chats ? { chat: true as const } : {}), ...(deps.contextNear ? { contextNear: deps.contextNear() } : {}), id: deviceId, ...ownInfo(deviceId), ...(settings ? { prefs: mobile.prefsOf!(deviceId) } : {}) }
@@ -435,7 +442,7 @@ export function createPhoneGateway(deps: {
   };
 
   /** The operations that act on a tracked session: the registry's own, the credential's, the device's and the chat's are handled before it. */
-  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'session.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' | 'routine.cmd' }>;
+  type SessionOperation = Exclude<PhoneOperation, { type: 'credential.register' | 'device.forget' | 'device.rename' | 'device.prefs' | 'context.set' | 'project.edit' | 'project.order' | 'session.order' | 'project.create' | 'project.delete' | 'project.folder.add' | 'project.folder.remove' | 'push.subscribe' | 'push.unsubscribe' | 'chat.relay' | 'chat.relay.cancel' | 'chat.launch' | 'session.launch' | 'chat.close' | 'chat.act' | 'chat.ignore' | 'chat.task' | 'task.seen' | 'task.answer' | 'daemon.update' | 'daemon.restart' | 'session.close' | 'session.resume' | 'session.broadcast' | 'term.open' | 'term.hold' | 'openrig.answer' | 'brain.answer' | 'rigs.act' | 'rigs.seats' | 'rigs.goal.send' | 'rigs.goal.reply' | 'forge.act' | 'point.act' | 'point.later' | 'operator.read' | 'routine.cmd' }>;
   /** Whether the operation needs the device's own check: an accept of a request that is not low, or a reply to an OMP (rpc) dialog, which is never low. */
   const needsAssertion = (msg: SessionOperation, s: Session): boolean => {
     if (msg.type === 'session.decide') return msg.decision !== 'deny' && riskOf(s)?.risk !== 'low';
@@ -448,7 +455,7 @@ export function createPhoneGateway(deps: {
     `${id}:${key}${s?.pending?.source === 'rpc' && s.pending.requestId ? `:${s.pending.requestId}` : ''}`;
 
   /** The device check: the challenge is spent first, whatever the verdict, then the signature is verified and the counter kept. */
-  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge' | 'routine', subject: string | undefined): Outcome | undefined => {
+  const checkAssertion = (deviceId: string, assertion: NonNullable<Extract<PhoneOperation, { type: 'session.decide' }>['assertion']> | undefined, purpose: 'decide' | 'launch' | 'close' | 'act' | 'pc' | 'terminal' | 'rig' | 'note' | 'project' | 'folder' | 'rigs' | 'forge' | 'routine' | 'decision', subject: string | undefined): Outcome | undefined => {
     const cred = deps.credential(deviceId);
     const rp = deps.rp();
     if (!cred || !rp || !assertion || subject === undefined) return { status: 'rejected', reason: 'confirm_required' };
@@ -1040,6 +1047,29 @@ export function createPhoneGateway(deps: {
     return ask({ type: 'brain.answer', rid, task: msg.task, choice: msg.choice }, m => (m.type === 'brain.result' && m.rid === rid ? (m.reason === undefined ? true : { status: 'rejected', reason: 'stale' }) : undefined));
   };
 
+  /**
+   * A decision a session put to the user, answered from the phone outside the chat (#40, D2): through `action.run task.answer`, as the
+   * CLI's `ledge decide` and the desktop do, so the daemon's own guards apply. Destructive: `confirmed` (the schema requires it) and the
+   * device's check over that decision and that exact answer. Gone or closed, or closed meanwhile: `stale`; not a decision: `invalid`.
+   */
+  const taskAnswer = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'task.answer' }>): Promise<Outcome> => {
+    const t = deps.tasks?.().find(x => x.id === msg.task);
+    if (!t || taskClosed(t)) return { status: 'rejected', reason: 'stale' };
+    if (!openUserDecision(t)) return { status: 'rejected', reason: 'invalid' };
+    if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
+    const refused = checkAssertion(deviceId, msg.assertion, 'decision', decisionSubject(t.id, msg.answer));
+    if (refused) return refused;
+    const rid = msg.op;
+    return ask({ type: 'action.run', rid, action: 'task.answer', args: { task: t.id, answer: msg.answer }, confirmed: true }, m => {
+      if (m.type !== 'action.result' || m.rid !== rid) return undefined;
+      if (m.code === undefined) return true;
+      // Resolved against a task that closed or left meanwhile, or no longer a decision: the phone's copy is stale.
+      if (m.code === 'refused') return { status: 'rejected', reason: 'stale' };
+      if (m.code === 'confirm_required') return { status: 'rejected', reason: 'confirm_required' };
+      return false;
+    });
+  };
+
   // ── Rigs and the kernel (`daemon.rigs`, docs/mobile-openrig-contract.md) ──
 
   /**
@@ -1461,6 +1491,7 @@ export function createPhoneGateway(deps: {
     if (msg.type === 'term.hold') return termHold(deviceId, msg);
     if (msg.type === 'openrig.answer') return rigAnswer(deviceId, msg);
     if (msg.type === 'brain.answer') return brainAnswer(deviceId, msg);
+    if (msg.type === 'task.answer') return taskAnswer(deviceId, msg);
     if (msg.type === 'rigs.act') return rigsAct(deviceId, msg);
     if (msg.type === 'point.act') return pointAct(deviceId, msg);
     if (msg.type === 'point.later') return pointLater(deviceId, msg);
@@ -1840,6 +1871,14 @@ export function createPhoneGateway(deps: {
           const challenge = deps.challenges.issue({ deviceId, purpose: 'forge', subject: forgeSubject(msg.forge.prId, msg.forge.action) });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'forge', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
+        if (msg.purpose === 'decision') {
+          // Bound to that decision and that exact answer (#40): a check for one answer sends no other.
+          const cred = deps.credential(deviceId);
+          const t = msg.task ? deps.tasks?.().find(x => x.id === msg.task) : undefined;
+          if (!cred || cred.rpId !== rp.rpId || !openUserDecision(t) || !msg.taskAnswer) return invalid();
+          const challenge = deps.challenges.issue({ deviceId, purpose: 'decision', subject: decisionSubject(t.id, msg.taskAnswer) });
+          return push(deviceId, { type: 'confirm.challenge', purpose: 'decision', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
+        }
         if (msg.purpose === 'routine') {
           // Bound to that request (a pending routine, or a routine's proposal, and the others of a grouped one) as the phone showed
           // it (their keys): a check covers no other prompt, folder or schedule.
@@ -1881,7 +1920,7 @@ export function createPhoneGateway(deps: {
       const op = OperationIdSchema.safeParse((raw as { op?: unknown } | null | undefined)?.op);
       // A model change the schema refuses (#58) is answered the same way.
       if (request === 'session.model' && op.success && approved(deviceId)) return push(deviceId, { type: 'operation.result', op: op.data, status: 'rejected', reason: 'invalid' });
-      if ((request === 'push.subscribe' || request === 'chat.launch' || request === 'session.launch' || request === 'chat.close' || request === 'chat.act' || request === 'chat.ignore' || request === 'chat.task' || request === 'task.seen' || request === 'session.close' || request === 'session.resume' || request === 'session.broadcast' || request === 'term.open' || request === 'term.hold' || request === 'brain.answer' || request === 'rigs.act' || request === 'rigs.seats' || request === 'rigs.goal.send' || request === 'rigs.goal.reply' || request === 'forge.act') && op.success && approved(deviceId)) return push(deviceId, { type: 'operation.result', op: op.data, status: 'rejected', reason: 'invalid' });
+      if ((request === 'push.subscribe' || request === 'chat.launch' || request === 'session.launch' || request === 'chat.close' || request === 'chat.act' || request === 'chat.ignore' || request === 'chat.task' || request === 'task.seen' || request === 'task.answer' || request === 'session.close' || request === 'session.resume' || request === 'session.broadcast' || request === 'term.open' || request === 'term.hold' || request === 'brain.answer' || request === 'rigs.act' || request === 'rigs.seats' || request === 'rigs.goal.send' || request === 'rigs.goal.reply' || request === 'forge.act') && op.success && approved(deviceId)) return push(deviceId, { type: 'operation.result', op: op.data, status: 'rejected', reason: 'invalid' });
       return push(deviceId, { type: 'error', code: 'invalid', ...(request !== undefined ? { request } : {}) });
     }
     const msg = parsed.data;

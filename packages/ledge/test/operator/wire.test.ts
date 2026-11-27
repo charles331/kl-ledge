@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { OperatorNotice, Goal, HumanAsk, OpenRigState, Routine, Task } from '@ledge/protocol';
+import type { Goal, HumanAsk, OpenRigState, Routine, Task } from '@ledge/protocol';
 import { pendingKey, type Session } from '@ledge/protocol';
 import { Store } from '../../src/daemon/store.js';
 import type { ChatDeps } from '../../src/chat/service.js';
@@ -23,28 +23,27 @@ const rigState = (status: Record<string, string>): OpenRigState => ({
 let wired: OperatorWired | undefined;
 afterEach(() => { wired?.stop(); wired = undefined; });
 
-function setup(tasks: Task[], onNotices?: (n: OperatorNotice[]) => void, o: { home?: string; store?: Store; onUrgentAsks?: (a: HumanAsk[]) => void } = {}) {
+function setup(tasks: Task[], onPointsChanged?: () => void, o: { home?: string; store?: Store } = {}) {
   const home = o.home ?? mkdtempSync(join(tmpdir(), 'ledge-wire-'));
   const store = o.store ?? new Store({ journalPath: join(home, 'j.json') });
   const chatDeps: ChatDeps = { store, tmux: { async capture() { return null; } } as never, home, env: async () => ({ ...process.env }) };
   let list = tasks;
   wired = wireOperator({
     journalPath: join(home, 'ledge.sqlite'), machine: 'm', threads: { all: () => [], emitterOf: () => undefined }, store,
-    tasks: () => list, contextNear: () => 0.9, tool: () => 'claude', chatDeps, ...(onNotices ? { onNotices } : {}), ...(o.onUrgentAsks ? { onUrgentAsks: o.onUrgentAsks } : {})
+    tasks: () => list, contextNear: () => 0.9, tool: () => 'claude', chatDeps, ...(onPointsChanged ? { onPointsChanged } : {})
   });
   wired.start();
   return { w: wired, home, store, setTasks: (t: Task[]) => { list = t; } };
 }
 
 describe('wireOperator notices', () => {
-  it('tells the notices at start and again when the rig asks change', () => {
-    const told: OperatorNotice[][] = [];
-    const { w } = setup([], n => told.push(n));
-    expect(told).toEqual([[]]);
+  // The notices themselves are the daemon's (#40, D11, daemon-notices.test.ts): the operator only says its points changed.
+  it('says its points changed at start, and holds no ask without a point', () => {
+    let told = 0;
+    const { w } = setup([], () => { told++; });
+    expect(told).toBe(1);
     w.asksChanged({ asks: [{ ...ask('q1'), priority: 'urgent' }] });
-    expect(told.at(-1)!.map(n => n.id)).toEqual(['rig.ask:q1']);
-    w.asksChanged({ asks: [] });
-    expect(told.at(-1)).toEqual([]);
+    expect(w.operator.holder('q1')).toBeUndefined();
   });
 });
 
@@ -188,11 +187,4 @@ describe('wireOperator settles what was answered outside a point', () => {
     expect(settledOf(w, 'q1')[0]).toMatchObject({ settled: true, where: 'elsewhere' });
   });
 
-  it('a new urgent or critical rig ask is pushed at once, a routine one is not, nor the baseline', () => {
-    const pushed: string[][] = [];
-    const { w } = setup([], undefined, { onUrgentAsks: a => pushed.push(a.map(x => x.id)) });
-    w.asksChanged({ asks: [{ ...ask('q0'), priority: 'urgent' }] });
-    w.asksChanged({ asks: [{ ...ask('q0'), priority: 'urgent' }, { ...ask('q1'), priority: 'critical' }, ask('q2')] });
-    expect(pushed).toEqual([['q1']]);
-  });
 });

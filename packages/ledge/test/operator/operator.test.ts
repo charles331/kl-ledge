@@ -42,7 +42,7 @@ function setup(lead: (o: { events: readonly unknown[] }) => Promise<LeadResult> 
     threads: { all, device, emitterOf: id => (m: ChatMessage) => { emitted[id]!.push(m); } }, devices: () => devices,
     live: () => ({ sessions: liveSessions, asks: [], tasks: [], lang: 'fr', asksKnown: liveAsksKnown }),
     tool: () => 'claude', chatDeps,
-    onNotices: () => {}, onPointPush: (l, qids) => { pushes.push({ lead: l, qids }); },
+    onPointsChanged: () => {}, onPointPush: (l, qids) => { pushes.push({ lead: l, qids }); },
     runLead: async o => { leadCalls.push(o); return lead(o); }
   });
   operator.start();
@@ -123,11 +123,8 @@ describe('createOperator', () => {
     const qid = desktop.points()[0]!.qid;
     operator.later('desktop', qid);
     expect(pointsOf(desktop)[0]!.laterAt).toBeDefined();
-    expect(operator.notices().filter(n => n.kind === 'point')).toEqual([]);
     operator.read('desktop', 1);
     expect(pointsOf(desktop)[0]!.laterAt).toBeUndefined();
-    // The point left the notch (#27): it comes back in the chat, never as a notice.
-    expect(operator.notices()).toEqual([]);
     operator.stop();
   });
 
@@ -160,9 +157,8 @@ describe('createOperator', () => {
     expect(first!.items[0]).toMatchObject({ settled: { where: 'elsewhere' } });
     expect(first!.foldedAt).toBeDefined();
     expect(journal.open().filter(e => e.kind === 'session.request')).toEqual([]);
-    // The new point holds the finish; the request it shows is settled, so nothing waits on the user and no notice stays.
+    // The new point holds the finish; the request it shows is settled, so nothing waits on the user.
     expect(second!.items.filter(i => i.group === 'atoi' && !i.settled)).toEqual([]);
-    expect(operator.notices().filter(n => n.kind === 'point')).toEqual([]);
     operator.stop();
   });
 
