@@ -1,0 +1,24 @@
+/* The rows the « Cowork » mockup did not draw (messages between agents, the harness's notices, OpenRig's lines, tasks), set
+   in the new thread as the owner chose on 2026-11-27 (#41, A): no icon margin left of the column, the time under the card
+   as everywhere else in the thread, the cards themselves unchanged and no new text. Applied over the real components when
+   the bar says « Après » (:root[data-rows="apres"]); « Avant » shows them as feat/thread-cowork draws them. */
+:root[data-rows="apres"] .cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 4px;
+  padding: 0;
+}
+/* The icon in the margin: the card already says what it is (its kicker, its border, its side). */
+:root[data-rows="apres"] .cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .n { display: none; }
+/* The time under the card, on the card's side: as the person's bubble (right) and the agent's text (left) carry theirs. */
+:root[data-rows="apres"] .cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .tm {
+  grid-row: 2;
+  justify-self: start;
+  font: 11px/14px 'Geist Mono', monospace;
+  color: var(--at-ink2);
+  text-align: left;
+}
+:root[data-rows="apres"] .cw-turn .message-row.sent > .tm { justify-self: end; }
+:root[data-rows="apres"] .cw-turn :is(.message-row, .message-head-row, .notice-row, .rig-row, .task-row) > .tm:empty { display: none; }
+/* A notice keeps its left rule: it now starts on the column's edge, as the steps' rows do. */
+:root[data-rows="apres"] .cw-turn .notice-row > .notice-line { justify-self: stretch; }
