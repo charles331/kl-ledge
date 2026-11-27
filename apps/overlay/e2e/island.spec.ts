@@ -180,6 +180,8 @@ test('Do not disturb: nothing opens, a finish is dropped; leaving it, the island
   await page.evaluate(() => { localStorage.setItem('desktop.dnd', '0'); window.dispatchEvent(new StorageEvent('storage', { key: 'desktop.dnd', newValue: '0' })); });
   await expect(card(page)).toContainText('Pim wants to run a command');
   await expect(card(page).locator('.di-meta')).toHaveText('speos-api · chore/deps · +1 more');
+  // The card's text is there (inert) while the island is still opening; the island's keys wait for it to be open.
+  await expect(island(page)).toHaveAttribute('data-phase', 'open');
   await page.keyboard.press('Escape');
   await expect(card(page)).toContainText('Bix asks you a question');
   await expect(card(page).locator('.di-meta')).toHaveText('boutique · feat/migration');
