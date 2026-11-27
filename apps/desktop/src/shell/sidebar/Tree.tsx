@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode, type DragEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode, type DragEvent } from 'react';
 import { contextShare, type Helper, type Projects, type Session } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import type { Filing } from '../../atelier/filing';
@@ -32,13 +32,50 @@ function BranchTag({ session }: { session: Session }): JSX.Element | null {
   if (!b) return null;
   return (
     <span className={cls('st-btag', DEFAULT_BRANCHES.has(b) && 'default')} title={t.side.branchTag(b)}>
-      <Icon d={branchIcon} size={9} />{b}{session.worktree && <i>wt</i>}
+      <Icon d={branchIcon} size={9} /><span className="st-btag-name">{b}</span>{session.worktree && <i>wt</i>}
     </span>
   );
 }
 
 /** A row the keyboard walks: Left folds it (or goes to its parent), Right unfolds it. `session` is set only for a principal. */
 interface Nav { toggle?: () => void; open?: boolean; parent?: string; session?: Session; target?: MenuTarget }
+
+/** Issue #32 (design-ux and the lead, 2026-11-26): each branch tag of `root` shows its name while the line leaves it room for its icon
+ *  and three characters with « … »; with less, its icon alone (`data-fit="icon"`), so that room goes back to the session's name. The room
+ *  is the name's line (its topic beside it in the compact view gives way) less the session's full name and its other marks: what the
+ *  tag is now does not change it, so the choice never flips back and forth. */
+export function fitBranchTags(root: HTMLElement): void {
+  for (const tag of root.querySelectorAll<HTMLElement>('.st-agent .st-main strong > .st-btag')) {
+    const line = tag.parentElement!;
+    const main = line.parentElement!;
+    const text = tag.querySelector<HTMLElement>('.st-btag-name');
+    const icon = tag.querySelector('svg');
+    if (!text || !icon) continue;
+    const topic = main.querySelector(':scope > span');
+    const dense = getComputedStyle(main).flexDirection === 'row';
+    const room = main.clientWidth - (dense && topic ? parseFloat(getComputedStyle(main).columnGap) || 0 : 0);
+    let others = 0;
+    for (const el of line.children) {
+      if (el === tag) continue;
+      const cs = getComputedStyle(el);
+      // The name at its full width (it is clipped when cut), the other marks as they are, with their margins.
+      others += (el.classList.contains('st-aname') ? el.scrollWidth : el.getBoundingClientRect().width) + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+    }
+    const cs = getComputedStyle(tag);
+    const frame = ['marginLeft', 'paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((n, k) => n + (parseFloat(cs[k as 'marginLeft']) || 0), 0)
+      + icon.getBoundingClientRect().width;
+    // The tag's font is monospaced: one character's width is the name's width over its length; three of them and « … ».
+    const name = text.textContent ?? '';
+    const ch = name.length > 0 ? text.scrollWidth / name.length : 0;
+    // Its other parts (« wt » for a worktree) at their full width, each after the tag's 3 px gap and its own 2 px margin (sidebar.css,
+    // .st-btag and .st-btag i). Constants, not read: the icon state folds both to nothing, and the room needed must not depend on it.
+    let extra = 0;
+    for (const el of tag.children) if (el !== icon && el !== text) extra += 3 + 2 + (el as HTMLElement).scrollWidth;
+    const need = frame + 3 + 4 * ch + extra;
+    const fit = room - others >= need ? null : 'icon';
+    if ((tag.dataset.fit ?? null) !== fit) { if (fit) tag.dataset.fit = fit; else delete tag.dataset.fit; }
+  }
+}
 
 /** A project's fold key (« Sans projet »: `p:none`); a branch's is `p:<id>:<branch>`. */
 export const projectKey = (id: string | null): string => `p:${id ?? 'none'}`;
@@ -169,6 +206,18 @@ export function Tree(p: {
   const [kids, setKids] = useState<Set<string>>(() => new Set());
   const treeRef = useRef<HTMLDivElement>(null);
   const nav = useRef(new Map<string, Nav>());
+  // #32: the branch tags fitted after each render (a name, a mark or the tree changed) and whenever the explorer's width does, or its
+  // fonts arrive. Only the tree not grouped by branch has them.
+  useLayoutEffect(() => { if (!p.byBranch && treeRef.current) fitBranchTags(treeRef.current); });
+  useEffect(() => {
+    const el = treeRef.current;
+    if (p.byBranch || !el) return;
+    const fit = () => fitBranchTags(el);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    ro?.observe(el);
+    void document.fonts?.ready.then(fit);
+    return () => ro?.disconnect();
+  }, [p.byBranch]);
   const latest = useRef(p);
   latest.current = p;
   nav.current = new Map();
@@ -297,7 +346,7 @@ export function Tree(p: {
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
         <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
-          <strong>{name}{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          <strong><span className="st-aname">{name}</span>{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
           {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
         </button>
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
