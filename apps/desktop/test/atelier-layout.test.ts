@@ -57,6 +57,17 @@ it("the table's branch is its agents' most frequent one", () => {
   expect(tableBranch([main('a', { branch: 'x' }), main('b', { branch: 'y' })])).toBe('x');
   expect(tableBranch([main('a')])).toBeNull();
 });
+it('#47: a finished or interrupted subagent no longer sits at the table, is noted or counted in the extras', () => {
+  const done = Array.from({ length: 12 }, (_, i) => helper(`d${i}`, 'exited'));
+  const t = layoutTable([main('ops', { helpers: [...done, helper('stop', 'idle'), helper('live', 'working')] }), main('old', { helpers: done })], true);
+  expect(t.ends.map(e => e.helper.id)).toEqual(['live']);
+  expect(t.notes.get('local:ops')).toEqual({ helper: helper('live', 'working'), more: 0 });
+  expect(t.notes.has('local:old')).toBe(false);
+  expect([t.extra.helpers.length, t.extraCount]).toEqual([0, 0]);
+  // Past the seats too: a seventh agent's finished subagents are not counted in « +n ».
+  const seven = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(id => main(id, { helpers: id === 'g' ? [helper('g1'), ...done] : [] }));
+  expect(layoutTable(seven, true).extra.helpers.map(h => h.helper.id)).toEqual(['g1']);
+});
 it('sheet states: idle reads as done, offline wins', () => {
   expect((['approval', 'question', 'done', 'idle', 'working', 'readonly'] as BotState[]).map(s => sheetState(s))).toEqual(['approval', 'question', 'done', 'done', 'working', 'working']);
   expect(sheetState('approval', true)).toBe('offline');

@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useMemo, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
 import { daemonStore, qualify, splitId, type DaemonClient } from '@ledge/fleet';
-import { doneCount, latestTodos, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
+import { doneCount, latestTodos, liveHelpers, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
 import type { BotState } from '@ledge/ui/bots/poseFor';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import type { DocumentReference } from '@ledge/ui/documents/references';
@@ -435,7 +435,9 @@ function Summary({ session, helper, items, dispatch, onChange }: Pick<ThreadProp
   const ts = t.session.thread.side;
   const todos = useMemo(() => latestTodos(items, helper?.id), [items, helper?.id]);
   const files = useMemo(() => changedFiles(items, session.cwd, helper?.id), [items, session.cwd, helper?.id]);
-  const kids = helper === null ? items.filter((i): i is HelperItem => i.kind === 'helper') : [];
+  // Issue #47: the « Sous-agents » card lists the ones still at work (liveHelpers); a finished one stays in the thread above.
+  const live = new Set(liveHelpers(session).map(h => h.id));
+  const kids = helper === null ? items.filter((i): i is HelperItem => i.kind === 'helper' && live.has(i.id)) : [];
   const done = todos ? doneCount(todos) : 0;
   return (
     <aside className="cw-side" aria-label={ts.label}>

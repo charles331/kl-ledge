@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { PhoneServerMessage } from '@ledge/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { helperDot, islandDot, islands } from '../../src/model/sessions';
+import { activeHelpers, helperDot, islandDot, islands } from '../../src/model/sessions';
 import { LONG_PRESS_MS } from '../../src/screens/longPress';
 import { Sessions } from '../../src/screens/Sessions';
 import { pending, session } from '../model/fixtures';
@@ -53,6 +53,15 @@ describe('the islands (m2-sessions.html §7)', () => {
   });
 });
 
+describe('finished sub-agents (#47)', () => {
+  it('the « +n » counts the ones at work: a finished one and one stopped by an interrupt are left out', () => {
+    const s = session('ops', { name: 'Ops', helpers: [
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `d${i}`, kind: 'Explore', task: 't', state: 'exited' as const, finishedAt: '2026-11-27T10:00:00.000Z' })),
+      { id: 'stop', kind: 'Explore', task: 't', state: 'idle' as const }, { id: 'live', kind: 'Plan', task: 't', state: 'waiting_permission' as const }] });
+    expect(activeHelpers(s)).toBe(1);
+  });
+});
+
 describe('the Atelier on a phone (§7)', () => {
   it('« Liste · Atelier » on the title\'s line, kept on this device', () => {
     const t = page();
@@ -70,7 +79,8 @@ describe('the Atelier on a phone (§7)', () => {
     const ledge = screen.getByRole('region', { name: 'ledge' });
     expect(ledge).toHaveTextContent(/^ledge2 sessions/);
     expect(within(ledge).getAllByRole('link').map(a => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['CCPim', '#/thread/pim'], ['Explore', '#/thread/pim'], ['Review', '#/thread/pim'], ['CXNova', '#/thread/nova']
+      // #47: Review finished: not listed (Pim's thread keeps it).
+      ['CCPim', '#/thread/pim'], ['Explore', '#/thread/pim'], ['CXNova', '#/thread/nova']
     ]);
     expect(within(ledge).getByRole('link', { name: 'Explore, sous-agent de Pim : lit le code' })).toBeInTheDocument();
     const rig = screen.getByRole('region', { name: 'Rig ledge-dev' });
@@ -86,7 +96,8 @@ describe('the Atelier on a phone (§7)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Masquer les sous-agents' }));
     const out = screen.getByRole('region', { name: 'Hors rig' });
     expect(within(out).queryByRole('link', { name: /sous-agent de Pim/ })).toBeNull();
-    expect(within(out).getByLabelText('2 sous-agents au travail')).toHaveTextContent('+2');
+    // #47: the count is the sub-agents at work, the finished Review left out.
+    expect(within(out).getByLabelText('1 sous-agent au travail')).toHaveTextContent('+1');
     expect(screen.getByRole('button', { name: 'Afficher les sous-agents' })).toBeInTheDocument();
     expect([t.storage.getItem('ledge.mobile.sessions.groupBy'), t.storage.getItem('ledge.mobile.sessions.helpers')]).toEqual(['rigs', 'hidden']);
   });

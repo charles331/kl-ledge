@@ -1,7 +1,7 @@
-import type { Helper, Session } from '@ledge/protocol';
+import { liveHelpers, type Session } from '@ledge/protocol';
 
-/** Helpers (subagents) still at work under a session; the bot reads as working while any remains. */
-export const liveHelpers = (session: Session): Helper[] => session.helpers.filter(h => h.state !== 'exited' && h.state !== 'idle');
+/** Helpers (subagents) still at work under a session; the bot reads as working while any remains. The rule is the protocol's (#47). */
+export { liveHelpers };
 
 export type SessionChange =
   | { kind: 'joined'; id: string }

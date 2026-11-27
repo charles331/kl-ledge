@@ -1,4 +1,4 @@
-import type { PhoneSession } from '@ledge/protocol';
+import { liveHelpers, type PhoneSession } from '@ledge/protocol';
 import { ResidentMascot } from '@ledge/ui/bots/ResidentMascot';
 import { copy } from '../copy';
 import { dotOf, GROUPINGS, helperDot, islandDot, islands, type Grouping, type Island } from '../model/sessions';
@@ -38,6 +38,8 @@ function Seat({ session: s, rig, helpers, pressed, onPress }: { session: PhoneSe
   const dot = dotOf(s);
   const tone = dot === 'perm' ? 'border-destructive/50' : dot === 'ask' ? 'border-attention/50' : 'border-line';
   const thread = href({ name: 'thread', sessionId: s.id });
+  // Issue #47: its finished sub-agents are not listed (its thread keeps them).
+  const kids = liveHelpers(s);
   const label = copy.atelier.session(s.name);
   return (
     <>
@@ -46,9 +48,9 @@ function Seat({ session: s, rig, helpers, pressed, onPress }: { session: PhoneSe
         {!rig && <RuntimeTag tool={s.tool} />}
         <SessionName session={s} nameClassName="font-normal text-muted" />
         <Dot state={dot} />
-        {!helpers && s.helpers.length > 0 && <span aria-label={copy.sessions.kidsLabel(s.helpers.length)} className="ml-0.5 rounded-lg border border-input px-1.5 font-mono text-[11px] leading-[18px] text-muted">{copy.sessions.kids(s.helpers.length)}</span>}
+        {!helpers && kids.length > 0 && <span aria-label={copy.sessions.kidsLabel(kids.length)} className="ml-0.5 rounded-lg border border-input px-1.5 font-mono text-[11px] leading-[18px] text-muted">{copy.sessions.kids(kids.length)}</span>}
       </a>
-      {helpers && s.helpers.map(h => (
+      {helpers && kids.map(h => (
         // A sub-agent has no thread of its own: its seat opens its agent's (§2, Q21).
         <a key={h.id} href={thread} aria-label={copy.atelier.helperSeat(h.kind, s.name, h.task)} {...long}
           className={`${SEAT} h-8 border-dashed border-line text-[12px] text-muted`}>

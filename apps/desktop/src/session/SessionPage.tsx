@@ -2,7 +2,7 @@ import type { FleetForgeStatus, FleetPullRequest } from '@ledge/fleet';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type KeyboardEvent, type MutableRefObject } from 'react';
 import { useContextNear, type DaemonClient } from '@ledge/fleet';
 import { SessionMeta } from '../usage/SessionMeta';
-import { isArchived, isOmpSeat, type Helper, type Session, type ThreadItem, taskClosed, latestTodos } from '@ledge/protocol';
+import { isArchived, isOmpSeat, liveHelpers, type Helper, type Session, type ThreadItem, taskClosed, latestTodos } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import { useI18n } from '../i18n/lang';
 import type { Decisions } from '../fleet/decisions';
@@ -497,7 +497,8 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
   const waitedFor = whenOf(session, p.waits.get(session.id)?.since, now, t.list.when).text;
   const place = p.nav.place;
   const near = useContextNear(p.client);
-  const kids = helper === null ? session.helpers ?? [] : [];
+  // Issue #47: the bar's « N sous-agents » counts the ones still at work (liveHelpers).
+  const kids = helper === null ? liveHelpers(session) : [];
   const tb = t.session.browser;
   const pill = pillOf(kindOf(browser, isLocal(session)), captures.length);
   const termChip = view === 'terminal' && agent.mode.kind !== 'native';

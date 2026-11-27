@@ -85,6 +85,26 @@ async function toTerminal(user: ReturnType<typeof userEvent.setup>, name: string
 }
 
 describe('the session page in an IDE tab', () => {
+  it('#47: the « Sous-agents » card and the bar\'s pill count the subagents still at work only; none at work, neither shows; the thread keeps them all', async () => {
+    const T = '2026-11-27T10:00:00.000Z';
+    const helperRow = (id: string, agentType: string, state: 'working' | 'exited') => ({ kind: 'helper' as const, id, at: T, turn: 1, task: `Tâche ${id}`, agentType, state });
+    const done = Array.from({ length: 12 }, (_, i) => ({ id: `d${i}`, kind: 'Finished', task: `Tâche d${i}`, state: 'exited' as const, finishedAt: T }));
+    const { d, tree, user } = await mount();
+    act(() => d.upsert(fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle',
+      helpers: [...done, { id: 'stop', kind: 'Stopped', task: 'Tâche stop', state: 'idle' }, { id: 'live', kind: 'Planner', task: 'Tâche live', state: 'working' }] })));
+    act(() => d.thread('otto', [{ kind: 'prompt', id: 'p', at: T, turn: 1, text: 'Va' }, ...done.map(h => helperRow(h.id, 'Finished', 'exited')), helperRow('stop', 'Stopped', 'exited'), helperRow('live', 'Planner', 'working')]));
+    await user.click(tree.getByRole('button', { name: /^Otto/ }));
+    await waitFor(() => expect(page()?.dataset.session).toMatch(/otto/));
+    await waitFor(() => expect(page()!.querySelector('.ide-bar-kids .n')?.textContent).toBe('1'));
+    const card = () => [...page()!.querySelectorAll<HTMLElement>('.cw-side .cw-card')].find(c => c.querySelector('summary')?.textContent?.startsWith('Sous-agents'));
+    await waitFor(() => expect(card()).toBeTruthy());
+    expect([...card()!.querySelectorAll('.cw-row-name')].map(x => x.textContent)).toEqual(['Planner']);
+    // The last one finishes: no pill, no card, as for a session that never started one.
+    act(() => d.upsert(fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', helpers: [...done, { id: 'live', kind: 'Planner', task: 'Tâche live', state: 'exited', finishedAt: T }] })));
+    await waitFor(() => expect(page()!.querySelector('.ide-bar-kids')).toBeNull());
+    expect(card()).toBeUndefined();
+  });
+
   it('lot 3 follow-up (option A): no heading row even with subagents, a relief, tags or on Terminal; the bar and the tab menu say them', async () => {
     const T = '2026-11-06T10:00:00.000Z';
     const { d, tree, user } = await mount({ stream: true });
