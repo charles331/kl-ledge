@@ -116,3 +116,50 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(tree(page).getByRole('textbox')).toHaveCount(0);
   });
 }
+
+// The field must show what is typed in every view of the explorer: compact or not, grouped by branch or not (owner's report after
+// 0.67.0: in a view the field was cropped and the text could not be read).
+for (const view of [{ dense: false, byBranch: true }, { dense: true, byBranch: true }, { dense: false, byBranch: false }, { dense: true, byBranch: false }]) {
+  test(`the nickname field shows what is typed (compact ${view.dense}, by branch ${view.byBranch})`, async ({ page }, info) => {
+    await page.addInitScript(v => { try { localStorage.setItem('desktop.sidebar', JSON.stringify({ hideDone: true, ...v })); } catch { /* ignore */ } }, view);
+    await boot(page, 'dark');
+    await row(page, 'Otto').locator('.st-main').focus();
+    await page.keyboard.press('F2');
+    const field = tree(page).getByRole('textbox', { name: 'Surnom de Otto' });
+    await expect(field).toBeFocused();
+    await page.keyboard.type('Revue des PR');
+    const o = await box(tree(page).locator('[role="treeitem"]:has(.st-rename)'));
+    await page.screenshot({ path: info.outputPath(`nickname-field-${view.dense ? 'dense' : 'roomy'}-${view.byBranch ? 'branches' : 'flat'}.png`), clip: { x: o.x - 6, y: o.y - 4, width: o.width + 12, height: o.height + 8 } });
+    // Wide enough for the text, and tall enough for its letters: nothing is cut.
+    const fit = await field.evaluate((x: HTMLInputElement) => ({ width: x.clientWidth, scroll: x.scrollWidth, height: x.clientHeight, line: parseFloat(getComputedStyle(x).fontSize) }));
+    expect(fit.width).toBeGreaterThanOrEqual(120);
+    expect(fit.scroll).toBeLessThanOrEqual(fit.width);
+    expect(fit.height).toBeGreaterThanOrEqual(fit.line + 2);
+    // Its logo on the field's line.
+    const editing = tree(page).locator('[role="treeitem"]:has(.st-rename)');
+    expect(Math.abs(mid(await box(field)) - mid(await box(editing.locator('.st-bot'))))).toBeLessThanOrEqual(1.5);
+    // The keys stay readable under it, in every view.
+    await expect(tree(page).locator('.st-rename-hint')).toBeVisible();
+    expect((await box(tree(page).locator('.st-rename-hint'))).height).toBeGreaterThanOrEqual(12);
+  });
+}
+
+// A session's sub-agents at work, folded: their pill (spinner and count) sits on the session's name line, centred on its logo and its
+// name, in every view (owner's report after 0.67.0: the spinner was not aligned with the session).
+for (const dense of [false, true]) {
+  test(`the sub-agents' pill sits on the session's name line (compact ${dense})`, async ({ page }, info) => {
+    await page.addInitScript(v => { try { localStorage.setItem('desktop.sidebar', JSON.stringify({ hideDone: true, dense: v, byBranch: true })); } catch { /* ignore */ } }, dense);
+    await boot(page, 'dark');
+    const nova = row(page, 'Nova');
+    const pill = nova.locator('.st-kids');
+    await expect(pill).toBeVisible();
+    const n = await box(nova);
+    await page.screenshot({ path: info.outputPath(`kids-pill-${dense ? 'dense' : 'roomy'}.png`), clip: { x: n.x - 6, y: n.y - 4, width: n.width + 12, height: n.height + 8 } });
+    const [p, logo, name] = [await box(pill), await box(nova.locator('.st-bot')), await box(nova.locator('.st-aname'))];
+    expect(Math.abs(mid(p) - mid(logo))).toBeLessThanOrEqual(1);
+    expect(Math.abs(mid(p) - mid(name))).toBeLessThanOrEqual(1.5);
+    // The spinner is centred in its pill.
+    const spin = await box(pill.locator('.st-kids-spin'));
+    expect(Math.abs(mid(spin) - mid(p))).toBeLessThanOrEqual(1);
+  });
+}

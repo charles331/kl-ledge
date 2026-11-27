@@ -238,6 +238,14 @@
 .st-renaming strong > .sn-name{flex:none}
 /* Over the first line's own rule (its marks keep their width): the field is what gives way, so « (Otto) » stays in the row. */
 .st-agent .st-main.st-renaming strong > .st-rename{flex:1 1 auto;min-width:0;width:0}
+/* The compact view puts the name and its second line side by side, the name as narrow as its text: while it is a field, the field
+   takes the row's width and the keys go under it, as in the roomy view. */
+.st-dense .st-agent .st-main.st-renaming{flex-direction:column;align-items:stretch;gap:1px}
+.st-dense .st-agent .st-main.st-renaming strong,.st-dense .st-agent:not(.helper) .st-main.st-renaming > span{flex:none}
+/* Two lines while it is a field: the logo (and a sub-agents' chevron) on the field's line, as in the roomy view. */
+.st-dense .st-agent:has(> .st-renaming){align-items:flex-start}
+.st-dense .st-agent:has(> .st-renaming) > .st-bot{margin-top:3px}
+.st-dense .st-agent:has(> .st-renaming) > .st-chev{margin-top:4px}
 /* The second line is the field's own while it is open (the mockup's card 2): no time, no row buttons over the field. */
 .st-row:has(> .st-renaming) > .st-time,.st-row:has(> .st-renaming) > .st-acts,.st-row:has(> .st-renaming) > .st-kids,.st-row:has(> .st-renaming) > .st-grip{display:none!important}
 .st-tree .st-agent > .st-main.st-renaming > span{padding-right:0!important}

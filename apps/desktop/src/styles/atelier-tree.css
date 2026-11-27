@@ -62,6 +62,8 @@
 :root[data-skin="atelier"] .st-tally > .t-bg > i { display: block; width: 6px; height: 6px; }
 :root[data-skin="atelier"] .st-kids.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
 :root[data-skin="atelier"] .st-kids { margin-top: 6px; }
+/* The compact view centres its one line: the pill is centred with it, on the logo and the name, not pushed under them. */
+:root[data-skin="atelier"] .st-dense .st-kids { margin-top: 0; }
 /* On an icon of the activity bar: solid, ringed in the bench's colour so it cuts cleanly out of the icon under it. */
 :root[data-skin="atelier"] .ide-badge { top: 1px; right: 0; background: var(--at-coral); color: var(--at-coral-ink); box-shadow: 0 0 0 2px var(--at-bench); }
 :root[data-skin="atelier"] .ide-badge.amber { background: var(--warning); color: var(--at-warning-ink); }
