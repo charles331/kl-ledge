@@ -3,9 +3,8 @@ import type { ClientMessage, HumanAsk, HumanChannel, Session, Task } from '@ledg
 import { test, expect, seedAtelier } from './fixtures';
 import { fakeDaemon, session, twoProjects } from './daemon';
 
-// Lot 12 (docs/mockups/ledge-ide-tasks-history.html): what only the old interface had. « Tâches » and « Historique » as tabs of the
-// right panel's chat, the « Voir » links to a task's detail, and « À toi » completed with what « Le point » showed (Décisions,
-// Rigs OpenRig with their card unfolded under its line, Contexte presque plein, the closed tasks of Ledge, « Résumer la journée »).
+// Lot 12 (docs/mockups/ledge-ide-tasks-history.html): « Tâches », a view of the activity bar since #40 D3, and « Historique », a tab of
+// the right panel's chat until #40 PR 4. « À toi » left with #40 PR 3.
 test.use({ viewport: { width: 1920, height: 1080 } });
 test.setTimeout(90_000);
 
@@ -94,21 +93,6 @@ for (const theme of ['dark', 'light'] as const) {
   });
 }
 
-test('« Voir » of a closed task in the sidebar « À toi »: the Tasks view, at its detail, the filters back to Toutes / Tous (#40 D3)', async ({ page }) => {
-  await boot(page);
-  await openTasks(page);
-  await tasks(page).getByRole('combobox', { name: 'Donneur' }).selectOption('sessions');
-  await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-  await expect(tasks(page)).toHaveCount(0);
-  const card = page.locator('.st-card[data-task="t-12"]');
-  await card.getByRole('button', { name: 'Voir' }).click();
-  await expect(tasks(page)).toBeVisible();
-  await expect(tasks(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(tasks(page).getByRole('combobox', { name: 'Donneur' })).toHaveValue('all');
-  await expect(rows(page)).toHaveCount(5);
-});
-
 test('« Historique »: the day\'s questions, the latest first; a click goes back to Conversation on that question, lit a moment', async ({ page }) => {
   const daemon = await boot(page);
   const field = panel(page).getByRole('textbox', { name: 'Demander à Ledge' });
@@ -140,106 +124,4 @@ test('the local daemon goes away: the last list stays, dimmed under its banner; 
   await shot(page, 'tasks-offline-dark', tasks(page));
   await rows(page).filter({ hasText: 't-13' }).click();
   await expect(tasks(page).getByRole('button', { name: 'Répondre' })).toBeDisabled();
-});
-
-for (const theme of ['dark', 'light'] as const) {
-  test(`(${theme}) « À toi »: Décisions, Rigs OpenRig, Contexte presque plein, the closed tasks of Ledge, « Résumer la journée »`, async ({ page }) => {
-    const daemon = await boot(page, theme);
-    await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-    await page.getByRole('button', { name: 'Page', exact: true }).click();
-    const tab = page.getByRole('tabpanel', { name: /^À toi/ });
-    const block = (name: string) => tab.locator(`[data-block="${name}"]`);
-    // Order: Demandes · Décisions · Rigs OpenRig · MR et PR · Contexte presque plein · Terminé.
-    await expect(tab.locator('.fg-blk-h b')).toHaveText(['Demandes', 'Décisions', 'Rigs OpenRig', 'MR et PR', 'Contexte presque plein', 'Terminé depuis ton passage']);
-    await expect(block('decisions')).toContainText('Nova Choisir le nom du dossier des captures');
-    await expect(block('rigs').locator('.atoi-line')).toContainText('urgentdécision');
-    await expect(block('near')).toContainText('Otto · contexte 82 %');
-    const fin = tab.locator('.fg-blk').last();
-    await expect(fin.locator('[data-task="t-12"]')).toContainText('Pim a fini « Écrire le test du refus d’un IBAN vide » · tâche de Ledge');
-    await expect(fin.locator('[data-task="t-9"]')).toContainText('Lu a refusé');
-    await page.screenshot({ path: `e2e/.results/lot12-atoi-${theme}.png` });
-    // « Ouvrir » unfolds the rig's card under its line; « Replier » folds it.
-    await block('rigs').getByRole('button', { name: 'Ouvrir' }).click();
-    await expect(block('rigs').locator('.atoi-askc .ask-card')).toBeVisible();
-    await expect(block('rigs').locator('.atoi-askc')).toContainText('Fusionner maintenant');
-    await shot(page, `atoi-rigask-${theme}`, block('rigs'));
-    await block('rigs').getByRole('button', { name: 'Replier' }).click();
-    await expect(block('rigs').locator('.atoi-askc')).toHaveCount(0);
-    // « Voir » of a closed task: the Tasks view at its detail (#40 D3).
-    await fin.locator('[data-task="t-12"]').getByRole('button', { name: 'Voir' }).click();
-    await expect(tasks(page).getByRole('region', { name: 'Écrire le test du refus d’un IBAN vide' })).toBeVisible();
-    // « Résumer la journée »: the question asked in the chat, on Conversation.
-    await tab.getByRole('button', { name: 'Résumer la journée' }).click();
-    await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
-    await expect.poll(() => daemon.received.filter((m): m is Extract<ClientMessage, { type: 'chat.ask' }> => m.type === 'chat.ask').map(m => m.text)).toEqual(['Résume la journée : ce qui a avancé, ce qui attend ma décision, ce qui bloque.']);
-  });
-}
-
-test('« Voir » of a rig\'s request in the sidebar: the page « À toi », its card unfolded and ringed a moment', async ({ page }) => {
-  await boot(page);
-  await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.locator('.st-rig-ask[data-ask="qitem-merge"]').getByRole('button', { name: 'Voir' }).click();
-  const tab = page.getByRole('tabpanel', { name: /^À toi/ });
-  const card = tab.locator('[data-ask="qitem-merge"] .atoi-askc');
-  await expect(card).toBeVisible();
-  await expect(card).toHaveClass(/lit/);
-  await shot(page, 'atoi-rigask-see-dark', tab.locator('[data-block="rigs"]'));
-  await expect(card).not.toHaveClass(/lit/, { timeout: 4000 });
-});
-
-// Review of lot 12 (review-qa2, P2): a hidden right panel is unmounted; the question waits for it and goes once it is there.
-test('« Résumer la journée » with the right panel hidden (its toggle): the panel comes back on Conversation and the question goes, once', async ({ page }) => {
-  const daemon = await boot(page);
-  await expect(panel(page)).toBeVisible();
-  await rightToggle(page).click();
-  await expect(panel(page)).toHaveCount(0);
-  await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  await page.getByRole('tabpanel', { name: /^À toi/ }).getByRole('button', { name: 'Résumer la journée' }).click();
-  await expect(panel(page)).toBeVisible();
-  await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
-  await expect.poll(() => daemon.received.filter(m => m.type === 'chat.ask').length).toBe(1);
-  // Hidden and shown again: nothing is asked twice.
-  await rightToggle(page).click();
-  await rightToggle(page).click();
-  await expect(panel(page)).toBeVisible();
-  await page.waitForTimeout(500);
-  expect(daemon.received.filter(m => m.type === 'chat.ask')).toHaveLength(1);
-});
-
-// Review of lot 12 (review-qa2, R1): the card brought by « Voir » is taken in once; reopening the page does not unfold it again.
-test('after a sidebar « Voir », « À toi » closed and opened again: the card stays folded; a new « Voir » unfolds it again', async ({ page }) => {
-  await boot(page);
-  await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-  const see = page.locator('.st-rig-ask[data-ask="qitem-merge"]').getByRole('button', { name: 'Voir' });
-  await see.click();
-  const tab = page.getByRole('tabpanel', { name: /^À toi/ });
-  const card = tab.locator('[data-ask="qitem-merge"] .atoi-askc');
-  await expect(card).toBeVisible();
-  await tab.locator('[data-ask="qitem-merge"]').getByRole('button', { name: 'Replier' }).click();
-  await expect(card).toHaveCount(0);
-  await page.locator('.dv-tab', { hasText: 'À toi' }).getByRole('button', { name: /Fermer/ }).click();
-  await expect(tab).toHaveCount(0);
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  await expect(tab.locator('[data-block="rigs"]')).toBeVisible();
-  await page.waitForTimeout(500);
-  await expect(card).toHaveCount(0);
-  await see.click();
-  await expect(card).toBeVisible();
-  await expect(card).toHaveClass(/lit/);
-});
-
-// Review of lot 12 (review-qa2, second reading): each « Résumer la journée » is a new question, the panel open all along.
-test('« Résumer la journée » twice, the right panel open all along: two questions go', async ({ page }) => {
-  const daemon = await boot(page);
-  await page.getByRole('navigation', { name: /activité/ }).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  const summarize = page.getByRole('tabpanel', { name: /^À toi/ }).getByRole('button', { name: 'Résumer la journée' });
-  await summarize.click();
-  await expect.poll(() => daemon.received.filter(m => m.type === 'chat.ask').length).toBe(1);
-  await expect(panel(page).locator('[data-question]')).toHaveCount(1);
-  // The fake daemon answers at once: the second question is not refused as « busy ».
-  await expect(summarize).toBeEnabled();
-  await summarize.click();
-  await expect.poll(() => daemon.received.filter(m => m.type === 'chat.ask').length).toBe(2);
 });
