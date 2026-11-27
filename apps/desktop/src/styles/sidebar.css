@@ -187,6 +187,7 @@
 .st-usage .st-time.amber{color:var(--warning)}
 .st-usage .st-time.red{color:var(--danger-text)}
 /* A session past « Contexte max », compact on its row (docs/mockups/ledge-harness-usage.html). */
+.st-ctx.failed{color:var(--danger-text);background:color-mix(in srgb, var(--danger-text) 12%, transparent)}
 .st-ctx{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:0 5px;border-radius:5px;font:10.5px 'Geist Mono',monospace;font-weight:400;color:var(--warning);background:var(--status-warning-soft, color-mix(in srgb, var(--warning) 12%, transparent));white-space:nowrap}
 
 /* Issue #1 (docs/mockups/ledge-background-work.html): an available session with work in the background. A small blue ring on its

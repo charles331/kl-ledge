@@ -87,12 +87,15 @@ describe('a decision a session puts to the user', () => {
     expect(document.querySelector('[data-block="decisions"]')).toBeNull();
   });
 
-  it('« Tasks » of the right panel: « Decisions » keeps the decisions alone, « The sessions » no longer has them; an open one offers « Answer »', async () => {
+  it('the Tasks view (#40 D3): « Decisions » keeps the decisions alone, « The sessions » no longer has them; an open one offers « Answer »; its icon counts it', async () => {
     const { d, user } = await openAtoi();
     d.push({ type: 'task.updated', task: given('t000001') });
     d.push({ type: 'task.updated', task: given('t000002', { giver: 'pim', giverName: 'Pim' }) });
-    await user.click(chat().getByRole('tab', { name: /^Tasks/ }));
-    const giver = chat().getByRole('combobox', { name: 'Giver' });
+    const icon = screen.getByRole('button', { name: 'Tasks (Ctrl+/)' });
+    await waitFor(() => expect(icon.querySelector('.ide-badge.amber')).toHaveTextContent('1'));
+    await user.click(icon);
+    const view = () => within(screen.getByRole('complementary', { name: 'Tasks' }));
+    const giver = view().getByRole('combobox', { name: 'Giver' });
     const titles = () => [...document.querySelectorAll('.rt-trow b')].map(b => b.textContent);
     await waitFor(() => expect(titles()).toHaveLength(3));
     await user.selectOptions(giver, 'decisions');
@@ -102,8 +105,8 @@ describe('a decision a session puts to the user', () => {
     await user.selectOptions(giver, 'ledge');
     expect(titles()).toEqual(['Tâche t000001']);
     await user.selectOptions(giver, 'decisions');
-    await user.click(chat().getByText('Fusionner feat/roles ?'));
-    const detail = within(await chat().findByRole('region', { name: 'Fusionner feat/roles ?' }));
+    await user.click(view().getByText('Fusionner feat/roles ?'));
+    const detail = within(await view().findByRole('region', { name: 'Fusionner feat/roles ?' }));
     await user.click(detail.getByRole('button', { name: 'Answer' }));
     expect(detail.getByRole('textbox', { name: 'Your answer' })).toHaveValue('');
   });

@@ -9,10 +9,13 @@ import { AlarmIcon } from '../routines/icons';
 import { noteClick } from '../workspace/intent';
 import '../styles/ide.css';
 
-/** The IDE's activity bar (mockup `activity()`): the sidebar views (« MR et PR », lot 8b, with the open requests whose pipeline
- *  failed; « Routines », with those to activate or whose last run failed), then the tabs that open in the workspace. */
-export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFailing = 0, routinesBadge = 0 }: {
+/** The IDE's activity bar (mockup `activity()`): the sidebar views, each badged with what waits in it (#40 D7: Projects the
+ *  sessions, red for an approval, else amber for a question; Rigs OpenRig's open requests; « MR et PR », lot 8b, the open requests
+ *  whose pipeline failed; « Routines », those to activate or whose last run failed; « Tâches » the decisions waiting), then the
+ *  tabs that open in the workspace. */
+export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFailing = 0, routinesBadge = 0, requestsBadge = 0, tasksBadge = 0 }: {
   layout: IdeLayout; onLayout(a: LayoutAction): void; onTab(t: Tab): void; activeTab: Tab | null; badge: { perm: number; ask: number }; prsFailing?: number; routinesBadge?: number;
+  requestsBadge?: number; tasksBadge?: number;
 }) {
   const { t } = useI18n();
   const view = (v: SideView, d: readonly string[] | React.ReactNode, label: string, extra?: React.ReactNode) => (
@@ -30,11 +33,12 @@ export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFail
   return (
     // Its Atelier and Réglages open previews (spec 2026-11-26-preview-tabs §5.2).
     <nav className="ide-activity" aria-label={t.ide.activityLabel} onClickCapture={e => noteClick(e.nativeEvent)}>
-      {view('projects', SHELL_ICONS.files, t.ide.projects)}
-      {view('rigs', SHELL_ICONS.rig, t.ide.rigs)}
-      {view('atoi', SHELL_ICONS.inbox, t.ide.atoi, mark)}
+      {view('projects', SHELL_ICONS.files, t.ide.projects, mark)}
+      {view('rigs', SHELL_ICONS.rig, t.ide.rigs, requestsBadge > 0 ? <span className="ide-badge amber">{requestsBadge}</span> : null)}
+      {view('atoi', SHELL_ICONS.inbox, t.ide.atoi)}
       {view('prs', <PrIcon />, t.forge.view, prsFailing > 0 ? <span className="ide-badge">{prsFailing}</span> : null)}
       {view('routines', <AlarmIcon size={18} />, t.routines.view, routinesBadge > 0 ? <span className="ide-badge">{routinesBadge}</span> : null)}
+      {view('tasks', SHELL_ICONS.tasks, t.ide.tasksView, tasksBadge > 0 ? <span className="ide-badge amber">{tasksBadge}</span> : null)}
       {tab(ATELIER_TAB, SHELL_ICONS.grid, t.ide.atelierTab)}
       <span className="grow" />
       {tab(SETTINGS_TAB, SHELL_ICONS.gear, t.ide.settingsTab)}

@@ -368,7 +368,7 @@ export const en: Messages = {
       autostart: 'Start with Windows', autostartHint: 'Ledge Desktop opens with your Windows session.',
       autostartMissing: 'Not offered here: only the installed app can start with Windows.',
       autostartFailed: 'Windows did not take this setting.', autostartOff: 'No start with Windows',
-      tool: 'Default agent', toolHint: 'For Ledge’s chat and its cards.', toolSaved: (name) => `Default agent: ${name}`,
+      tool: 'Default agent', toolHint: 'Offered when you launch a new session.', toolSaved: (name) => `Default agent: ${name}`,
       view: 'Default session view', viewHint: 'The view a new session opens on. A running OMP seat always opens on the Terminal; a machine without a terminal, on the Thread.',
       viewSaved: (v) => `Default view: ${v}`,
       // « Past exchanges » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), approved by the owner on 2026-11-27.
@@ -691,8 +691,8 @@ export const en: Messages = {
     title: 'Keyboard shortcuts',
     intro: 'Active while the window has focus. Navigation keys stay available for typing and the terminal when they have focus.',
     outro: 'Ctrl / ⌘ K opens the search from any view. Y and N only act on the pinned request of the open session, never while typing.',
-    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['Alt ↑ / ↓','Move the session or the project up / down (sidebar)'],['Alt Home','To the top of the project, or of the list (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['/','Focus Ask Ledge'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (chat field, task detail, atelier filter)'],['?','Show these shortcuts']],
-    ide: { title: 'Tabs and groups', rows: [['Ctrl W','Close the tab, or the empty group'],['Ctrl ⇧ T','Reopen the last closed tab'],['Ctrl Tab / Ctrl ⇧ Tab','Next / previous tab of the group'],['Ctrl PgDn / PgUp','Next / previous tab of the group'],['Ctrl 1…9','Go to group N, from a terminal too'],['Ctrl ⇧ `','Leave the terminal for its tab (← / → walk the tabs), or go back into it'],['Ctrl Alt ← / →','Move the tab to the group on the left / right'],['Ctrl \\','Split right'],['Ctrl B','Show / hide the sidebar'],['Ctrl J','Show / hide the bottom panel (terminals)'],['Ctrl /','Show / hide Ledge’s chat']] }
+    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['Alt ↑ / ↓','Move the session or the project up / down (sidebar)'],['Alt Home','To the top of the project, or of the list (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (chat field, task detail, atelier filter)'],['?','Show these shortcuts']],
+    ide: { title: 'Tabs and groups', rows: [['Ctrl W','Close the tab, or the empty group'],['Ctrl ⇧ T','Reopen the last closed tab'],['Ctrl Tab / Ctrl ⇧ Tab','Next / previous tab of the group'],['Ctrl PgDn / PgUp','Next / previous tab of the group'],['Ctrl 1…9','Go to group N, from a terminal too'],['Ctrl ⇧ `','Leave the terminal for its tab (← / → walk the tabs), or go back into it'],['Ctrl Alt ← / →','Move the tab to the group on the left / right'],['Ctrl \\','Split right'],['Ctrl B','Show / hide the sidebar'],['Ctrl J','Show / hide the bottom panel (terminals)'],['Ctrl /','Open or close Tasks']] }
   },
   tray: { open: 'Open Ledge Desktop', newSession: 'New session', dnd: 'Do not disturb', dndOff: 'Resume alerts', quit: 'Quit Ledge Desktop' },
   notify: {
@@ -802,7 +802,8 @@ export const en: Messages = {
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · context ${pct} %`, nearHint: 'near its limit', failedShort: (name: string) => `Relief of ${name} failed`, retry: 'Retry',
-    pass: 'Hand over', passTitle: 'A fresh session takes its place: it writes its brief, its tasks are passed on', later: 'Later',
+    failed: (name: string, why: string) => `Handover of ${name} failed: ${why}`,
+    pass: 'Hand over', passTitle: 'A fresh session takes its place: it writes its brief, its tasks are passed on',
     gauge: (pct: number) => `context ${pct} %`,
     state: { briefing: 'relief: brief asked', launching: 'relief: launching…', done: 'relieved', failed: 'relief failed' } as Record<'briefing' | 'launching' | 'done' | 'failed', string>,
     relievedBy: (name: string) => `relieved by ${name}`, relieves: (name: string) => `relieves ${name}`,
@@ -1473,7 +1474,9 @@ export const en: Messages = {
     settingHint: 'Tab groups, panels and an activity bar, the VS Code way. The current interface stays available while the preview lasts.',
     settingOff: 'IDE interface (preview) off',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
+    tasksView: 'Tasks (Ctrl+/)', tasksOpen: (n) => `${n} open`,
     rigsView: {
+      requests: 'Requests', requestsFold: 'Fold', requestsUnfold: 'Unfold',
       background: (n) => `${n} in the background`,
       seatBgTip: (n) => `Available · ${n} ${pluralEn(n, 'subagent', 'subagents')} working`,
       launch: 'Launch', launchTitle: 'Launch a rig…', shownMachine: (label: string) => `Shown machine: ${label}`, machine: (label) => `Machine: ${label}`, machines: 'Machines',
@@ -1570,7 +1573,7 @@ export const en: Messages = {
       lastClosed: 'Last terminal closed: the bottom panel hides. Ctrl+J opens it again with a shell.',
       broughtBack: 'Terminal brought back to the bottom panel.', onlyTerms: 'Only terminals go in the bottom panel.'
     },
-    sideToggle: 'Sidebar (Ctrl+B)', bottomToggle: 'Bottom panel (Ctrl+J)', rightToggle: 'Right panel (Ctrl+/)',
+    sideToggle: 'Sidebar (Ctrl+B)', bottomToggle: 'Bottom panel (Ctrl+J)', rightToggle: 'Right panel',
     activityLabel: 'Activity bar', projects: 'Projects', rigs: 'OpenRig rigs', atoi: 'For you',
     atelierTab: 'Atelier (tab)', settingsTab: 'Settings (tab)',
     resizeEdge: 'Drag to resize · double-click: default width', resizeBottom: 'Drag to resize · double-click: default height',

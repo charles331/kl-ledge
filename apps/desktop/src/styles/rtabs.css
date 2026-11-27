@@ -55,3 +55,10 @@
 
 /* A question reopened from « Historique »: lit 1.5 s in the link violet (mockup --link1 at 15 %), not coral. */
 .ledge-chat-panel [data-question].rt-flash { box-shadow: 0 0 0 2px var(--ide-link-violet, #a78bfa); background: color-mix(in srgb, var(--ide-link-violet, #a78bfa) 15%, var(--secondary)) !important; }
+
+/* #40 D3 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 5): « Tâches » as a view of the activity bar. */
+.ide-tasks { display: flex; flex-direction: column; flex: 1; min-height: 0; font-size: 12.5px; color: var(--foreground); }
+.ide-tasks-h { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 12px 6px; font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); }
+.ide-tasks-h small { font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.ide-tasks-b { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.rt-pill { padding: 0 5px; border: 1px solid var(--input); border-radius: 7px; font-size: 10px; color: var(--muted-foreground); }

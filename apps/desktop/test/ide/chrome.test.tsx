@@ -77,7 +77,7 @@ describe('the IDE chrome', () => {
     activity();
     const nav = screen.getByRole('navigation');
     const names = Array.from(nav.children).map(e => e.classList.contains('grow') ? 'grow' : e.getAttribute('aria-label'));
-    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'À toi', 'MR et PR', 'Routines', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
+    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'À toi', 'MR et PR', 'Routines', 'Tâches (Ctrl+/)', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
   });
 
   it('no « ! » on Rigs (the user, 2026-11-09)', () => {

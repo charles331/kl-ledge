@@ -40,6 +40,8 @@ export interface AtelierProps {
   tasks?: readonly Task[];
   /** The local daemon takes a broadcast: each room's menu offers to write to its project. */
   broadcast?: boolean;
+  /** OpenRig's open requests (#40 D1): Ledge's desk gives their number, a click opens the Rigs view on them. */
+  requests?: number; onRequests?(): void;
 }
 
 /** The filtered project has no agent yet: say where its table will appear, and offer to start a session there. */
@@ -61,7 +63,7 @@ function EmptyProject({ project, dispatch }: { project: Project; dispatch: (a: N
 /** The atelier (observatory.tsx, atelier mode): Ledge's desk, a table per project with agents, the filtered project's
  *  empty state, « Sans projet », then the legend; the zoom bar beside it. The mosaic is fitted to the space, zoomed and panned
  *  (useAtelierView). J / K (or ↓ / ↑) walk the agents shown, Entrée opens the chosen one; + / − / 0 zoom, Space pans. */
-export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf, filing, actions, menu, tools, tasks, broadcast }: AtelierProps): JSX.Element {
+export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf, filing, actions, menu, tools, tasks, broadcast, requests = 0, onRequests }: AtelierProps): JSX.Element {
   const { t } = useI18n();
   const { reduced } = useMotionPreferences();
   const { place } = nav;
@@ -159,7 +161,7 @@ export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf,
       <div ref={view.floorRef} className="atelier-floor">
         <div ref={view.shellRef} className={`office-shell ${nav.paused ? 'office-paused' : ''} ${reduced ? 'office-reduced' : ''}`}>
           <MessageLayer sessions={sessions} clock={clock} paused={nav.paused} reduced={reduced} dispatch={dispatch} tasks={tasks} />
-          <LedgeDesk count={activeCount(sessions)} chat={nav.chat} paused={nav.paused} onClick={() => dispatch({ type: 'chat' })} />
+          <LedgeDesk count={activeCount(sessions)} requests={requests} paused={nav.paused} onRequests={() => onRequests?.()} />
           {/* Ledge's corner is a row of its own above the mosaic (atelier-corner.css): the tiles start under it at any width. */}
           <div className="atelier-tiles">
             <div className={`project-grid ${scene.rooms.length === 1 ? 'focused' : ''}`}>

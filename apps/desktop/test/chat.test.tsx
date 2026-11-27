@@ -28,12 +28,15 @@ const launches = (d: MockDaemon) => d.received.filter(m => m.type === 'session.l
 const filterButton = () => screen.queryByRole('toolbar', { name: 'Atelier' }) && within(screen.getByRole('toolbar', { name: 'Atelier' })).queryByRole('button', { name: 'Remove the filter: show every project' });
 const frontName = () => screen.queryAllByRole('tab').filter(t => t.closest('.dv-tabs-container')).find(t => t.getAttribute('aria-selected') === 'true')?.getAttribute('aria-label') ?? null;
 
+/** The right panel's toggle in the title bar: until the chat goes (#40 PR 4), the only way to show or hide it (Ctrl / opens Tasks). */
+const rightToggle = () => screen.getByRole('button', { name: 'Right panel' });
 /** The app on one local machine and LAUNCH_PROJECTS (Otto at the Ledge table, Nova at Payment's, Kit without a project); the
- *  IDE's right panel chat asked for with /, its field focused. */
+ *  IDE's right panel chat shown, its field focused (« / » no longer asks for it, #40). */
 async function openChat(opts: { list?: boolean; sessions?: Session[] } = {}) {
   const env = await boot({ machines: LOCAL, projects: LAUNCH_PROJECTS, ...opts });
-  await env.user.keyboard('/');
+  if (!screen.queryByRole('complementary', { name: 'Chat Ledge' })) await env.user.click(rightToggle());
   await screen.findByRole('complementary', { name: 'Chat Ledge' });
+  await env.user.click(field());
   await waitFor(() => expect(field()).toHaveFocus());
   return env;
 }
@@ -56,7 +59,7 @@ async function ask(env: Awaited<ReturnType<typeof openChat>>, question: string, 
 }
 
 describe('the Ledge chat docked on the right', () => {
-  it('/ gives its field the focus; typing there triggers no shortcut; Escape leaves the field, the panel stays', async () => {
+  it('its field typed in triggers no shortcut; Escape leaves the field, the panel stays; its toggle hides and shows it', async () => {
     const { user } = await openChat();
     expect(panel().getByText('Ask me how things are going.')).toBeVisible();
     await user.keyboard('n');
@@ -65,20 +68,20 @@ describe('the Ledge chat docked on the right', () => {
     await user.keyboard('{Escape}');
     expect(field()).not.toHaveFocus();
     expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-    // Ctrl / hides the panel; again, it shows with the focus in the field.
-    await user.keyboard('{Control>}/{/Control}');
+    // The title bar's toggle hides the panel; again, it shows it (Ctrl / is the Tasks view's now, #40 D3).
+    await user.click(rightToggle());
     await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull());
-    await user.keyboard('{Control>}/{/Control}');
-    await waitFor(() => expect(field()).toHaveFocus());
+    await user.click(rightToggle());
+    await screen.findByRole('complementary', { name: 'Chat Ledge' });
   });
 
-  it('/ brings the focus back to the field; in the field / is typed', async () => {
+  it('#40: / outside a field does nothing; in the field / is typed', async () => {
     const { user } = await openChat();
     act(() => field().blur());
     expect(document.activeElement).toBe(document.body);
     await user.keyboard('/');
-    await waitFor(() => expect(field()).toHaveFocus());
-    expect(field()).toHaveValue('');
+    expect(field()).not.toHaveFocus();
+    await user.click(field());
     await user.keyboard('/');                                            // in the field, / is typed
     expect(field()).toHaveValue('/');
   });
@@ -152,8 +155,8 @@ describe('the Ledge chat docked on the right', () => {
     expect(document.querySelectorAll('.chat-hover')).toHaveLength(0);
     await env.user.hover(panel().getByRole('link', { name: 'Otto' }));
     expect(seat('local:otto')).toHaveClass('chat-hover');
-    // Hiding the chat (Ctrl /) puts it out.
-    await env.user.keyboard('{Control>}/{/Control}');
+    // Hiding the chat (its toggle) puts it out.
+    await env.user.click(rightToggle());
     await waitFor(() => expect(document.querySelectorAll('.chat-hover')).toHaveLength(0));
   });
 

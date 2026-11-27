@@ -54,6 +54,8 @@ export interface IdeFrameProps {
   prsFailing?: number; prsStatus?: ReactNode;
   /** The activity bar's « Routines » badge: to activate, or last run failed (routines mockup, card 1). */
   routinesBadge?: number;
+  /** #40 D7: the Rigs icon's amber badge (OpenRig's open requests) and the Tasks icon's (the decisions waiting). */
+  requestsBadge?: number; tasksBadge?: number;
   /** « Dispositions », at the status bar's far right (DispositionsMenu). */
   dispositions: DispositionsProps;
 }
@@ -77,7 +79,7 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
     <div className={`ide${p.dragging ? ' is-dragging' : ''}`} data-readonly={p.readOnly ? 'true' : undefined}>
       <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} onReport={p.onReport} blocked={p.blocked} rightShown={right} />
       <div className="ide-body" style={columns} inert={p.blocked}>
-        <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} routinesBadge={p.routinesBadge} />
+        <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} routinesBadge={p.routinesBadge} requestsBadge={p.requestsBadge} tasksBadge={p.tasksBadge} />
         {layout.sideOpen && <IdeExplorer width={layout.sideWidth} onLayout={onLayout}>{p.explorer}</IdeExplorer>}
         <section className="ide-editor" aria-label={t.ide.editorLabel}>
           {p.notice}

@@ -311,10 +311,10 @@ test('the tiles start under Ledge\'s corner at every width, however tall its lab
     await page.setViewportSize({ width, height });
     await page.goto('/'); await booted(page);
     await expect(page.locator('.unassigned-zone')).toBeVisible();
-    // The IDE's right panel is open from the start and its layout is kept across loads: Ctrl / toggles it, so the state is set,
-    // then checked, rather than toggled blindly.
+    // The IDE's right panel is open from the start and its layout is kept across loads: its title-bar toggle flips it, so the
+    // state is set, then checked, rather than toggled blindly.
     const right = page.locator('.ide-right');
-    if ((await right.isVisible()) !== chat) await page.keyboard.press('Control+/');
+    if ((await right.isVisible()) !== chat) await page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ }).click();
     if (chat) await expect(right, `${width}x${height}: the chat is open`).toBeVisible();
     else await expect(right, `${width}x${height}: the chat is closed`).toBeHidden();
     await expect.poll(async () => page.evaluate(() => {

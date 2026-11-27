@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fakeSession } from '@ledge/fleet/test/mockDaemon';
@@ -7,6 +7,8 @@ import type { Task } from '@ledge/protocol';
 import { boot, closeDaemons, declarations, DEFAULT_SESSIONS } from './helpers';
 import { saveReduced } from '../src/motionPreferences';
 import { fr } from '../src/i18n/fr';
+import { LangProvider } from '../src/i18n/lang';
+import { LedgeDesk } from '../src/atelier/LedgeDesk';
 
 /** The IDE's tab in front of its group (the old top bar named the place: the IDE's tabs do). */
 const activeTab = () => screen.queryAllByRole('tab').filter(t => t.closest('.dv-tabs-container')).find(t => t.getAttribute('aria-selected') === 'true');
@@ -17,24 +19,28 @@ afterEach(async () => { vi.useRealTimers(); delete (Element.prototype as { scrol
 describe('the atelier', () => {
   it("Ledge's desk, a table per project with agents, and Sans projet", async () => {
     await boot();
-    expect(screen.getByRole('button', { name: 'Talk to Ledge' })).toHaveTextContent("I'm watching over 3 agents.");
+    expect(document.querySelector('.ledge-desk')).toHaveTextContent("I'm watching over 3 agents.");
     expect(screen.getByRole('region', { name: 'Ledge table' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Payment Service Platform Migration Europe table' })).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Docs table' })).toBeNull();
     expect(within(screen.getByRole('region', { name: 'No project' })).getByRole('button', { name: /^Kit,/ })).toBeVisible();
     expect(screen.queryByText('This screen is coming soon.')).toBeNull();
   });
-  // In the IDE the chat is the right panel, there from the start: Ledge's desk asks for it, its field takes the focus.
-  it("Ledge's desk asks for the chat: its field takes the focus", async () => {
-    const { user } = await boot();
-    await user.click(screen.getByRole('button', { name: 'Talk to Ledge' }));
-    const chat = screen.getByRole('complementary', { name: 'Chat Ledge' });
-    expect(chat).toBeVisible();
-    await waitFor(() => expect(within(chat).getByRole('textbox')).toHaveFocus());
+  // #40 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, last card and question 3): the desk no longer opens the chat. While OpenRig's
+  // requests wait it gives their number, and a click opens the Rigs view on them; without one it is no button.
+  it("Ledge's desk: no button without a request; with requests, their number, and a click opens them", async () => {
+    await boot();
+    expect(document.querySelector('.ledge-desk')!.tagName).toBe('DIV');
+    cleanup();
+    const onRequests = vi.fn();
+    render(<LangProvider lang="fr"><LedgeDesk count={3} requests={2} paused={false} onRequests={onRequests} /></LangProvider>);
+    const desk = screen.getByRole('button', { name: /^2 demandes/ });
+    fireEvent.click(desk);
+    expect(onRequests).toHaveBeenCalledTimes(1);
   });
   it("no agent at all: only Ledge's desk", async () => {
     await boot({ sessions: [] });
-    expect(screen.getByRole('button', { name: 'Talk to Ledge' })).toHaveTextContent("I'm watching over 0 agents.");
+    expect(document.querySelector('.ledge-desk')).toHaveTextContent("I'm watching over 0 agents.");
     expect(screen.queryAllByRole('region', { name: / table$/ })).toHaveLength(0);
     expect(screen.queryByRole('region', { name: 'No project' })).toBeNull();
   });
@@ -86,7 +92,7 @@ describe('the atelier', () => {
     const shell = document.querySelector<HTMLElement>('.overview-scroll.atelier > .atelier-floor > .office-shell')!;
     expect(shell).not.toBeNull();
     for (const name of ['Ledge table', 'Payment Service Platform Migration Europe table', 'No project']) expect(shell).toContainElement(screen.getByRole('region', { name }));
-    expect(shell).toContainElement(screen.getByRole('button', { name: 'Talk to Ledge' }));
+    expect(shell).toContainElement(document.querySelector<HTMLElement>('.ledge-desk'));
     // In the IDE the editor's group is a region named after its tab too: the atelier's own panel is the one with its id.
     const panel = screen.getAllByRole('region', { name: 'Atelier' }).find(r => r.id === 'view-panel-atelier')!;
     expect(panel).toBeDefined();
@@ -136,9 +142,8 @@ describe('the atelier', () => {
     const { user } = await boot();
     await user.keyboard('j');
     expect(screen.getByRole('button', { name: /^Otto,/ })).toHaveClass('keyboard-selected');
-    screen.getByRole('button', { name: 'Talk to Ledge' }).focus();
+    screen.getByRole('button', { name: 'Freeze animations' }).focus();
     await user.keyboard('{Enter}');
-    expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
     expect(activeTab()).toHaveAccessibleName('Atelier');
   });
   it('Enter with the focus on the floor opens the chosen agent', async () => {
@@ -389,11 +394,11 @@ describe('the atelier', () => {
       await waitFor(() => expect(wires()).toHaveLength(1));
       expect(document.querySelector('.exchange-ticket')).toBeNull();
     });
-    it("clicking the bubble opens the task in Ledge's tasks", async () => {
+    it("clicking the bubble opens the task in the Tasks view (#40 D3)", async () => {
       const { d, user } = await boot({ sessions: [...DEFAULT_SESSIONS, rio] });
       d.push({ type: 'task.updated', task: task('t7a1b2c', [entry('give', 'otto', 'rio', 500)]) });
       await user.click(await screen.findByRole('button', { name: /^Otto gives/ }));
-      await waitFor(() => expect(screen.getByRole('tab', { name: /^Tasks/ })).toHaveAttribute('aria-selected', 'true'));
+      expect(await screen.findByRole('complementary', { name: 'Tasks' })).toBeVisible();
     });
     it('French copy', () => {
       expect(fr.atelier.taskTo.give('Nova')).toBe('Tâche → Nova');

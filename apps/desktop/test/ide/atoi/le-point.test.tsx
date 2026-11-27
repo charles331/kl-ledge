@@ -40,7 +40,7 @@ it('Decisions: who asks and the title, « Answer » unfolds the form under it', 
   expect(within(b).getByRole('textbox')).toBeInTheDocument();
 });
 
-it('Context nearly full: « Hand over » and « Later »; a failed relief: « Retry » only', () => {
+it('Context nearly full: « Hand over » only (« Later » left, #40 D10); a failed relief: « Retry » only', () => {
   const onHandover = vi.fn(); const onLater = vi.fn();
   const otto = session('otto', { name: 'Otto', context: { used: 82, window: 100 } } as Partial<Session>);
   const lu = session('lu', { name: 'Lu', context: { used: 90, window: 100 }, handover: { state: 'failed', reason: 'no brief' } } as Partial<Session>);
@@ -51,8 +51,8 @@ it('Context nearly full: « Hand over » and « Later »; a failed relief: « Re
   expect(line).toHaveTextContent('Otto · context 82 %');
   fireEvent.click(within(line).getByRole('button', { name: 'Hand over' }));
   expect(onHandover).toHaveBeenCalledWith('otto');
-  fireEvent.click(within(line).getByRole('button', { name: 'Later' }));
-  expect(onLater).toHaveBeenCalledWith(otto);
+  expect(within(line).getAllByRole('button').map(x => x.textContent)).toEqual(['Hand over']);
+  expect(onLater).not.toHaveBeenCalled();
   const failed = b.querySelector('[data-near="lu"]') as HTMLElement;
   expect(within(failed).getAllByRole('button').map(x => x.textContent)).toEqual(['Retry']);
 });

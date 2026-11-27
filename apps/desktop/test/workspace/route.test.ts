@@ -50,8 +50,8 @@ describe('routeNav', () => {
   it('ledge: chat open, right panel shown, on Conversation', () => {
     expect(routeNav({ type: 'ledge' }, ctx())).toEqual({ nav: { type: 'chat', open: true }, layout: { type: 'show', panel: 'right', on: true }, chat: { tab: 'conversation' } });
   });
-  it('ledge on a task (« Voir »): the right panel shown on « Tâches » at its detail, the field not asked for', () => {
-    expect(routeNav({ type: 'ledge', tab: 'tasks', task: 't-12' }, ctx())).toEqual({ layout: { type: 'show', panel: 'right', on: true }, chat: { tab: 'tasks', task: 't-12' } });
+  it('ledge on a task (« Voir dans Tâches »): the Tasks view shown (never toggled off) at its detail, the right panel left alone (#40 D3)', () => {
+    expect(routeNav({ type: 'ledge', tab: 'tasks', task: 't-12' }, ctx())).toEqual({ layout: { type: 'showView', view: 'tasks' }, chat: { tab: 'tasks', task: 't-12' } });
     expect(routeNav({ type: 'ledge', tab: 'history' }, ctx())).toEqual({ layout: { type: 'show', panel: 'right', on: true }, chat: { tab: 'history' } });
   });
   it('chat closed hides the right panel, otherwise shows it', () => {

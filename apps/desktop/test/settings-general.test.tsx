@@ -199,8 +199,8 @@ describe('Settings › General: the default agent', () => {
     await user.click(within(group).getByRole('radio', { name: 'Codex' }));
     expect(localStorage.getItem('desktop.tool')).toBe('"codex"');
     expect(saved()).toEqual(['Setting saved · Default agent: Codex']);
-    // The IDE's right panel: shown from the start (Ctrl+/ would hide it); asked for only when the window's width folded it.
-    if (!screen.queryByRole('complementary', { name: 'Chat Ledge' })) await user.keyboard('{Control>}/{/Control}');
+    // The IDE's right panel: shown from the start; its toggle asked for only when the window's width folded it.
+    if (!screen.queryByRole('complementary', { name: 'Chat Ledge' })) await user.click(screen.getByRole('button', { name: 'Right panel' }));
     await screen.findByRole('complementary', { name: 'Chat Ledge' });
     const field = () => within(screen.getByRole('complementary', { name: 'Chat Ledge' })).getByRole('textbox', { name: 'Ask Ledge' });
     await user.type(field(), 'Who reviews?{Enter}');

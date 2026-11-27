@@ -31,7 +31,7 @@ import { Reply } from './Reply';
 import { SessionBar } from './SessionBar';
 import { failAsking, forgetAsides } from './asides';
 import { usePublishTabExtras } from '../ide/tabExtras';
-import { reliefText } from './relief';
+import { reliefFailedShown, reliefText } from './relief';
 import type { Link } from '../workspace/model';
 import type { CaptureFocus } from './BrowserTab';
 import { capturesOf } from './captures';
@@ -101,6 +101,8 @@ export interface PageApi { showInThread(toolId: string): void }
 
 const noop = () => {};
 
+/** The failed handover strip's sign (#40 D10). */
+const RELIEF_ALERT = ['M12 3 2 20h20z', 'M12 10v4', 'M12 17h.01'];
 const VIEWS: ReadonlyArray<{ view: SessionView; icon: readonly string[] }> = [{ view: 'thread', icon: SHELL_ICONS.thread }, { view: 'terminal', icon: SHELL_ICONS.terminal }];
 
 /** A session's page, or one of its subagents' (session.tsx SessionPage): the heading and its Fil | Terminal switch, then the
@@ -560,6 +562,14 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
         )}
       </div>}
       {archived && <ArchivedBanner session={session} actions={p.actions} now={now} />}
+      {!archived && helper === null && p.tasksApi && reliefFailedShown(session, p.tasksApi.near) && (
+        // #40 D10 (docs/mockups/ledge-remove-chat-p2.html, D10): a failed handover, on the session itself, with « Réessayer ».
+        <div className="relief-failed" role="alert">
+          <Icon d={RELIEF_ALERT} size={14} />
+          <span>{t.handover.failed(session.name, session.handover?.reason ?? t.handover.state.failed)}</span>
+          <button type="button" className="relief-retry" onClick={() => { void p.tasksApi?.handover(session.id); }}>{t.handover.retry}</button>
+        </div>
+      )}
       <div className={cls('session-split', paneShown && 'has-pane')} style={{ '--split': `${p.split * 100}%`, '--reply-h': `${replyH}px` } as CSSProperties}>
         <div className="session-main" ref={main}>
           {/* On the thread, the panel keeps its lot 6a name (« Fil de la session »); on the changes, the tab names it. */}

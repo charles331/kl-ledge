@@ -87,8 +87,8 @@ describe('the Settings page', () => {
     const rows = rowsOf('In Ledge Desktop');
     expect(rows[0]).toEqual(['Open the settings', 'Ctrl ,']);
     expect(rows[1]).toEqual(['Search and open a session', 'Ctrl / ⌘ K']);
-    expect(rows).toHaveLength(26);   // « O » left with the old session panel (design-ux, 2026-11-10); #16 added Alt ↑ / ↓ and Alt Home
-    expect(rows).toContainEqual(['Focus Ask Ledge', '/']);
+    expect(rows).toHaveLength(25);   // « O » left with the old session panel (design-ux, 2026-11-10); #16 added Alt ↑ / ↓ and Alt Home; #40 took « / » away
+    expect(rows).not.toContainEqual(['Focus Ask Ledge', '/']);
     expect(rows).toContainEqual(['Copy from a terminal', 'Shift + drag, then Ctrl C']);
     expect(within(screen.getByRole('region', { name: 'In Ledge Desktop' })).getByText('Show these shortcuts')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Edit the notch’s shortcut' }));

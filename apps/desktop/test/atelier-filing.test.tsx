@@ -322,7 +322,7 @@ describe('putting an agent away', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'No project' })).toBeNull());      // the filter stays, the zone empties
     expect(abar().getByRole('button', { name: 'Remove the filter: show every project' })).toBeVisible();
     // An emptied « Sans projet » filter: Ledge's desk and the legend, no table, no crash.
-    expect(screen.getByRole('button', { name: 'Talk to Ledge' })).toBeVisible();
+    expect(document.querySelector('.ledge-desk')).toBeVisible();
     expect(document.querySelector('.workspace-legend')).not.toBeNull();
     expect(screen.queryAllByRole('region', { name: / table$/ })).toHaveLength(0);
     expect(toast()).toHaveTextContent('Kit joins the Ledge table.');

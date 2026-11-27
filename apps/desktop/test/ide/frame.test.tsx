@@ -109,12 +109,12 @@ describe('the IDE shell', () => {
     expect(JSON.parse(JSON.parse(localStorage.getItem('ledge.ide.workspace')!)).groups[0].tabs).toEqual([{ kind: 'atelier', ref: 'main' }]);
   });
 
-  it('Ctrl+/ hides the chat, then shows it again', async () => {
+  it('the right panel\'s toggle hides the chat, then shows it again (Ctrl+/ opens Tasks, #40 D3)', async () => {
     const { user } = await mount();
     expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-    await user.keyboard('{Control>}/{/Control}');
+    await user.click(screen.getByRole('button', { name: 'Panneau de droite' }));
     await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull());
-    await user.keyboard('{Control>}/{/Control}');
+    await user.click(screen.getByRole('button', { name: 'Panneau de droite' }));
     expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
   });
 
@@ -132,27 +132,22 @@ describe('the IDE shell', () => {
 });
 
 describe('the IDE keyboard: the chat never holds the single keys', () => {
-  // design-ux (qitem-20261110065243): Ctrl+/ shows the right panel with the focus in its field, and hides it with the focus back on the front tab.
-  it('Ctrl+/ hides the right panel and gives the focus back to the front tab; again, it shows with the focus in the chat\'s field', async () => {
+  // #40 D3: Ctrl+/ is the Tasks view's; the right panel (the chat, until #40 PR 4) keeps its title-bar toggle.
+  it('Ctrl+/ opens the Tasks view and leaves the right panel as it is; again, back to the view before', async () => {
     const { user } = await mount();
     expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
     await user.keyboard('{Control>}/{/Control}');
-    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(activeTab()));
+    expect(await screen.findByRole('complementary', { name: 'Tâches' })).toBeVisible();
+    expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
     await user.keyboard('{Control>}/{/Control}');
-    const chat = await screen.findByRole('complementary', { name: 'Chat Ledge' });
-    const field = await within(chat).findByRole('textbox');
-    await waitFor(() => expect(field).toHaveFocus());
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Tâches' })).toBeNull());
   });
 
-  it('/ focuses the chat; Escape leaves it; then Alt+1 opens the first agent\'s tab and ? the shortcuts', async () => {
+  it('/ does nothing (#40); Alt+1 opens the first agent\'s tab and ? the shortcuts', async () => {
     const { user } = await mount();
-    await user.keyboard('/');
     const chat = await screen.findByRole('complementary', { name: 'Chat Ledge' });
-    await waitFor(() => expect(chat.contains(document.activeElement)).toBe(true));
-    await user.keyboard('{Escape}');
+    await user.keyboard('/');
     expect(chat.contains(document.activeElement)).toBe(false);
-    expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();   // the panel stays: Ctrl+/ hides it
     await user.keyboard('{Alt>}1{/Alt}');
     await waitFor(() => expect(['Otto', 'Nova']).toContain(activeTab()?.getAttribute('aria-label')));
     expect(tabs()).toHaveLength(2);
@@ -241,14 +236,14 @@ describe('the IDE tabs carry the place (whole-branch review)', () => {
 describe('the right panel needs room (whole-branch review)', () => {
   const width = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
   afterEach(() => { width(1024); });
-  const toggle = () => screen.getByRole('button', { name: 'Panneau de droite (Ctrl+/)' });
+  const toggle = () => screen.getByRole('button', { name: 'Panneau de droite' });
 
-  it('900 px, the sidebar open: the panel does not fit and its toggle is off; / folds the sidebar and shows the chat', async () => {
+  it('900 px, the sidebar open: the panel does not fit and its toggle is off; the toggle folds the sidebar and shows the chat', async () => {
     width(900);
     const { user } = await mount();
     expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
     expect(toggle()).toHaveAttribute('aria-pressed', 'false');
-    await user.keyboard('/');
+    await user.click(toggle());
     expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
     expect(document.querySelector('.ide-explorer')).toBeNull();
     expect(toggle()).toHaveAttribute('aria-pressed', 'true');

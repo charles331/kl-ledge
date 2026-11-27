@@ -33,13 +33,13 @@ export const fr = {
   /** « À toi »: what OpenRig's rigs ask the person (docs/mockups/ledge-human-operator-ab-lot1.html). */
   asks: {
     sections: { decisions: 'Décisions', questions: 'Questions', updates: 'Nouvelles' } as Record<'decisions' | 'questions' | 'updates', string>,
-    pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de toi' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
+    pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de vous' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
     priority: { urgent: 'urgent', critical: 'critique' } as Record<'urgent' | 'critical', string>,
     recommended: (label: string) => `${label} · recommandé`,
     recommendedBy: (seat: string) => `Recommandé par ${seat}`,
     readAll: 'Tout lire', details: 'Détails',
     answerOther: 'Répondre autrement…', answerParked: 'Répondre…', writeAnswer: 'Écrire la réponse…',
-    placeholder: 'Ta réponse, en quelques mots…', placeholderParked: (seat: string) => `Ce que ${seat} doit faire…`,
+    placeholder: 'Votre réponse, en quelques mots…', placeholderParked: (seat: string) => `Ce que ${seat} doit faire…`,
     send: 'Envoyer', cancel: 'Annuler', keys: 'Ctrl Entrée · Échap', seen: 'Vu',
     progress: (n: number, total: number) => `${n}/${total} répondues · la réponse part à la dernière`,
     notSent: (why: string) => `Pas envoyée : ${why}`, retry: 'Réessayer',
@@ -51,10 +51,10 @@ export const fr = {
     partial: 'Liste peut-être incomplète : OpenRig n’a pas répondu à la dernière lecture.',
     channel: {
       no_person: { title: 'Ledge n’est pas encore le canal humain d’OpenRig.', body: 'Les rigs passent encore par Max, ou par le TUI du kernel. Leurs demandes n’arrivent pas ici.' },
-      openrig_stopped: { title: 'OpenRig est arrêté : les rigs ne peuvent pas t’écrire.', body: 'Les sessions de tes projets passent toujours par ici.' },
+      openrig_stopped: { title: 'OpenRig est arrêté : les rigs ne peuvent pas vous écrire.', body: 'Les sessions de vos projets passent toujours par ici.' },
       unreachable: { title: 'OpenRig ne répond pas.', body: '' },
       no_default: { title: 'OpenRig a plusieurs personnes, et aucune n’est désignée par défaut.', body: 'Ses demandes n’arrivent donc pas ici. Pour en désigner une :' },
-      not_installed: { title: (machine: string) => `OpenRig n’est pas installé sur ${machine}.`, body: 'Les sessions de tes projets passent toujours par ici.' }
+      not_installed: { title: (machine: string) => `OpenRig n’est pas installé sur ${machine}.`, body: 'Les sessions de vos projets passent toujours par ici.' }
     }
   },
   side: {
@@ -401,7 +401,7 @@ export const fr = {
       autostart: 'Lancer au démarrage de Windows', autostartHint: 'Ledge Desktop s’ouvre avec votre session Windows.',
       autostartMissing: 'Pas proposé ici : seule l’application installée peut se lancer avec Windows.',
       autostartFailed: 'Windows n’a pas pris ce réglage.', autostartOff: 'Pas de lancement au démarrage',
-      tool: 'Agent par défaut', toolHint: 'Pour le chat de Ledge et ses cartes.', toolSaved: (name: string) => `Agent par défaut : ${name}`,
+      tool: 'Agent par défaut', toolHint: 'Proposé au lancement d’une nouvelle session.', toolSaved: (name: string) => `Agent par défaut : ${name}`,
       // « Vue par défaut d'une session » (docs/mockups/ledge-session-view-default.html, #300, validated 2026-11-13).
       view: 'Vue par défaut d’une session', viewHint: 'La vue qu’ouvre une session neuve. Un siège OMP en marche s’ouvre toujours sur le Terminal ; une machine sans terminal, sur le Fil.',
       viewSaved: (v: string) => `Vue par défaut : ${v}`,
@@ -733,9 +733,9 @@ export const fr = {
     title: 'Raccourcis clavier',
     intro: 'Actifs lorsque la fenêtre a le focus. Les touches de navigation restent disponibles pour la saisie et le terminal lorsqu’ils ont le focus.',
     outro: 'Ctrl / ⌘ K ouvre la recherche depuis n’importe quelle vue. Y et N n’agissent que sur la demande épinglée de la session ouverte, jamais pendant la saisie.',
-    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['Alt ↑ / ↓','Monter / descendre la session ou le projet (barre latérale)'],['Alt Début','En haut du projet, ou de la liste (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['/','Demander à Ledge'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (champ du chat, détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
+    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['Alt ↑ / ↓','Monter / descendre la session ou le projet (barre latérale)'],['Alt Début','En haut du projet, ou de la liste (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (champ du chat, détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
     /** Interface IDE only: the tab keys (VS Code's), after the others. */
-    ide: { title: 'Onglets et groupes', rows: [['Ctrl W','Fermer l’onglet, ou le groupe vide'],['Ctrl ⇧ T','Rouvrir le dernier onglet fermé'],['Ctrl Tab / Ctrl ⇧ Tab','Onglet suivant / précédent du groupe'],['Ctrl Pg↓ / Pg↑','Onglet suivant / précédent du groupe'],['Ctrl 1…9','Aller au groupe N, depuis un terminal aussi'],['Ctrl ⇧ `','Sortir du terminal vers son onglet (← / → parcourent les onglets), ou y revenir'],['Ctrl Alt ← / →','Déplacer l’onglet vers le groupe de gauche / de droite'],['Ctrl \\','Diviser à droite'],['Ctrl B','Afficher / masquer la barre latérale'],['Ctrl J','Afficher / masquer le panneau du bas (terminaux)'],['Ctrl /','Afficher / masquer le chat de Ledge']] as ReadonlyArray<readonly [string, string]> }
+    ide: { title: 'Onglets et groupes', rows: [['Ctrl W','Fermer l’onglet, ou le groupe vide'],['Ctrl ⇧ T','Rouvrir le dernier onglet fermé'],['Ctrl Tab / Ctrl ⇧ Tab','Onglet suivant / précédent du groupe'],['Ctrl Pg↓ / Pg↑','Onglet suivant / précédent du groupe'],['Ctrl 1…9','Aller au groupe N, depuis un terminal aussi'],['Ctrl ⇧ `','Sortir du terminal vers son onglet (← / → parcourent les onglets), ou y revenir'],['Ctrl Alt ← / →','Déplacer l’onglet vers le groupe de gauche / de droite'],['Ctrl \\','Diviser à droite'],['Ctrl B','Afficher / masquer la barre latérale'],['Ctrl J','Afficher / masquer le panneau du bas (terminaux)'],['Ctrl /','Ouvrir ou fermer Tâches']] as ReadonlyArray<readonly [string, string]> }
   },
   tray: { open: 'Ouvrir Ledge Desktop', newSession: 'Nouvelle session', dnd: 'Ne pas déranger', dndOff: 'Réactiver les alertes', quit: 'Quitter Ledge Desktop' },
   notify: {
@@ -835,12 +835,12 @@ export const fr = {
   },
   /** A decision a session put to the user (`ledge task give ledge …`), answered from « À toi » or « Tâches » (task.answer). */
   decision: {
-    asks: (giver: string) => `${giver} attend ta décision`, answer: 'Répondre',
-    form: (title: string) => `Réponse à « ${title} »`, field: 'Ta réponse', placeholder: 'Écris ta réponse, ou choisis une option…', options: 'Options proposées',
+    asks: (giver: string) => `${giver} attend votre décision`, answer: 'Répondre',
+    form: (title: string) => `Réponse à « ${title} »`, field: 'Votre réponse', placeholder: 'Écrivez votre réponse, ou choisissez une option…', options: 'Options proposées',
     send: 'Envoyer la réponse', cancel: 'Annuler',
-    review: (giver: string) => `Ta réponse à ${giver}, telle qu’elle partira. Une réponse ne se reprend pas.`, confirm: 'Confirmer l’envoi', edit: 'Modifier', sending: 'Envoi…',
+    review: (giver: string) => `Votre réponse à ${giver}, telle qu’elle partira. Une réponse ne se reprend pas.`, confirm: 'Confirmer l’envoi', edit: 'Modifier', sending: 'Envoi…',
     failed: (reason: string) => `Réponse refusée : ${reason}`,
-    silent: 'Ledge n’a pas confirmé la réponse. Regarde la tâche avant de réessayer.',
+    silent: 'Ledge n’a pas confirmé la réponse. Regardez la tâche avant de réessayer.',
     note: {
       add: (giver: string, note: string) => `${giver} propose d’ajouter à la note ${note}`, create: (giver: string, note: string) => `${giver} propose une nouvelle note ${note}`,
       flag: (giver: string, note: string) => `${giver} signale la note ${note} comme fausse ou périmée`, source: (s: string) => `Source : ${s}`,
@@ -850,7 +850,8 @@ export const fr = {
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · contexte ${pct} %`, nearHint: 'limite proche', failedShort: (name: string) => `Relève de ${name} échouée`, retry: 'Réessayer',
-    pass: 'Passer le relais', passTitle: 'Une nouvelle session prend sa place : il écrit son bilan, ses tâches lui sont passées', later: 'Plus tard',
+    failed: (name: string, why: string) => `Relève de ${name} échouée : ${why}`,
+    pass: 'Passer le relais', passTitle: 'Une nouvelle session prend sa place : il écrit son bilan, ses tâches lui sont passées',
     gauge: (pct: number) => `contexte ${pct} %`,
     state: { briefing: 'relève : bilan demandé', launching: 'relève : lancement…', done: 'relevée', failed: 'relève échouée' } as Record<'briefing' | 'launching' | 'done' | 'failed', string>,
     relievedBy: (name: string) => `relevée par ${name}`, relieves: (name: string) => `relève de ${name}`,
@@ -1555,7 +1556,11 @@ export const fr = {
     settingHint: 'Groupes d’onglets, panneaux et barre d’activité, à la manière de VS Code. L’ancienne interface reste disponible tant que l’aperçu dure.',
     settingOff: 'Interface IDE (aperçu) désactivée',
     /** The Rigs view (IDE lot 7b): the machine menu, its rows and their actions. */
+    // #40 D3 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 5): the Tasks view of the activity bar.
+    tasksView: 'Tâches (Ctrl+/)', tasksOpen: (n: number) => plural(n, `${n} ouverte`, `${n} ouvertes`),
     rigsView: {
+      // #40 D1 (docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 1): OpenRig's requests at the top of the view.
+      requests: 'Demandes', requestsFold: 'Replier', requestsUnfold: 'Déplier',
       background: (n: number) => `${n} en arrière-plan`,
       seatBgTip: (n: number) => `Disponible · ${n} ${plural(n, 'sous-agent', 'sous-agents')} au travail`,
       launch: 'Lancer', launchTitle: 'Lancer un rig…', shownMachine: (label: string) => `Machine affichée : ${label}`, machine: (label: string) => `Machine : ${label}`, machines: 'Machines',
@@ -1654,7 +1659,7 @@ export const fr = {
       /** A dock tab dropped on the panel: a terminal comes back; anything else stays. */
       broughtBack: 'Terminal ramené dans le panneau du bas.', onlyTerms: 'Seuls les terminaux se rangent dans le panneau du bas.'
     },
-    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite (Ctrl+/)',
+    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite',
     activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig', atoi: 'À toi',
     atelierTab: 'Atelier (onglet)', settingsTab: 'Réglages (onglet)',
     resizeEdge: 'Glisser pour redimensionner · double-clic : largeur par défaut', resizeBottom: 'Glisser pour redimensionner · double-clic : hauteur par défaut',

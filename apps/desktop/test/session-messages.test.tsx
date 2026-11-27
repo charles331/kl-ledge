@@ -220,6 +220,7 @@ describe('messages between agents in the thread', () => {
     expect(incoming).toHaveTextContent('Tâche de Max');
     expect(within(incoming).getByRole('button', { name: 'Voir la tâche' })).toBeVisible();
     await user.click(within(out).getByRole('button', { name: 'Voir la tâche' }));
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Tâches/ })).toHaveAttribute('aria-selected', 'true'));
+    // #40 D3: the Tasks view, on that task's detail.
+    expect(await screen.findByRole('complementary', { name: 'Tâches' })).toBeVisible();
   });
 });

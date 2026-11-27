@@ -66,3 +66,6 @@ export function endOf(r: OpenRigAnswered): AnswerEnd {
 
 /** How long the « Envoyé à … » / « Déjà réglée ailleurs » line stays before the card goes. */
 export const DONE_MS = 1_500;
+
+/** The Rigs icon's amber badge (#40 D7): OpenRig's open requests, without the updates, which only wait for « Vu ». */
+export const openRequests = (view: { asks: readonly Pick<HumanAsk, 'kind'>[] } | undefined): number => (view?.asks ?? []).filter(a => a.kind !== 'update').length;

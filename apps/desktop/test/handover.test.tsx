@@ -64,7 +64,7 @@ describe('a session near its context limit (context handover spec §3.2)', () =>
   });
 
   // « The point » is the page « À toi »'s « Context nearly full » in the IDE (lot 12).
-  it('the page « À toi » lists it as « Your turn » does; « Later » in « Your turn » puts it away from both', async () => {
+  it('the page « À toi » lists it as « Your turn » does; no « Later » any more (#40 D10)', async () => {
     const { user } = await boot({ projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', context: ctx(170_000) })] });
     const yours = await forYou(user);
     await user.click(screen.getByRole('button', { name: 'Page' }));
@@ -72,9 +72,8 @@ describe('a session near its context limit (context handover spec §3.2)', () =>
     const row = within(block).getByText('Otto · context 85 %').closest('.atoi-line') as HTMLElement;
     expect(within(row).getByRole('button', { name: 'Hand over' })).toBeVisible();
     expect(yours.getByText('Otto · context 85 %')).toBeVisible();
-    await user.click(within(yours.getByText('Otto · context 85 %').closest('.st-card') as HTMLElement).getByRole('button', { name: 'Later' }));
-    await waitFor(() => expect(sidebar().queryByText(/Otto · context/)).toBeNull());
-    expect(document.querySelector('[data-block="near"]')).toBeNull();
+    expect(within(yours.getByText('Otto · context 85 %').closest('.st-card') as HTMLElement).queryByRole('button', { name: 'Later' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Later' })).toBeNull();
   });
 
   it('« Later » puts it away until it grows by 5 points; a failed relief is listed with its reason', () => {
