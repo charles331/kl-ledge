@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrDetailSchema, PullRequestSchema } from '@ledge/protocol';
-import { diffLine, fromMineNode, gitlabReader, glStatus, mineQuery } from '../src/daemon/forge/gitlab.js';
+import { diffLine, fromMineNode, gitlabReader, glStatus, mineQuery, missingOptional } from '../src/daemon/forge/gitlab.js';
 import { forgeOf, type ForgeRun } from '../src/daemon/forge/run.js';
 import { ForgeRefusal } from '../src/daemon/forge/types.js';
 
@@ -307,6 +307,39 @@ describe('GitLab: the account\'s own merge requests (issue #3)', () => {
   it('one role failing fails the whole read, never a list missing that role', async () => {
     const { run } = fakeGlab((path, c) => (path !== 'graphql' ? undefined : field(c.input) === 'assignedMergeRequests' ? { code: 1, stderr: 'glab: (HTTP 502)' } : JSON.stringify({ data: { currentUser: answers[field(c.input)] } })));
     await expect(gitlabReader(run).mine('gitlab.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow();
+  });
+
+  it('an older GitLab without the discussion counts (#11): read again without them, remembered for the host, threads not counted', async () => {
+    // GitLab's own words, as the user's log has them.
+    const old = new Set(['resolvableDiscussionsCount', 'resolvedDiscussionsCount']);
+    const { run, calls } = fakeGlab((path, c) => {
+      if (path !== 'graphql' || !c.input?.includes('currentUser')) return undefined;
+      const q = (JSON.parse(c.input) as { query: string }).query;
+      const missing = [...old].filter(f => q.includes(f));
+      // As the real glab answers (review of 9caacc2a): exit 1, the GraphQL errors on stdout, its own words on stderr.
+      if (missing.length) return {
+        code: 1, stdout: JSON.stringify({ errors: missing.map(f => ({ message: `Field '${f}' doesn't exist on type 'MergeRequest'`, locations: [{ line: 1, column: 9 }] })) }),
+        stderr: `DEPRECATION WARNING: The environment variable NO_PROMPT has been deprecated and will be removed in future releases. Use GLAB_NO_PROMPT instead.\nglab: ${missing.map(f => `Field '${f}' doesn't exist on type 'MergeRequest'`).join('\n')}` };
+      const a = answers[field(c.input)] as Record<string, { nodes: Array<Record<string, unknown>> }>;
+      const strip = (l: { nodes: Array<Record<string, unknown>> }) => ({ ...l, nodes: l.nodes.map(({ resolvableDiscussionsCount: _a, resolvedDiscussionsCount: _b, ...n }) => n) });
+      return JSON.stringify({ data: { currentUser: { o: strip(a.o!), c: strip(a.c!) } } });
+    });
+    const reader = gitlabReader(run);
+    const mine = await reader.mine('gitlab.example', '2026-11-10T00:00:00.000Z');
+    expect(mine.map(m => m.pr.number).sort((a, b) => a - b)).toEqual([5, 7, 8, 42]);
+    expect(mine.find(m => m.pr.number === 42)!.pr.openThreads).toBe(0);
+    const first = calls.length;
+    await reader.mine('gitlab.example', '2026-11-10T00:00:00.000Z');
+    expect(calls.length - first).toBe(3);
+    expect(missingOptional([{ message: "Field 'webUrl' doesn't exist on type 'MergeRequest'" }])).toBeNull();
+    // gitlab.com adds a suggestion: still recognised.
+    expect(missingOptional([{ message: "Field 'resolvedDiscussionsCount' doesn't exist on type 'MergeRequest' (Did you mean `resolvableDiscussionsCount`?)" }])).toEqual(['resolvedDiscussionsCount']);
+  });
+
+  it('a missing field that is not optional stays an error', async () => {
+    const errs = fakeGlab(path => (path === 'graphql' ? { code: 1, stdout: JSON.stringify({ errors: [{ message: "Field 'webUrl' doesn't exist on type 'MergeRequest'" }] }), stderr: "glab: Field 'webUrl' doesn't exist on type 'MergeRequest'" } : undefined));
+    await expect(gitlabReader(errs.run).mine('gitlab.com', '2026-11-10T00:00:00.000Z')).rejects.toThrow("Field 'webUrl'");
+    expect(errs.calls).toHaveLength(3);
   });
 
   it('an answer without a user is a sign-in problem; one with errors is refused whole', async () => {

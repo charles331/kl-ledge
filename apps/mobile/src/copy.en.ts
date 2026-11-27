@@ -311,6 +311,15 @@ export const en: Copy = {
     }
   },
   sessions: {
+    reorder: {
+      up: 'Move up', down: 'Move down',
+      moved: (n, i, total, p) => `${n} is now ${i} of ${total} in ${p}.`,
+      movedProject: (n, i, total) => `${n} is now ${i} of ${total} projects.`,
+      offline: (n) => `Could not move ${n}: the PC is not reachable.`,
+      outdated: (n) => `Could not move ${n}: update Ledge on the PC.`,
+      stale: (n) => `${n} was not moved: the list changed meanwhile. Try again.`,
+      ordinal: (i) => String(i)
+    },
     filter: { label: 'Filter the sessions', all: 'All', waiting: 'Waiting', working: 'Working' },
     rigGroup: (name: string) => `Rig ${name}`,
     line: {
@@ -1173,9 +1182,15 @@ export const en: Copy = {
     ideas: ['Review the latest pull request', 'Fix the failing tests', 'Update the documentation'],
     pick: (model: string, effort: string | null) => (effort ? `${model} · ${effort}` : model),
     summary: (tool: string, model: string | null, machine: string, project: string) => `${model ? `${tool} · ${model}` : tool} on ${machine}, in ${project}`,
+    nameToggle: 'Set a name?', name: 'Name', namePlaceholder: (n: string) => `Leave empty for ${n}`,
+    nameHint: 'Its address: other sessions write to it under this name. Letters, digits, - and _.',
+    nameCleaned: (n: string) => `The session will be called ${n}: spaces and punctuation are removed.`,
+    nameTaken: (n: string, p: string) => `${n} is already the name of a session in ${p}. Choose another name, or leave it empty.`,
+    nameTakenBy: (n: string, o: string) => `${n} is already taken: ${o} has it.`,
+    nameReserved: 'ledge is reserved for Ledge itself. Choose another name.',
     launchCheck: 'Launch with Face ID', launchDevice: 'Launch with my device', launching: 'Launching…',
     missing: {
-      prompt: 'Write the instruction', machine: 'No machine online', setup: 'Protect your agreements first',
+      prompt: 'Write the instruction', machine: 'No machine online', setup: 'Protect your agreements first', name: 'Choose another name',
       pcOld: (machine: string) => `${machine} does not launch from the phone yet`
     },
     setupBody: 'Launching asks for this device’s passkey, like closing a session.', openSettings: 'Open Settings',

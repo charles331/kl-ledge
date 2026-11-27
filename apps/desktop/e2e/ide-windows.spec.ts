@@ -39,7 +39,8 @@ async function boot(page: Page, theme: 'light' | 'dark' = 'dark') {
 async function open(page: Page, name: string): Promise<void> {
   const button = page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Projects', exact: true });
   if (!(await button.getAttribute('class'))?.includes('on')) await button.click();
-  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  // A double click: a kept tab, so the next one opened sits beside it (a single click opens a preview the next one replaces).
+  await page.getByRole('tree').getByRole('button', { name: new RegExp(`^${name}`) }).first().dblclick();
   await expect(tabOf(page, name)).toHaveClass(/dv-active-tab/);
 }
 
@@ -164,7 +165,8 @@ for (const theme of ['dark', 'light'] as const) {
     expect(b.y).toBe(0);
     expect(b.height).toBe(34);
     const strip = await box(pop.locator('.dv-tabs-and-actions-container').first());
-    expect(strip.y).toBe(34);
+    // Atelier (#28): the group is a card, its 1 px border above the strip.
+    expect(strip.y).toBe(35);
     const page0 = pop.viewportSize()!;
     const content = await box(pop.locator('.dv-groupview').first());
     expect(Math.round(content.y + content.height)).toBe(page0.height);
@@ -176,10 +178,12 @@ for (const theme of ['dark', 'light'] as const) {
     await tabOf(page, 'Otto').click();
     await tabOf(pop, 'Nova').click();
     expect(await look(tabOf(pop, 'Nova'))).toEqual(await look(tabOf(page, 'Otto')));
-    expect((await look(tabOf(pop, 'Nova'))).size).toBe('12px');
-    // Its group has the focus: its tab in front is underlined in Ledge's coral, nothing on top (ledge-ide-tab-front.html).
-    const coral = theme === 'dark' ? 'rgb(234, 106, 88)' : 'rgb(204, 82, 65)';
-    await expect.poll(() => tabOf(pop, 'Nova').evaluate(el => getComputedStyle(el).boxShadow)).toBe(`${coral} 0px -2px 0px 0px inset`);
+    // The « Atelier » skin reaches the detached window (#28, spec §9): its root mirrors data-skin and the tokens, its tabs are 12.5 px
+    // tokens with no line under them (the coral one of the tab in front is gone), a 1 px shade of the line's colour instead.
+    expect(await pop.evaluate(() => document.documentElement.dataset.skin)).toBe('atelier');
+    expect((await look(tabOf(pop, 'Nova'))).size).toBe('12.5px');
+    const line2 = await pop.evaluate(() => { const i = document.createElement('i'); i.style.color = 'var(--at-line2)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; });
+    await expect.poll(() => tabOf(pop, 'Nova').evaluate(el => getComputedStyle(el).boxShadow)).toBe(`${line2} 0px 1px 0px 0px`);
     expect(await tabOf(pop, 'Nova').evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
     await pop.screenshot({ path: shot(`lot9-window-${theme}.png`) });
     await bar.screenshot({ path: shot(`lot9-window-bar-${theme}.png`) });

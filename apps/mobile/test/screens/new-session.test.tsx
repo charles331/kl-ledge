@@ -346,6 +346,96 @@ describe('« Nouvelle session » (m2-sessions.html §9)', () => {
   });
 });
 
+// Issue #15 (docs/mockups/ledge-launch-name.html, card 6): « Définir un nom ? » on the Project label's right.
+describe('« Nouvelle session » with a name (#15)', () => {
+  const LIVE = [session('otto', { name: 'Otto', project: 'ledge' }), session('nova', { name: 'Nova', project: 'ledge', state: 'working' }),
+    session('kit2', { name: 'Kit-2', project: 'billing-api', state: 'working' }), session('lu', { name: 'Lu', project: 'ledge', state: 'exited' })];
+  const toggle = () => screen.getByRole('switch', { name: 'Définir un nom ?' });
+  const field = () => screen.getByRole('textbox', { name: 'Nom' });
+
+  it('off at opening: no Name field, and the device check covers a launch with no name', async () => {
+    const t = opened({ sessions: LIVE });
+    expect(toggle()).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByRole('textbox', { name: 'Nom' })).not.toBeInTheDocument();
+    type('Corrige les tests');
+    const m = await launched(t);
+    expect(t.of('confirm.prepare')[0]!.launch).not.toHaveProperty('name');
+    expect(m.launch).not.toHaveProperty('name');
+  });
+
+  it('on: the field takes the focus, shows the free name, and the cleaned name is checked and sent', async () => {
+    const t = opened({ sessions: LIVE });
+    fireEvent.click(toggle());
+    expect(toggle()).toHaveAttribute('aria-checked', 'true');
+    expect(field()).toHaveFocus();
+    // Otto and Nova are live, Lu has ended: Pim is the next free name.
+    expect(field()).toHaveAttribute('placeholder', 'Laisse vide pour Pim');
+    expect(screen.getByText('Son adresse : les autres sessions lui écrivent sous ce nom. Lettres, chiffres, - et _.')).toBeInTheDocument();
+    fireEvent.change(field(), { target: { value: 'revue pr' } });
+    expect(screen.getByText('La session s’appellera Revuepr : espaces et ponctuation sont retirés.')).toBeInTheDocument();
+    type('Relis la PR');
+    const m = await launched(t);
+    expect(t.of('confirm.prepare')[0]!.launch).toMatchObject({ name: 'Revuepr' });
+    expect(m.launch).toMatchObject({ name: 'Revuepr' });
+  });
+
+  it('a taken name, a base held by a numbered session, « ledge »: the field says why and the button « Choisis un autre nom »', () => {
+    opened({ sessions: LIVE });
+    type('Corrige les tests');
+    fireEvent.click(toggle());
+    fireEvent.change(field(), { target: { value: 'otto' } });
+    expect(field()).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent('Otto est déjà le nom d’une session de ledge. Choisis un autre nom, ou laisse vide.');
+    expect(button()).toHaveTextContent('Choisis un autre nom');
+    expect(button()).toBeDisabled();
+    fireEvent.change(field(), { target: { value: 'Kit' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('Kit est déjà pris : Kit-2 porte ce nom.');
+    fireEvent.change(field(), { target: { value: 'ledge' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('ledge est réservé à Ledge lui-même. Choisis un autre nom.');
+    // An ended session does not hold its name.
+    fireEvent.change(field(), { target: { value: 'Lu' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(button()).toHaveTextContent('Lancer avec mon appareil');
+  });
+
+  it('off after typing: the block lifts, the name is not sent, and it comes back when switched on again', async () => {
+    const t = opened({ sessions: LIVE });
+    type('Corrige les tests');
+    fireEvent.click(toggle());
+    fireEvent.change(field(), { target: { value: 'Otto' } });
+    fireEvent.click(toggle());
+    expect(screen.queryByRole('textbox', { name: 'Nom' })).not.toBeInTheDocument();
+    expect(button()).toHaveTextContent('Lancer avec mon appareil');
+    fireEvent.click(toggle());
+    expect(field()).toHaveValue('Otto');
+    fireEvent.click(toggle());
+    const m = await launched(t);
+    expect(m.launch).not.toHaveProperty('name');
+  });
+
+  it('a name taken between the check and the launch: a receipt with the field\'s sentence, no Réessayer', async () => {
+    const t = opened({ sessions: LIVE });
+    type('Corrige les tests');
+    fireEvent.click(toggle());
+    fireEvent.change(field(), { target: { value: 'Ada' } });
+    const m = await launched(t);
+    // Another launch took Ada meanwhile: the PC lists it, then refuses this one.
+    act(() => t.deliver(snap({ sessions: [...LIVE, session('ada', { name: 'Ada', project: 'billing-api', state: 'working' })] })));
+    result(t, m.op, 'rejected', { reason: 'name_taken' });
+    const receipt = screen.getAllByText('Ada est déjà le nom d’une session de billing-api. Choisis un autre nom, ou laisse vide.').map(x => x.closest('[data-receipt]')).find(Boolean)!;
+    expect(receipt).toBeInTheDocument();
+    expect(within(receipt as HTMLElement).queryByRole('button', { name: 'Réessayer' })).not.toBeInTheDocument();
+    expect(field()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('in English, its words', () => {
+    setLang('en');
+    opened({ sessions: LIVE });
+    fireEvent.click(screen.getByRole('switch', { name: 'Set a name?' }));
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute('placeholder', 'Leave empty for Pim');
+  });
+});
+
 describe('« Nouvelle » in Sessions (m2-sessions.html §1)', () => {
   it('in the head, and in an empty list', () => {
     const t = setup();

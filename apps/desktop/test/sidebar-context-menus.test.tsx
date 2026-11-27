@@ -28,7 +28,7 @@ describe('the menu of a project row', () => {
     const { tree } = await bootTree();
     fireEvent.contextMenu(rowOf(tree.getByRole('button', { name: /^Ledge/ })));
     const menu = screen.getByRole('menu', { name: 'Actions for Ledge' });
-    expect(menuLabels(menu)).toEqual(['New session here', 'Write to the whole project…', 'Add a folder…', 'Edit project…', 'Fold', 'Delete project…']);
+    expect(menuLabels(menu)).toEqual(['New session here', 'Write to the whole project…', 'Add a folder…', 'Edit project…', 'Fold', 'Move up', 'Move down', 'To the top of the list', 'Delete project…']);
   });
 
   it('a daemon that does not take a broadcast: no Write to the whole project…', async () => {

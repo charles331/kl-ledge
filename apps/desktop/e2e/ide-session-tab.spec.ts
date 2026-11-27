@@ -85,12 +85,8 @@ test('a session tab shows its logo, dot and name; approval is underlined red; a 
     await expect(t.locator('.tab-name')).toHaveText(new RegExp(`^${name}`));
   }
   await expect(tabOf(page, 'Otto')).toHaveClass(/\balert\b/);
-  const shadow = await tabOf(page, 'Otto').evaluate(el => getComputedStyle(el).boxShadow);
-  expect(shadow).toMatch(/inset/);
-  expect(shadow).toMatch(/0px -2px 0px/);
-  // The red of --destructive, not the amber of a question.
-  const red = await page.evaluate(() => { const p = document.createElement('i'); p.style.color = 'var(--destructive)'; document.querySelector('.ide-dock')!.append(p); const c = getComputedStyle(p).color; p.remove(); return c; });
-  expect(shadow).toContain(red);
+  // Under the « Atelier » skin (#28, spec §4, the owner 2026-11-26): no line under a waiting tab; its state is its dot.
+  expect(await tabOf(page, 'Otto').evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
   await expect(tabOf(page, 'Nova')).not.toHaveClass(/\balert/);
   await expect(tabOf(page, 'Ivo').locator('.tab-rig')).toHaveText('ledge-dev');
   await expect(tabOf(page, 'Nova').locator('.tab-rig')).toHaveCount(0);
@@ -141,12 +137,12 @@ test('Ctrl+` puts the agent\'s screen in place of the thread and >_ on the tab; 
   await expect(tabOf(page, 'Nova').locator('.tab-term')).toHaveCount(0);
 });
 
-test('the bottom bar: 28 px, model, context, branch, project, then +N −N at the right; +N opens the Changes beside; narrowing hides in order', async ({ page }) => {
+test('the bottom bar: 32 px (Atelier), model, context, branch, project, then +N −N at the right; +N opens the Changes beside; narrowing hides in order', async ({ page }) => {
   await boot(page);
   await open(page, 'Nova');
   const b = bar(page, 'Nova');
   await expect(b).toBeVisible();
-  expect((await box(b)).height).toBe(28);
+  expect((await box(b)).height).toBe(32);
   const model = b.locator('.ide-bar-model'), ctx = b.locator('.ide-bar-ctx'), branch = b.locator('.ide-bar-chip.br'), project = b.locator('.ide-bar-chip.pj'), chip = b.locator('.dchip');
   await expect(model.locator('.model-chip')).toBeVisible();
   await expect(ctx).toContainText('42 %');
@@ -158,7 +154,8 @@ test('the bottom bar: 28 px, model, context, branch, project, then +N −N at th
   expect([...xs].sort((p, q) => p - q)).toEqual(xs);
   // Glued to the right: the bar's 10 px padding and nothing else.
   const barBox = await box(b), chipBox = await box(chip);
-  expect(barBox.x + barBox.width - (chipBox.x + chipBox.width)).toBeLessThanOrEqual(11);
+  // Atelier (#28): the session bar's padding is 14 px.
+  expect(barBox.x + barBox.width - (chipBox.x + chipBox.width)).toBeLessThanOrEqual(15);
   // The model as the mockup's `.mdl`: the provider's logo, the name without the effort, a ▾ (the element the 470 px step hides).
   await expect(model.locator('.model-chip')).toHaveText('Opus 5.5▾');
   await expect(model.locator('.model-chip .logo')).toHaveAttribute('title', 'Anthropic');
@@ -186,9 +183,10 @@ test('the bottom bar: 28 px, model, context, branch, project, then +N −N at th
   await second.locator('.dv-content-container').click({ position: { x: 40, y: 200 } });
   await expect(second).toHaveClass(/dv-active-group/);
   await expect(first).not.toHaveClass(/dv-active-group/);
-  // The focused group's front tab is underlined (2 px), nothing on top (docs/mockups/ledge-ide-tab-front.html).
+  // Atelier (#28): no coral line under the focused group's front tab any more (the owner, 2026-11-26), nothing on top. The focused
+  // group's own cue comes with design-ux's proposal (docs/kl28-focus-cue).
   const stripe = (t: Locator) => t.evaluate(el => ({ under: getComputedStyle(el).boxShadow, top: getComputedStyle(el, '::before').content }));
-  expect((await stripe(changes)).under).toMatch(/0px -2px 0px 0px inset$/);
+  expect((await stripe(changes)).under).not.toMatch(/inset/);
   expect((await stripe(changes)).top).toBe('none');
   await page.screenshot({ path: 'e2e/.results/ide-session-beside.png' });
 
@@ -282,7 +280,7 @@ const token = (page: Page, v: string) => page.evaluate(name => {
 }, v);
 const bg = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
 
-test('the mockup\'s look: 8 px dots with a halo on a request, the tab in front on the page\'s colour above a darker strip, the coral focus stripe, the reply box and thread across the group, « + »', async ({ page }) => {
+test('the mockup\'s look under Atelier: 8 px dots with a halo on a request, the tab in front on the card, no line under any tab, the reply box and thread across the group, « + »', async ({ page }) => {
   await boot(page);
   await open(page, 'Otto');
   await open(page, 'Nova');
@@ -291,31 +289,35 @@ test('the mockup\'s look: 8 px dots with a halo on a request, the tab in front o
   expect((await box(dot)).width).toBe(8);
   expect(await dot.evaluate(el => getComputedStyle(el).boxShadow)).toMatch(/0px 0px 0px 3px/);
   expect(await tabOf(page, 'Nova').locator('.tab-dot').evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
-  // Surfaces: the tab in front is the editor's colour, the strip and the session bar another, the same.
+  // Surfaces under the « Atelier » skin (#28, spec §4): the tab in front on the card's colour, a 26 px token with an 8 px radius in
+  // a 36 px strip; the editor on the pane's; the session bar transparent. No line under any tab: the coral one of the tab in front
+  // is gone (the owner, 2026-11-26), a 1 px shade of the line's colour under it instead.
   const strip = page.locator('.ide-dockview .dv-tabs-and-actions-container').first();
   const front = tabOf(page, 'Nova'), behind = tabOf(page, 'Otto');
   const editor = pane(page, 'Nova').locator('.session-page');
-  expect(await bg(front)).toBe(await bg(editor));
-  expect(await bg(strip)).not.toBe(await bg(front));
-  expect(await bg(behind)).toBe(await bg(strip));
-  expect(await bg(bar(page, 'Nova'))).toBe(await bg(strip));
-  // The focused group's tab in front: 2 px under it in Ledge's factory coral, not the factory --sidebar-primary (a red), nothing
-  // on top (docs/mockups/ledge-ide-tab-front.html, jde 2026-11-09); the tab behind has none.
+  expect(await bg(front)).toBe(await token(page, '--at-card'));
+  expect(await bg(editor)).toBe(await token(page, '--at-pane'));
+  expect(await bg(front)).not.toBe(await bg(editor));
+  expect(await bg(behind)).not.toBe(await bg(front));
+  expect(await bg(bar(page, 'Nova'))).toBe('rgba(0, 0, 0, 0)');
+  expect((await box(strip)).height).toBe(36);
+  expect((await box(front)).height).toBe(26);
+  expect(await front.evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('8px');
   const coral = await token(page, '--ide-tab-front');
-  expect(['rgb(234, 106, 88)', 'rgb(204, 82, 65)']).toContain(coral);
-  expect(await front.evaluate(el => getComputedStyle(el).boxShadow)).toBe(`${coral} 0px -2px 0px 0px inset`);
+  expect(await front.evaluate(el => getComputedStyle(el).boxShadow)).toBe(`${await token(page, '--at-line2')} 0px 1px 0px 0px`);
+  expect(await front.evaluate(el => getComputedStyle(el).boxShadow)).not.toContain(coral);
   expect(await front.evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
-  expect(await behind.evaluate(el => getComputedStyle(el).boxShadow)).not.toContain(coral);
-  // The reply box and the thread span the group, 12 px in from each side.
+  expect(await behind.evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
+  // The reply box and the thread span the group, 12 px in from each side of the card (its 1 px border inside, Atelier #28).
   const group = await box(page.locator('.ide-dockview .dv-groupview').first());
   const form = await box(pane(page, 'Nova').locator('.session-reply form'));
-  expect(Math.abs(form.width - (group.width - 24))).toBeLessThanOrEqual(1);
-  expect(Math.abs(form.x - (group.x + 12))).toBeLessThanOrEqual(1);
+  expect(Math.abs(form.width - (group.width - 2 - 24))).toBeLessThanOrEqual(1);
+  expect(Math.abs(form.x - (group.x + 1 + 12))).toBeLessThanOrEqual(1);
   expect((await box(pane(page, 'Nova').locator('.session-reply textarea'))).height).toBeGreaterThanOrEqual(72);
-  // The rail fills the thread's content box (its clientWidth leaves the scrollbar out) less the 12 px paddings.
+  // The rail fills the thread's content box (its clientWidth leaves the scrollbar out) less the 14 px paddings (Atelier #28).
   const rail = await box(thread(page, 'Nova').locator('.rail'));
   const inner = await thread(page, 'Nova').evaluate(el => el.clientWidth);
-  expect(Math.abs(rail.width - (inner - 24))).toBeLessThanOrEqual(1);
+  expect(Math.abs(rail.width - (inner - 28))).toBeLessThanOrEqual(1);
   await page.locator('.ide-dockview .dv-groupview').first().screenshot({ path: 'e2e/.results/ide-mockup-gaps-group.png' });
   await page.screenshot({ path: 'e2e/.results/ide-mockup-gaps-full.png' });
   // « + » then the split (lot 3) at the right end of the strip; « + » opens the launch dialog.
@@ -337,13 +339,15 @@ test('light theme: the same relation of surfaces, and the links\' darker violet'
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   const strip = page.locator('.ide-dockview .dv-tabs-and-actions-container').first();
   const front = tabOf(page, 'Nova');
-  expect(await bg(front)).toBe(await bg(pane(page, 'Nova').locator('.session-page')));
+  // Atelier (#28): the tab in front on the card, the lightest surface in light; the editor on the pane.
+  expect(await bg(front)).toBe(await token(page, '--at-card'));
+  expect(await bg(pane(page, 'Nova').locator('.session-page'))).toBe(await token(page, '--at-pane'));
   expect(await bg(strip)).not.toBe(await bg(front));
   expect(await token(page, '--ide-link-violet')).toBe('rgb(109, 40, 217)');
   await page.screenshot({ path: 'e2e/.results/ide-mockup-gaps-light.png' });
 });
 
-test('the tab\'s label sits in the middle of its 30 px, in Geist 12 px, as in the mockup', async ({ page }) => {
+test('the tab\'s label sits in the middle of its 26 px token, in Geist 12.5 px (Atelier)', async ({ page }) => {
   await boot(page);
   await open(page, 'Nova');
   const t = tabOf(page, 'Nova');
@@ -356,7 +360,7 @@ test('the tab\'s label sits in the middle of its 30 px, in Geist 12 px, as in th
   expect(await page.evaluate(() => document.fonts.check('12px Geist'))).toBe(true);
   const font = await t.locator('.tab-name').evaluate(el => { const s = getComputedStyle(el); return { family: s.fontFamily, size: s.fontSize }; });
   expect(font.family).toMatch(/^"?Geist"?(,|$)/);
-  expect(font.size).toBe('12px');
+  expect(font.size).toBe('12.5px');
   await page.locator('.ide-dockview .dv-tabs-and-actions-container').first().screenshot({ path: 'e2e/.results/ide-session-tab-centred.png' });
 });
 

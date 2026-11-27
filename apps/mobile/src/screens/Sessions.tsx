@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { CONTEXT_NEAR, type PhoneRoutine, type PhoneSession } from '@ledge/protocol';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { CONTEXT_NEAR, placeSessions, type PhoneRoutine, type PhoneSession } from '@ledge/protocol';
 import { copy } from '../copy';
 import { MOBILE_STORAGE_PREFIX } from '../link/keys';
 import { routinesEntry, wokenSessions } from '../model/routines';
 import { closingHere } from '../model/sessionEnd';
-import { activeHelpers, contextPct, dotOf, filterCounts, GROUPINGS, rowLine, rowMeta, SESSION_FILTERS, sessionGroups, type Grouping, type SessionFilter, type SessionGroup } from '../model/sessions';
+import { activeHelpers, contextPct, dotOf, filterCounts, GROUPINGS, rowLine, rowMeta, SESSION_FILTERS, sessionGroups, type Grouping, type KeptOrder, type SessionFilter, type SessionGroup } from '../model/sessions';
 import { href, useRoute } from '../router';
 import { TabPage } from '../shell/Shell';
 import { localStore } from '../state/storage';
@@ -16,8 +16,9 @@ import { Dot, Pill, RuntimeTag } from '../ui/kit/marks';
 import { useWide } from '../ui/layout';
 import { useNow } from '../useNow';
 import { clock } from './Inbox';
-import { useLongPress } from './longPress';
+import { useLiftDrag, useLongPress } from './longPress';
 import { SessionActions } from './SessionHead';
+import { ProjectOrderSheet } from './SessionMore';
 import { SessionsAtelier } from './SessionsAtelier';
 
 /** The filter is kept on the device (m2-sessions.html, « Comportements »). */
@@ -86,9 +87,13 @@ function FilterBar({ value, counts, onChange }: { value: SessionFilter; counts: 
 
 /** One session (§1): its dot, runtime, name and sub-agents at work, what it does or waits for, its branch or seat role; the small
  *  clock when a routine wakes it (docs/mockups/ledge-routines.html, card 17). */
-function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress, woken }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void; woken: boolean }) {
+function Row({ session: s, filter, offline, threshold, now, closing, pressed, onPress, woken, drag }: { session: PhoneSession; filter: SessionFilter; offline: boolean; threshold: number; now: number; closing: boolean; pressed: boolean; onPress: (s: PhoneSession) => void; woken: boolean;
+  /** Issue #16: the row can be lifted and dragged within its project; `lifted`: how far it follows the finger. */
+  drag?: { onLift(y: number): void; onDrag(y: number): void; onDrop(): void; onCancel(): void; lifted: number | null } | undefined }) {
   const route = useRoute();
-  const press = useLongPress(() => onPress(s));
+  const longPress = useLongPress(() => onPress(s));
+  const lift = useLiftDrag({ onLong: () => onPress(s), onLift: y => drag?.onLift(y), onDrag: y => drag?.onDrag(y), onDrop: () => drag?.onDrop(), onCancel: () => drag?.onCancel() });
+  const press = { ...(drag ? lift : longPress), 'data-reorder-row': s.id, ...(drag?.lifted !== null && drag?.lifted !== undefined ? { style: liftedStyle(drag.lifted) } : {}) };
   const open = (route.name === 'thread' || route.name === 'terminal') && route.sessionId === s.id;
   const dot = dotOf(s);
   const kids = activeHelpers(s);
@@ -112,12 +117,21 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
   );
 }
 
-function Group({ group, children }: { group: SessionGroup; children: React.ReactNode }) {
+/** A row or a heading lifted (card 6): it follows the finger, a little bigger, with a shadow. */
+const liftedStyle = (dy: number): CSSProperties => ({ transform: `translateY(${dy}px) scale(1.02)`, position: 'relative', zIndex: 5, boxShadow: '0 10px 28px #0008', background: 'var(--color-surface)', borderRadius: 10, touchAction: 'none' });
+/** Where a lifted row or heading lands: a violet line. */
+// Above the lifted row (#16 review C3): it is drawn where that row is held, and would hide it.
+const InsertLine = () => <div aria-hidden="true" data-insert-line="" className="relative z-10 mx-3 my-0.5 h-[3px] rounded-full bg-task" />;
+
+function Group({ group, children, drag }: { group: SessionGroup; children: React.ReactNode;
+  /** Issue #16: the project's heading lifts and drags among the projects; a long press without moving opens Monter / Descendre. */
+  drag?: { onLong(): void; onLift(y: number): void; onDrag(y: number): void; onDrop(): void; onCancel(): void; lifted: number | null } | undefined }) {
   const rig = group.kind === 'rig';
   const title = rig ? copy.sessions.rigGroup(group.name) : group.name;
+  const lift = useLiftDrag({ onLong: () => drag?.onLong(), onLift: y => drag?.onLift(y), onDrag: y => drag?.onDrag(y), onDrop: () => drag?.onDrop(), onCancel: () => drag?.onCancel() });
   return (
-    <section aria-label={title} className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5 px-0.5 text-small font-semibold text-muted">
+    <section aria-label={title} data-reorder-section={group.id} className="flex flex-col gap-1.5" style={drag && drag.lifted !== null ? liftedStyle(drag.lifted) : undefined}>
+      <div className="flex items-center gap-1.5 px-0.5 text-small font-semibold text-muted select-none" {...(drag ? lift : {})}>
         {rig && <Dot state="rig" />}{title}<span className="font-normal">{group.sessions.length}</span>
       </div>
       <Box {...(rig ? { tone: 'rigs' as const } : {})}>{children}</Box>
@@ -160,8 +174,11 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
   const atelier = !wide && mode === 'atelier';
   const sessions = [...state.sessions.values()];
   const counts = filterCounts(sessions);
-  const groups = sessionGroups(sessions, filter);
   const offline = !state.fresh;
+  // Issue #16: the PC keeps an order (card 7): the project groups follow it, and a row or a project's heading can be moved.
+  const kept = state.daemon?.sessionOrder && state.daemon.atelier ? { projects: state.projects, order: state.sessionOrder ?? {} } : null;
+  const groups = sessionGroups(sessions, filter, kept);
+  const order = useOrder(store, sessions, kept, offline);
   const woken = wokenSessions(state.routines, sessions);
   const threshold = state.device?.contextNear ?? CONTEXT_NEAR;
   const subtitle = offline ? (state.syncedAt ? copy.link.lastKnownAt(clock(state.syncedAt)) : copy.agents.offline) : undefined;
@@ -186,7 +203,11 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
       title={copy.agents.title} subtitle={subtitle} bodyClassName="flex flex-col gap-2.5"
       actions={wide ? undefined : <><ModeToggle value={mode} onChange={setMode} />{newButton}</>} wideActions={wide ? newButton : undefined}
     >
-      {pressedSession && <SessionActions store={store} session={pressedSession} onDone={() => setPressed(null)} />}
+      {pressedSession && <SessionActions store={store} session={pressedSession} onDone={() => setPressed(null)} {...(order.can ? { order: order.stepsOf(groups, pressedSession.id) } : {})} />}
+      {order.sheet && <ProjectOrderSheet name={order.sheet.name} up={order.projectStep(groups, order.sheet, -1)} down={order.projectStep(groups, order.sheet, 1)} onClose={() => order.setSheet(null)} />}
+      {/* Issue #16: « Ida est maintenant 1re sur 3 dans ledge. », for screen readers; a move not saved, said on screen. */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true" data-reorder-said="">{order.said}</div>
+      {order.problem && <p role="alert" className="rounded-lg border border-destructive/40 px-3 py-2 text-small text-danger-fg">{order.problem}</p>}
       {state.routines && <RoutinesEntry routines={state.routines} now={now} offline={offline} />}
       {sessions.length === 0 ? (
         <Box label={copy.agents.empty}>
@@ -201,14 +222,123 @@ export function Sessions({ store, filter: fromRoute, storage }: { store: MobileS
       ) : (
         <>
           <FilterBar value={filter} counts={counts} onChange={setFilter} />
-          {groups.map(g => (
-            <Group key={g.id} group={g}>
-              {g.sessions.map(s => <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} woken={woken.has(s.id)} />)}
-            </Group>
-          ))}
+          {groups.map((g, gi) => {
+            const movable = order.can && g.kind === 'project';
+            const l = order.lift;
+            const rowsLifted = l && l.kind === 'session' && l.gid === g.id ? l : null;
+            // The line goes before the row the lifted one would push down (or after the last).
+            const lineAt = rowsLifted && rowsLifted.to !== rowsLifted.from ? (rowsLifted.to < rowsLifted.from ? rowsLifted.to : rowsLifted.to + 1) : -1;
+            const projLine = l && l.kind === 'project' && l.to !== l.from && (l.to < l.from ? l.to : l.to + 1) === gi;
+            return (
+              <div key={g.id} className="contents">
+                {projLine && <InsertLine />}
+                <Group group={g} {...(movable && g.project ? { drag: order.projectDrag(groups, g) } : {})}>
+                  {g.sessions.flatMap((s, i) => [
+                    ...(i === lineAt ? [<InsertLine key="line" />] : []),
+                    <Row key={s.id} session={s} filter={filter} offline={offline} threshold={threshold} now={now} closing={closingHere(s, state.ops, now)} pressed={pressed === s.id} onPress={x => setPressed(x.id)} woken={woken.has(s.id)}
+                      {...(movable ? { drag: order.rowDrag(g, i) } : {})} />
+                  ])}
+                  {lineAt === g.sessions.length && <InsertLine />}
+                </Group>
+                {l && l.kind === 'project' && l.to !== l.from && l.to > l.from && l.to === gi && gi === groups.filter(x => x.kind === 'project' && x.project).length - 1 && <InsertLine />}
+              </div>
+            );
+          })}
           {emptyFilter}
         </>
       )}
     </TabPage>
   );
+}
+
+type Lift = { kind: 'session' | 'project'; gid: string; from: number; to: number; y0: number; dy: number; mids: number[] };
+
+/** Where a finger at `y` puts the lifted item among the others' middles (its own excluded). */
+const placeAt = (mids: readonly number[], from: number, y: number): number => mids.filter((m, k) => k !== from && m < y).length;
+const moveTo = <T,>(list: readonly T[], from: number, to: number): T[] => { const n = [...list]; const [x] = n.splice(from, 1); n.splice(to, 0, x!); return n; };
+
+/**
+ * Issue #16 on the phone (docs/mockups/ledge-reorder.html, cards 6 and 7): a session moves within its project, a project among
+ * the projects, by a long press then a drag, or Monter / Descendre in the actions. The PC keeps the order (`session.order`,
+ * `project.order`): nothing moves before it answers; a move not saved is said, the move said for screen readers.
+ */
+function useOrder(store: MobileStore, sessions: readonly PhoneSession[], kept: KeptOrder | null, offline: boolean) {
+  const R = copy.sessions.reorder;
+  const state = useMobile(store);
+  const [lift, setLift] = useState<Lift | null>(null);
+  const [said, setSaid] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<SessionGroup | null>(null);
+  const can = !!kept && !offline;
+  const failure = (r: Awaited<ReturnType<MobileStore['orderSessions']>>, name: string): string | null =>
+    r.status === 'applied' ? null : r.status === 'rejected' && r.reason === 'unavailable' ? R.outdated(name) : r.status === 'rejected' ? R.stale(name) : R.offline(name);
+
+  const moveSession = (g: SessionGroup, from: number, to: number) => {
+    if (from === to || to < 0 || to >= g.sessions.length) return;
+    const s = g.sessions[from]!;
+    const next = moveTo(g.sessions, from, to);
+    // The whole project as the PC keeps it, the ones a filter hides included: those moved take the places theirs had.
+    const all = sessionGroups(sessions, 'all', kept).find(x => x.id === g.id)?.sessions ?? g.sessions;
+    const ids = placeSessions(all.map(x => x.id), next.map(x => x.id));
+    setProblem(null);
+    void store.orderSessions(g.project ?? null, ids).then(r => {
+      const p = failure(r, s.name);
+      if (p) setProblem(p); else setSaid(R.moved(s.name, R.ordinal(to + 1, true), next.length, g.name));
+    });
+  };
+  const projectIds = () => (kept?.projects ?? []).map(p => p.id);
+  const moveProject = (g: SessionGroup, to: number) => {
+    const ids = projectIds();
+    const from = ids.indexOf(g.project ?? '');
+    if (from < 0 || from === to || to < 0 || to >= ids.length) return;
+    setProblem(null);
+    void store.orderProjects(moveTo(ids, from, to)).then(r => {
+      const p = failure(r, g.name);
+      if (p) setProblem(p); else setSaid(R.movedProject(g.name, R.ordinal(to + 1, false), ids.length));
+    });
+  };
+  const measure = (selector: string): number[] => [...document.querySelectorAll<HTMLElement>(selector)].map(el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
+
+  return {
+    can, said, problem, lift, sheet, setSheet,
+    rowDrag: (g: SessionGroup, i: number) => ({
+      lifted: lift && lift.kind === 'session' && lift.gid === g.id && lift.from === i ? lift.dy : null,
+      onLift: (y: number) => setLift({ kind: 'session', gid: g.id, from: i, to: i, y0: y, dy: 0, mids: measure(`[data-reorder-section="${CSS.escape(g.id)}"] [data-reorder-row]`) }),
+      onDrag: (y: number) => setLift(l => (l ? { ...l, dy: y - l.y0, to: placeAt(l.mids, l.from, y) } : l)),
+      onDrop: () => { const l = lift; setLift(null); if (l) moveSession(g, l.from, l.to); },
+      onCancel: () => setLift(null)
+    }),
+    projectDrag: (groups: readonly SessionGroup[], g: SessionGroup) => {
+      const movable = groups.filter(x => x.kind === 'project' && x.project);
+      const i = movable.indexOf(g);
+      return {
+        lifted: lift && lift.kind === 'project' && lift.gid === g.id ? lift.dy : null,
+        onLong: () => setSheet(g),
+        onLift: (y: number) => setLift({ kind: 'project', gid: g.id, from: i, to: i, y0: y, dy: 0, mids: movable.map(x => measure(`[data-reorder-section="${CSS.escape(x.id)}"]`)[0] ?? 0) }),
+        onDrag: (y: number) => setLift(l => (l ? { ...l, dy: y - l.y0, to: placeAt(l.mids, l.from, y) } : l)),
+        onDrop: () => {
+          const l = lift; setLift(null);
+          if (!l || l.to === l.from) return;
+          // The place among the projects shown, as an index in the PC's whole list.
+          const target = movable[l.to];
+          const at = target ? projectIds().indexOf(target.project!) : -1;
+          if (at >= 0) moveProject(g, at);
+        },
+        onCancel: () => setLift(null)
+      };
+    },
+    /** Monter / Descendre of a session's actions (card 6), in its project's group. */
+    stepsOf: (groups: readonly SessionGroup[], id: string) => {
+      const g = groups.find(x => x.kind === 'project' && x.sessions.some(s => s.id === id));
+      if (!g) return {};
+      const i = g.sessions.findIndex(s => s.id === id);
+      return { ...(i > 0 ? { up: () => moveSession(g, i, i - 1) } : {}), ...(i < g.sessions.length - 1 ? { down: () => moveSession(g, i, i + 1) } : {}) };
+    },
+    projectStep: (_groups: readonly SessionGroup[], g: SessionGroup, by: -1 | 1) => {
+      const ids = projectIds();
+      const i = ids.indexOf(g.project ?? '');
+      const to = i + by;
+      return i < 0 || to < 0 || to >= ids.length || !state.daemon?.projectEdit ? undefined : () => moveProject(g, to);
+    }
+  };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import type { DaemonClient, MachineState } from '@ledge/fleet';
-import type { OmpApproval, Project, Session } from '@ledge/protocol';
+import { cleanName, nameHolder, nameRefusal, namesInUse, type OmpApproval, type Project, type Session } from '@ledge/protocol';
+import { splitId } from '@ledge/fleet';
 import { Button } from '@ledge/ui/ui/Button';
 import { Kbd } from '@ledge/ui/ui/Kbd';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
@@ -77,6 +78,12 @@ export function LaunchModal(p: {
   const [menu, setMenu] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { field.current?.focus(); }, []);
+  // Issue #15 (docs/mockups/ledge-launch-name.html, v2): « Définir un nom ? », off at each opening. On, the Name row shows under
+  // Project and takes the focus; off, it goes and its name is not sent, but what was typed is kept (form.name) until the box closes.
+  const [named, setNamed] = useState(false);
+  const nameField = useRef<HTMLInputElement>(null);
+  const switched = useRef(false);
+  useEffect(() => { if (named && switched.current) nameField.current?.focus(); }, [named]);
   const id = useId();
 
   const project = projects.find(x => x.id === form.project);
@@ -104,13 +111,28 @@ export function LaunchModal(p: {
   }, [infos, projects]);
 
   const missing = missingOf(form, machines);
-  const { name } = previewOf(form, p.sessions, p.projectIdOf);
-  const alert = !missing ? null : missing === 'repos' && projects.length === 0 ? t.launch.noProjects : t.launch.missing[missing];
+  // The name Ledge would give (the field's placeholder, and what an empty or switched-off field leaves to the daemon).
+  const auto = previewOf({ ...form, name: '' }, p.sessions, p.projectIdOf).name;
+  // A name typed while the switch is on, as the session will carry it; checked against the live sessions of the chosen machine,
+  // whose daemon refuses a taken name (name_taken) — so « Lancer » does not send it.
+  const typed = named ? form.name ?? '' : '';
+  const clean = cleanName(typed);
+  const live = p.sessions.filter(s => (splitId(s.id)?.machine ?? s.machineId ?? 'local') === form.machine && s.state !== 'exited' && !s.archivedAt);
+  const refused = nameRefusal(namesInUse(live), typed) !== undefined;
+  const holder = refused ? nameHolder(live, typed) : undefined;
+  const holderProject = holder ? projects.find(x => x.id === p.projectIdOf(holder))?.name : undefined;
+  const nameError = !refused ? null
+    : !holder ? m.nameReserved
+    : holder.name.toLowerCase() === clean.toLowerCase() && holderProject ? m.nameTaken(clean, holderProject)
+    : m.nameTakenBy(clean, holder.name);
+  const alert = refused ? t.launch.missing.name : !missing ? null : missing === 'repos' && projects.length === 0 ? t.launch.noProjects : t.launch.missing[missing];
   const launching = p.launch.status === 'launching';
   const submit = () => {
     setTried(true);
-    if (missing || launching || !project || unavailable) return;
-    p.onLaunch(sentMessage(form, project.id, name, { outdated, approvable }), { name, project: project.name, projectId: project.id }, where);
+    if (refused || missing || launching || !project || unavailable) return;
+    // No name (switched off, or nothing left once cleaned): the daemon picks the first free one, so two launches never race for it.
+    const { name: _auto, ...msg } = sentMessage(form, project.id, auto, { outdated, approvable });
+    p.onLaunch(clean ? { ...msg, name: clean } : msg, { name: clean || auto, project: project.name, projectId: project.id }, where);
   };
 
   const row = rows.find(r => onRow(form, r));
@@ -128,6 +150,7 @@ export function LaunchModal(p: {
             <Button variant="outline" size="sm" onClick={p.onNewProject}><Icon d={ICONS.plus.d} size={14} />{t.launch.newProject}</Button>
           </div>
         ) : (
+          <div className="launch-modal-prj">
           <Menu open={menu} onOpenChange={setMenu} label={m.project} className="launch-modal-menu" menuClassName="launch-modal-rows"
             trigger={tr => (
               <button type="button" id={lbl('row')} className="launch-modal-inp" aria-labelledby={`${lbl('project')} ${lbl('row')}`} {...tr}>
@@ -143,7 +166,21 @@ export function LaunchModal(p: {
               </MenuItem>
             ))}
           </Menu>
+          <button type="button" role="switch" aria-checked={named} className="launch-modal-sw"
+            onClick={() => { switched.current = true; setNamed(v => !v); }}><i aria-hidden="true" />{m.nameToggle}</button>
+          </div>
         )}
+
+        {named && <>
+          <label className="launch-modal-lbl" htmlFor={lbl('name')}>{m.name}</label>
+          <div className="launch-modal-name">
+            <input id={lbl('name')} ref={nameField} type="text" className="launch-modal-field" value={form.name ?? ''} placeholder={m.namePlaceholder(auto)}
+              spellCheck={false} autoComplete="off" aria-invalid={refused || undefined} aria-describedby={lbl('name-say')}
+              onChange={e => { const name = e.target.value; setForm(f => ({ ...f, name })); }} />
+            {nameError ? <span id={lbl('name-say')} className="launch-modal-ferr" role="alert">{nameError}</span>
+              : <span id={lbl('name-say')} className={cls('launch-modal-hint', clean && clean !== typed && 'said')}>{clean && clean !== typed ? m.cleaned(clean) : m.nameHint}</span>}
+          </div>
+        </>}
 
         <span className="launch-modal-lbl">{m.where}</span>
         <div className="launch-modal-txt">{branch ? withPart(m.onBranch, <span className="mono">⎇ {branch}</span>) : m.inFolder}</div>
@@ -197,7 +234,7 @@ export function LaunchModal(p: {
 
         <span />
         <div className="launch-modal-go">
-          <Button variant="primary" type="submit" aria-disabled={!!missing || launching || unavailable !== null}>
+          <Button variant="primary" type="submit" aria-disabled={refused || !!missing || launching || unavailable !== null}>
             {launching ? t.launch.launching : m.launch}<Kbd accent>{m.launchKeys}</Kbd>
           </Button>
           <Button variant="outline" type="button" onClick={p.onCancel}>{m.cancel}</Button>

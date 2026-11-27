@@ -135,6 +135,27 @@ describe('phone « Nouvelle session »', () => {
     expect(await send(g, { type: 'session.launch', launch, assertion: await prove(g, auth, launch, 2) })).toEqual(expect.objectContaining({ status: 'failed' }));
   });
 
+  it('a name chosen on the phone goes to the PC; one taken comes back name_taken, nothing started (#15)', async () => {
+    let next: () => Promise<{ id: string }> = async () => ({ id: 'local:new-1' });
+    const { g, api, launched } = make({ launch: () => next() });
+    const auth = await enroll(g);
+    const launch: PhoneLaunch = { project: 'shop', tool: 'claude', folders: [api], prompt: 'Go', name: 'RevuePR' };
+    expect(await send(g, { type: 'session.launch', launch, assertion: await prove(g, auth, launch, 1) })).toMatchObject({ status: 'applied' });
+    expect(launched.at(-1)).toMatchObject({ name: 'RevuePR' });
+    next = async () => { throw new PhoneLaunchRefused('name_taken', 'le nom RevuePR est déjà pris'); };
+    expect(await send(g, { type: 'session.launch', launch, assertion: await prove(g, auth, launch, 2) })).toMatchObject({ status: 'rejected', reason: 'name_taken' });
+    // The passkey covers the name: one made for another name does not launch this one.
+    const other: PhoneLaunch = { ...launch, name: 'Autre' };
+    expect(await send(g, { type: 'session.launch', launch: other, assertion: await prove(g, auth, launch, 3) })).toMatchObject({ status: 'rejected' });
+  });
+
+  it('the daemon\'s name_taken reaches the phone as its code', async () => {
+    const h = realpathSync(mkdtempSync(join(tmpdir(), 'ledge-phone-name-')));
+    mkdirSync(join(h, 'p'));
+    const taken = Object.assign(new Error('le nom Otto est déjà pris'), { code: 'name_taken' });
+    await expect(phoneLaunch(async () => { throw taken; }, h)({ tool: 'claude', cwd: join(h, 'p'), prompt: 'Go', name: 'Otto' })).rejects.toMatchObject({ reason: 'name_taken' });
+  });
+
   it('the snapshot says daemon.launch when the PC can launch for the phone, and not otherwise', async () => {
     const flag = async (g: G) => {
       g.send('dev1', { type: 'snapshot.request' });

@@ -1,0 +1,175 @@
+/* The session thread as a conversation, under Desktop's Atelier skin (apps/desktop/src/styles/atelier-skin.css): its surfaces and inks are the
+   skin's (--at-*). Classes `cw-*` are this mockup's Thread.tsx; the few rules on the app's own classes are scoped to
+   :root[data-fil="cowork"], so « Aujourd'hui » in the bar shows the thread as it is. */
+
+/* ---------- The column, and the summary beside it when the session is wide enough ---------- */
+:root[data-fil="cowork"] .session-thread { container: cwt / inline-size; }
+.cw { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; padding: 6px 0 20px; }
+.cw-col { list-style: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 28px; }
+.cw-turn { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cw-side { display: none; }
+@container cwt (min-width: 1020px) {
+  .cw { grid-template-columns: minmax(0, 720px) 288px; column-gap: 40px; max-width: 1048px; }
+  .cw-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 6px; align-self: start; }
+  /* The work plan is the first card of the summary: its bar over the thread would say it twice. */
+  :root[data-fil="cowork"] .session-thread > .todo-bar { display: none; }
+}
+
+/* The request waiting for an answer and the reply field keep to the reading column, under the conversation. The app gives each
+   of them a 12 px margin, counted here. */
+:root[data-fil="cowork"] .session-main { container: cwm / inline-size; }
+@container cwm (min-width: 784px) {
+  :root[data-fil="cowork"] .ide-reply.session-reply { padding-inline: calc((100cqw - 784px) / 2); }
+}
+@container cwm (min-width: 1068px) {
+  :root[data-fil="cowork"] .ide-reply.session-reply { padding-left: calc((100cqw - 1048px) / 2 - 12px); padding-right: calc((100cqw - 1048px) / 2 + 316px); }
+}
+
+/* ---------- What the person wrote: a bubble on the right ---------- */
+.cw-you { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.cw-bubble { margin: 0; max-width: 82%; padding: 9px 14px; border-radius: 16px 16px 5px 16px; background: color-mix(in srgb, var(--at-coral) 15%, var(--at-pane)); color: var(--at-ink); font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cw-time { font-size: 11px; line-height: 14px; color: var(--at-ink2); font-variant-numeric: tabular-nums; }
+.cw-you.from-agent { align-items: flex-start; }
+.cw-you.from-agent .cw-bubble { border-radius: 5px 16px 16px 16px; background: var(--at-raise); }
+.cw-you-who { font-size: 12px; color: var(--at-ink2); }
+
+/* ---------- What the agent says: plain prose, the column's width ---------- */
+.cw-say { min-width: 0; }
+.cw-say .msg-body { font-size: 14px; line-height: 23px; color: var(--at-ink); }
+.cw-say .msg-body > :first-child { margin-top: 0; }
+.cw-say .msg-body > :last-child { margin-bottom: 0; }
+
+/* ---------- Its work, folded to one line ---------- */
+.cw-steps { min-width: 0; }
+.cw-steps-head, .cw-work { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; margin-left: -8px; padding: 0 10px 0 6px; border-radius: 10px; color: var(--at-ink2); font-size: 13px; line-height: 20px; text-align: left; cursor: pointer; }
+.cw-steps-head, .cw-work { width: calc(100% + 8px); }
+.cw-steps-head:hover, .cw-work:hover { background: var(--at-line); color: var(--at-ink); }
+.cw-steps-head > svg, .cw-work > svg { flex: none; transition: transform .12s; }
+.cw-steps.open > .cw-steps-head > svg, .cw-work.open > svg { transform: rotate(90deg); }
+.cw-steps-head strong, .cw-work strong { flex: none; font-weight: 500; color: var(--at-ink); }
+.cw-steps-kinds, .cw-work > span:not(.cw-tag):not(.cw-step-time) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-step-time { flex: none; margin-left: auto; padding-left: 8px; font-size: 11px; color: var(--at-ink2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cw-steps-list { list-style: none; margin: 4px 0 0; padding: 5px 4px; border-radius: 12px; background: var(--at-well); }
+.cw-step-line { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; font-size: 13px; line-height: 20px; }
+.cw-step-ico { flex: none; display: inline-flex; width: 16px; justify-content: center; color: var(--at-ink2); }
+.cw-step-verb { flex: none; color: var(--at-ink2); }
+.cw-step-target { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink); text-align: left; }
+.cw-step-target:not(:disabled) { cursor: pointer; }
+.cw-step-target:not(:disabled):hover { text-decoration: underline; }
+.cw-step.failed .cw-step-ico { color: var(--danger-text); }
+.cw-delta { flex: none; display: inline-flex; gap: 5px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.cw-delta b { font-weight: 500; color: var(--success); }
+.cw-delta i { font-style: normal; color: var(--danger-text); }
+.cw-link { flex: none; font-size: 12px; color: var(--at-ink2); cursor: pointer; }
+.cw-link:hover { color: var(--at-ink); text-decoration: underline; }
+.cw-out { margin: 2px 8px 6px 32px; padding: 8px 10px; max-height: 180px; overflow: auto; border-radius: 8px; background: var(--at-bench); color: var(--at-ink2); font-size: 11.5px; line-height: 17px; white-space: pre-wrap; }
+.cw-out.is-error { color: var(--danger-text); }
+.cw-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.cw-tag.danger { color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 16%, transparent); }
+
+/* The files an exchange changed, under its answer. */
+.cw-files { display: flex; flex-wrap: wrap; gap: 6px; }
+button.cw-file { display: inline-flex; align-items: center; gap: 7px; height: 30px; max-width: 100%; padding: 0 10px; border: 1px solid var(--at-line2); border-radius: 10px; background: var(--at-card); color: var(--at-ink); font-size: 12.5px; cursor: pointer; }
+.cw-file:hover { border-color: var(--at-ink2); }
+.cw-file > svg { flex: none; color: var(--at-ink2); }
+.cw-file > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-end { font-size: 12px; line-height: 16px; color: var(--at-ink2); }
+
+/* An answer the person gave to a request: on their side. */
+.cw-decision { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.cw-decision-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 82%; min-height: 30px; padding: 0 12px; border: 1px solid var(--at-line2); border-radius: 12px 12px 5px 12px; font-size: 12.5px; }
+.cw-decision-chip b { flex: none; font-weight: 500; color: var(--success); }
+.cw-decision.deny .cw-decision-chip b { color: var(--danger-text); }
+.cw-decision.unknown .cw-decision-chip b { color: var(--at-ink2); }
+.cw-decision-chip code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink2); }
+
+/* A subagent it launched: one row that opens its thread. */
+button.cw-helper { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 12px; border: 1px solid var(--at-line); border-radius: 12px; background: var(--at-card); color: var(--at-ink); text-align: left; cursor: pointer; }
+.cw-helper:hover { border-color: var(--at-line2); }
+.cw-helper-ico { flex: none; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 8px; background: var(--at-line); color: var(--at-ink2); }
+.cw-helper > svg:last-child { flex: none; color: var(--at-ink2); }
+.cw-helper-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; line-height: 18px; }
+.cw-helper-text strong { font-weight: 500; }
+.cw-helper-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--at-ink2); }
+.cw-plan { min-width: 0; }
+
+/* ---------- The foot of the thread: what the agent is doing now, or that it waits for the person ---------- */
+.cw-foot { display: flex; align-items: center; gap: 10px; min-height: 28px; margin-top: -10px; font-size: 13.5px; line-height: 20px; color: var(--at-ink2); }
+.cw-foot-mark { flex: none; display: inline-flex; width: 16px; height: 24px; align-items: center; justify-content: center; }
+.cw-foot-mark i { width: 8px; height: 8px; border-radius: 50%; background: var(--at-coral); }
+.cw-foot-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-foot-text code { font-size: 12px; }
+.cw-foot.waiting .cw-foot-text { white-space: normal; color: var(--at-coral); }
+.cw-foot .cw-step-time { margin-left: 0; }
+.cw-shimmer { background: linear-gradient(90deg, var(--at-ink2) 0 40%, var(--at-ink) 50%, var(--at-ink2) 60% 100%) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: cw-shimmer 2.4s linear infinite; }
+.cw-shimmer code { color: inherit; background: none; }
+@keyframes cw-shimmer { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+@media (prefers-reduced-motion: reduce) { .cw-shimmer { animation: none; background: none; color: var(--at-ink2); } }
+
+/* ---------- The summary beside the thread: cards that fold to their title ---------- */
+.cw-card { border: 1px solid var(--at-line); border-radius: 12px; background: var(--at-side); }
+.cw-card > summary { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px 0 14px; list-style: none; font-size: 12.5px; font-weight: 600; color: var(--at-ink); cursor: pointer; }
+.cw-card > summary::-webkit-details-marker { display: none; }
+.cw-card > summary > svg { margin-left: auto; color: var(--at-ink2); transition: transform .12s; }
+.cw-card:not([open]) > summary > svg { transform: rotate(-90deg); }
+.cw-count { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--at-line2); color: var(--at-ink2); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cw-card-body { padding: 0 8px 8px; }
+.cw-bar { display: block; height: 4px; margin: 0 6px 8px; border-radius: 2px; background: var(--at-line2); overflow: hidden; }
+.cw-bar i { display: block; height: 100%; border-radius: 2px; background: var(--success); }
+.cw-todos { list-style: none; margin: 0; padding: 0; }
+.cw-todos li { display: flex; align-items: flex-start; gap: 9px; padding: 5px 6px; font-size: 13px; line-height: 18px; color: var(--at-ink2); }
+.cw-box { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-top: 1px; border: 1.5px solid var(--at-line2); border-radius: 50%; }
+.cw-todos li.is-completed .cw-box { border-color: transparent; background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.cw-todos li.is-in_progress { color: var(--at-ink); font-weight: 500; }
+.cw-todos li.is-in_progress .cw-box { border-color: var(--info); }
+.cw-todos li.is-in_progress .cw-box::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--info); animation: cw-pulse 1.6s ease-in-out infinite; }
+@keyframes cw-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .cw-todos li.is-in_progress .cw-box::after { animation: none; } }
+.cw-rows { list-style: none; margin: 0; padding: 0; }
+.cw-rows button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 6px; border-radius: 8px; color: var(--at-ink); font-size: 13px; text-align: left; cursor: pointer; }
+.cw-rows button:hover { background: var(--at-line); }
+.cw-rows button > svg { flex: none; color: var(--at-ink2); }
+.cw-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- An aside (« btw »): a question beside the thread, which the session answers without stopping ---------- */
+.cw-aside { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; border: 1px dashed var(--at-line2); border-radius: 14px; background: var(--at-side); }
+.cw-aside-head { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; color: var(--at-ink2); }
+.cw-aside-head > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-aside-tag, .cw-aside-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); }
+.cw-aside-head button { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: auto; border-radius: 7px; color: var(--at-ink2); cursor: pointer; }
+.cw-aside-head button:hover { background: var(--at-line); color: var(--at-ink); }
+.cw-aside-q { align-self: flex-end; margin: 0; max-width: 82%; padding: 7px 12px; border-radius: 14px 14px 5px 14px; background: var(--at-raise); font-size: 13.5px; line-height: 20px; overflow-wrap: anywhere; }
+.cw-aside-a .msg-body { font-size: 13.5px; line-height: 21px; }
+.cw-aside-a .msg-body > :first-child { margin-top: 0; }
+.cw-aside-a .msg-body > :last-child { margin-bottom: 0; }
+
+/* ---------- The reply field: its bottom row carries what the session bar said, the voice, and send or interrupt ---------- */
+:root[data-fil="cowork"] .ide-reply.session-reply > form { border-radius: 16px; }
+:root[data-fil="cowork"] .ide-reply.session-reply textarea { min-height: 46px; padding: 12px 14px 4px; }
+:root[data-fil="cowork"] .ide-reply.session-reply > form > .reply-hint { order: 8; margin-left: 14px; }
+/* The harness's own stop gives way to the field's round button. */
+:root[data-fil="cowork"] .ide-reply.session-reply > form > .reply-stop { display: none; }
+:root[data-fil="cowork"] .ide-reply.session-reply > form:has(.cw-tools.btw) { border-style: dashed; border-color: color-mix(in srgb, var(--at-coral) 60%, transparent); }
+:root[data-fil="cowork"] .ide-reply.session-reply > form > .cw-tools { order: 9; flex: 1 0 100%; display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 8px; padding: 0 8px 0 14px; }
+.cw-bar-slot { flex: 1; min-width: 0; }
+/* While the field holds « /btw … », the row says what Enter will do, in the session bar's place. */
+.cw-tools.btw .cw-bar-slot { display: none; }
+.cw-btw-note { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 32px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--at-ink2); }
+.cw-btw-note b { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); }
+:root[data-skin="atelier"] .cw-bar-slot .ide-bar { height: 32px; padding: 0; background: none; }
+.cw-bar-slot .ide-bar-stop { display: none; }
+button.cw-mic { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; color: var(--at-ink2); cursor: pointer; }
+button.cw-mic:hover:not(:disabled) { background: var(--at-line); color: var(--at-ink); }
+button.cw-mic.on, button.cw-mic.on:hover:not(:disabled) { background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); }
+.cw-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; }
+.cw-wave i { width: 2px; height: 100%; border-radius: 1px; background: currentColor; animation: cw-wave 0.9s ease-in-out infinite; }
+.cw-wave i:nth-child(2) { animation-delay: -.6s; } .cw-wave i:nth-child(3) { animation-delay: -.3s; } .cw-wave i:nth-child(4) { animation-delay: -.75s; }
+@keyframes cw-wave { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .cw-wave i { animation: none; transform: scaleY(.6); } }
+button.cw-send { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--at-coral); color: var(--at-coral-ink); cursor: pointer; }
+button.cw-send:disabled { background: var(--at-raise); color: var(--at-ink2); cursor: default; }
+button.cw-send.stop { background: var(--at-ink); color: var(--at-pane); }
+button.cw-send.stop i { width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+
+/* Images of a request, captures of an action: thumbnails in the column. */
+.cw-images { max-width: 100%; }

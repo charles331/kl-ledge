@@ -19,6 +19,7 @@ import { attentionOf, eyeGroups, treeModel } from './model';
 import { loadSidebarPrefs, saveSidebarPrefs } from './prefs';
 import { Tree } from './Tree';
 import { SidebarMenuHost } from './SidebarMenus';
+import type { OrderWriter } from './useReorder';
 import { closedLedgeTasks, nearLimit, openDecisions, type TasksApi } from '../../tasks/useTasksApi';
 
 /** The IDE's explorer for two of its views (lot 12c): « Projets » (the project tree, then Archives pinned at the bottom) and
@@ -53,6 +54,8 @@ export function Sidebar(p: {
   clock?(s: Session): { tip: string; onClick(): void } | null;
   /** The view shown: « Projets » or « À toi » (the IDE's other views have their own explorers). */
   section: Extract<SideView, 'projects' | 'atoi'>;
+  /** Issue #16: writes the order of projects and sessions the tree is put in; none, nothing moves. */
+  orderWriter?: OrderWriter;
 }): JSX.Element {
   const { t } = useI18n();
   const [prefs, setPrefs] = useStored(loadSidebarPrefs, saveSidebarPrefs);
@@ -75,7 +78,7 @@ export function Sidebar(p: {
   const current = base.kind === 'session' ? base.id : null;
   const section = p.section;
   // An OpenRig seat is never in the projects' tree: the « Rigs » view shows it (« À toi » too, when it waits).
-  const groups = useMemo(() => treeModel(p.sessions.filter(s => !s.rig), p.projects, p.projectIdOf), [p.sessions, p.projects, p.projectIdOf]);
+  const groups = useMemo(() => treeModel(p.order.filter(s => !s.rig), p.projects, p.projectIdOf), [p.order, p.projects, p.projectIdOf]);
   // The eye (docs/mockups/ledge-projects-eye.html): pressed, the projects with a live agent; released, every project.
   const { shown: shownGroups, hidden: hiddenProjects } = useMemo(() => eyeGroups(groups, prefs.hideDone, { dragging: !!p.filing.dragging, filter: base.project }),
     [groups, prefs.hideDone, p.filing.dragging, base.project]);
@@ -162,7 +165,8 @@ export function Sidebar(p: {
             p.menu.open(id, { x: e.clientX, y: e.clientY }, host ?? null);
           }} />}
         {section === 'projects' && <section aria-label={t.side.projects}>
-          <Tree near={p.tasksApi?.near} groups={shownGroups} closed={closed} onClosed={setClosed} sessions={p.sessions} projects={p.projects} current={current} filter={base.project}
+          <Tree reorder={{ ...(p.orderWriter ? { write: p.orderWriter } : {}), all: project => p.order.filter(s => p.projectIdOf(s) === project), notify: p.notify }}
+            near={p.tasksApi?.near} groups={shownGroups} closed={closed} onClosed={setClosed} sessions={p.sessions} projects={p.projects} current={current} filter={base.project}
             hideDone={prefs.hideDone} hiddenProjects={hiddenProjects} anySession={groups.some(g => g.branches.some(b => b.sessions.length > 0))} dense={prefs.dense} byBranch={prefs.byBranch} filing={p.filing} revealCurrent={p.revealCurrent} paused={p.nav.paused}
             onHome={project => p.dispatch({ type: 'home', ...(project !== undefined ? { project } : {}) })}
             onOpen={(id, helper) => p.dispatch({ type: 'open', id, ...(helper !== undefined ? { helper } : {}) })}
@@ -170,7 +174,7 @@ export function Sidebar(p: {
             onBroadcast={p.broadcast ? project => p.dispatch({ type: 'modal', modal: { kind: 'broadcast', to: { project } } }) : undefined}
             picked={picked} onPick={p.broadcast ? pick : undefined} onOpenRight={id => p.dispatch({ type: 'open', id, where: 'right' })}
             onMenu={(target, at, opener) => p.menu.openOn(target, at, opener)}
-            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onTerminal={p.onTerminal}
+            onArchive={ids => p.actions.request('archive', ids)} onDelete={ids => p.actions.request('delete', ids)} onRename={p.menu.rename} onTerminal={p.onTerminal}
             onToggleHide={() => setPrefs(v => ({ ...v, hideDone: !v.hideDone }))} onToggleDense={() => setPrefs(v => ({ ...v, dense: !v.dense }))}
             onToggleBranches={() => setPrefs(v => ({ ...v, byBranch: !v.byBranch }))}
             onNewProject={() => p.dispatch({ type: 'modal', modal: { kind: 'project' } })} ide {...(p.clock ? { clock: p.clock } : {})} />

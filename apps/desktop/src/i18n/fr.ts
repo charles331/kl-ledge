@@ -58,6 +58,16 @@ export const fr = {
     }
   },
   side: {
+    /** Issue #16 (docs/mockups/ledge-reorder.html): putting projects and sessions in order. `i` is already an ordinal (« 1re », « 2e »). */
+    reorder: {
+      grip: 'Glisser pour déplacer · Alt+↑ / Alt+↓',
+      moved: (n: string, i: string, total: number, p: string) => `${n} est maintenant ${i} sur ${total} dans ${p}.`,
+      movedProject: (n: string, i: string, total: number) => `${n} est maintenant ${i} sur ${total} projets.`,
+      fileInto: (n: string, p: string) => `Lâcher pour ranger ${n} dans ${p}`,
+      offline: (n: string) => `Impossible de déplacer ${n} : le daemon Ledge local n'est pas joignable.`,
+      outdated: (n: string) => `Impossible de déplacer ${n} : mettez à jour le daemon Ledge local, il ne sait pas encore garder l'ordre.`,
+      stale: (n: string) => `${n} n'a pas été déplacé : la liste a changé entre-temps. Réessayez.`
+    },
     rigs: 'Rigs', kernel: 'Kernel', rigOf: (name: string) => `Le rig ${name} sur la page OpenRig`, rigAsks: (n: number) => `${n} ${n > 1 ? 'demandes' : 'demande'}`, 
     label: 'Barre latérale', newSession: 'Nouvelle session', searchLabel: 'Rechercher une session',
     views: 'Vues', atelier: 'Atelier', chat: 'Chat Ledge', projects: 'Projets', newProject: 'Nouveau projet', unassigned: 'Sans projet',
@@ -715,7 +725,7 @@ export const fr = {
     title: 'Raccourcis clavier',
     intro: 'Actifs lorsque la fenêtre a le focus. Les touches de navigation restent disponibles pour la saisie et le terminal lorsqu’ils ont le focus.',
     outro: 'Ctrl / ⌘ K ouvre la recherche depuis n’importe quelle vue. Y et N n’agissent que sur la demande épinglée de la session ouverte, jamais pendant la saisie.',
-    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['/','Demander à Ledge'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (champ du chat, détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
+    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['Alt ↑ / ↓','Monter / descendre la session ou le projet (barre latérale)'],['Alt Début','En haut du projet, ou de la liste (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['/','Demander à Ledge'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (champ du chat, détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
     /** Interface IDE only: the tab keys (VS Code's), after the others. */
     ide: { title: 'Onglets et groupes', rows: [['Ctrl W','Fermer l’onglet, ou le groupe vide'],['Ctrl ⇧ T','Rouvrir le dernier onglet fermé'],['Ctrl Tab / Ctrl ⇧ Tab','Onglet suivant / précédent du groupe'],['Ctrl Pg↓ / Pg↑','Onglet suivant / précédent du groupe'],['Ctrl 1…9','Aller au groupe N, depuis un terminal aussi'],['Ctrl ⇧ `','Sortir du terminal vers son onglet (← / → parcourent les onglets), ou y revenir'],['Ctrl Alt ← / →','Déplacer l’onglet vers le groupe de gauche / de droite'],['Ctrl \\','Diviser à droite'],['Ctrl B','Afficher / masquer la barre latérale'],['Ctrl J','Afficher / masquer le panneau du bas (terminaux)'],['Ctrl /','Afficher / masquer le chat de Ledge']] as ReadonlyArray<readonly [string, string]> }
   },
@@ -901,6 +911,7 @@ export const fr = {
   manage: {
     menu: {
       label: (name: string): string => `Gérer la session ${name}`, more: 'Gérer la session (clic droit)',
+      up: 'Monter', down: 'Descendre', top: 'En haut du projet', topList: 'En haut de la liste', upKey: 'Alt ↑', downKey: 'Alt ↓', topKey: 'Alt Début',
       open: 'Ouvrir la session', terminal: 'Terminal', rename: 'Renommer…', moveTo: 'Ranger dans…', end: 'Terminer la session', resume: 'Reprendre la session',
       archive: 'Archiver', endAndArchive: 'Terminer et archiver…', delete: 'Supprimer…',
       kids: (n: number, name: string): string => `${n} ${plural(n, 'sous-agent part', 'sous-agents partent')} avec ${name}.`,
@@ -1292,7 +1303,7 @@ export const fr = {
     agentName: 'Nom de l’agent', agentNameAuto: (n: string) => `${n} (au hasard)`, agentNameHint: 'C’est son adresse : les autres agents lui écrivent sous ce nom. Lettres, chiffres, - et _ ; un nom déjà pris reçoit un suffixe.',
     pastNames: 'Déjà utilisés dans ce projet',
     newAgent: 'Un nouvel agent', joins: (n: string, t: string) => `${n} rejoindra la table ${t}`, seat: (n: number, m: string, r: string) => `Place ${n} · ${m} · ${r}`, noRepo: 'aucun dossier ni dépôt',
-    missing: { prompt: 'Écrivez la consigne', machine: 'Aucune machine en ligne', repos: 'Choisissez au moins un dossier ou un dépôt' } as Record<'prompt' | 'machine' | 'repos', string>,
+    missing: { prompt: 'Écrivez la consigne', machine: 'Aucune machine en ligne', repos: 'Choisissez au moins un dossier ou un dépôt', name: 'Choisissez un autre nom pour la session' } as Record<'prompt' | 'machine' | 'repos' | 'name', string>,
     cancel: 'Annuler', launch: 'Lancer', launching: 'Lancement…',
     started: (n: string, t: string) => `${n} démarre à la table ${t}.`, startedNoTable: (n: string) => `${n} démarre, sans projet.`, refused: (m: string) => `Démarrage refusé : ${m}`,
     timeout: 'Le démarrage n’a pas répondu. Vérifiez la machine puis réessayez.',
@@ -1317,7 +1328,14 @@ export const fr = {
       open: 'Ouvrir', openActive: 'Dans le groupe actif', openRight: 'À droite',
       limit: (pct: string, reset: string | null) => `Limite 5 h ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitMonth: (pct: string, reset: string | null) => `Limite du mois ${pct}${reset ? ` · réinit. ${reset}` : ''}`,
       limitWeek: (pct: string, reset: string | null) => `Limite de la semaine ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitUnread: 'Limite non lue',
-      offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler'
+      offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler',
+      // Issue #15 (docs/mockups/ledge-launch-name.html, v2): an optional name, behind a switch on the Project row.
+      nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laissez vide pour ${n}`,
+      nameHint: 'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
+      cleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
+      nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisissez un autre nom, ou laissez vide.`,
+      nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,
+      nameReserved: 'ledge est réservé à Ledge lui-même. Choisissez un autre nom.'
     }
   },
   projects: {

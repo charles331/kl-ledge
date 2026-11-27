@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type JSX, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode, type DragEvent } from 'react';
 import { contextShare, type Helper, type Projects, type Session } from '@ledge/protocol';
 import { Icon, ICONS } from '@ledge/ui/ui/icons';
 import type { Filing } from '../../atelier/filing';
@@ -14,6 +14,8 @@ import { ProviderLogo } from '../../ide/ProviderLogo';
 import { providerOf } from '../../workspace/sessionTab';
 import { kidsAtWork, newestCommand, restingWithWork } from '../../session/background';
 import { AutoMark } from '../SessionBot';
+import { useSkin } from '../theme';
+import { useReorder, type OrderWriter } from './useReorder';
 import type { MenuTarget } from '../../manage/useContextMenu';
 import { isMenuKey, menuPoint } from './menuPoint';
 import type { ProjectGroup } from './model';
@@ -30,13 +32,50 @@ function BranchTag({ session }: { session: Session }): JSX.Element | null {
   if (!b) return null;
   return (
     <span className={cls('st-btag', DEFAULT_BRANCHES.has(b) && 'default')} title={t.side.branchTag(b)}>
-      <Icon d={branchIcon} size={9} />{b}{session.worktree && <i>wt</i>}
+      <Icon d={branchIcon} size={9} /><span className="st-btag-name">{b}</span>{session.worktree && <i>wt</i>}
     </span>
   );
 }
 
 /** A row the keyboard walks: Left folds it (or goes to its parent), Right unfolds it. `session` is set only for a principal. */
 interface Nav { toggle?: () => void; open?: boolean; parent?: string; session?: Session; target?: MenuTarget }
+
+/** Issue #32 (design-ux and the lead, 2026-11-26): each branch tag of `root` shows its name while the line leaves it room for its icon
+ *  and three characters with « … »; with less, its icon alone (`data-fit="icon"`), so that room goes back to the session's name. The room
+ *  is the name's line (its topic beside it in the compact view gives way) less the session's full name and its other marks: what the
+ *  tag is now does not change it, so the choice never flips back and forth. */
+export function fitBranchTags(root: HTMLElement): void {
+  for (const tag of root.querySelectorAll<HTMLElement>('.st-agent .st-main strong > .st-btag')) {
+    const line = tag.parentElement!;
+    const main = line.parentElement!;
+    const text = tag.querySelector<HTMLElement>('.st-btag-name');
+    const icon = tag.querySelector('svg');
+    if (!text || !icon) continue;
+    const topic = main.querySelector(':scope > span');
+    const dense = getComputedStyle(main).flexDirection === 'row';
+    const room = main.clientWidth - (dense && topic ? parseFloat(getComputedStyle(main).columnGap) || 0 : 0);
+    let others = 0;
+    for (const el of line.children) {
+      if (el === tag) continue;
+      const cs = getComputedStyle(el);
+      // The name at its full width (it is clipped when cut), the other marks as they are, with their margins.
+      others += (el.classList.contains('st-aname') ? el.scrollWidth : el.getBoundingClientRect().width) + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+    }
+    const cs = getComputedStyle(tag);
+    const frame = ['marginLeft', 'paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((n, k) => n + (parseFloat(cs[k as 'marginLeft']) || 0), 0)
+      + icon.getBoundingClientRect().width;
+    // The tag's font is monospaced: one character's width is the name's width over its length; three of them and « … ».
+    const name = text.textContent ?? '';
+    const ch = name.length > 0 ? text.scrollWidth / name.length : 0;
+    // Its other parts (« wt » for a worktree) at their full width, each after the tag's 3 px gap and its own 2 px margin (sidebar.css,
+    // .st-btag and .st-btag i). Constants, not read: the icon state folds both to nothing, and the room needed must not depend on it.
+    let extra = 0;
+    for (const el of tag.children) if (el !== icon && el !== text) extra += 3 + 2 + (el as HTMLElement).scrollWidth;
+    const need = frame + 3 + 4 * ch + extra;
+    const fit = room - others >= need ? null : 'icon';
+    if ((tag.dataset.fit ?? null) !== fit) { if (fit) tag.dataset.fit = fit; else delete tag.dataset.fit; }
+  }
+}
 
 /** A project's fold key (« Sans projet »: `p:none`); a branch's is `p:<id>:<branch>`. */
 export const projectKey = (id: string | null): string => `p:${id ?? 'none'}`;
@@ -131,6 +170,8 @@ export function Tree(p: {
   onMenu(target: MenuTarget, at: { x: number; y: number }, opener: HTMLElement | null): void;
   onArchive(ids: string[]): void;
   onDelete(ids: string[]): void;
+  /** F2 on a principal's row: the rename dialog, as the menu's « Renommer… F2 » (a finished or offline session is refused there). */
+  onRename(s: Session): void;
   onTerminal(s: Session): void;
   onToggleHide(): void;
   onToggleDense(): void;
@@ -141,13 +182,42 @@ export function Tree(p: {
   /** The small clock on a session a routine wakes (routines mockup, card 12): its tooltip and its click; null for none. */
   clock?(s: Session): { tip: string; onClick(): void } | null;
   paused: boolean;
+  /** Issue #16: putting projects and sessions in order (drag, Alt+↑ / Alt+↓ / Alt+Début, the menus). None: nothing moves. */
+  reorder?: { write?: OrderWriter; all(project: string | null): readonly Session[]; notify(text: string): void };
 }): JSX.Element {
   const { t } = useI18n();
+  // Issue #28: under the « Atelier » skin a session that waits says « À toi » in place of its time.
+  const skin = useSkin();
+  // What the eye shows of a group (its finished sessions may be hidden, unless « +N finished » showed them): a move steps over the rest.
+  const shownIn = (s: Session, g: { project: string | null; branch?: string }) => {
+    const key = g.branch !== undefined ? `${projectKey(g.project)}:${g.branch}` : projectKey(g.project);
+    return !p.hideDone || shown.has(key) || !isEnded(s);
+  };
+  const ro = useReorder({ groups: p.groups, byBranch: p.byBranch, projects: p.projects, all: project => p.reorder?.all(project) ?? [], ...(p.reorder?.write ? { write: p.reorder.write } : {}), notify: text => p.reorder?.notify(text), active: !!p.reorder, shown: shownIn });
+  const canDrag = !!p.reorder?.write;
+  /** After a move by the keyboard, the row keeps the focus once the daemon's broadcast redraws the tree. */
+  const keepFocus = (key: string) => requestAnimationFrame(() => requestAnimationFrame(() => {
+    [...(treeRef.current?.querySelectorAll<HTMLElement>('[data-tree-key]') ?? [])].find(x => x.dataset.treeKey === key)?.focus();
+  }));
+  /** Before or after `el`'s middle: where a drop by the pointer lands. */
+  const half = (e: DragEvent<HTMLElement>) => { const r = e.currentTarget.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
   const { closed, onClosed: setClosed } = p;
   const [shown, setShown] = useState<Set<string>>(() => new Set());
   const [kids, setKids] = useState<Set<string>>(() => new Set());
   const treeRef = useRef<HTMLDivElement>(null);
   const nav = useRef(new Map<string, Nav>());
+  // #32: the branch tags fitted after each render (a name, a mark or the tree changed) and whenever the explorer's width does, or its
+  // fonts arrive. Only the tree not grouped by branch has them.
+  useLayoutEffect(() => { if (!p.byBranch && treeRef.current) fitBranchTags(treeRef.current); });
+  useEffect(() => {
+    const el = treeRef.current;
+    if (p.byBranch || !el) return;
+    const fit = () => fitBranchTags(el);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    ro?.observe(el);
+    void document.fonts?.ready.then(fit);
+    return () => ro?.disconnect();
+  }, [p.byBranch]);
   const latest = useRef(p);
   latest.current = p;
   nav.current = new Map();
@@ -195,6 +265,17 @@ export function Tree(p: {
 
   const onTreeKey = (e: ReactKeyboardEvent) => {
     const el = e.target instanceof HTMLElement ? e.target.closest<HTMLElement>('[data-tree-key]') : null;
+    // Issue #16: Alt+↑ / Alt+↓ move the row one place within its group, Alt+Début puts it first.
+    if (el && e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home')) {
+      const t0 = nav.current.get(el.dataset.treeKey!)?.target;
+      const how = e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : 'top';
+      if (t0 && (t0.kind === 'session' || t0.kind === 'project')) {
+        e.preventDefault(); e.stopPropagation();
+        ro.controller.move(t0.kind, t0.id, how);
+        keepFocus(el.dataset.treeKey!);
+      }
+      return;
+    }
     if (!el || e.ctrlKey || e.metaKey || e.altKey) return;
     const n = nav.current.get(el.dataset.treeKey!);
     const items = [...(treeRef.current?.querySelectorAll<HTMLElement>('[data-tree-key]') ?? [])];
@@ -209,6 +290,7 @@ export function Tree(p: {
     else if (isMenuKey(e)) { if (n?.target) p.onMenu(n.target, menuPoint(e, el), el); }
     else if (k === 'e') { if (n?.session) p.onArchive([n.session.id]); }
     else if (e.key === 'Delete') { if (n?.session) p.onDelete([n.session.id]); }
+    else if (e.key === 'F2') { if (n?.session) p.onRename(n.session); }
     else if (k === 'j' || k === 'k') { /* the atelier walks with these; the tree keeps them */ }
     else if (k === 'h') p.onToggleHide();
     else if (k === 'd') p.onToggleDense();
@@ -246,20 +328,30 @@ export function Tree(p: {
     const row = (
       <div key={treeKey} role="treeitem" aria-level={depth + 1} aria-expanded={subs.length > 0 ? open : undefined}
         aria-selected={selected} aria-current={selected ? 'true' : undefined}
-        className={cls('st-row st-agent', selected && 'sel', !helper && p.picked.has(s.id) && 'picked', !helper && isEnded(s) && 'done', s.offline && 'off', !!helper && 'helper')}
+        className={cls('st-row st-agent', selected && 'sel', !helper && p.picked.has(s.id) && 'picked', !helper && isEnded(s) && 'done', s.offline && 'off', !!helper && 'helper',
+          !helper && canDrag && 'st-grab', ro.dragged?.kind === 'session' && ro.dragged.id === s.id && 'st-lifted',
+          !helper && ro.mark?.id === s.id && (ro.mark.after ? 'st-mark-after' : 'st-mark-before'))}
         style={{ '--d': depth } as CSSProperties}
+        {...(!helper && canDrag ? {
+          draggable: true,
+          onDragStart: (e: DragEvent<HTMLElement>) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; ro.setDragged({ kind: 'session', id: s.id }); },
+          onDragEnd: () => { ro.setDragged(null); ro.setMark(null); ro.setFileOver(null); },
+          onDragOver: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id)) { if (ro.mark) ro.setMark(null); return; } e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const after = half(e); if (ro.mark?.id !== s.id || ro.mark.after !== after) ro.setMark({ id: s.id, after }); },
+          onDrop: (e: DragEvent<HTMLElement>) => { if (!ro.accepts('session', s.id) || !ro.mark) return; e.preventDefault(); ro.drop(ro.mark); }
+        } : {})}
         onContextMenu={helper ? undefined : e => menuOn({ kind: 'session', id: s.id }, e)}>
+        {!helper && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
         {toggle ? <Chevron open={open} label={open ? t.side.foldKids(name) : t.side.unfoldKids(name)} onClick={toggle} /> : <span className="st-gap" />}
         <span className="st-bot"><ProviderLogo provider={providerOf(s.tool)} size={14} />{bg && <span className="st-bg-ring" aria-hidden="true" />}</span>
         {/* No « Name, » label: boot() and the title bar find the atelier seat with /^Name,/. */}
         <button type="button" className="st-main" data-tree-key={treeKey} tabIndex={tabOf(treeKey)} title={bgTip}
           onClick={e => { const mod = e.ctrlKey || e.metaKey; if (!helper && p.onOpenRight && mod) p.onOpenRight(s.id); else if (!helper && p.onPick && (p.onOpenRight ? e.shiftKey : mod)) p.onPick(s.id); else if (helper) p.onOpen(s.id, helper.id); else p.onOpen(s.id); }}>
-          <strong>{name}{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
+          <strong><span className="st-aname">{name}</span>{!helper && <RoutineClock of={p.clock?.(s)} />}{!helper && <AutoMark session={s} />}{!helper && <RigTag session={s} />}{!helper && !p.byBranch && <BranchTag session={s} />}{!helper && p.near !== undefined && <CtxSignal session={s} near={p.near} />}</strong>{task && <span>{task}</span>}
           {cmd && <span className="st-bgcmd"><Icon d={SHELL_ICONS.terminal} size={11} /><span>{cmd.label} · {t.side.background}{cmd.others > 0 ? ` +${cmd.others}` : ''}</span></span>}
         </button>
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
           {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
-        <span className={cls('st-time', waiting && timeClass)}>{s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
+        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.yours}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
         <span className="st-acts">
           <button type="button" tabIndex={-1} aria-label={t.side.terminalOne(name)} title="Terminal · T" onClick={() => p.onTerminal(s)}><Icon d={SHELL_ICONS.terminal} size={13} /></button>
           {!helper && <button type="button" tabIndex={-1} aria-label={t.side.archiveOne(s.name)} title={`${t.manage.menu.archive} · E`} onClick={() => p.onArchive([s.id])}><Icon d={SHELL_ICONS.archive} size={13} /></button>}
@@ -315,10 +407,24 @@ export function Tree(p: {
   };
 
   const rows: ReactNode[] = [];
+  // #16 review C2: « after » a project lands below its sessions, so its line is drawn there: before the next project's row, or at the
+  // end of the tree for the last one, never between a project's heading and its first session.
+  const projectMark = ro.dragged?.kind === 'project' ? ro.mark : null;
+  const projectIds = p.groups.map(g => g.id);
+  // « Sans projet » (null, always last) takes the line before it too: a project dropped after the last one lands above it.
+  const lineBefore = (gid: string | null): boolean => {
+    if (!projectMark) return false;
+    if (gid !== null && projectMark.id === gid && !projectMark.after) return true;
+    const i = projectIds.indexOf(gid);
+    return i > 0 && projectMark.after && projectIds[i - 1] === projectMark.id;
+  };
+  // The tree's end only when nothing follows the last project.
+  const lastProject = projectIds.at(-1) ?? null;
   for (const g of p.groups) {
     const label = g.id === null ? t.side.unassigned : g.name;
     const pkey = projectKey(g.id);
-    const sessions = g.branches.flatMap(b => b.sessions);
+    // Issue #16: in the person's order (not branch by branch, which only the « by branch » view shows).
+    const sessions = g.sessions;
     const has = sessions.length > 0;
     const open = has && !closed.has(pkey);
     const toggle = has ? () => flip(closed, setClosed, pkey) : undefined;
@@ -327,10 +433,51 @@ export function Tree(p: {
     const project = g.id ? p.projects?.projects.find(x => x.id === g.id) ?? null : null;
     const target: MenuTarget = g.id ? { kind: 'project', id: g.id } : { kind: 'unassigned' };
     nav.current.set(pkey, { toggle, open, target });
+    // Issue #16: a project row moves among the projects (drag, the keys); a session from another project dropped on it is filed
+    // there (« Ranger dans… », 1A); its own project's row takes no session.
+    const gid = g.id;
+    const fileDrop = gid ? p.filing.dropProps(gid) : null;
+    const ownSession = ro.dragged?.kind === 'session' && sessions.some(x => x.id === ro.dragged!.id);
+    // A session of the tree over another project (1A), or one dragged from the Atelier (the filing's own drag).
+    const draggedSession = ro.dragged?.kind === 'session' ? p.sessions.find(x => x.id === ro.dragged!.id) ?? null : null;
+    const filingHere = gid !== null && ((draggedSession && ro.fileOver === gid) || (p.filing.over === gid && !!p.filing.dragging));
+    const filedName = draggedSession?.name ?? p.filing.dragging?.name ?? '';
+    const dnd = gid ? {
+      ...(canDrag ? {
+        draggable: true,
+        onDragStart: (e: DragEvent<HTMLElement>) => { e.dataTransfer.setData('text/plain', gid); e.dataTransfer.effectAllowed = 'move'; ro.setDragged({ kind: 'project', id: gid }); },
+        onDragEnd: () => { ro.setDragged(null); ro.setMark(null); }
+      } : {}),
+      onDragOver: (e: DragEvent<HTMLElement>) => {
+        if (ro.dragged?.kind === 'project') {
+          if (!ro.accepts('project', gid)) return;
+          e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+          const after = half(e); if (ro.mark?.id !== gid || ro.mark.after !== after) ro.setMark({ id: gid, after });
+        } else if (draggedSession) {
+          if (ro.mark) ro.setMark(null);
+          if (ownSession) return;
+          e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+          if (ro.fileOver !== gid) ro.setFileOver(gid);
+        } else fileDrop!.onDragOver(e);
+      },
+      onDragLeave: (e: DragEvent<HTMLElement>) => {
+        if (draggedSession) { if (!e.currentTarget.contains(e.relatedTarget as Node | null) && ro.fileOver === gid) ro.setFileOver(null); }
+        else fileDrop!.onDragLeave(e);
+      },
+      onDrop: (e: DragEvent<HTMLElement>) => {
+        if (ro.dragged?.kind === 'project') { if (ro.accepts('project', gid) && ro.mark) { e.preventDefault(); ro.drop(ro.mark); } }
+        else if (draggedSession) { if (!ownSession) { e.preventDefault(); p.filing.file(draggedSession, gid); } ro.setDragged(null); ro.setFileOver(null); }
+        else fileDrop!.onDrop(e);
+      }
+    } : {};
     rows.push(
       <div key={pkey} role="treeitem" aria-level={1} aria-expanded={has ? open : undefined}
-        className={cls('st-row st-project', p.filter === (g.id ?? 'none') && !p.current && 'sel', g.id !== null && p.filing.over === g.id && 'drop-over')}
-        style={{ '--d': 0 } as CSSProperties} {...(g.id ? p.filing.dropProps(g.id) : {})} onContextMenu={e => menuOn(target, e)}>
+        className={cls('st-row st-project', p.filter === (g.id ?? 'none') && !p.current && 'sel', filingHere && 'drop-over',
+          gid !== null && canDrag && 'st-grab', ro.dragged?.kind === 'project' && ro.dragged.id === gid && 'st-lifted',
+          lineBefore(gid) && 'st-mark-before')}
+        style={{ '--d': 0 } as CSSProperties} {...dnd} onContextMenu={e => menuOn(target, e)}>
+        {gid !== null && canDrag && <span className="st-grip" aria-hidden="true" title={t.side.reorder.grip}>⋮⋮</span>}
+        {filingHere && <span className="st-drop-tip" role="status">{t.side.reorder.fileInto(filedName, label)}</span>}
         {toggle ? <Chevron open={open} label={open ? t.side.fold(label) : t.side.unfold(label)} onClick={toggle} /> : <span className="st-gap" />}
         <ProjectSwatch project={project} />
         <button type="button" className="st-main" data-tree-key={pkey} tabIndex={tabOf(pkey)} title={t.side.filterProject(label)} onClick={() => p.onHome(g.id ?? 'none')}>
@@ -451,7 +598,9 @@ export function Tree(p: {
   return (
     <>
       {header}
-      <div ref={treeRef} role="tree" aria-label={t.side.tree} className={cls('st-tree', p.dense && 'st-dense')} onKeyDown={onTreeKey}>{rows}</div>
+      <div ref={treeRef} role="tree" aria-label={t.side.tree} className={cls('st-tree', p.dense && 'st-dense')} onKeyDown={onTreeKey}>{rows}{projectMark?.after && projectMark.id === lastProject && <div className="st-mark-end" aria-hidden="true" />}</div>
+      {/* Issue #16: « Ida est maintenant 1re sur 3 dans feat/ide-shell. », for screen readers. */}
+      {p.reorder && <div className="visually-hidden st-said" aria-live="polite" aria-atomic="true">{ro.said}</div>}
     </>
   );
 }

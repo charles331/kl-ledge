@@ -62,7 +62,7 @@ const Menu = ({ children }: { children: ReactNode }) => <div className="flex fle
  * session, in one sheet. Modèle et effort, Plan de travail, Interrompre, Écrire au groupe, then Fermer in red. A line that is
  * off keeps its place and says why. « Redémarrer le siège » is not in M2.
  */
-export function SessionMore({ store, session, closable, closing, onClose, onModel, onCloseSession, display, lead, who }: {
+export function SessionMore({ store, session, closable, closing, onClose, onModel, onCloseSession, display, lead, who, order }: {
   store: MobileStore; session: PhoneSession;
   /** The PC can close this session from a phone (`daemon.sessionClose`, launched by Ledge). */ closable: boolean;
   /** A close is under way: « Fermer » says so and does nothing. */ closing: boolean;
@@ -73,6 +73,8 @@ export function SessionMore({ store, session, closable, closing, onClose, onMode
   lead?: readonly { icon: IconName; label: string; onClick: () => void }[] | undefined;
   /** What the head says after the name, in place of the project and the branch (« siège dev.front · ledge-dev », §8). */
   who?: string | undefined;
+  /** Issue #16 (card 6): Monter, Descendre in the session's project; no `onClick`, greyed (it would not move). */
+  order?: readonly { icon: IconName; label: string; onClick?: (() => void) | undefined }[] | undefined;
 }) {
   const state = useMobile(store);
   const now = useNow();
@@ -125,6 +127,7 @@ export function SessionMore({ store, session, closable, closing, onClose, onMode
       ) : (
         <>
           {lead && lead.length > 0 && <Menu>{lead.map(l => <Item key={l.label} icon={l.icon} label={l.label} onClick={l.onClick} />)}</Menu>}
+          {order && order.length > 0 && <Menu>{order.map(l => <Item key={l.label} icon={l.icon} label={l.label} onClick={l.onClick} />)}</Menu>}
           <Menu>
             <Item icon="cpu" label={copy.model.title} why={off} right={model || null} onClick={off || !fresh ? undefined : onModel} />
             {display && <Item icon="terminal" label={copy.terminal.live2.view} right={display.value} onClick={display.onToggle} />}
@@ -144,6 +147,22 @@ export function SessionMore({ store, session, closable, closing, onClose, onMode
           <p className="text-meta text-muted">{S.sheet.interruptNote}</p>
         </>
       )}
+    </Sheet>
+  );
+}
+
+/** Issue #16 (card 6, design-ux effaa3f5): a long press on a project's heading without moving: its name, then Monter and
+ *  Descendre, greyed when they would not move; nothing else (the project's settings stay in Réglages › Projets). */
+export function ProjectOrderSheet({ name, up, down, onClose }: { name: string; up?: (() => void) | undefined; down?: (() => void) | undefined; onClose: () => void }) {
+  const titleId = useId();
+  const R = copy.sessions.reorder;
+  return (
+    <Sheet labelledBy={titleId} onClose={onClose}>
+      <h2 id={titleId} className="flex min-w-0 items-center gap-2"><b className="truncate font-semibold">{name}</b></h2>
+      <Menu>
+        <Item icon="arrowUp" label={R.up} onClick={up ? () => { up(); onClose(); } : undefined} />
+        <Item icon="arrowDown" label={R.down} onClick={down ? () => { down(); onClose(); } : undefined} />
+      </Menu>
     </Sheet>
   );
 }

@@ -39,11 +39,36 @@ const MINE_LISTS: ReadonlyArray<{ role: PrRole; field: string }> = [
 ];
 /** The most merge requests each list gives (GitLab's page maximum); past it, the oldest are left out and the log says so. */
 export const MINE_PER_LIST = 100;
-const MINE_NODE = 'iid title state draft webUrl sourceBranch targetBranch diffHeadSha updatedAt detailedMergeStatus approved approvalsLeft approvalsRequired approvedBy { nodes { username } } reviewers { nodes { username } } headPipeline { status } resolvableDiscussionsCount resolvedDiscussionsCount project { fullPath } sourceProject { fullPath }';
-export const mineQuery = (field: string): string => `query($since: Time) { currentUser { ${[
-  `o: ${field}(state: opened, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${MINE_NODE} } }`,
-  `c: ${field}(updatedAfter: $since, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${MINE_NODE} } }`
-].join(' ')} } }`;
+const MINE_FIELDS: readonly string[] = [
+  'iid', 'title', 'state', 'draft', 'webUrl', 'sourceBranch', 'targetBranch', 'diffHeadSha', 'updatedAt', 'detailedMergeStatus', 'approved', 'approvalsLeft',
+  'approvalsRequired', 'approvedBy { nodes { username } }', 'reviewers { nodes { username } }', 'headPipeline { status }', 'resolvableDiscussionsCount',
+  'resolvedDiscussionsCount', 'project { fullPath }', 'sourceProject { fullPath }'
+];
+/**
+ * The fields an older GitLab may not have (#11: `resolvableDiscussionsCount` and `resolvedDiscussionsCount` on a self-hosted one): the
+ * query goes again without them, the request read with what is left (no open threads counted, no approvals asked). Any other missing
+ * field is an error.
+ */
+export const MINE_OPTIONAL: ReadonlySet<string> = new Set(['detailedMergeStatus', 'approved', 'approvalsLeft', 'approvalsRequired', 'resolvableDiscussionsCount', 'resolvedDiscussionsCount']);
+const fieldName = (f: string): string => f.split(/[\s{]/, 1)[0]!;
+export const mineQuery = (field: string, without: ReadonlySet<string> = new Set()): string => {
+  const node = MINE_FIELDS.filter(f => !without.has(fieldName(f))).join(' ');
+  return `query($since: Time) { currentUser { ${[
+    `o: ${field}(state: opened, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${node} } }`,
+    `c: ${field}(updatedAfter: $since, first: ${MINE_PER_LIST}, sort: UPDATED_DESC) { pageInfo { hasNextPage } nodes { ${node} } }`
+  ].join(' ')} } }`;
+};
+/** The optional fields a GraphQL answer says this GitLab does not have, or null when an error is anything else. */
+export function missingOptional(errors: ReadonlyArray<{ message?: string }>): string[] | null {
+  const out: string[] = [];
+  for (const e of errors) {
+    // GitLab may add a suggestion: « (Did you mean `…`?) ».
+    const m = /^Field '(\w+)' doesn't exist on type 'MergeRequest'(?:\s*\(Did you mean .*\))?\.?$/.exec((e.message ?? '').trim());
+    if (!m || !MINE_OPTIONAL.has(m[1]!)) return null;
+    out.push(m[1]!);
+  }
+  return out.length ? out : null;
+}
 interface GlMineNode {
   iid: string; title: string; state: string; draft?: boolean; webUrl: string; sourceBranch: string; targetBranch: string; diffHeadSha?: string | null; updatedAt: string;
   detailedMergeStatus?: string | null; approved?: boolean | null; approvalsLeft?: number | null; approvalsRequired?: number | null;
@@ -122,6 +147,8 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
     return out;
   }
   const defaults = new Map<string, Promise<string | null>>();
+  /** Per host, the optional fields of the own merge requests' query its GitLab does not have (#11). */
+  const mineWithout = new Map<string, Set<string>>();
 
   const projectPaths = new Map<number, Promise<string>>();
   /** The path of the project a merge request comes from: the listed one's, or a fork's (read once). */
@@ -170,10 +197,28 @@ export function gitlabReader(run: ForgeRun): ForgeReader {
   return {
     async mine(host, since) {
       const found: Array<{ pr: ReadPr; repo: ForgeRepo; role: PrRole }> = [];
+      type MineAnswer = { data?: { currentUser?: Record<string, { pageInfo?: { hasNextPage: boolean }; nodes: GlMineNode[] } | null> | null } | null; errors?: Array<{ message?: string }> };
+      const ask = async (field: string): Promise<MineAnswer> => {
+        for (;;) {
+          const without = mineWithout.get(host) ?? new Set<string>();
+          const r = await run('glab', ['api', '--hostname', host, '--method', 'POST', '-H', 'Content-Type: application/json', 'graphql', '--input', '-'], { input: JSON.stringify({ query: mineQuery(field, without), variables: { since } }) });
+          // An older GitLab without some optional fields: asked again without them, remembered for this host (#11). glab exits 1 on
+          // GraphQL errors, the answer still on stdout (review of 9caacc2a): read there before the run counts as failed.
+          let errs: Array<{ message?: string }> | undefined;
+          try { errs = (JSON.parse(r.stdout) as MineAnswer).errors; } catch { errs = undefined; }
+          const missing = errs?.length ? missingOptional(errs) : null;
+          if (missing && missing.some(f => !without.has(f))) {
+            const next = new Set([...without, ...missing]);
+            mineWithout.set(host, next);
+            log(`forge: ${host}: GitLab has no ${missing.join(', ')}; own merge requests read without`);
+            continue;
+          }
+          return okJson<MineAnswer>(r, 'glab');
+        }
+      };
       // Every role read, or none: one failed query fails the host's read (its last list is kept), never a list missing a role.
       await Promise.all(MINE_LISTS.map(async l => {
-        const r = await run('glab', ['api', '--hostname', host, '--method', 'POST', '-H', 'Content-Type: application/json', 'graphql', '--input', '-'], { input: JSON.stringify({ query: mineQuery(l.field), variables: { since } }) });
-        const j = okJson<{ data?: { currentUser?: Record<string, { pageInfo?: { hasNextPage: boolean }; nodes: GlMineNode[] } | null> | null } | null; errors?: Array<{ message?: string }> }>(r, 'glab');
+        const j = await ask(l.field);
         if (j.errors?.length) throw new ForgeError('error', j.errors.map(e => e.message ?? '').join('; ').slice(0, 400) || 'GitLab answered with errors');
         const user = j.data?.currentUser;
         if (!user) throw new ForgeError('unauthenticated', `glab is not signed in to ${host}`);

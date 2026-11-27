@@ -72,6 +72,9 @@ export interface SessionPageProps {
   api: MutableRefObject<PageApi | null>;
   /** OMP's « Ouvrir un shell », from the Terminal view: a shell in the right panel. */
   onOpenShell(): void;
+  /** F2 on the page of a session (not a subagent's): the rename dialog, as its menu's « Renommer… F2 » (#17). Never from a field,
+   *  the composer or the terminal: useKeys keeps them out of the screen's keys, and the terminal gets F2 as it is. */
+  onRename?(s: Session): void;
   /** The side pane's share of the page (desktop.session, written by the Workspace's owner). */
   split: number; onSplit(v: number): void;
   /** The documents beside the thread are read through it. */
@@ -457,6 +460,7 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
     // In an IDE tab on Terminal, the reply is not there: Y / N still answer a permission the page's own agent waits on.
     if (p.ide && view === 'terminal' && termDecides(e)) return true;
     if (!p.ide && (e.key === 'o' || e.key === 'O')) { p.onPanel(); return true; }
+    if (e.key === 'F2' && helper === null && p.onRename) { p.onRename(session); return true; }
     const k = e.key.toLowerCase();
     if (k !== 'j' && k !== 'k') return false;
     // The panel's Modifications first, else the side pane's change beside the thread.
