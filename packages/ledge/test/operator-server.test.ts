@@ -71,7 +71,7 @@ beforeEach(() => { process.env.LEDGE_HOME = mkdtempSync(join(tmpdir(), 'ledge-op
 afterEach(async () => { for (const c of close.splice(0).reverse()) await c(); });
 
 describe('startServer({ operator: true })', () => {
-  it('a request becomes a point in every thread, its notice reaches the notch and is replayed after a later snapshot, and each phone gets one push', async () => {
+  it('a request becomes a point in every thread, never a notch notice (#27), and each phone gets one push; its row is answered from the PC', async () => {
     const store = new Store();
     const { mobile, pushes } = fakeMobile();
     const tmux = fakeTmux({ 'ledge-s1': [PROMPT, PROMPT, 'Running…'] });
@@ -82,29 +82,31 @@ describe('startServer({ operator: true })', () => {
     store.upsert(session);
     store.apply('s1', { name: 'PermissionRequest', at: T0, source: 'hook', tool: 'Bash', text: 'ls' });
     const live = store.get('s1')!.pending!;
-    await until(() => a.got.some(m => m.type === 'operator.state' && m.notices.some(n => n.kind === 'point')), 15_000);
-    const notice = a.got.filter(m => m.type === 'operator.state').at(-1)!;
+    const item = `session.request:s1#${pendingKey(live)}`;
+    /** The newest point turn the PC was sent (`chat.history`), as its chat shows it. */
+    const pointTurn = () => a.got.filter((m): m is Extract<ServerMessage, { type: 'chat.history' }> => m.type === 'chat.history').flatMap(m => m.turns).filter(t => t.point).at(-1);
+    await until(() => pointTurn()?.point?.items.some(i => i.id === item && !i.settled) === true, 15_000);
     // One push per paired phone, the point's: the request's own push goes first, with its own topic.
     await until(() => pushes.some(p => p.topic === 'point'));
     expect(pushes.filter(p => p.topic === 'point')).toHaveLength(1);
-    // A front that connects later gets the notices right after its snapshot.
+    // The point left the notch: no notice ever carries it, and a front that connects later gets the notices right after its snapshot.
+    expect(a.got.some(m => m.type === 'operator.state' && m.notices.some(n => n.kind === 'point'))).toBe(false);
     const b = await open(srv.port); close.push(async () => { b.ws.close(); });
     await until(() => b.got.some(m => m.type === 'operator.state'));
     const types = b.got.map(m => m.type);
     expect(types.indexOf('operator.state')).toBeGreaterThan(types.indexOf('snapshot'));
-    expect(b.got.find(m => m.type === 'operator.state')).toEqual(notice);
+    expect(b.got.find(m => m.type === 'operator.state')).toEqual({ type: 'operator.state', notices: [] });
     expect(existsSync(join(paths().dir, 'ledge.sqlite'))).toBe(true);
 
     // A row answered from the PC goes through the point actor: a row it does not know is refused by it, by its code.
-    const qid = notice.type === 'operator.state' ? notice.notices.find(n => n.kind === 'point')!.qid! : '';
+    const qid = pointTurn()!.qid;
     a.ws.send(JSON.stringify({ type: 'point.act', qid, item: 'nope', answer: { id: 'deny' } }));
     await until(() => a.got.some(m => m.type === 'error' && m.request === 'point.act'));
     expect(a.got.find(m => m.type === 'error' && m.request === 'point.act')).toMatchObject({ code: 'unknown_item' });
-    // Its real row: the request is denied through the session's own decide path, and the notch's notice goes.
-    a.ws.send(JSON.stringify({ type: 'point.act', qid, item: `session.request:s1#${pendingKey(live)}`, answer: { id: 'deny' } }));
+    // Its real row: the request is denied through the session's own decide path, and the row is settled in the chat.
+    a.ws.send(JSON.stringify({ type: 'point.act', qid, item, answer: { id: 'deny' } }));
     await until(() => tmux.sent.length > 0, 10_000);
-    const last = () => a.got.filter((m): m is Extract<ServerMessage, { type: 'operator.state' }> => m.type === 'operator.state').at(-1)!;
-    await until(() => last().notices.length === 0, 10_000);
+    await until(() => pointTurn()?.point?.items.find(i => i.id === item)?.settled !== undefined, 10_000);
   }, 30_000);
 
   it('a routine\'s firing reaches « le point », and « Relancer » on a failed one runs the routine again (routines spec §3.5)', async () => {

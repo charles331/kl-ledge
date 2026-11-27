@@ -1,0 +1,10 @@
+/* The mockup's own bar above the window, and the window's place under it (as docs/mockups/ide-atelier/atelier.css draws them). */
+#mk-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 14px; background: #0b0b0b; color: #eee; border-bottom: 1px solid #ffffff22; font: 12.5px/18px 'Geist', system-ui, sans-serif; white-space: nowrap; overflow: hidden; }
+#mk-bar b { font-weight: 600; font-size: 13px; }
+#mk-bar small { opacity: .55; overflow: hidden; text-overflow: ellipsis; }
+#mk-bar .mk-sp { flex: 1; }
+#mk-bar .mk-seg { display: inline-flex; border: 1px solid #ffffff2e; border-radius: 7px; overflow: hidden; }
+#mk-bar .mk-seg button { padding: 4px 11px; color: #eee; opacity: .6; }
+#mk-bar .mk-seg button + button { border-left: 1px solid #ffffff2e; }
+#mk-bar .mk-seg button.on { opacity: 1; background: #ffffff24; }
+.ide { height: calc(100vh - 44px) !important; margin-top: 44px; }

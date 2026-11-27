@@ -10,6 +10,8 @@
     "./*": "./src/*.ts",
     "./reply/parse": "./src/reply/parse.ts",
     "./bots/poseFor": "./src/bots/poseFor.ts",
+    "./logos/ProviderLogo": "./src/logos/ProviderLogo.tsx",
+    "./logos/LedgeMark": "./src/logos/LedgeMark.tsx",
     "./bots/Bot": "./src/bots/Bot.tsx",
     "./bots/LogoBot": "./src/bots/LogoBot.tsx",
     "./bots/ResidentMascot": "./src/bots/ResidentMascot.tsx",

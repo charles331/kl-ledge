@@ -1,6 +1,6 @@
 /**
- * The island's two settings (spec 2026-10-12 §5): where its axis sits on the top edge, and whether it shrinks to a
- * strip under a maximised window. Both apply live; storage failures fall back to the defaults.
+ * Where the island's axis sits on the top edge (spec 2026-10-12 §5), and the last settings Ledge Desktop sent. They apply
+ * live; storage failures fall back to the defaults.
  */
 import { DEFAULT_ISLAND_PREFS, IslandPrefsSchema, type IslandPrefs } from '@ledge/protocol';
 import type { IslandPosition } from './surface/geometry';
@@ -10,7 +10,6 @@ export type { IslandPosition } from './surface/geometry';
 
 export const ISLAND_POSITIONS: readonly IslandPosition[] = ['center', 'left', 'right'];
 const POSITION_KEY = 'ledge.islandPosition';
-const DISCREET_KEY = 'ledge.discreet';
 const PREFS_KEY = 'ledge.island';
 
 export function loadIslandPosition(): IslandPosition {
@@ -22,15 +21,6 @@ export function loadIslandPosition(): IslandPosition {
 
 export function saveIslandPosition(p: IslandPosition): void {
   try { localStorage.setItem(POSITION_KEY, p); } catch { /* storage unavailable: the in-memory value still applies */ }
-}
-
-/** On unless explicitly switched off. */
-export function loadDiscreet(): boolean {
-  try { return localStorage.getItem(DISCREET_KEY) !== '0'; } catch { return true; }
-}
-
-export function saveDiscreet(on: boolean): void {
-  try { localStorage.setItem(DISCREET_KEY, on ? '1' : '0'); } catch { /* storage unavailable: the in-memory value still applies */ }
 }
 
 /** The last settings the local daemon sent (Ledge Desktop › Settings › Island): an offline start applies them. Null when none was kept. */
@@ -45,5 +35,5 @@ export function saveIslandPrefs(p: IslandPrefs): void {
 /** The island's own values as one set of settings, for a daemon that holds none yet: what the island stored before Desktop
  *  held them (the chosen monitor by its id), the rest as last kept or the defaults. */
 export function localIslandPrefs(): IslandPrefs {
-  return { ...(loadIslandPrefs() ?? DEFAULT_ISLAND_PREFS), position: loadIslandPosition(), discreet: loadDiscreet(), screen: loadMonitor() ?? 'primary', islandScale: loadScale('handle'), panelScale: loadScale('panel') };
+  return { ...(loadIslandPrefs() ?? DEFAULT_ISLAND_PREFS), position: loadIslandPosition(), screen: loadMonitor() ?? 'primary', islandScale: loadScale('handle'), panelScale: loadScale('panel') };
 }

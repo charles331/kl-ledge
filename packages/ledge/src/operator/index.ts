@@ -72,11 +72,11 @@ export function createOperator(deps: OperatorDeps): Operator {
   const now = deps.now ?? (() => new Date().toISOString());
   const runLead = deps.runLead ?? defaultRunLead;
   const emitOf = (id: DeviceId) => threads.emitterOf(id) ?? (() => {});
-  /** The notch's notices: the desktop thread's newest open point, the urgent rig asks and the open decisions, as the daemon sees them now. */
+  /** The notch's notices: the urgent rig asks (with the desktop thread's point that holds each) and the open decisions, as the daemon sees them now. */
   const notices = (): OperatorNotice[] => {
     const desktop = threads.all().find(([id]) => id === 'desktop')?.[1];
     const live = deps.live();
-    return noticesOf(desktop?.points() ?? [], live.asks, now(), live.tasks);
+    return noticesOf(desktop?.points() ?? [], live.asks, live.tasks);
   };
   const tellNotices = () => { try { deps.onNotices(notices()); } catch (e) { log(`operator notices: ${(e as Error).message}`); } };
   /** Where the answers under way through Ledge's own handlers come from, by `${subjectKind}:${subjectId}`. */

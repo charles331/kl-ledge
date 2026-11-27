@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import type { ClientMessage, DaemonInfo, IslandPrefs, Recent, Session } from '@ledge/protocol';
+import type { ClientMessage, DaemonInfo, IslandPrefs, OperatorNotice, Recent, Routine, Session, Task } from '@ledge/protocol';
 
 export const T0 = new Date(Date.now() - 5 * 60_000).toISOString();
 export function session(id: string, extra: Partial<Session> = {}): Session {
@@ -7,12 +7,16 @@ export function session(id: string, extra: Partial<Session> = {}): Session {
 }
 
 /** Simulates the ledge daemon inside the page: answers the overlay's WebSocket with a snapshot and lets the test push updates. */
-export async function fakeDaemon(page: Page, initial: Session[], { island: islandPrefs, ...extras }: { recents?: Recent[]; launcher?: string[]; daemon?: DaemonInfo; /** The island's settings it holds (null: none yet); absent, a daemon that never speaks of them. */ island?: IslandPrefs | null } = {}) {
+export async function fakeDaemon(page: Page, initial: Session[], { island: islandPrefs, tasks = [], routines = [], ...extras }: { recents?: Recent[]; launcher?: string[]; daemon?: DaemonInfo; /** The island's settings it holds (null: none yet); absent, a daemon that never speaks of them. */ island?: IslandPrefs | null;
+  /** The tasks and routines it lists when asked (`task.cmd` list, `routine.list`): a routine's item of « À toi » is a task's. */ tasks?: Task[]; routines?: Routine[] } = {}) {
   const sessions = new Map(initial.map(s => [s.id, s]));
   let island = islandPrefs;
   const received: ClientMessage[] = [];
   let socket: WebSocketRoute | null = null;
+  let down = false;
   await page.routeWebSocket(/127\.0\.0\.1:47831/, ws => {
+    // Dropped (`drop`): every new connection is refused, as an unreachable daemon's would be.
+    if (down) { ws.close(); return; }
     socket = ws;
     ws.send(JSON.stringify({ type: 'snapshot', sessions: [...sessions.values()], ...extras }));
     if (island !== undefined) ws.send(JSON.stringify({ type: 'island', prefs: island }));
@@ -21,6 +25,8 @@ export async function fakeDaemon(page: Page, initial: Session[], { island: islan
       received.push(msg);
       // Like the daemon: keep the island's settings and broadcast them.
       if (msg.type === 'island.set') { island = msg.prefs; ws.send(JSON.stringify({ type: 'island', prefs: island })); }
+      if (msg.type === 'task.cmd' && msg.op === 'list') ws.send(JSON.stringify({ type: 'task.result', rid: msg.rid, tasks }));
+      if (msg.type === 'routine.list') ws.send(JSON.stringify({ type: 'routine.listed', rid: msg.rid, routines }));
     });
   });
   const send = (m: unknown) => socket?.send(JSON.stringify(m));
@@ -40,6 +46,10 @@ export async function fakeDaemon(page: Page, initial: Session[], { island: islan
     refuse(message: string) { send({ type: 'error', message }); },
     /** The island's settings changed in Desktop: kept and broadcast. */
     island(p: IslandPrefs) { island = p; send({ type: 'island', prefs: p }); },
+    /** The daemon goes away and refuses new connections: its machine is offline. */
+    drop() { down = true; socket?.close(); },
+    /** Ledge's own notices, as its operator lists them. */
+    notices(list: OperatorNotice[]) { send({ type: 'operator.state', notices: list }); },
     /** Any other server message (chat.done, chat.history, …). */
     emit(m: unknown) { send(m); }
   };
