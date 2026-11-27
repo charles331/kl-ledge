@@ -41,7 +41,7 @@ import { readProjects, writeProjects } from './projects.js';
 import { readContextPrefs, readIsland, writeContextPrefs, writeIsland } from './island.js';
 import { readDocument } from './documents.js';
 import { createModels, type Models } from './models.js';
-import { claudeSlashRefusal, createCommands, type Commands } from './commands.js';
+import { agySlashRefusal, claudeSlashRefusal, createCommands, type Commands } from './commands.js';
 import { createOpenRig, execRun, type OpenRig } from './openrig.js';
 import { createHumanChannel, type HumanChannelService } from './openrigHuman.js';
 import { createGoals, type GoalsService } from './openrigGoals.js';
@@ -974,7 +974,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (s.pending && s.pending.kind !== 'question') return new Refusal(`a ${s.pending.kind} prompt takes accept or deny, not a reply`, 'not_offered');
     if (text.trim() === '') return new Refusal('empty reply', 'invalid');
     // A slash command that opens a terminal panel, or ends the session, never goes: nothing could close the panel from here.
-    const slash = !s.pending && s.tool === 'claude' ? claudeSlashRefusal(text) : null;
+    const slash = s.pending ? null : s.tool === 'claude' ? claudeSlashRefusal(text) : s.tool === 'agy' ? agySlashRefusal(text) : null;
     if (slash) return new Refusal(slash.message, 'not_offered');
     // A question dialog is a select: typed text then Enter would silently pick the highlighted option, unless the
     // adapter knows the dialog's own free-text field.
