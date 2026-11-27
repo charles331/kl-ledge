@@ -51,6 +51,8 @@
 .set-seg{display:inline-flex;padding:2px;gap:2px;border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--input);max-width:100%}
 .set-seg label{position:relative;flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 12px;border-radius:calc(var(--radius-md) - 2px);font-size:12px;font-weight:500;white-space:nowrap;color:var(--muted-foreground);cursor:pointer;transition:background-color .15s,color .15s}
 .set-seg label.wide{flex-grow:1.5}
+/* The default agent's provider logo, as the launch dialog's agent cards wear it: a box the size of its mark, centred on the label. */
+.set-tool-logo,.set-tool-logo .logo{display:inline-flex}
 .set-seg label:hover{color:var(--foreground)}
 .set-seg label.on{background:var(--background);color:var(--foreground);box-shadow:0 1px 2px rgb(0 0 0/.18)}
 .set-seg label:has(input:focus-visible){outline:2px solid var(--ring);outline-offset:1px}
@@ -92,6 +94,8 @@ input[type=color]{width:34px;height:32px;padding:2px;border-radius:var(--radius-
 .theme-swatch{width:52px;height:44px;border-radius:var(--radius-md);display:grid;place-items:center;border:1px solid var(--border)}
 .theme-pick[data-preview=light] .theme-swatch{background:#f6f6f5}
 .theme-pick[data-preview=dark] .theme-swatch{background:#1a1a1a}
+/* The sample on each theme is Claude's provider logo, boxed to its mark so the grid centres it exactly. */
+.theme-swatch .logo{display:inline-flex}
 .theme-pick>span:last-child{display:flex;flex-direction:column}
 .theme-pick strong{font-size:13px;font-weight:500}
 .theme-pick small{font-size:11px;color:var(--muted-foreground)}
