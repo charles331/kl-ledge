@@ -5,7 +5,7 @@ import { ideReady, openSession, pane } from './ide';
 
 // Visual review of « Quand l'agent travaille : le dessin suit l'action » (docs/mockups/ledge-operator-rigs-panel.html, validated by
 // the owner: « Selon ce qu'il fait »): the thread's waiting line after a Read, an Edit, a Grep and a Bash, then while the agent reads
-// its message (the ring stays), dark and light. Motion is reduced so each drawing is captured at rest.
+// its message (the phrase alone), dark and light. Motion is reduced so each drawing is captured at rest.
 // LEDGE_VISUAL=1 pnpm --filter desktop exec playwright test e2e/waitline-visual.spec.ts
 test.skip(!process.env.LEDGE_VISUAL, 'set LEDGE_VISUAL=1 to capture the waiting line');
 test.use({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 3, reducedMotion: 'reduce' });

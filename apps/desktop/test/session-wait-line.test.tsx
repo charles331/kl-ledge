@@ -36,12 +36,13 @@ describe('the waiting line', () => {
     expect(within(line).getByText('npm test').tagName).toBe('CODE');
   });
 
-  it('draws what the agent does: the ring while it reads its message, then the drawing of its last action\'s verb', async () => {
+  it('draws what the agent does: the phrase alone while it reads its message, then the drawing of its last action\'s verb', async () => {
     const { d } = await openNova();
     const line = await thread().findByRole('status', { name: 'The agent is working' });
-    // Reading the prompt: no action behind the wait, the ring stays (the owner has not chosen yet).
-    expect(line.querySelector('.spin')).not.toBeNull();
+    // Reading the prompt: no action behind the wait, the phrase alone (owner's choice A), neither ring nor drawing.
+    expect(line.querySelector('.spin')).toBeNull();
     expect(line.querySelector('[data-drawing]')).toBeNull();
+    expect(line.querySelector('.wait-phrase')?.textContent).toBeTruthy();
     const done = (id: string, tool: string, label: string): ThreadItem => ({ kind: 'tool', id, at: ago(1), turn: 1, tool, label, status: 'success', durationMs: 200, files: [] });
     for (const [id, tool, drawing] of [['t1', 'Read', 'read'], ['t2', 'Edit', 'write'], ['t3', 'Grep', 'search'], ['t4', 'Bash', 'run']] as const) {
       d.threadItem('nova', done(id, tool, `${tool.toLowerCase()} x`));

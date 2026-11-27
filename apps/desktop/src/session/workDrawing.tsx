@@ -7,8 +7,8 @@ import type { WaitCause } from './waiting';
 export type WorkDrawingKind = 'read' | 'write' | 'search' | 'run';
 
 /** The drawing for the waiting line's cause: its last action's verb (it reads a page, writes lines, searches with a lens, runs a
- *  command). None while no action is behind the wait (the agent thinks, was just asked, hears from a helper…) nor for a failed one:
- *  the ring stays there until the owner says what to show (the brief). */
+ *  command). None while no action is behind the wait (the agent thinks, was just asked, hears from a helper…: WaitLine shows the
+ *  phrase alone) nor for a failed one (the ring stays). */
 export function drawingOf(c: WaitCause): WorkDrawingKind | null {
   if (c.kind !== 'tool' || c.failed) return null;
   switch (c.verb) {
