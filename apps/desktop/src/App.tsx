@@ -363,9 +363,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   useEffect(() => onOpenTarget(raw => asPreview(() => {
     const target = parseTarget(raw);
     if (target?.kind === 'terminal') showTerminal(target.id);
-    else if (target?.kind === 'ask') {
+    else if (target?.kind === 'ask' || target?.kind === 'requests') {
       // A rig's question from the island (#40 D1, card 4): the Rigs view, its « Demandes » unfolded, that card ringed.
-      setRequestFocus({ id: target.id, n: ++askSeq.current });
+      if (target.kind === 'ask') setRequestFocus({ id: target.id, n: ++askSeq.current });
       setLayout(l => (l.sideOpen && l.sideView === 'rigs' ? l : layoutFor(l, { type: 'view', view: 'rigs' }, window.innerWidth)));
     }
     else if (target?.kind === 'atoi') {
@@ -1057,7 +1057,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
               helpers={nav.helpers} onHelpers={() => dispatch({ type: 'helpers' })} paused={nav.paused} onPaused={() => dispatch({ type: 'paused' })}
               {...(windowOf(ws, keyOf(ATELIER_TAB)) === MAIN ? { onDetach: detachAtelier } : { onAttach: attachAtelier })} />
             <Atelier nav={tnav} dispatch={dispatch} sessions={sessions} projects={projects} order={order} projectIdOf={projectIdOf} filing={filing} actions={actions} menu={sessionMenu}
-              tasks={tasksApi.tasks} broadcast={canBroadcast(machines)} />
+              tasks={tasksApi.tasks} broadcast={canBroadcast(machines)} requests={openRequests(asks)}
+              onRequests={() => onLayout({ type: 'showView', view: 'rigs' })} />
           </div>
         );
       }

@@ -11,8 +11,12 @@ export type LedgeTarget =
   | { kind: 'machines' }
   /** The operator's point: Desktop's chat panel, where the point is a turn. */
   | { kind: 'point'; qid: string }
-  /** A rig's question in « À toi », by its OpenRig queue item. */
+  /** A rig's question, by its OpenRig queue item: Desktop's Rigs view, that card ringed (#40 D1). */
   | { kind: 'ask'; id: string }
+  /** OpenRig's requests, none in particular: Desktop's Rigs view (#40 D1). */
+  | { kind: 'requests' }
+  /** A decision put to the user, by its task: Desktop's Tasks view on it (#40 D3). */
+  | { kind: 'task'; id: string }
   /** « À toi » itself: a decision put to the user, listed there. */
   | { kind: 'atoi' }
   /** A routine's page (routines mockup, card 15: « Voir »), by the machine that holds it and its id. */

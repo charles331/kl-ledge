@@ -106,9 +106,11 @@ export function useLedgeNotices(o: {
   function open(item: Item): void {
     if (item.kind === 'offline') { openInLedge({ kind: 'machines' }); return; }
     const n = find(item.id); if (!n) return;
-    if (n.notice.kind === 'rig.ask') { openInLedge(n.notice.qitem ? { kind: 'ask', id: n.notice.qitem } : { kind: 'atoi' }); return; }
+    // #40: a rig's question opens Desktop's Rigs view on it, a decision its Tasks view on that task.
+    if (n.notice.kind === 'rig.ask') { openInLedge(n.notice.qitem ? { kind: 'ask', id: n.notice.qitem } : { kind: 'requests' }); return; }
     const { routine } = routineOf(n);
-    openInLedge(routine ? { kind: 'routine', machine: routine.machine, id: routine.first.id } : { kind: 'atoi' });
+    const task = n.notice.kind === 'decision' && n.notice.id.startsWith('decision:') ? n.notice.id.slice('decision:'.length) : null;
+    openInLedge(routine ? { kind: 'routine', machine: routine.machine, id: routine.first.id } : task ? { kind: 'task', id: task } : { kind: 'atoi' });
   }
 
   const sendOn = (machine: string, m: ClientMessage): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };

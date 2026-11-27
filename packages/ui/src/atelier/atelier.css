@@ -269,7 +269,7 @@
 /* Ledge in the top-left corner of the floor, sitting on its own ledge (the logo's): no desk, a click opens the chat. */
 .ledge-corner{position:absolute;top:14px;left:18px;z-index:5}
 .ledge-desk{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto auto 1fr;column-gap:2px;align-items:start;justify-items:start;padding:2px 12px 2px 2px!important;border-radius:var(--radius-xl);text-align:left;transition:background .15s,box-shadow .15s}
-.ledge-desk:hover{background:color-mix(in srgb,var(--sidebar-accent) 70%,transparent)}
+.ledge-desk:is(button):hover{background:color-mix(in srgb,var(--sidebar-accent) 70%,transparent)}
 .ledge-desk.active{box-shadow:0 0 0 2px color-mix(in srgb,var(--sidebar-primary) 45%,transparent)}
 .ledge-desk:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .ledge-seat{grid-column:1;grid-row:1/5;display:block}

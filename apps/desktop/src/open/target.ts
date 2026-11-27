@@ -6,8 +6,12 @@ export type LedgeTarget =
   | { kind: 'settings' } | { kind: 'launch' } | { kind: 'update' } | { kind: 'machines' }
   /** The operator's point (« Voir le point »): the chat panel, where the point is a turn. */
   | { kind: 'point'; qid: string }
-  /** A rig's question in « À toi », by its OpenRig queue item; the shell focuses it there. */
+  /** A rig's question, by its OpenRig queue item: the Rigs view's « Demandes », that card ringed (#40 D1). */
   | { kind: 'ask'; id: string }
+  /** OpenRig's requests, none in particular: the Rigs view's « Demandes » (#40 D1). */
+  | { kind: 'requests' }
+  /** A task, a decision put to the user among them: the Tasks view on its detail (#40 D3). */
+  | { kind: 'task'; id: string }
   /** « À toi » itself (a decision put to the user, from the notch). */
   | { kind: 'atoi' }
   /** A routine's page (routines mockup, card 15: the island's « Voir »), by its machine and its id. */
@@ -27,6 +31,8 @@ export function parseTarget(raw: string): LedgeTarget | null {
     case 'point': return str(o.qid) ? { kind: 'point', qid: o.qid } : null;
     case 'ask': return str(o.id) ? { kind: 'ask', id: o.id } : null;
     case 'atoi': return { kind: 'atoi' };
+    case 'requests': return { kind: 'requests' };
+    case 'task': return str(o.id) ? { kind: 'task', id: o.id } : null;
     case 'routine': return str(o.machine) && !o.machine.includes(':') && typeof o.id === 'string' && /^r[0-9a-f]{6}$/.test(o.id) ? { kind: 'routine', machine: o.machine, id: o.id } : null;
     default: return null;
   }
@@ -34,7 +40,7 @@ export function parseTarget(raw: string): LedgeTarget | null {
 
 /** Where a target takes Desktop: a session (its terminal and documents live on its page), a Settings section, the New
  *  session dialog. The island's gear opens « Settings in Ledge Desktop », its own section first. */
-export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'atoi' | 'routine' }>): NavAction {
+export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'atoi' | 'routine' | 'requests' }>): NavAction {
   switch (t.kind) {
     case 'session': case 'terminal': return { type: 'open', id: t.id };
     case 'document': return { type: 'home' };
@@ -43,5 +49,6 @@ export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'atoi' | 'r
     case 'update': return { type: 'settings', section: 'about' };
     case 'launch': return { type: 'modal', modal: { kind: 'launch' } };
     case 'point': return { type: 'chat', open: true };
+    case 'task': return { type: 'ledge', tab: 'tasks', task: t.id };
   }
 }
