@@ -204,7 +204,7 @@ test('a 900 px window: the settings fit without a side scroll, their section bar
   await expect(tab(page, 'Machines').getByRole('img', { name: 'A machine is offline' })).toBeVisible();
 });
 
-test('Appearance › Profile photo: a real picture is cropped to its centre square at 128 px, then shows beside « You » in the thread (#50)', async ({ page }) => {
+test('Appearance › Profile photo: a real picture is cropped to its centre square at 128 px, kept as the profile\'s, not shown in the thread since #41', async ({ page }) => {
   await fakeDaemon(page, fleet, { projects: twoProjects, threads: { otto: ottoThread } });
   await page.goto('/'); await booted(page);
   await openSettings(page);
@@ -230,11 +230,9 @@ test('Appearance › Profile photo: a real picture is cropped to its centre squa
   expect(pixels).toEqual({ w: 128, h: 128, left: '100', right: '001', round: '50%' });
   const stored = await page.evaluate(() => localStorage.getItem('desktop.avatar'));
   expect(stored!.length, 'the preference stays small').toBeLessThan(20_000);
-  // Beside « You » in Otto's thread.
+  // The thread has no avatar since #41 (« Cowork »): the person's requests are bubbles; the photo stays the profile's.
   await page.keyboard.press('Escape');
   await page.getByRole('tree').getByRole('button', { name: /^Otto/ }).click();
-  const you = page.locator('.session-thread .prompt-row .n.av').first();
-  await expect(you.locator('img')).toHaveAttribute('src', stored!);
-  await expect(you).toHaveAttribute('aria-hidden', 'true');
-  expect(await you.locator('img').evaluate(img => getComputedStyle(img).objectFit)).toBe('cover');
+  await expect(page.locator('.session-thread .prompt-row').first()).toBeVisible();
+  await expect(page.locator('.session-thread .prompt-row img')).toHaveCount(0);
 });

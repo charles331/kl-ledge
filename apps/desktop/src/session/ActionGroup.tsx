@@ -46,8 +46,9 @@ function Step({ tool, now, live, flash, onChange }: { tool: ToolItem; now: numbe
   const running = tool.status === 'running';
   const detail = running ? undefined : tool.error || tool.output || undefined;
   const failed = tool.status === 'failed';
+  const change = f !== undefined && tool.status === 'success';
   return (
-    <li className={cls('cw-step action-row', `status-${tool.status}`, failed && 'failed', flash && 'flash')} data-tool={tool.id} {...(running && live && { role: 'status', 'aria-label': th.liveAction })}>
+    <li className={cls('cw-step action-row', `status-${tool.status}`, failed && 'failed', change && 'is-change', flash && 'flash')} data-tool={tool.id} {...(running && live && { role: 'status', 'aria-label': th.liveAction })}>
       <div className="cw-step-line">
         <span className="cw-step-ico">
           {running ? <span className="action-mark mark-running" role="img" aria-label={th.marks.running}><Spin live={live} /></span>
@@ -60,7 +61,7 @@ function Step({ tool, now, live, flash, onChange }: { tool: ToolItem; now: numbe
         {failed && <span className="cw-tag danger">{th.marks.failed}</span>}
         {tool.byClose && <span className="cw-tag danger">{th.questionByClose}</span>}
         {delta && <span className="cw-delta mono"><b>+{delta.plus}</b>{delta.minus > 0 && <i>−{delta.minus}</i>}</span>}
-        {f && tool.status === 'success' && <button type="button" className="cw-link action-link" onClick={() => onChange(f.path)}>{th.seeChange}</button>}
+        {change && <button type="button" className="cw-link action-link" data-short={th.seeChangeShort} onClick={() => onChange(f.path)}>{th.seeChange}</button>}
         <span className="cw-step-time action-time mono" aria-hidden={running || undefined}>{tool.status === 'unknown' ? th.interrupted : fmtDur(elapsedMs(tool, now), lang)}</span>
       </div>
       {open && detail && <pre className={cls('cw-out action-output mono', !!tool.error && 'is-error')}>{detail}</pre>}

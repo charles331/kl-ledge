@@ -359,7 +359,7 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
                 {promptMark && <Tags tags={promptMark.tags} />}
               </span>
             )}
-            <p className="cw-bubble prompt-text">{promptText}</p>
+            <p className="cw-bubble">{promptText}</p>
             {x.prompt.images && <Thumbs className="cw-images prompt-images" client={client} refs={x.prompt.images} route={{ id: session.id }} max={{ w: 420, h: 260 }} who={th.you} at={clock(x.at)} align="end" />}
             <span className="cw-time mono">{at}</span>
           </li>

@@ -22,7 +22,7 @@ test('a pasted image rides the reply, shows as a thumbnail, opens and saves', as
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
   });
   await field.fill('Regarde cette capture');
-  // The IDE's reply has no Send button: Enter sends.
+  // Enter sends (the field's round button does too, #41).
   await field.press('Enter');
 
   await expect.poll(() => daemon.received.filter(m => m.type === 'session.reply').length).toBe(1);
@@ -59,7 +59,7 @@ test('a capture opens the Navigateur tab', async ({ page }) => {
   await page.goto('/'); await ideReady(page);
   await page.getByRole('tree').getByRole('button', { name: /^Nova/ }).click();
 
-  const thumb = page.locator('[data-tool="shot-1"] [data-thumb="ready"]');
+  const thumb = page.locator('[data-shots="shot-1"] [data-thumb="ready"]');
   await expect(thumb).toBeVisible();
   await thumb.click();
   const pane = page.getByRole('complementary', { name: 'Reading pane' });

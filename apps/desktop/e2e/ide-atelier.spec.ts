@@ -125,8 +125,8 @@ test('nothing painted in the IDE keeps a corner under 6 px (spec §9), except th
       if (!(r > 0 && r < 6)) continue;
       const painted = (s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundColor !== 'transparent') || parseFloat(s.borderTopWidth) > 0;
       if (!painted || !el.getClientRects().length) continue;
-      // The link swatches and the stop glyph (3 px, spec §9), the terminal's own drawing, and dockview's 4 px scrollbar (a pill already).
-      if (el.closest('.ide-lk, .ide-bar-stop, .xterm, .dv-scrollbar')) continue;
+      // The link swatches and the stop glyph (3 px, spec §9; the reply field's round button carries it since #41), the terminal's own drawing, and dockview's 4 px scrollbar (a pill already).
+      if (el.closest('.ide-lk, .ide-bar-stop, .cw-send.stop, .xterm, .dv-scrollbar')) continue;
       const corners = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius];
       // A shape with one tight corner on purpose (the thread's bubble, 5/16/16/16) is not a tight shape.
       if (corners.some(c => parseFloat(c) >= 6)) continue;

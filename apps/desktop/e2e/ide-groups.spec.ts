@@ -482,6 +482,9 @@ test('a thread row with a change stays readable in a 300 px group', async ({ pag
   const g = groups(page).nth(1);
   await g.scrollIntoViewIfNeeded();
   expect(Math.round((await box(g)).width)).toBeLessThanOrEqual(301);
+  // Its run of actions folds to one line (#41): opened, the change's row.
+  const folded = pane(page, 'Nova').locator('.cw-steps-head[aria-expanded="false"]');
+  while (await folded.count() > 0) { await folded.first().scrollIntoViewIfNeeded(); await folded.first().click(); }
   const row = pane(page, 'Nova').locator('.action-row.is-change').last();
   await row.scrollIntoViewIfNeeded();
   const geo = await row.evaluate(r => {
@@ -489,7 +492,7 @@ test('a thread row with a change stays readable in a 300 px group', async ({ pag
     const tg = r.querySelector('.action-target') as HTMLElement;
     const probe = document.createElement('span'); probe.style.font = getComputedStyle(tg).font; probe.textContent = 'xx'; document.body.append(probe);
     const two = probe.getBoundingClientRect().width; probe.remove();
-    return { target: b('.action-target'), link: b('.action-link'), time: b('.action-time'), act: b('.act'), two };
+    return { target: b('.action-target'), link: b('.action-link'), time: b('.action-time'), act: b('.cw-step-line'), two };
   });
   expect(geo.target!.w).toBeGreaterThan(geo.two);
   expect(geo.link!.r).toBeLessThanOrEqual(geo.time!.l);
