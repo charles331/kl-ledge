@@ -307,7 +307,7 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
     const sessions = <Sessions store={store} filter={route.name === 'sessions' ? route.filter : undefined} />;
     // The Rigs tab once the PC sends its rigs (`daemon.rigs`, m4-rigs.html); before, it says the PC does not.
     const rigsOn = !!mobile.daemon?.rigs && rigs !== null;
-    const rigsList = rigsOn ? <RigsList rigs={rigs} store={store} /> : <Rigs />;
+    const rigsList = rigsOn ? <RigsList rigs={rigs} store={store} /> : <Rigs store={store} />;
     const rigsDetail = (() => {
       if (!rigsOn) return null;
       if (route.name === 'rig') return <RigView key={route.rig} rig={route.rig} rigs={rigs} store={store} />;

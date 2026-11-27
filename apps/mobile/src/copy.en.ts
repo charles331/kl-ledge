@@ -1125,6 +1125,7 @@ export const en: Copy = {
     title: 'Rigs', subtitle: 'OpenRig',
     notSent: (pc: string) => `${pc} does not send its rigs to this device yet`,
     notSentBody: 'The rigs, their seats and their queue come with a later version of Ledge on the PC.',
+    requests: 'Requests', fold: 'Fold', unfold: 'Unfold', list: 'Rigs',
     pane: { title: 'Nothing to show', body: 'A rig\'s seats and topology open here.' },
     ...rigsEn
   },

@@ -13,6 +13,7 @@ import { useWide } from '../../ui/layout';
 import { clock } from '../Inbox';
 import { Att, Chip, Frame, IconLabel, Lbl, RRow, Strip, ToggleRow, rigButtonClass, type ChipTone } from './kit';
 import { RunNote, isRunning, lastRun } from './runs';
+import { RigsRequests } from './Requests';
 
 /*
  * The Rigs tab (docs/mockups/ledge-mobile-refonte/m4-rigs.html, §1 and §2): OpenRig on top (the daemon, the kernel), then the
@@ -200,5 +201,6 @@ export function RigsList({ rigs, store }: { rigs: RigsStore; store: MobileStore 
       </>
     );
   })();
-  return <TabPage title={C.title} offlineBody={C.offlineBody} heading={false}>{body}</TabPage>;
+  // OpenRig's requests head the tab, above the rigs, whatever the rigs' read says (#40 D1, card 3).
+  return <TabPage title={C.title} offlineBody={C.offlineBody} heading={false}><RigsRequests store={store} />{body}</TabPage>;
 }

@@ -1161,6 +1161,8 @@ const fr = {
     title: 'Rigs', subtitle: 'OpenRig',
     notSent: (pc: string) => `${pc} ne transmet pas encore ses rigs à cet appareil`,
     notSentBody: 'Les rigs, leurs sièges et leur file arrivent avec une prochaine version de Ledge sur le PC.',
+    /** The « Demandes » block at the top of the tab (#40 D1, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 3). */
+    requests: 'Demandes', fold: 'Replier', unfold: 'Déplier', list: 'Rigs',
     pane: { title: 'Rien à afficher', body: 'Les sièges et la topologie d’un rig s’ouvrent ici.' },
     ...rigsFr
   },

@@ -19,6 +19,7 @@ import { useWide } from '../ui/layout';
 import { Mascot } from '../ui/MobileBot';
 import { useNow } from '../useNow';
 import { AskCard } from './atoi/AskCard';
+import { ChannelStrip, requestsShown } from './rigs/Requests';
 import { RoutineItem } from './atoi/RoutineItem';
 import { useSticky } from './atoi/Receipt';
 import { SessionCard } from './atoi/SessionCard';
@@ -33,38 +34,6 @@ export const clock = (iso: string | null): string => iso ? new Date(iso).toLocal
 type AtoiFilter = Filter | 'rigs';
 
 const idOf = (i: Pick<InboxItem, 'sessionId' | 'key'>) => `${i.sessionId}/${i.key}`;
-
-/**
- * Whether OpenRig's section shows (m1-reponses-rig.html §4): with asks, or to say why none can come (the channel not ready,
- * a partial list). A PC without `daemon.openrig`, or a ready channel with nothing asked, has no section.
- */
-function rigsShown(state: MobileState, asks: readonly HumanAsk[]): boolean {
-  if (!state.daemon?.openrig) return asks.length > 0;
-  const ch = state.asksChannel;
-  return asks.length > 0 || (ch !== null && (ch.partial || ch.channel.state !== 'ready'));
-}
-
-/** Why OpenRig's asks may be missing, with Desktop's words (Q66): the channel, else a partial read. */
-function ChannelStrip({ state, machine }: { state: MobileState; machine: string }) {
-  const ch = state.asksChannel;
-  if (!ch) return null;
-  const C = copy.asks.channel;
-  const lines = ch.channel.state === 'ready'
-    ? (ch.partial ? { title: null, body: copy.asks.partial } : null)
-    : ch.channel.state === 'not_installed'
-      ? { title: C.not_installed.title(machine), body: C.not_installed.body }
-      : { title: C[ch.channel.state].title, body: C[ch.channel.state].body };
-  if (!lines) return null;
-  return (
-    <div role="status" data-channel={ch.channel.state} className="flex items-start gap-[9px] rounded-lg border border-line px-3 py-2.5 text-[13px] leading-[18px]">
-      <span className="mt-[5px]"><Dot state="off" /></span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {lines.title && <span className="font-medium">{lines.title}</span>}
-        {lines.body && <span className="text-muted">{lines.body}</span>}
-      </div>
-    </div>
-  );
-}
 
 /** The sessions at work (Q13): five at most, then « Voir les N autres ». What each is doing (Q68). */
 function Working({ sessions, threshold, now, stale }: { sessions: PhoneSession[]; threshold: number; now: number; stale: boolean }) {
@@ -158,7 +127,7 @@ export function Inbox({ store, onReconnect, forge }: { store: MobileStore; onRec
 
   const withCard = new Set(items.map(i => i.sessionId));
   const working = workingOf(sessions, withCard);
-  const showRigs = f !== 'permission' && f !== 'question' && rigsShown(state, asks);
+  const showRigs = f !== 'permission' && f !== 'question' && requestsShown(state, asks);
   const nothing = total === 0;
   const offline = !fresh;
   const subtitle = offline ? (state.syncedAt ? copy.link.lastKnownAt(clock(state.syncedAt)) : copy.inbox.lastKnown) : total ? copy.atoi.count(total) : undefined;
