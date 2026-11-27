@@ -32,14 +32,4 @@ describe('images in Ledge’s chat', () => {
     expect(asks(d)[0]).toMatchObject({ text: '', images: [{ mime: 'image/webp' }] });
     expect(chips()).toHaveLength(0);
   });
-  it('« Summarise the day » sends no image and leaves the chip', async () => {
-    const { d, user } = await openHome();
-    // « Summarise the day » is on the page « For you » (lot 12): its question goes to the right panel's chat.
-    await user.click(within(screen.getByRole('navigation', { name: 'Activity bar' })).getByRole('button', { name: /^For you/ }));
-    await user.click(await screen.findByRole('button', { name: 'Page' }));
-    await user.click(await screen.findByRole('button', { name: 'Summarise the day' }));
-    await waitFor(() => expect(asks(d)).toHaveLength(1));
-    expect(asks(d)[0]).not.toHaveProperty('images');
-    expect(chips()).toHaveLength(1);
-  });
 });

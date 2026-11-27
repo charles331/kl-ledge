@@ -22,9 +22,9 @@
    Here the tree is flatter (project at 4 px, branch at 12, session at 28, the sub-agents' chevron in the gutter), a branch's name
    takes its whole line, and the time moves to the session's second line, so the first one is the name's and its chips'. */
 /* One heading, not two: the view's title gives way to the list's own line, which carries the tools. */
-:root[data-skin="atelier"] .sidebar:has(> .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label) > .ide-ex-h { display: none; }
-:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { padding-top: 10px; }
-:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--at-ink); }
+:root[data-skin="atelier"] .sidebar:has(> .st-scroll > section:first-child > .st-label) > .ide-ex-h { display: none; }
+:root[data-skin="atelier"] .st-scroll > section:first-child > .st-label { padding-top: 10px; }
+:root[data-skin="atelier"] .st-scroll > section:first-child > .st-label > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--at-ink); }
 :root[data-skin="atelier"] .st-tree .st-branch { padding-left: 12px; }
 :root[data-skin="atelier"] .st-tree .st-branch > .st-fill { display: none; }
 :root[data-skin="atelier"] .st-tree .st-agent:not(.helper) { padding-left: 28px; }
@@ -44,7 +44,7 @@
 :root[data-skin="atelier"] .st:not(.st-dense) .st-tree .st-agent.off:not(.helper) > .st-main > span { padding-right: 78px; }
 /* A project's name may take the room its counts leave (today it stops at 60 % of it). */
 :root[data-skin="atelier"] .st-project .st-main strong { max-width: 100%; flex: 0 1 auto; }
-:root[data-skin="atelier"] .st-scroll:not(.st-scroll-atoi) > section:first-child > .st-label { margin-bottom: 4px; }
+:root[data-skin="atelier"] .st-scroll > section:first-child > .st-label { margin-bottom: 4px; }
 
 /* ---------- Count bubbles: one shape wherever a number is shown ---------- */
 /* 16 px high, at least as wide, a full pill, the figure centred in tabular digits. A count of a state wears that state's colour on a

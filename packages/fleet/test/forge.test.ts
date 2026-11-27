@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PullRequest } from '@ledge/protocol';
-import { closedPrs, filterPrs, listedPrs, mergedPrs, openPrs, prOfSession, prRoleCounts, prsFailing, prsWaitingForYou, sessionForge, type FleetFollowedSession, type FleetForgeStatus, type FleetPullRequest } from '../src/forge';
+import { closedPrs, filterPrs, listedPrs, mergedPrs, openPrs, prOfSession, prRoleCounts, prsFailing, sessionForge, type FleetFollowedSession, type FleetForgeStatus, type FleetPullRequest } from '../src/forge';
 
 const pr = (n: number, extra: Partial<PullRequest> = {}): PullRequest => ({ id: `github.com/o/r#${n}`, forge: 'github', host: 'github.com', repo: 'o/r', number: n, ref: `#${n}`,
   url: `https://github.com/o/r/pull/${n}`, title: 't', state: 'open', branch: `b${n}`, target: 'main', headSha: 'a'.repeat(40), pipeline: 'ok', approvals: { given: 1 },
@@ -17,11 +17,6 @@ describe('the view of the requests', () => {
   });
   it('counts the open requests whose pipeline failed, for the badge (a closed one does not count)', () => {
     expect(prsFailing(MOCKUP)).toBe(1);
-  });
-  it('waits for you: failed, or green and mergeable', () => {
-    expect(prsWaitingForYou(MOCKUP).map(p => p.number)).toEqual([5, 1]);
-    // R5: no CI at all and mergeable is ready to merge too; running is not.
-    expect(prsWaitingForYou([pr(7, { pipeline: 'none' }), pr(8, { pipeline: 'run' }), pr(4, { pipeline: 'none', mergeable: false })]).map(p => p.number)).toEqual([7]);
   });
   it('finds a session\'s request, the open one first', () => {
     expect(prOfSession(MOCKUP, 'server:tom')?.number).toBe(1);

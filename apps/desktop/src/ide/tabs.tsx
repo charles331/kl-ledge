@@ -22,7 +22,6 @@ export function tabTitle(t: Tab, ctx: { session(id: string): Session | undefined
       const sid = sessionOf(t);
       return sid === null ? t.ref : ctx.t.ide.terminalTitle(ctx.session(sid)?.name ?? sid);
     }
-    case 'atoi': return ctx.t.ide.atoi;
     case 'pr': return ctx.pr?.(t.ref) ?? t.ref;
     case 'routine': return t.ref === 'new' ? ctx.t.routines.newTitle : ctx.routine?.(t.ref) ?? t.ref;
     default: return t.ref;

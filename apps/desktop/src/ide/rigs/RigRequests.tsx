@@ -4,7 +4,7 @@ import type { HumanAsk, Session } from '@ledge/protocol';
 import { Icon } from '@ledge/ui/ui/icons';
 import { useI18n } from '../../i18n/lang';
 import { AskCard, AskDone } from '../../asks/AskCard';
-import { AskBanner } from '../../asks/AsksColumn';
+import { AskBanner } from '../../asks/AskBanner';
 import { DONE_MS, openRequests, sessionOfAsk, whoOf } from '../../asks/model';
 
 const ALERT = ['M12 3 2 20h20z', 'M12 10v4', 'M12 17h.01'];
@@ -74,7 +74,7 @@ export function RigRequests({ view, sessions, machineLabel, focus, onFocused, so
       {open && (
         <div className="ide-rigs-req-b">
           <AskBanner channel={view.channel} machineLabel={machineLabel} />
-          {!banner && view.partial && <span className="atoi-partial ide-rigs-req-partial" role="status"><Icon d={ALERT} size={12} />{t.asks.partial}</span>}
+          {!banner && view.partial && <span className="ide-rigs-req-partial" role="status"><Icon d={ALERT} size={12} />{t.asks.partial}</span>}
           {asks.map(ask => {
             const session = sessionOfAsk(ask, sessions);
             const d = done.get(ask.id);

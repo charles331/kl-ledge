@@ -3,10 +3,10 @@ import type { Routine, Session, Task } from '@ledge/protocol';
 import type { FleetRoutine } from '@ledge/fleet';
 import { MESSAGES } from '../../src/i18n/messages';
 import {
-  atoiRoutineItems, draftErrors, expandHome, faultOf, faultyField, refusalOf, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
+  draftErrors, expandHome, faultOf, faultyField, refusalOf, whyText, homeLabel, parseRoutineRef, proposalChanges, proposalsOf, routineRef, routinesBadge,
   rebaseDraft, routinesOfSession, sessionOfRoutine, sideGroups, specDraft, specOf, specPatch
 } from '../../src/routines/model';
-import { anchorWeek, askLine, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
+import { anchorWeek, daysLabel, draftOf, fillPrompt, isoWeek, nextLabel, runDay, scheduleErrors, scheduleLine, scheduleOf } from '../../src/routines/schedule';
 
 const fr = MESSAGES.fr.routines;
 const en = MESSAGES.en.routines;
@@ -29,22 +29,6 @@ describe('the schedule as Desktop reads it', () => {
     expect(scheduleLine({ kind: 'recurring', times: ['08:00', '13:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] }, fr)).toBe('08:00 13:30 · lun–ven');
     expect(scheduleLine({ kind: 'recurring', times: ['16:00'], days: ['thu'], every: { weeks: 2, anchor: '2026-11-27' } }, fr)).toBe('jeu. 16:00 · 1 sem. sur 2');
     expect(scheduleLine({ kind: 'once', at: ['2026-12-03T16:00'] }, fr)).toBe('unique');
-    expect(askLine({ kind: 'recurring', times: ['17:00'], days: ['fri'] }, 'point-hebdo', '~/assistant', 'fr', fr)).toBe('veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant');
-    // The owner's two texts of 2026-11-23: every other week, and a single one-shot.
-    const two = { kind: 'recurring' as const, times: ['16:00'], days: ['thu' as const], every: { weeks: 2 as const, anchor: '2026-11-27' } };
-    expect(askLine(two, 'bilan-sprint', '~/assistant', 'fr', fr)).toBe('veut programmer « bilan-sprint » : 16:00 (jeu, 1 sem. sur 2), dans ~/assistant');
-    expect(askLine(two, 'bilan-sprint', '~/assistant', 'en', en)).toBe('wants to schedule “bilan-sprint”: 16:00 (Thu, every 2 wks), in ~/assistant');
-    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'fr', fr)).toBe('veut programmer « prépa-121 » : jeu. 3 déc. 16:00, dans ~/assistant');
-    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en)).toBe('wants to schedule “prépa-121”: Thu 3 Dec 16:00, in ~/assistant');
-    // A session's change reads « veut modifier », without the folder (card 29).
-    const week = { kind: 'recurring' as const, times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] as ('mon' | 'tue' | 'wed' | 'thu' | 'fri')[] };
-    expect(askLine(week, 'briefing', '~/assistant', 'fr', fr, true)).toBe('veut modifier « briefing » : 07:30, 13:30, 16:30 (lun–ven)');
-    expect(askLine(week, 'briefing', '~/assistant', 'en', en, true)).toBe('wants to change “briefing”: 07:30, 13:30, 16:30 (Mon–Fri)');
-    expect(askLine({ kind: 'once', at: ['2026-12-03T16:00'] }, 'prépa-121', '~/assistant', 'en', en, true)).toBe('wants to change “prépa-121”: Thu 3 Dec 16:00');
-    // Beyond three moments, « … et N autres » (card 28).
-    const five = { kind: 'once' as const, at: ['2026-12-31T16:00', '2026-12-03T16:00', '2026-12-10T16:00', '2026-12-17T16:00', '2026-12-24T16:00'] };
-    expect(askLine(five, 'point-121', '~/assistant', 'fr', fr)).toBe('veut programmer « point-121 » : jeu. 3 déc. 16:00, jeu. 10 déc. 16:00, jeu. 17 déc. 16:00 et 2 autres, dans ~/assistant');
-    expect(askLine(five, 'point-121', '~/assistant', 'en', en)).toBe('wants to schedule “point-121”: Thu 3 Dec 16:00, Thu 10 Dec 16:00, Thu 17 Dec 16:00 and 2 more, in ~/assistant');
   });
   it('says when the next run is: the time alone today, then tomorrow, then the day', () => {
     expect(nextLabel(new Date(2026, 10, 23, 13, 30).toISOString(), now, 'fr', fr)).toBe('13:30');
@@ -120,14 +104,6 @@ describe('the Routines screens rules', () => {
     expect(sessionOfRoutine(r, [s('x', { cwd: '/elsewhere' }), s('y', {})], '/home/jde')?.id).toBe('y');
     expect(sessionOfRoutine(r, [s('z', { machineId: 'srv' })], '/home/jde')).toBeUndefined();
     expect(routinesOfSession(s('y', {}), [r, routine('b', { state: 'done' })], '/home/jde').map(x => x.id)).toEqual(['a']);
-  });
-  it('makes the « À toi » items: a request while it waits, a failure, a grouped request', () => {
-    const rs = [routine('a', { state: 'pending' }), routine('b'), routine('c', { state: 'pending' }), routine('d', { state: 'pending' })];
-    const items = atoiRoutineItems([
-      task('t1', { kind: 'approve', id: 'a', name: 'r-a' }), task('t2', { kind: 'failed', id: 'b', name: 'r-b', reason: 'x' }),
-      task('t3', { kind: 'approve', id: 'c', name: 'r-c', ids: ['c', 'd'] }), task('t4', { kind: 'approve', id: 'b', name: 'r-b' })
-    ], rs);
-    expect(items.map(i => [i.task.id, i.kind, i.routines.map(r => r.id)])).toEqual([['t1', 'approve', ['a']], ['t2', 'failed', ['b']], ['t3', 'approve', ['c', 'd']]]);
   });
   it('lays the owner\'s edits over a version read after a stale refusal (review of 1de4cbb8)', () => {
     const was = routine('a');
@@ -221,14 +197,6 @@ describe('a routine id is unique per machine only (review HIGH)', () => {
   // The fleet keeps the local daemon's tasks only: a task's routine.id / ids name local routines, even when a remote machine
   // listed first holds a routine with the same id.
   const remote = (id: string, extra: Partial<Routine> = {}) => ({ ...routine(id, extra), machineId: 'lap', name: `lap-${id}` });
-  it('« À toi » items resolve on the local machine', () => {
-    const rs = [remote('r000001', { state: 'pending' }), remote('r000002', { state: 'pending' }), routine('r000001', { state: 'pending' }), routine('r000002', { state: 'pending' }), remote('r000003'), routine('r000003')];
-    const items = atoiRoutineItems([
-      task('t1', { kind: 'approve', id: 'r000001', name: 'r-r000001', ids: ['r000001', 'r000002'] }),
-      task('t2', { kind: 'failed', id: 'r000003', name: 'r-r000003' })
-    ], rs);
-    expect(items.map(i => i.routines.map(r => `${r.machineId}:${r.id}`))).toEqual([['local:r000001', 'local:r000002'], ['local:r000003']]);
-  });
   it('the sidebar groups a proposal on the local machine only', () => {
     const once = (m: 'lap' | 'local', id: string) => ({ ...(m === 'lap' ? remote(id) : routine(id)), state: 'pending' as const, schedule: { kind: 'once' as const, at: ['2026-12-03T16:00'] } });
     const proposals = proposalsOf([task('t1', { kind: 'approve', id: 'r000001', name: 'r-r000001', ids: ['r000001', 'r000002'] })]);

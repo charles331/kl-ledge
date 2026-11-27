@@ -407,7 +407,7 @@ export function Tree(p: {
         </button>}
         {subs.length > 0 && !open && <span className={cls('st-kids', atWork > 0 && 'on')} title={atWork > 0 ? t.side.kidsWorking(subs.length, atWork) : t.side.kids(subs.length)}>
           {atWork > 0 && <i className="st-kids-spin" aria-hidden="true" />}{subs.length}</span>}
-        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.yours}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
+        <span className={cls('st-time', waiting && timeClass)}>{skin && waiting && !helper && !s.offline ? <span className="at-tag">{t.side.waitTag[s.state === 'waiting_permission' ? 'approval' : s.state === 'waiting_input' ? 'question' : 'error']}</span> : s.offline ? t.side.offline : shortWhen(s.lastActivityAt, t.list.when.units, t.list.when.now)}</span>
         <span className="st-acts">
           <button type="button" tabIndex={-1} aria-label={t.side.terminalOne(name)} title="Terminal · T" onClick={() => p.onTerminal(s)}><Icon d={SHELL_ICONS.terminal} size={13} /></button>
           {!helper && <button type="button" tabIndex={-1} aria-label={t.side.archiveOne(s.name)} title={`${t.manage.menu.archive} · E`} onClick={() => p.onArchive([s.id])}><Icon d={SHELL_ICONS.archive} size={13} /></button>}

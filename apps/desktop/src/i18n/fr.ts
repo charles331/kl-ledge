@@ -86,7 +86,8 @@ export const fr = {
       noRig: 'Aucun rig pour l’instant.', noRigBody: 'Un rig est une équipe d’agents.', noRigOperator: (name: string) => `${name}, l’opérateur du kernel, peut t’aider à en composer un.`
     },
     active: (n: number) => plural(n, `${n} actif`, `${n} actifs`),
-    yours: 'À toi', yoursMore: (n: number) => `Voir les ${n} autres`, yoursLess: 'Réduire',
+    // #40 PR 3 (design-ux, 11/27 18:05Z): the tag of a session waiting for the person, in the Atelier skin's tree (the phone's D6 words).
+    waitTag: { approval: 'Accord', question: 'Question', error: 'Erreur' } as Record<'approval' | 'question' | 'error', string>,
     allow: 'Oui', deny: 'Non', reply: 'Répondre', see: 'Voir',
     ofHelper: (parent: string) => `↳ ${parent}`,
     hideDone: 'Seulement les projets avec un agent actif (H)', moreProjects: (n: number) => `+${n} ${plural(n, 'projet', 'projets')} sans agent actif`,
@@ -1660,7 +1661,7 @@ export const fr = {
       broughtBack: 'Terminal ramené dans le panneau du bas.', onlyTerms: 'Seuls les terminaux se rangent dans le panneau du bas.'
     },
     sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite',
-    activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig', atoi: 'À toi',
+    activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig',
     atelierTab: 'Atelier (onglet)', settingsTab: 'Réglages (onglet)',
     resizeEdge: 'Glisser pour redimensionner · double-clic : largeur par défaut', resizeBottom: 'Glisser pour redimensionner · double-clic : hauteur par défaut',
     waiting: (n: number) => (n === 1 ? '1 demande' : `${n} demandes`),
@@ -1677,7 +1678,7 @@ export const fr = {
     // Lot 3: split (Ctrl+\), the empty group (mockup emptyGroup()), the link square (mockup .lkbtn).
     split: 'Diviser à droite', splitTip: 'Diviser à droite (Ctrl+\\)', splitKey: 'Ctrl \\', linkTip: 'Lier ce groupe : choisir une couleur', linkMenu: 'Lier ce groupe', linkNone: 'Aucune liaison', linkCurrent: 'actuelle', linkGroups: (n: number) => (n > 1 ? `${n} groupes` : '1 groupe'),
     links: { violet: 'Violet', teal: 'Vert d’eau', rose: 'Rose', lime: 'Citron vert', fuchsia: 'Fuchsia', sand: 'Sable' } as Record<'violet' | 'teal' | 'rose' | 'lime' | 'fuchsia' | 'sand', string>,
-    atoiNone: 'Rien ne t’attend.', operations: 'Opérations', usageOnce: (harness: string, window: string, line: string) => `${harness} · ${window} : ${line}`,
+    operations: 'Opérations', usageOnce: (harness: string, window: string, line: string) => `${harness} · ${window} : ${line}`,
     closeGroupTip: 'Fermer le groupe (Ctrl+W)',
     /** The zone at the right end of the editing area while a tab is dragged (mockup `.dropnew`), on two lines. */
     dropNew: ['Déposer ici :', 'nouveau groupe'],
@@ -1743,16 +1744,6 @@ export const fr = {
     resumeHint: 'Les sessions qui avaient un onglet ouvert à la fermeture de Ledge reprennent dans leur onglet. Une session que tu as terminée ne repart pas.',
     resumeOff: 'Reprise des sessions au démarrage désactivée',
     resumed: (n: number) => plural(n, `${n} session reprise`, `${n} sessions reprises`)
-  },
-  // The page « À toi » (D3, docs/ide-workspace-plan.md 4.1 point 3; mockup atoiPage).
-  atoiPage: {
-    title: 'À toi', sub: 'Ce qui attend ta décision ou ton regard, toutes sessions et tous rigs confondus. Le chat de Ledge reste dans le panneau de droite.',
-    requests: 'Demandes', keysBefore: 'ou ', keysAfter: ' sur la session active', open: 'Ouvrir',
-    allowCommand: 'Autoriser une commande', allow: 'Autoriser', deny: 'Refuser', noRequest: 'Rien ne t’attend.',
-    prsSub: 'pipelines échoués, prêtes à fusionner', prFailed: 'pipeline échoué', prReady: 'pipeline réussi, approuvée', prReadyNoCi: 'sans CI, approuvée', noPr: 'Aucune MR ni PR ne t’attend.',
-    finished: 'Terminé depuis ton passage', noFinished: 'Aucune session n’a fini.',
-    pageButton: 'Page', pageTip: 'La page À toi',
-    decisionsSub: 'ce que les sessions te demandent par Ledge', rigs: 'Rigs OpenRig', rigsSub: 'ce que les rigs te demandent', near: 'Contexte presque plein', fold: 'Replier'
   },
   // MR et PR (lot 8b, docs/mockups/ledge-ide-interactive.html : explorer `prs`, prPage, pipeGraph, statusbar).
   forge: {
@@ -1909,19 +1900,5 @@ export const fr = {
     },
     // A failed run's reason built from its `field` (mockup T.failNoDir, T.failNoTool), so it reads in the screen's language.
     why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
-    atoi: {
-      block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
-      ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
-      // Approved by the owner on 2026-11-23: a one-shot's request names its moment, without parentheses.
-      askOnce: (r: string, moments: string, dir: string) => `veut programmer « ${r} » : ${moments}, dans ${dir}`,
-      failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
-      failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
-      more: (n: number) => ` et ${n} autres`,
-      // A session's change to a routine (its proposal), never « veut programmer » (card 29, owner's choice A).
-      editAsk: (r: string, times: string, days: string) => `veut modifier « ${r} » : ${times} (${days})`,
-      editAskOnce: (r: string, moments: string) => `veut modifier « ${r} » : ${moments}`,
-      groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,
-      seePrompt: 'Voir le prompt', hidePrompt: 'Masquer le prompt'
-    }
   }
 };

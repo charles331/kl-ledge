@@ -111,23 +111,6 @@ export function routinesOfSession(s: Session, rs: readonly FleetRoutine[], home?
     .sort((a, b) => nextAt(a) - nextAt(b));
 }
 
-/** A routine's « À toi » item (cards 13, 14, 23): the task, and the routines it covers that still wait (approve) or the failed one. */
-export interface AtoiRoutineItem { task: Task; kind: 'approve' | 'failed'; routines: FleetRoutine[] }
-export function atoiRoutineItems(tasks: readonly Task[], all: readonly FleetRoutine[], machine: string = TASKS_MACHINE): AtoiRoutineItem[] {
-  const out: AtoiRoutineItem[] = [];
-  const rs = all.filter(r => r.machineId === machine);
-  for (const task of routineTasks(tasks)) {
-    const tr = task.routine!;
-    const ids = tr.ids ?? [tr.id];
-    const found = ids.map(id => rs.find(r => r.id === id)).filter((r): r is FleetRoutine => !!r);
-    if (tr.kind === 'approve') {
-      const waiting = found.filter(waitsForOwner);
-      if (waiting.length) out.push({ task, kind: 'approve', routines: waiting });
-    } else if (found.length) out.push({ task, kind: 'failed', routines: found.slice(0, 1) });
-  }
-  return out;
-}
-
 /** What the form edits (cards 3-5, 19): the spec, its schedule as a draft, the target's mode. */
 export interface SpecDraft {
   name: string; mode: 'existing' | 'new'; target: { name: string; cwd: string; tool: Tool; model: string };

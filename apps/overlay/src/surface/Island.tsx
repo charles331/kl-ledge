@@ -214,10 +214,10 @@ export function Island(p: IslandProps) {
               : <Button variant="primary" size="sm" onClick={p.onOpen}>{L.answerIn}<Kbd accent>O</Kbd></Button>)}
             {card.kind === 'decision' && <Button variant="primary" size="sm" onClick={p.onOpen}>{L.see}<Kbd accent>O</Kbd></Button>}
             {card.kind === 'routine' && card.routine && <>
-              <Button variant="primary" size="sm" disabled={routineBusy || card.routine.count === 0 || !card.routine.canApprove} onClick={() => p.onRoutine?.('approve')}>{card.routine.count > 1 ? t.atoi.routine.activateAll(card.routine.count) : t.atoi.routine.activate}</Button>
-              <Button variant="outline" size="sm" disabled={routineBusy || card.routine.count === 0} onClick={() => p.onRoutine?.('refuse')}>{t.atoi.routine.refuse}</Button>
+              <Button variant="primary" size="sm" disabled={routineBusy || card.routine.count === 0 || !card.routine.canApprove} onClick={() => p.onRoutine?.('approve')}>{card.routine.count > 1 ? t.routine.activateAll(card.routine.count) : t.routine.activate}</Button>
+              <Button variant="outline" size="sm" disabled={routineBusy || card.routine.count === 0} onClick={() => p.onRoutine?.('refuse')}>{t.routine.refuse}</Button>
             </>}
-            {card.kind === 'routineFailed' && <Button variant="primary" size="sm" disabled={routineBusy} onClick={() => p.onRoutine?.('run')}>{t.atoi.routine.retry}</Button>}
+            {card.kind === 'routineFailed' && <Button variant="primary" size="sm" disabled={routineBusy} onClick={() => p.onRoutine?.('run')}>{t.routine.retry}</Button>}
             {p.ack === 'received' ? <span className="di-ack" role="status">{c.confirmed}</span>
               : acting ? <span className="di-ack" role="status">{c.pending}</span>
               : <span className="di-foot">

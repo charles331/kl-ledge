@@ -45,8 +45,9 @@ describe('the IDE chrome', () => {
     expect(screen.queryByRole('button', { name: 'OpenRig (onglet)' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Réglages (onglet)' }));
     expect(keyOf(onTab.mock.calls[1]![0])).toBe('settings:main');
-    fireEvent.click(screen.getByRole('button', { name: /À toi/ }));
-    expect(onLayout).toHaveBeenLastCalledWith({ type: 'view', view: 'atoi' });
+    fireEvent.click(screen.getByRole('button', { name: /^Tâches/ }));
+    expect(onLayout).toHaveBeenLastCalledWith({ type: 'view', view: 'tasks' });
+    expect(screen.queryByRole('button', { name: /À toi/ })).toBeNull();   // #40 PR 3
   });
 
   it('the active view is on only while the sidebar is open; tabs are on by activeTab', () => {
@@ -77,7 +78,7 @@ describe('the IDE chrome', () => {
     activity();
     const nav = screen.getByRole('navigation');
     const names = Array.from(nav.children).map(e => e.classList.contains('grow') ? 'grow' : e.getAttribute('aria-label'));
-    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'À toi', 'MR et PR', 'Routines', 'Tâches (Ctrl+/)', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
+    expect(names).toEqual(['Projets', 'Rigs OpenRig', 'MR et PR', 'Routines', 'Tâches (Ctrl+/)', 'Atelier (onglet)', 'grow', 'Réglages (onglet)']);
   });
 
   it('no « ! » on Rigs (the user, 2026-11-09)', () => {

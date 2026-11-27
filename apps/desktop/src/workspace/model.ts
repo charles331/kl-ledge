@@ -10,9 +10,9 @@
  * Every function returns a new state, or the same object when nothing changed.
  */
 
-export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atoi' | 'atelier' | 'settings' | 'routine';
+export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atelier' | 'settings' | 'routine';
 /** Every tab kind, as the Ledge guide (docs/ledge-guide.md) describes the screens: a Record, so a new kind fails to compile until it is listed. */
-const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atoi: true, atelier: true, settings: true, routine: true };
+const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atelier: true, settings: true, routine: true };
 export const TAB_KINDS = Object.keys(TAB_KIND) as TabKind[];
 export type View = 'thread' | 'terminal' | 'role';
 export interface Tab { kind: TabKind; ref: string; /** session and seat tabs: the view in front. */ view?: View }

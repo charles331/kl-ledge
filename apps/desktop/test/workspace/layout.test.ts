@@ -30,7 +30,7 @@ describe('layoutReducer', () => {
     expect(layoutReducer(base, { type: 'view', view: 'projects' }).sideOpen).toBe(false);
     const r = layoutReducer({ ...base, sideOpen: false }, { type: 'view', view: 'rigs' });
     expect(r).toMatchObject({ sideView: 'rigs', sideOpen: true });
-    expect(layoutReducer(base, { type: 'view', view: 'atoi' })).toMatchObject({ sideView: 'atoi', sideOpen: true });
+    expect(layoutReducer(base, { type: 'view', view: 'tasks' })).toMatchObject({ sideView: 'tasks', sideOpen: true });
   });
   it('drag clamps', () => {
     expect(layoutReducer(base, { type: 'drag', width: 90 }).sideWidth).toBe(120);

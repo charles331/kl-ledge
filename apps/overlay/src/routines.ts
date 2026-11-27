@@ -15,7 +15,7 @@ export interface RoutineWhen { ask: string; moments: string[] }
 
 /** The days as the island writes them: every day, runs of three or more as a range (« lun–ven »), the others listed. */
 function daysText(days: readonly Weekday[], m: Messages): string {
-  const R = m.atoi.routine;
+  const R = m.routine;
   const idx = WEEKDAYS.map((d, i) => (days.includes(d) ? i : -1)).filter(i => i >= 0);
   if (idx.length === WEEKDAYS.length) return R.daily;
   const parts: string[] = [];
@@ -46,9 +46,9 @@ export function routineWhen(s: RoutineSchedule, m: Messages): RoutineWhen {
     const at = [...s.at].sort();
     const dated = at.map(x => momentText(x, m, true));
     // Past three moments, the rest is counted (card 28).
-    return { ask: dated.length > 3 ? m.atoi.routine.more(dated.slice(0, 3).join(', '), dated.length - 3) : dated.join(', '), moments: at.map(x => momentText(x, m)) };
+    return { ask: dated.length > 3 ? m.routine.more(dated.slice(0, 3).join(', '), dated.length - 3) : dated.join(', '), moments: at.map(x => momentText(x, m)) };
   }
-  const every = s.every?.weeks === 2 ? `, ${m.atoi.routine.every2}` : '';
+  const every = s.every?.weeks === 2 ? `, ${m.routine.every2}` : '';
   return { ask: `${[...s.times].sort().join(', ')} (${daysText(s.days, m)}${every})`, moments: [] };
 }
 
@@ -73,7 +73,7 @@ export interface RoutineNotice {
  * 8, 13-16 and 29 draw, a run not typed in time in card 8's (`cause`); any other as the daemon gave it.
  */
 export function runWhy(r: Pick<FleetRoutine, 'lastRun' | 'target'> | undefined, fallback: string | undefined, m: Messages): string {
-  const W = m.atoi.routine.why;
+  const W = m.routine.why;
   const run = r?.lastRun?.outcome === 'failed' ? r.lastRun : undefined;
   if (r && run?.field === 'cwd') return W.cwd(r.target.cwd);
   if (r && run?.field === 'tool') return W.tool(r.target.tool);
@@ -88,7 +88,7 @@ export function runWhy(r: Pick<FleetRoutine, 'lastRun' | 'target'> | undefined, 
 export function routineNotice(notice: OperatorNotice, machine: string, task: Task | undefined, routines: readonly FleetRoutine[], m: Messages): RoutineNotice | null {
   const r = task?.routine;
   if (!task || !r) return null;
-  const R = m.atoi.routine;
+  const R = m.routine;
   const find = (id: string) => routines.find(x => x.machineId === machine && x.id === id);
   const one = find(r.id);
   const first = { id: r.id, name: one?.name ?? r.name };

@@ -162,10 +162,7 @@
 .rtn-prev3 li { display: flex; gap: 10px; }
 .rtn-form.ro input, .rtn-form.ro textarea { pointer-events: none; }
 
-/* « À toi »: the page's block and the sidebar's cards (cards 13, 14, 23). */
-.atoi-line .grow.wrap { white-space: normal; }
 .rtn-unfold { margin: 0 0 2px 22px; font: 11px/17px 'Geist Mono', ui-monospace, monospace; background: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.rtn-atoi-group { display: flex; flex-direction: column; gap: 4px; }
 .rtn-glist { margin-left: 22px; border-left: 2px solid var(--border); padding-left: 10px; display: flex; flex-direction: column; gap: 4px; }
 .rtn-gwhen { width: 150px; flex-shrink: 0; }
 .rtn-gname { font-weight: 500; }

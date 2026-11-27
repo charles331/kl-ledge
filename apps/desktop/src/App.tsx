@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ReportDialog } from './report/ReportDialog';
 import { appVersion } from './update/bridge';
-import { canBroadcast, daemonStore, qualify, prOfSession, prsFailing, prsWaitingForYou, sessionForge, projectOf, splitId, type BroadcastTo, type FleetPullRequest, useIsland, useMobile, useMobileError, useProjects, useTokenMissing, type DaemonClient } from '@ledge/fleet';
+import { canBroadcast, daemonStore, qualify, prOfSession, prsFailing, sessionForge, projectOf, splitId, type BroadcastTo, type FleetPullRequest, useIsland, useMobile, useMobileError, useProjects, useTokenMissing, type DaemonClient } from '@ledge/fleet';
 import { isOmpSeat, labelledName, type Project, type Projects, type Session } from '@ledge/protocol';
 import { LangProvider, loadLang, messagesFor, saveLang, useI18n, type Lang } from './i18n/lang';
 import { loadMessages } from './i18n/messages';
@@ -36,7 +36,6 @@ import { LaunchModalPlace } from './launch/lazy';
 import type { LaunchWhere } from './launch/LaunchModal';
 import { openWhere } from './launch/modalModel';
 import { ChatPlace } from './chat/lazy';
-import { sendPointReads } from './chat/pointReads';
 import { SettingsPlace } from './settings/lazy';
 import type { SettingsContext } from './settings/SettingsPage';
 import { daemonTarget, useDaemonUpdates } from './update/daemon';
@@ -99,16 +98,15 @@ import { IdeWelcome, recentSessions, type EmptyPick } from './ide/IdeWelcome';
 import { routeNav, tabNav } from './workspace/route';
 import { asPreview, clickIntent, openAs } from './workspace/intent';
 import { tabTitle, type TabBody } from './ide/tabs';
-import { IdeAtelierBar, IdeAtoi, IdeAtoiRoutineCards, IdeAtoiRoutines, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView, IdeRoutine, IdeRoutines } from './ide/lazy';
+import { IdeAtelierBar, IdeBottom, IdeDock, IdeOutput, IdePaletteHost, IdePlace, IdeOpenRig, IdePr, IdePrs, IdePrsStatus, IdePrTabLabel, IdeRigLaunch, IdeRigs, IdeRigView, IdeRoutine, IdeRoutines } from './ide/lazy';
 import { useRoutines } from './routines/useRoutines';
 import { useRoutineActions } from './routines/useRoutineActions';
 import { RoutineTabLabel } from './routines/icons';
 import type { PageDirt } from './routines/RoutinePage';
-import { atoiRoutineItems, findRoutine, TASKS_MACHINE, homeLabel, NEW_ROUTINE_REF, proposalsOf, routineRef, routinesBadge, routinesOfSession, sessionOfRoutine, type SpecDraft } from './routines/model';
+import { findRoutine, TASKS_MACHINE, homeLabel, NEW_ROUTINE_REF, proposalsOf, routineRef, routinesBadge, routinesOfSession, sessionOfRoutine, type SpecDraft } from './routines/model';
 import { whenLabel } from './routines/schedule';
 import type { FleetRoutine } from '@ledge/fleet';
 import { useForge } from './forge/useForge';
-import { AtoiTabLabel } from './ide/atoi/AtoiTabLabel';
 import { forgeLines, NO_PRS_FILTER, noForgeReadable, reachOf, type PrsFilter } from './forge/states';
 import type { PaletteCommand, PaletteSession } from './ide/palette/model';
 import { tileToDock } from './ide/termDrag';
@@ -227,13 +225,10 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // « À toi »: what OpenRig's rigs ask the person, on this computer (lot 1: one machine), once its daemon reads them.
   const localMachine = machines.find(m => m.id === 'local');
   const asks = useOpenRigAsks(fleetClient, localMachine?.ready && localMachine.daemon?.openrigAsks ? 'local' : null);
-  const [askFocus, setAskFocus] = useState<{ id: string; n: number } | null>(null);
-  // The request « Ouvrir » brought to the Rigs view's « Demandes » (#40 D1), counted as askFocus is.
+  // The request « Ouvrir » brought to the Rigs view's « Demandes » (#40 D1). Never counts down: the view forgets it once taken
+  // in, and the next « Ouvrir » must still be new to it.
   const [requestFocus, setRequestFocus] = useState<{ id: string; n: number } | null>(null);
-  // Never counts down: « À toi » forgets `askFocus` once taken in, and the next « Voir » must still be new to it.
   const askSeq = useRef(0);
-  // The same for « Résumer la journée »: the right panel forgets `ask` once sent, and stays mounted with the last `n` it sent.
-  const summarizeSeq = useRef(0);
   const island = useIsland(fleetClient);
   const usage = useUsageView(fleetClient, machines);
   const footMachines = useMemo(() => machines.map(m => ({ id: m.id, label: m.label, offline: m.status === 'unreachable', count: sessions.filter(s => (s.machineId ?? 'local') === m.id).length })), [machines, sessions]);
@@ -370,11 +365,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       if (target.kind === 'ask') setRequestFocus({ id: target.id, n: ++askSeq.current });
       setLayout(l => (l.sideOpen && l.sideView === 'rigs' ? l : layoutFor(l, { type: 'view', view: 'rigs' }, window.innerWidth)));
     }
-    else if (target?.kind === 'atoi') {
-      // A decision from the island: « À toi » in front, where it is listed.
-      const tab: Tab = { kind: 'atoi', ref: 'main' };
-      wsStore.update(w => openAs(w, tab));
-    }
     else if (target?.kind === 'routine') {
       // The island's « Voir » on a routine's item: the sidebar on Routines, the routine's page in front.
       setLayout(l => (l.sideOpen && l.sideView === 'routines' ? l : layoutFor(l, { type: 'view', view: 'routines' }, window.innerWidth)));
@@ -448,13 +438,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const reportSession = (() => { if (front?.kind !== 'session' && front?.kind !== 'seat') return undefined; const o = splitId(front.ref); return o?.machine === 'local' ? o.id : undefined; })();
   const reportCreated = (n: number, url: string | undefined) => notify(t.report.created(n), url ? { label: t.report.open, run: () => openUrl(url), tone: 'ok', undo: false } : undefined);
   const frontKey = front ? keyOf(front) : null;
-  // Opening « À toi » (its page, or the explorer's view) reads each ready machine's newest point on that machine (spec §5), as the
-  // chat does when it shows one.
-  const atoiOpen = front?.kind === 'atoi' || (layout.sideOpen && layout.sideView === 'atoi');
-  useEffect(() => {
-    if (!atoiOpen) return;
-    sendPointReads(daemonStore.getState().chat, fleetView.fleet);
-  }, [atoiOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const lastOpenRig = useRef(new Map<string, { section?: OpenRigSection; role?: string; seat?: string }>());
   if (place.kind === 'settings') lastSettings.current = place.section;
   if (place.kind === 'openrig') lastOpenRig.current.set(place.machine ?? 'local', { ...(place.section ? { section: place.section } : {}), ...(place.role !== undefined ? { role: place.role } : {}), ...(place.seat !== undefined ? { seat: place.seat } : {}) });
@@ -891,7 +874,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // `routine`), the session each wakes, and what its page tells the app (unsaved changes, the close question).
   const routines = useRoutines(fleet);
   const routineProposals = useMemo(() => proposalsOf(tasksApi.tasks), [tasksApi.tasks]);
-  const routineItems = useMemo(() => atoiRoutineItems(tasksApi.tasks, routines), [tasksApi.tasks, routines]);
   // An agent's report (issue #9), answered from « À toi » and from the Tasks view (#40 D5).
   const reportHandlers: ReportHandlers = { client: fleetClient, desktop: desktopVersion, onEdit: task => dispatch({ type: 'modal', modal: { kind: 'report', task } }), onCreated: reportCreated, onOpenUrl: url => { void openUrl(url); } };
   const homeOf = (m: string) => machines.find(x => x.id === m)?.daemon?.home;
@@ -953,22 +935,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       }
     };
   };
-  // The routines a session changed since « À toi » showed them (card 32): their item says so, nothing was activated.
-  const [staleRoutines, setStaleRoutines] = useState<ReadonlySet<string>>(() => new Set());
-  const routineHandlers = {
-    dirLabel: (r: FleetRoutine) => homeLabel(r.target.cwd, homeOf(r.machineId)),
-    onActivate: (rs: readonly FleetRoutine[]) => {
-      setStaleRoutines(new Set());
-      // A group in one command, all or nothing: a routine changed since it was shown leaves the whole group waiting (card 32).
-      void (rs.length > 1 ? routineActions.approveAll(rs) : routineActions.approve(rs[0]!))
-        .then(ok => { if (ok === 'stale') setStaleRoutines(new Set(rs.map(routineRef))); });
-    },
-    stale: staleRoutines,
-    onRefuse: (rs: readonly FleetRoutine[]) => { void (rs.length > 1 ? routineActions.refuseAll(rs) : routineActions.refuse(rs[0]!)); },
-    onRetry: runRoutine,
-    onSee: (r: FleetRoutine) => { showRoutinesView(); openRoutineRef(routineRef(r)); },
-    offline: localDown
-  };
   const [prsFilter, setPrsFilter] = useState<PrsFilter>(NO_PRS_FILTER);
   const machineLabel = (id: string) => machines.find(m => m.id === id)?.label ?? id;
   /** A request's agent: the session or seat on its branch (the most recently active). */
@@ -1010,7 +976,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       : tab.kind === 'pr' ? <IdePrTabLabel pr={prOf(tab.ref)} title={title(tab)} />
       : tab.kind === 'routine' ? <RoutineTabLabel title={title(tab)} dirty={dirtyRoutines.has(keyOf(tab))} />
       // « À toi 2 » (mockup v27): the requests waiting, the tab's name staying its title.
-      : tab.kind === 'atoi' ? <AtoiTabLabel title={title(tab)} waiting={waitingSessions(sessions, waits).length} />
       // The title in `.tab-name`, as every other label: what a preview's italic applies to.
       : <span className="tab-name" {...(shellTip(tab) ? { title: shellTip(tab) } : {})}>{title(tab)}</span>);
     const alert = (tab: Tab) => (tab.kind === 'session' || tab.kind === 'seat' ? tabAlert(known.find(s => s.id === tab.ref)) : null);
@@ -1065,20 +1030,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         );
       }
       if (tab.kind === 'settings') return tnav.place.kind === 'settings' ? <SettingsPlace section={tnav.place.section} ctx={settings} noBack /> : null;
-      if (tab.kind === 'atoi') {
-        return <IdeAtoi waiting={waitingSessions(sessions, waits)} sessions={sessions} where={s => (s.rig ? projectLabel(s, projectName) : [projectName(s), s.branch].filter(Boolean).join(' · '))}
-          onOpen={id => dispatch({ type: 'open', id })} onDecide={(s, ok) => { decisions.decide(s, ok ? 'accept' : 'deny'); }} onAnswer={(s, o) => { decisions.reply(s, o); }}
-          prs={prsWaitingForYou(forge.prs)} agentOf={p => prAgentOf(p) ?? null} onOpenPr={p => onTab({ kind: 'pr', ref: p.id })}
-          onAskFix={p => { const a = prAgentOf(p); if (!a) return; fleet.prDetail(p.id, p.machineId).then(d => { const j = d.jobs.find(x => x.status === 'fail'); if (j && decisions.reply(a, t.forge.fixText(p.ref, j.name))) dispatch({ type: 'open', id: a.id, where: 'right' }); }, () => {}); }}
-          fleet={fleet} machineLabel={machineLabel} notify={notify}
-          tasks={tasksApi} onSeeTask={id => dispatch({ type: 'ledge', tab: 'tasks', task: id })} onHandover={id => { void tasksApi.handover(id); }} onLater={s => tasksApi.putLater(s)}
-          onSummarize={() => { setRightTab(x => ({ ...x, tab: 'conversation', ask: { text: t.home.point.summarizeQuestion, n: ++summarizeSeq.current } })); onLayout({ type: 'show', panel: 'right', on: true }); }}
-          summarizeOff={!localMachine?.ready} asks={asks} askFocus={askFocus} onAskFocused={() => setAskFocus(null)} asksMachine={localMachine?.label ?? 'local'}
-          askSourceOf={ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; }}
-          onOpenSeat={id => dispatch({ type: 'open', id })}
-          routines={<IdeAtoiRoutines items={routineItems} {...routineHandlers} />}
-          report={reportHandlers} />;
-      }
       if (tab.kind === 'pr') {
         const p = prOf(tab.ref);
         if (!p) return null;
@@ -1176,14 +1127,12 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
               requests={{ view: asks, sessions, machineLabel: localMachine?.label ?? 'local', focus: requestFocus, onFocused: () => setRequestFocus(null),
                 sourceOf: ask => { const s = sessionOfAsk(ask, sessions); return s ? (path: string) => dispatch({ type: 'open', id: s.id, doc: path }) : null; },
                 onOpenSeat: id => dispatch({ type: 'open', id }) }} />
-          : <Sidebar section={layout.sideView === 'atoi' ? 'atoi' : 'projects'} onAtoiPage={() => onTab({ kind: 'atoi', ref: 'main' })} nav={nav} dispatch={dispatch} sessions={sessions} archived={fleetView.archived} projects={projects} order={order} projectIdOf={projectIdOf} filing={filing}
+          : <Sidebar nav={nav} dispatch={dispatch} sessions={sessions} archived={fleetView.archived} projects={projects} order={order} projectIdOf={projectIdOf} filing={filing}
             actions={actions} decisions={decisions} waits={waits} menu={sessionMenu} notify={notify} {...(orderWriter ? { orderWriter } : {})}
             broadcast={canBroadcast(machines)} broadcastSent={broadcastSent}
             onTerminal={sessionMenu.terminal} revealArchives={revealArchives} revealCurrent={revealCurrent}
             tasksApi={tasksApi}
-            // A rig's request is read and answered on the page « À toi » (lot 12, card 12): its card unfolded there, ringed a moment.
-            asks={asks.asks} onSeeAsk={id => { setAskFocus({ id, n: ++askSeq.current }); onTab({ kind: 'atoi', ref: 'main' }); }}
-            clock={routineClock} {...(routineItems.length ? { routines: { count: routineItems.length, node: <IdeAtoiRoutineCards items={routineItems} {...routineHandlers} /> } } : {})} />
+            clock={routineClock} />
         }
         bottom={
           <IdeBottom panel={panel} onTab={tab => panelStore.update(p => (p.tab === tab ? p : { ...p, tab }))}

@@ -65,7 +65,7 @@ export const en: Messages = {
       noRig: 'No rig yet.', noRigBody: 'A rig is a team of agents.', noRigOperator: (name: string) => `${name}, the kernel’s operator, can help you put one together.`
     },
     active: (n) => `${n} active`,
-    yours: 'Your turn', yoursMore: (n) => `See the other ${n}`, yoursLess: 'Show less',
+    waitTag: { approval: 'Approval', question: 'Question', error: 'Error' },
     allow: 'Yes', deny: 'No', reply: 'Reply', see: 'View',
     ofHelper: (parent) => `↳ ${parent}`,
     hideDone: 'Only projects with a live agent (H)', moreProjects: (n) => `+${n} ${pluralEn(n, 'project', 'projects')} with no live agent`,
@@ -1574,7 +1574,7 @@ export const en: Messages = {
       broughtBack: 'Terminal brought back to the bottom panel.', onlyTerms: 'Only terminals go in the bottom panel.'
     },
     sideToggle: 'Sidebar (Ctrl+B)', bottomToggle: 'Bottom panel (Ctrl+J)', rightToggle: 'Right panel',
-    activityLabel: 'Activity bar', projects: 'Projects', rigs: 'OpenRig rigs', atoi: 'For you',
+    activityLabel: 'Activity bar', projects: 'Projects', rigs: 'OpenRig rigs',
     atelierTab: 'Atelier (tab)', settingsTab: 'Settings (tab)',
     resizeEdge: 'Drag to resize · double-click: default width', resizeBottom: 'Drag to resize · double-click: default height',
     waiting: (n: number) => (n === 1 ? '1 request' : `${n} requests`),
@@ -1590,7 +1590,7 @@ export const en: Messages = {
     newSession: 'New session (N)',
     split: 'Split right', splitTip: 'Split right (Ctrl+\\)', splitKey: 'Ctrl \\', linkTip: 'Link this group: pick a colour', linkMenu: 'Link this group', linkNone: 'No link', linkCurrent: 'current', linkGroups: n => (n > 1 ? `${n} groups` : '1 group'),
     links: { violet: 'Violet', teal: 'Teal', rose: 'Rose', lime: 'Lime', fuchsia: 'Fuchsia', sand: 'Sand' },
-    atoiNone: 'Nothing waits for you.', operations: 'Operations', usageOnce: (harness, window, line) => `${harness} · ${window}: ${line}`,
+    operations: 'Operations', usageOnce: (harness, window, line) => `${harness} · ${window}: ${line}`,
     closeGroupTip: 'Close group (Ctrl+W)',
     dropNew: ['Drop here:', 'new group'],
     // Lot 9, v27 (docs/ide-workspace.md, « Fenêtres détachées »).
@@ -1648,15 +1648,6 @@ export const en: Messages = {
     resumeHint: 'The sessions whose tab was open when Ledge closed resume in their tab. A session you ended does not start again.',
     resumeOff: 'Resuming sessions on start turned off',
     resumed: (n) => `${n} ${pluralEn(n, 'session', 'sessions')} resumed`
-  },
-  atoiPage: {
-    title: 'For you', sub: 'What waits for your decision or your eye, across every session and rig. Ledge’s chat stays in the right panel.',
-    requests: 'Requests', keysBefore: 'or ', keysAfter: ' on the active session', open: 'Open',
-    allowCommand: 'Allow a command', allow: 'Allow', deny: 'Deny', noRequest: 'Nothing waits for you.',
-    prsSub: 'failed pipelines, ready to merge', prFailed: 'pipeline failed', prReady: 'pipeline passed, approved', prReadyNoCi: 'no CI, approved', noPr: 'No MR or PR waits for you.',
-    finished: 'Finished since your last visit', noFinished: 'No session has finished.',
-    pageButton: 'Page', pageTip: 'The For you page',
-    decisionsSub: 'what sessions ask you through Ledge', rigs: 'OpenRig rigs', rigsSub: 'what the rigs ask you', near: 'Context nearly full', fold: 'Fold'
   },
   // Merge and pull requests (lot 8b).
   forge: {
@@ -1803,17 +1794,5 @@ export const en: Messages = {
       tool: (tool: string) => `Tool not found on this PC: ${tool}.`, model: (tool: string, model: string) => `Unknown model for ${tool}: ${model}.`
     },
     why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
-    atoi: {
-      block: 'Routines', blockSub: 'to activate, or that could not run', kind: 'routine',
-      ask: (r: string, times: string, days: string, dir: string) => `wants to schedule “${r}”: ${times} (${days}), in ${dir}`,
-      askOnce: (r: string, moments: string, dir: string) => `wants to schedule “${r}”: ${moments}, in ${dir}`,
-      failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
-      failedShort: (r: string, why: string) => `${r} could not run: ${why}`,
-      more: (n: number) => ` and ${n} more`,
-      editAsk: (r: string, times: string, days: string) => `wants to change “${r}”: ${times} (${days})`,
-      editAskOnce: (r: string, moments: string) => `wants to change “${r}”: ${moments}`,
-      groupAsk: (n: number) => `wants to schedule ${n} one-shot routines`, groupShort: (n: number, dates: string) => `wants to schedule ${n} one-shot routines: ${dates}`,
-      seePrompt: 'See the prompt', hidePrompt: 'Hide the prompt'
-    }
   }
 };
