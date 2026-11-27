@@ -304,14 +304,16 @@ describe('the IDE session tab (lot 2)', () => {
     expect(tabs()[0]).toHaveAccessibleName('Otto');
   });
 
-  it('the bottom bar: Otto\'s +1 opens « Modifications · Otto » in a second group and lights; the model chip is in the bar, not the reply', async () => {
+  it('the bottom bar: Otto\'s +1 opens « Modifications · Otto » in a second group and lights; the bar sits in the reply field, under the session on the terminal view', async () => {
     const { d, tree, user } = await mount({ daemon: { version: '1', install: 'npm', systemd: true, models: true, modelSwitch: true } });
     d.thread('otto', [{ kind: 'tool', id: 'w1', at: new Date().toISOString(), turn: 1, tool: 'Write', label: '/w/ledge/notes.md', status: 'success', files: [{ path: '/w/ledge/notes.md', change: 'write', diff: '+ Bonjour' }] }]);
     await user.click(tree.getByRole('button', { name: /^Otto/ }));
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
     const page = () => document.querySelector<HTMLElement>('.ide-pane .session-page[data-session$="otto"]')!;
     await waitFor(() => expect(page().querySelector('.ide-bar .model-chip')).not.toBeNull());
-    expect(page().querySelector('.session-reply .model-chip')).toBeNull();
+    // The bar is in the reply field's bottom row (#41); the field has no model chip of its own.
+    expect(page().querySelector('.session-reply .cw-tools .ide-bar .model-chip')).not.toBeNull();
+    expect(page().querySelector('.session-reply > form > .model-chip')).toBeNull();
     const chip = await within(page()).findByRole('button', { name: /^\+1/ });
     expect(document.querySelectorAll('.ide-dock .dv-groupview')).toHaveLength(1);
     await user.click(chip);

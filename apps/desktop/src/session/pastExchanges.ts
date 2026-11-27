@@ -2,8 +2,8 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * How the thread shows a past exchange (issue #41, the owner's choice of 2026-11-27): its texts and actions folded under « Travail »,
- * its request and its answer kept in sight (default), or everything open. Kept on this machine under its own key. Its place in
- * Settings waits for its mockup; until then only this module sets it.
+ * its request and its answer kept in sight (default), or everything open. Kept on this machine under its own key; set in
+ * Settings › General, under « Vue par défaut d'une session » (docs/mockups/ledge-thread-cowork-complement.md §1).
  */
 export type PastExchanges = 'folded' | 'open';
 export const PAST_EXCHANGES_KEY = 'desktop.pastExchanges';

@@ -400,6 +400,9 @@ export const fr = {
       // « Vue par défaut d'une session » (docs/mockups/ledge-session-view-default.html, #300, validated 2026-11-13).
       view: 'Vue par défaut d’une session', viewHint: 'La vue qu’ouvre une session neuve. Un siège OMP en marche s’ouvre toujours sur le Terminal ; une machine sans terminal, sur le Fil.',
       viewSaved: (v: string) => `Vue par défaut : ${v}`,
+      // « Échanges passés » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), validé par jde le 2026-11-27.
+      past: 'Échanges passés', pastHint: 'Dans le fil d’une session, un échange terminé garde sa demande et sa réponse en vue ; le travail entre les deux se replie sous « Travail ». Le dernier échange reste ouvert.',
+      pastChoices: { folded: 'Repliés', open: 'Ouverts' }, pastSaved: { folded: 'Échanges passés : repliés', open: 'Échanges passés : ouverts' },
       context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : « À toi » propose de passer le relais, et Ledge relève de lui-même une session qui travaille sans demander.',
       usageAlert: 'Alerte de limite d’usage', usageAlertHint: 'Au-delà, Ledge Desktop vous prévient une seule fois qu’une fenêtre d’usage d’un harnais (5 h, semaine, par modèle) approche de sa limite. Les limites sont celles du compte, lues sur chaque machine.',
       usageAlertSaved: (pct: number) => `Alerte de limite d’usage : ${pct} %`, usageAlertUnknown: 'Aucune machine ne donne encore les limites de ses harnais : mettez à jour Ledge, ou connectez Claude Code.',
@@ -1067,6 +1070,9 @@ export const fr = {
       stopKey: 'arrêter', escKey: 'Échap', stopping: 'Arrêt demandé…', stopped: (n: string) => `Vous avez interrompu ${n}.`, whenQueued: 'après ce tour', whenNow: 'maintenant',
       queueLabel: 'Consignes en attente', queued: (n: number) => `En attente (${n})`, queueSteer: 'réorienter', queueAfter: 'après ce tour', restore: 'Interrompre et récupérer', restoreTitle: 'Arrête le travail et remet les consignes en attente dans le champ',
       queueTitle: (n: number) => plural(n, `${n} message en attente`, `${n} messages en attente`), queueOrder: 'partent dans l’ordre', queueNow: 'maintenant', queueLater: 'après le tour', queueTakeBack: 'Arrêter et reprendre',
+      // La rangée du bas du champ (#41, #39), validée par jde le 2026-11-27.
+      interruptName: (n: string) => `Interrompre ${n}`, askAside: 'Demander en aparté', btwNote: (n: string) => `En aparté : ${n} répond sans s’interrompre, hors du fil`,
+      dictate: 'Dicter', dictateTitle: 'Dicter (Win+H) · saisie vocale de Windows', dictateUnavailable: 'La dictée n’est disponible que dans Ledge Desktop.',
       noNote: 'Cet agent ne prend pas de message avec un refus : refusez avec N.', tooLong: (max: number) => `Une note tient en ${max} caractères au plus.`
     },
     slash: {

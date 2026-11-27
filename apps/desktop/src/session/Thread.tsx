@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useMemo, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from 'react';
 import { daemonStore, qualify, splitId, type DaemonClient } from '@ledge/fleet';
-import { doneCount, latestTodos, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
+import { doneCount, latestTodos, type Aside, type Helper, type HelperItem, type NoticeItem, type Pending, type ReceivedItem, type SentItem, type Session, type ThreadItem, type ToolItem } from '@ledge/protocol';
 import type { BotState } from '@ledge/ui/bots/poseFor';
 import { ThreadMarkdown } from '@ledge/ui/documents/markdown';
 import type { DocumentReference } from '@ledge/ui/documents/references';
@@ -23,6 +23,7 @@ import { parseDiff } from './diff';
 import { PlanCard } from './PlanCard';
 import { usePastExchanges } from './pastExchanges';
 import { WaitLine } from './WaitLine';
+import { closeAside, useAsides } from './asides';
 import { waitOf, type Wait } from './waiting';
 import { clock, displayIds, docRefs, fmtDur, helperOf, peerKey, planTitle, summarize, timeMark, verbOf, type Exchange, type Segment } from './exchanges';
 import { marksOf, tagLabel, taskOf, type Marked, type SynapseTags, type TaskNotice } from './markers';
@@ -70,6 +71,8 @@ export interface ThreadProps {
   onConversation?(peer: string): void;
   /** The pinned request of this thread (online only); null: none. */
   waiting?: Waiting | null;
+  /** « Voir la vue Terminal » under an aside Ledge could not read: the session's Terminal view. Absent: no link. */
+  onTerminal?(): void;
 }
 
 /** What the agent said, as plain prose the column's width, its time under it, and a card for each document it names (docRefs):
@@ -573,12 +576,38 @@ function Foot({ run, waiting, wait, thinking, seedKey, now }: {
   return null;
 }
 
+/** An aside (« /btw », #41) under the thread, marked as outside it: its question, then « Nova répond en aparté… », its answer, or
+ *  that Ledge could not read it (any failure: the answer is in the terminal). */
+function AsideCard({ aside, name, onClose, onDocument, onTerminal }: { aside: Aside; name: string; onClose(): void; onDocument(path: string): void; onTerminal?(): void }): JSX.Element {
+  const { t } = useI18n();
+  const ta = t.session.thread.aside;
+  return (
+    <li className="cw-aside">
+      <div className="cw-aside-head">
+        <span className="cw-aside-tag">{ta.tag}</span><span>{ta.head(name)}</span><span className="cw-time mono">{clock(aside.askedAt)}</span>
+        <button type="button" aria-label={ta.close} title={ta.close} onClick={onClose}><Icon d={ICONS.close.d} size={13} /></button>
+      </div>
+      <p className="cw-aside-q">{aside.question}</p>
+      {aside.state === 'answered' && aside.answer !== undefined
+        ? <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={aside.answer} onDocument={ref => onDocument(ref.path)} /></div></div>
+        : aside.state === 'asking' ? <p className="cw-aside-wait cw-shimmer" role="status">{ta.asking(name)}</p>
+        : <div className="cw-aside-failed" role="status"><span>{ta.unreadable(name)}</span>{onTerminal && <button type="button" className="cw-link" onClick={onTerminal}>{ta.seeTerminal}</button>}</div>}
+    </li>
+  );
+}
+
+/** The asides asked here of the session, under the thread: their own component, so their store's changes leave the thread alone. */
+function Asides({ client, session, onDocument, onTerminal }: Pick<ThreadProps, 'client' | 'session' | 'onDocument' | 'onTerminal'>): JSX.Element {
+  const asides = useAsides(client, session.id);
+  return <>{asides.map(a => <AsideCard key={a.rid} aside={a} name={session.name} onClose={() => closeAside(session.id, a.rid)} onDocument={onDocument} onTerminal={onTerminal} />)}</>;
+}
+
 /** The session thread as a conversation, in the manner of Claude Desktop's « Cowork » (docs/mockups/ledge-thread-cowork.html,
  *  issue #41): one reading column, what the person wrote in a bubble on the right, what the agent says as plain prose, its work
  *  between two texts folded to one line, and, when the session is wide enough, the summary beside the column. Memoised: the
  *  store's changes elsewhere leave it alone, its props being the session, its items and their exchanges, the clock and the
  *  page's stable callbacks. */
-export const Thread = memo(function Thread({ client, session, helper, items, xs, now, unread, since, dispatch, flash, onChange, onCapture, onDocument, planOpen, onPlan, convOpen, onConversation, waiting = null, onReplyTo }: ThreadProps): JSX.Element {
+export const Thread = memo(function Thread({ client, session, helper, items, xs, now, unread, since, dispatch, flash, onChange, onCapture, onDocument, planOpen, onPlan, convOpen, onConversation, waiting = null, onReplyTo, onTerminal }: ThreadProps): JSX.Element {
   const { t, lang } = useI18n();
   const offline = session.offline === true;
   const past = usePastExchanges();
@@ -615,6 +644,7 @@ export const Thread = memo(function Thread({ client, session, helper, items, xs,
           );
         })}
         <Foot key="foot" run={run} waiting={waiting} wait={wait} thinking={working ? helper?.kind ?? session.name : null} seedKey={lastX?.key ?? ''} now={now} />
+        {helper === null && <Asides client={client} session={session} onDocument={onDocument} onTerminal={onTerminal} />}
       </ol>
       <Summary session={session} helper={helper} items={items} dispatch={dispatch} onChange={onChange} />
     </div>

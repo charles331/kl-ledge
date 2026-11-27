@@ -50,6 +50,16 @@ export async function focusTerminal(title: string): Promise<boolean> {
   return invoke<boolean>('focus_terminal', { title }).catch(() => false);
 }
 
+/** Whether Windows' voice typing can be opened from here: only inside Ledge Desktop (#39, #41). */
+export const canVoiceType = (): boolean => isTauri();
+
+/** Opens or closes Windows' voice typing in the focused field (Win+H, Tauri's `voice_typing`): one call toggles it, and Windows
+ *  never says whether it listens. True once the keys went; false outside Ledge Desktop or off Windows. */
+export async function voiceTyping(): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>('voice_typing').catch(() => false);
+}
+
 /** Opens a new Windows Terminal tab titled `title` running `command` inside WSL. True once the tab was spawned. */
 export async function openTerminal(title: string, command: string[]): Promise<boolean> {
   if (!isTauri()) return false;

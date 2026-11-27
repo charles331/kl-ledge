@@ -22,10 +22,10 @@
    of them a 12 px margin, counted here. */
 .session-main { container: cwm / inline-size; }
 @container cwm (min-width: 784px) {
-  .ide-reply.session-reply { padding-inline: calc((100cqw - 784px) / 2); }
+  :root[data-skin="atelier"] .ide-reply.session-reply { padding-inline: calc((100cqw - 784px) / 2); }
 }
 @container cwm (min-width: 1068px) {
-  .ide-reply.session-reply { padding-left: calc((100cqw - 1048px) / 2 - 12px); padding-right: calc((100cqw - 1048px) / 2 + 316px); }
+  :root[data-skin="atelier"] .ide-reply.session-reply { padding-left: calc((100cqw - 1048px) / 2 - 12px); padding-right: calc((100cqw - 1048px) / 2 + 316px); }
 }
 
 /* ---------- What the person wrote: a bubble on the right ---------- */
@@ -143,3 +143,38 @@ button.cw-helper { display: flex; align-items: center; gap: 10px; width: 100%; m
 .cw-rows button:hover { background: var(--at-line); }
 .cw-rows button > svg { flex: none; color: var(--at-ink2); }
 .cw-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- The reply field: its bottom row carries the session bar, the voice, and send or interrupt ---------- */
+:root[data-skin="atelier"] .ide-reply.session-reply > form { border-radius: 16px; }
+:root[data-skin="atelier"] .ide-reply.session-reply textarea { min-height: 46px; padding: 12px 14px 4px; }
+:root[data-skin="atelier"] .ide-reply.session-reply > form > .reply-hint { order: 8; margin-left: 14px; }
+:root[data-skin="atelier"] .ide-reply.session-reply > form:has(.cw-tools.btw) { border-style: dashed; border-color: color-mix(in srgb, var(--at-coral) 60%, transparent); }
+:root[data-skin="atelier"] .ide-reply.session-reply > form > .cw-tools { order: 9; flex: 1 0 100%; display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 8px; padding: 0 8px 0 14px; }
+.cw-bar-slot { flex: 1; min-width: 0; }
+/* While the field holds « /btw … », the row says what Enter will do, in the session bar's place. */
+.cw-btw-note { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 32px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--at-ink2); }
+.cw-btw-note b { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); font-weight: 500; }
+:root[data-skin="atelier"] .cw-bar-slot .ide-bar { height: 32px; padding: 0; background: none; border: 0; }
+button.cw-mic { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; color: var(--at-ink2); cursor: pointer; }
+button.cw-mic:hover:not(:disabled) { background: var(--at-line); color: var(--at-ink); }
+button.cw-mic:disabled { opacity: .45; cursor: default; }
+button.cw-send { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--at-coral); color: var(--at-coral-ink); cursor: pointer; }
+button.cw-send:disabled { background: var(--at-raise); color: var(--at-ink2); cursor: default; }
+button.cw-send.stop { background: var(--at-ink); color: var(--at-pane); }
+button.cw-send.stop:disabled { opacity: .6; }
+button.cw-send.stop i { width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+
+/* ---------- An aside (« btw »): a question beside the thread, which the session answers without stopping ---------- */
+.cw-aside { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; border: 1px dashed var(--at-line2); border-radius: 14px; background: var(--at-side); }
+.cw-aside-head { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; color: var(--at-ink2); }
+.cw-aside-head > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-aside-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); }
+.cw-aside-head > .cw-time { flex: none; margin-left: auto; }
+.cw-aside-head button { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; color: var(--at-ink2); cursor: pointer; }
+.cw-aside-head button:hover { background: var(--at-line); color: var(--at-ink); }
+.cw-aside-q { align-self: flex-end; margin: 0; max-width: 82%; padding: 7px 12px; border-radius: 14px 14px 5px 14px; background: var(--at-raise); font-size: 13.5px; line-height: 20px; overflow-wrap: anywhere; }
+.cw-aside-a .msg-body { font-size: 13.5px; line-height: 21px; }
+.cw-aside-a .msg-body > :first-child { margin-top: 0; }
+.cw-aside-a .msg-body > :last-child { margin-bottom: 0; }
+.cw-aside-wait { margin: 0; font-size: 13.5px; line-height: 20px; }
+.cw-aside-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; line-height: 19px; color: var(--at-ink2); }

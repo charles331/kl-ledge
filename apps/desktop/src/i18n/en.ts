@@ -367,6 +367,9 @@ export const en: Messages = {
       tool: 'Default agent', toolHint: 'For Ledge’s chat and its cards.', toolSaved: (name) => `Default agent: ${name}`,
       view: 'Default session view', viewHint: 'The view a new session opens on. A running OMP seat always opens on the Terminal; a machine without a terminal, on the Thread.',
       viewSaved: (v) => `Default view: ${v}`,
+      // « Past exchanges » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), approved by the owner on 2026-11-27.
+      past: 'Past exchanges', pastHint: 'In a session\'s thread, a finished exchange keeps its request and its answer in sight; the work between them folds under “Work”. The last exchange stays open.',
+      pastChoices: { folded: 'Folded', open: 'Open' }, pastSaved: { folded: 'Past exchanges: folded', open: 'Past exchanges: open' },
       context: 'Max context', contextHint: 'Past it, a session is near its limit: « Your turn » offers to hand it over, and Ledge relieves on its own a session that works without asking.',
       usageAlert: 'Usage limit alert', usageAlertHint: 'Past it, Ledge Desktop tells you once that a harness usage window (5 h, week, per model) is nearing its limit. Limits are the account’s, read on each machine.',
       usageAlertSaved: (pct) => `Usage limit alert: ${pct} %`, usageAlertUnknown: 'No machine gives its harnesses’ limits yet: update Ledge, or sign in to Claude Code.',
@@ -1012,6 +1015,9 @@ export const en: Messages = {
       stopKey: 'stop', escKey: 'Esc', stopping: 'Stop requested…', stopped: (n: string) => `You interrupted ${n}.`, whenQueued: 'after this turn', whenNow: 'now',
       queueLabel: 'Waiting instructions', queued: (n: number) => `Waiting (${n})`, queueSteer: 'redirect', queueAfter: 'after this turn', restore: 'Interrupt and take back', restoreTitle: 'Stops the work and puts the waiting instructions back in the field',
       queueTitle: (n: number) => pluralEn(n, `${n} message waiting`, `${n} messages waiting`), queueOrder: 'sent in order', queueNow: 'now', queueLater: 'after the turn', queueTakeBack: 'Stop and take back',
+      // The reply field's bottom row (#41, #39), approved by the owner on 2026-11-27.
+      interruptName: (n: string) => `Interrupt ${n}`, askAside: 'Ask aside', btwNote: (n: string) => `Aside: ${n} answers without stopping, outside the thread`,
+      dictate: 'Dictate', dictateTitle: 'Dictate (Win+H) · Windows voice typing', dictateUnavailable: 'Dictation is only available in Ledge Desktop.',
       noNote: 'This agent takes no message with a refusal: deny with N.', tooLong: (max) => `A note holds ${max} characters at most.`
     },
     slash: {

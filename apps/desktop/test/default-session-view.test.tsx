@@ -3,6 +3,7 @@ import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import { boot, closeDaemons, listSessions } from './helpers';
 import { DEFAULT_VIEW_KEY, getDefaultView, hasLiveScreen, reloadDefaultView, setDefaultView, startViewOf } from '../src/session/defaultView';
 import { loadSessionPrefs, saveSessionPrefs, SESSION_KEY } from '../src/session/prefs';
+import { PAST_EXCHANGES_KEY, setPastExchanges } from '../src/session/pastExchanges';
 import { routeNav } from '../src/workspace/route';
 import { empty, focused, open } from '../src/workspace/model';
 
@@ -99,5 +100,19 @@ describe('Settings › General', () => {
     await user.click(within(group).getByRole('radio', { name: 'Terminal' }));
     expect(localStorage.getItem(DEFAULT_VIEW_KEY)).toBe('terminal');
     expect(await screen.findByText(/Default view: Terminal/)).toBeInTheDocument();
+  });
+
+  it('« Past exchanges », under « Default session view » (#41): Folded by default; Open is kept and says so', async () => {
+    const { user } = await boot({ sessions: listSessions(), list: true });
+    await user.keyboard('{Control>},{/Control}');
+    const group = await screen.findByRole('radiogroup', { name: 'Past exchanges' });
+    const view = screen.getByRole('radiogroup', { name: 'Default session view' });
+    expect(view.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(group).getByRole('radio', { name: 'Folded' })).toBeChecked();
+    expect(screen.getByText('In a session\'s thread, a finished exchange keeps its request and its answer in sight; the work between them folds under “Work”. The last exchange stays open.')).toBeInTheDocument();
+    await user.click(within(group).getByRole('radio', { name: 'Open' }));
+    expect(localStorage.getItem(PAST_EXCHANGES_KEY)).toBe('open');
+    expect(await screen.findByText(/Past exchanges: open/)).toBeInTheDocument();
+    act(() => setPastExchanges('folded'));
   });
 });

@@ -40,6 +40,8 @@ export interface SessionBarProps {
   /** No request known and its repository's forge unreadable on its machine (state 2): the chip « PR ? », its reason in the tip,
    *  a click shows the MR and PR view (`onPrUnknown`); `machine` names that machine. */
   prUnknown?: FleetForgeStatus | null; prMachine?: string; onPrUnknown?(): void;
+  /** Drawn in the reply field's bottom row (#41): the field's round button interrupts, not this bar. */
+  inField?: boolean;
 }
 
 /** The mockup's `ic.diff` at 13 px: a plus, a minus and the slash between them. */
@@ -59,7 +61,7 @@ const k = (n: number) => `${Math.round(n / 1000)}k`;
  * (what the session page's heading said: an IDE tab has none), « Interrompre » while the agent works, and « +N −N », which
  * opens the Changes beside. Never a usage limit: the status bar says those. It narrows with its group (ide.css @container).
  */
-export function SessionBar({ client, session, project, files, besideLink, notify, onChanges, terminal = null, kids = 0, onShowKids, browser = null, onBrowser, pr = null, onPr, prUnknown = null, prMachine = '', onPrUnknown }: SessionBarProps): JSX.Element {
+export function SessionBar({ client, session, project, files, besideLink, notify, onChanges, terminal = null, kids = 0, onShowKids, browser = null, onBrowser, pr = null, onPr, prUnknown = null, prMachine = '', onPrUnknown, inField = false }: SessionBarProps): JSX.Element {
   const { t } = useI18n();
   const tb = t.session.browser;
   const relief = session.handover && !reliefDone(session.handover) ? session.handover : null;
@@ -74,14 +76,14 @@ export function SessionBar({ client, session, project, files, besideLink, notify
   const pct = share === undefined ? 0 : Math.round(share * 100);
   // R8: only what can be interrupted from here: working, live, reachable, not a read-only hook session. A native OMP session
   // has its own stop in the reply (« Arrêter », which gives its queue back): no second stop with another meaning here.
-  const interruptible = session.state === 'working' && !isArchived(session) && session.offline !== true && session.source !== 'hook_only' && !isNative(session);
+  const interruptible = !inField && session.state === 'working' && !isArchived(session) && session.offline !== true && session.source !== 'hook_only' && !isNative(session);
   const { files: count, plus, minus } = changeTotals(files);
   // A refusal of this session's interrupt comes back as an error naming it.
   useEffect(() => client.onMessage(m => {
     if (m.type === 'error' && m.request === 'session.interrupt' && m.id === session.id) notify(ti.interruptRefused(session.name, m.message));
   }), [client, session.id, session.name, notify, ti]);
   return (
-    <div className="ide-bar">
+    <div className={cls('ide-bar', inField && 'in-field')}>
       {/* No model known (right after a launch, a harness that gives none): no empty box, whose gap would push the rest right. */}
       {(switchable || session.model) && <span className="ide-bar-model" {...(switchable && { title: ti.changeModel })}>
         {switchable ? <SessionModel client={client} session={session} notify={notify} variant="bar" />
