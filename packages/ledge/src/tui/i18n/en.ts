@@ -44,8 +44,8 @@ export const en: Messages = {
   },
   overview: { rigsGroup: 'RIGS', kernelGroup: 'KERNEL', 
     rigSeat: (rig, role) => `rig ${rig} · ${role}`,
-    yours: n => `Yours · ${n}`, projects: 'Projects', exchanges: 'Messages', terminal: name => `Terminal · ${name}`,
-    nobodyWaits: 'Nobody is waiting for you.', noSession: 'No session. Press + to start one.', noPreview: 'No preview.', noExchange: 'No message yet.',
+    projects: 'Projects', exchanges: 'Messages', terminal: name => `Terminal · ${name}`,
+    noSession: 'No session. Press + to start one.', noPreview: 'No preview.', noExchange: 'No message yet.',
     sessions: n => `${n} ${plural(n, 'session', 'sessions')}`, sessionsOf: (live, all) => `${live} ${live === 1 ? 'session' : 'sessions'} of ${all}`, outside: 'No project', offline: 'offline', readOnly: 'read-only',
     wantsToRun: 'Wants to run:', asks: 'Asks:', plan: 'Proposes a plan:', diff: 'Wants to edit:',
     allow: 'Allow', deny: 'Deny', always: 'Always', denyWithNote: 'Deny with a note',
@@ -55,7 +55,6 @@ export const en: Messages = {
     context: pct => `ctx ${pct} %`,
     relief: { briefing: 'relief: brief asked', launching: 'relief: launching…', done: 'relieved', failed: 'relief failed' },
     relievedBy: name => `relieved by ${name}`, relieves: name => `relieves ${name}`,
-    ledgeTask: (owner, title, state) => `${owner} ${state === 'done' ? 'finished' : state === 'refused' ? 'refused' : 'dropped'} “${title}” · Ledge’s task`,
     decision: (giver, title) => `${giver} asks you: ${title}`,
     writeProjectTitle: project => `Write to the whole project ${project}`, writeProjectHint: 'Your message, as each session will read it…',
     decisionTitle: (giver, title) => `Answer ${giver} · ${title}`, decisionHint: 'Your answer, as the session will read it…',
@@ -335,14 +334,10 @@ export const en: Messages = {
     },
     oldDaemon: 'This daemon doesn’t know routines yet: update Ledge.',
     keys: { nav: 'navigate', runNow: 'run now', pauseResume: 'pause/resume', openSession: 'open the session' },
-    ask: (s: string, r: string, when: string, dir: string) => `${s} wants to schedule “${r}”: ${when}, in ${dir}`,
-    groupAsk: (s: string, n: number, days: string) => `${s} wants to schedule ${n} one-shot routines: ${days}`,
-    itemKeys: { activate: 'activate', refuse: 'refuse', retry: 'run again', activateAll: (n: number) => `activate all ${n}`, refuseAll: (n: number) => `refuse all ${n}` },
-    failed: (r: string, s: string, why: string) => `The routine ${r} (${s}) could not run: ${why}`,
+    itemKeys: { activate: 'activate', refuse: 'refuse' },
     stale: (r: string) => `“${r}” changed: read it again before activating.`,
     causes: { timeout: 'not typed within 30 min (session busy)' },
-    failedNamed: (r: string, why: string) => `The routine ${r} could not run: ${why}`,
-    change: (s: string, r: string, when: string) => `${s} wants to change “${r}”: ${when}`, waits: (r: string) => `“${r}” awaits your approval`
+    change: (s: string, r: string, when: string) => `${s} wants to change “${r}”: ${when}`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui opens in the Ledge tab.', loadingProfile: 'Windows Terminal is loading the Ledge profile…' }
 };

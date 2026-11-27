@@ -12,7 +12,8 @@ describe('ledge tui: overview', () => {
       // startTui only waits for Otto: the rest of the screen draws on the next frames.
       await until(() => tui.frame().includes('■ Ledge 3 sessions') && tui.frame().includes('Veut exécuter'));
       const f = tui.frame();
-      expect(f).toContain('À TOI · 2');
+      // No « À toi » box (#40, PR 3): the sessions that wait are in the tree, counted in the top bar.
+      expect(f).not.toContain('À TOI');
       expect(f).toContain('2 t’attendent');
       expect(f).toMatch(/■ Ledge 3 sessions/);
       expect(f).toContain('⎇ release/LEDGE-42-v0.5.0');

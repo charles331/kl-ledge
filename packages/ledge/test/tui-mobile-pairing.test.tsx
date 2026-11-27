@@ -112,7 +112,7 @@ describe('the pairing alert and « Lier un appareil »', () => {
     await tui.press('\x1b');
     await until(() => !tui!.frame().includes('LIER UN APPAREIL'));
     expect(tui.frame()).toContain('Pixel 8 demande à se lier à ton PC');
-    expect(tui.frame()).toContain('À TOI');
+    expect(tui.frame()).toContain('PROJETS');
   });
 
   it('gives approved the short body: no code, no countdown', async () => {

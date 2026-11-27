@@ -26,6 +26,7 @@ import { layout } from '../model/field.js';
 import type { Messages } from '../i18n/lang.js';
 import { TitledBox } from '../ui/TitledBox.js';
 import { handOver } from '../handover.js';
+import { decisionOf, useDecisionFlow, useDecisions } from '../decision.js';
 
 type Mode = 'read' | 'reply' | 'note' | 'model';
 
@@ -42,6 +43,10 @@ function SessionView({ s }: { s: Session }) {
   const clock = useNow();
   /** Its relief failed (#40, D10): said under the crumb, H tries again. */
   const failedRelief = s.handover?.state === 'failed';
+  /** A decision it put to the user (#40, PR 3, decision.tsx): said under the crumb, the oldest first; D answers it. */
+  const decisions = useDecisions();
+  const decision = decisionOf(decisions, s.id);
+  const flow = useDecisionFlow(decisions);
   // Opened by key r on an OpenRig message elsewhere: on the composer, its draft already there.
   const [mode, setMode] = useState<Mode>(() => { if (kept.openReply !== s.id) return 'read'; kept.openReply = undefined; return 'reply'; });
   // The draft outlives the field, the screen and ctrl+c: it is kept by the TUI, by session.
@@ -56,7 +61,7 @@ function SessionView({ s }: { s: Session }) {
   // The line at the top of the box once scrolled, as an item and a line in it, so that a resize, a fold or new lines below
   // keep it in place; null follows the bottom of the thread.
   const [anchor, setAnchor] = useState<{ key: string; offset: number } | null>(null);
-  useEditing(mode === 'reply' || mode === 'note');
+  useEditing(mode === 'reply' || mode === 'note' || flow.editing);
 
   // The thread is asked once per opening (and again after a reconnect drops it); its items then arrive one by one.
   const items = d.threads.get(s.id);
@@ -152,6 +157,8 @@ function SessionView({ s }: { s: Session }) {
   }, { isActive: mode === 'reply' });
 
   useScreenKeys((input, key) => {
+    // A decision's answer being written or read again: its keys only.
+    if (flow.onKey(input, key)) return true;
     if (mode === 'model') return true;
     if (mode !== 'read') {
       // ctrl+c leaves the field (keeping the draft) instead of quitting.
@@ -172,6 +179,7 @@ function SessionView({ s }: { s: Session }) {
     if (input === 'a') { attach(s); return true; }
     // A relief that failed (#40, D10): H tries again, as on the overview.
     if (input === 'H' && failedRelief) { handOver(client, s, t, toast); return true; }
+    if (input === 'D' && decision) { flow.start(decision); return true; }
     if (input === 'i') { actions.interrupt(s); return true; }
     if (input === 'm') {
       if (!canSwitch) toast({ text: t.toast.modelSwitch, tone: 'info' }); else setMode('model');
@@ -209,18 +217,18 @@ function SessionView({ s }: { s: Session }) {
   const showsThread = mode !== 'model' && !terminal && !!items && lines.length > 0;
   const above = lines.length - view - up;
   const foot = up > 0 ? t.session.scrolled(above, up) : lines.length > view ? t.session.above(lines.length - view) : undefined;
-  const keys: Array<readonly [string, string]> = mode === 'model' ? [['↑ ↓', t.keys.choose], ['← →', t.launch.effort], ['↵', t.keys.choose], ['esc', t.keys.cancel]]
+  const keys: Array<readonly [string, string]> = flow.active ? flow.keys : mode === 'model' ? [['↑ ↓', t.keys.choose], ['← →', t.launch.effort], ['↵', t.keys.choose], ['esc', t.keys.cancel]]
     : mode !== 'read' && browsing ? [['↵', t.keys.resend], ['↑ ↓', t.keys.history], ['esc', t.keys.backToDraft]]
     : mode !== 'read' ? [['↵', t.keys.sendOnly], ...(mode === 'reply' ? [['alt+v', t.keys.image] as const] : []), ['alt+↵', t.keys.newLine], ['esc', t.keys.keepAndLeave], ['↑ ↓', t.keys.lineHistory], ['ctrl ← →', t.keys.word], ['ctrl+u', t.keys.clear]]
-    : [['esc', t.keys.back], ...(p ? [['y n A', t.keys.answer] as const] : []), ...(rigEl ? [['↵', t.keys.write] as const, ...(!p && rigEl.reply ? [['r', t.keys.replyTo(rigEl.reply.peer.name)] as const] : []), ['b', t.keys.raw] as const] : [['r', t.keys.write] as const]), ['j k', t.keys.scroll], [t.keys.space, t.keys.unfold], ['d', t.keys.diffs], ['t', t.keys.terminal], ['a', t.keys.attach], ['m', t.keys.model], ['i', t.keys.interrupt], ...(images.length ? [['o', t.keys.openImage] as const] : []), ...(failedRelief ? [['H', t.keys.retry] as const] : [])];
+    : [['esc', t.keys.back], ...(p ? [['y n A', t.keys.answer] as const] : []), ...(rigEl ? [['↵', t.keys.write] as const, ...(!p && rigEl.reply ? [['r', t.keys.replyTo(rigEl.reply.peer.name)] as const] : []), ['b', t.keys.raw] as const] : [['r', t.keys.write] as const]), ['j k', t.keys.scroll], [t.keys.space, t.keys.unfold], ['d', t.keys.diffs], ['t', t.keys.terminal], ['a', t.keys.attach], ['m', t.keys.model], ['i', t.keys.interrupt], ...(images.length ? [['o', t.keys.openImage] as const] : []), ...(failedRelief ? [['H', t.keys.retry] as const] : []), ...(decision ? [['D', t.keys.decide] as const] : [])];
   // The rows, in this order: the request (its keys left out while writing), the field, the thread with what is left, drawn
   // only with room for a line. The request is cut only when even that does not fit.
   const editing = mode === 'reply' || mode === 'note';
-  const body = rows - 2 - (lastToast ? 1 : 0) - (failedRelief ? 1 : 0);
+  const body = rows - 2 - (lastToast ? 1 : 0) - (failedRelief ? 1 : 0) - (decision ? 1 : 0);
   const inner = Math.max(20, columns - 4);
   // The field as high as its text, up to its most (its prefix and the cursor's cell kept, as it lays itself out); the images
   // pasted take a line above it.
-  const below = (editing ? Math.min(fieldRows(columns, rows), layout(draft, Math.max(10, columns - 4) - 2).length) + 2 : 3) + (chips.items.length ? 1 : 0);
+  const below = (flow.active ? flow.height(columns, rows) : editing ? Math.min(fieldRows(columns, rows), layout(draft, Math.max(10, columns - 4) - 2).length) + 2 : 3) + (chips.items.length ? 1 : 0);
   let request = p ? ask(s, p, t, inner, 4, !editing) : null;
   const over = request ? askRows(request, inner) + below - body : 0;
   if (p && request && over > 0) request = ask(s, p, t, inner, Math.max(1, 4 - over), !editing);
@@ -230,6 +238,8 @@ function SessionView({ s }: { s: Session }) {
     <Frame crumb={`${s.repo ?? s.project}${s.branch ? ` › ${g.branch} ${s.branch}` : ''} › ${s.name} · ${machineLabel(s)}`} crumbShort={s.name} keys={keys} kept={draft !== ''}>
       {/* A relief that failed shows on the session (#40, D10, docs/mockups/ledge-remove-chat-p2.html): its words in red, H to retry. */}
       {failedRelief ? <Box paddingX={1} flexShrink={0}><Text wrap="truncate"><Text color={C.red}>{t.overview.reliefFailed(s.name, s.handover?.reason ?? '?')}</Text><Text color={C.faint}> · H {t.keys.retry}</Text></Text></Box> : null}
+      {/* A decision it put to the user (#40, PR 3, design-ux): its words in amber, D to answer. */}
+      {decision ? <Box paddingX={1} flexShrink={0}><Text wrap="truncate"><Text color={C.yellow}>{t.overview.decision(decision.giverName, decision.title)}</Text><Text color={C.faint}> · D {t.keys.decide}</Text></Text></Box> : null}
       {drawsThread ? <TitledBox title={terminal ? t.overview.terminal(paneName(s)) : title} flexGrow={1} minHeight={3} foot={showsThread ? foot : undefined}>
         {mode === 'model'
           ? <ModelPicker machine={machine} tool={s.tool} current={{ model: s.model ?? null, effort: s.effort ?? null }} onCancel={() => setMode('read')}
@@ -242,7 +252,7 @@ function SessionView({ s }: { s: Session }) {
       {watched.map(q => <RowWatch key={q} client={client} machine={machine} qitem={q} onRow={onRow} />)}
       {p && request ? <PendingBox s={s} a={request} /> : null}
       <ChipsLine chips={chips.items} />
-      {mode === 'reply' || mode === 'note'
+      {flow.active ? flow.view(columns, rows) : mode === 'reply' || mode === 'note'
         ? <Field title={mode === 'note' ? t.session.noteTitle(s.name) : t.session.replyTitle(s.name)} value={draft} onChange={setDraft} onSubmit={send} onEscape={leave}
           onBrowse={setBrowsing} history={kept.sent.get(s.id) ?? []} active placeholder={mode === 'note' ? t.session.noteFor(s.name) : t.session.replyTo(s.name)} />
         // Read: the draft kept, its first line dimmed; or what r does.

@@ -1,17 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { randomUUID } from 'node:crypto';
 import { useState } from 'react';
 import { BROADCAST_SILENT, canBroadcast, isPending, useContextNear, useTasks } from '@ledge/fleet';
-import { contextNear, contextShare, isOmpSeat, isStoppedOmpSeat, LEDGE_GIVER, projectOf, type Session, type Task } from '@ledge/protocol';
+import { contextNear, contextShare, isOmpSeat, isStoppedOmpSeat, projectOf, type Session } from '@ledge/protocol';
 import { botState } from '@ledge/ui/bots/poseFor';
 import { useEditing, useScreenKeys, useScreenSize, useTui } from '../context.js';
-import { closedLedgeTasks, exchanges, helperCount, machineOf, nearContext, openDecisions, overview, step } from '../model/overview.js';
-import { wrap } from '../model/thread.js';
+import { exchanges, helperCount, machineOf, nearContext, overview, step } from '../model/overview.js';
+import { askingIds, decisionOf, useDecisionFlow, useDecisions } from '../decision.js';
 import { fit, machineLabel, paneName } from '../model/labels.js';
 import { rigTag, seatSecond } from '../model/rigSeat.js';
 import { clock, oneLine } from '../model/time.js';
-import { Ago } from '../ui/Ago.js';
 import { handOver } from '../handover.js';
 import { C, projectColor, STATE_COLOR } from '../theme.js';
 import { Field, fieldRows } from '../ui/Field.js';
@@ -46,36 +45,21 @@ export function Overview() {
   const tasks = useTasks(tui.client);
   const view = useMemo(() => overview(d.sessions, projects), [d.sessions, projects]);
   const sel = selected?.id ?? null;
-  // A routine's items are not decisions: D does not answer them, and once settled they leave « À toi ».
-  const closed = closedLedgeTasks(tasks).filter(x => !x.routine);
-  // The decisions sessions put to the user: D answers the first one, written, read again whole, then confirmed (y). Only
-  // the task.answer action answers one: an answer cannot be taken back.
-  const decisions = useMemo(() => openDecisions(tasks).filter(x => !x.routine), [tasks]);
-  // A routine's activation request or failure is answered on the Routines screen (#40, D4), not here.
-  const [deciding, setDeciding] = useState<{ id: string; draft: string; confirm: boolean } | null>(null);
-  const decision = deciding ? decisions.find(x => x.id === deciding.id) : undefined;
-  // Answered elsewhere meanwhile (the phone, Desktop, the chat): the field goes with it.
-  useEffect(() => { if (deciding && !decision) setDeciding(null); }, [deciding, decision]);
+  // « À toi » left the overview (#40, PR 3): the sessions that wait are in the tree, tab goes to the next one, and so does it to a session
+  // a decision waits on (marked « ? »). D answers the selected session's decision, as its Session screen does (decision.tsx).
+  const decisions = useDecisions();
+  const asking = useMemo(() => askingIds(decisions), [decisions]);
+  const flow = useDecisionFlow(decisions);
   // m: one message to every live session of the selected one's project, through the fleet's broadcast (each machine that
   // holds them answers, merged, always within its timeout); the toast says who got it. Only a local daemon that takes it offers m.
   const writable = canBroadcast(tui.machines);
   const [writing, setWriting] = useState<{ id: string; project: string; draft: string } | null>(null);
-  useEditing((!!deciding && !deciding.confirm) || !!writing);
+  useEditing(flow.editing || !!writing);
   const broadcast = (id: string, text: string) => {
     void tui.fleet.broadcast({ project: id }, text, randomUUID()).then(m => {
       const why = m.reason === BROADCAST_SILENT ? t.toast.broadcastSilent : m.reason ?? m.refused[0]?.reason ?? '?';
       tui.toast(m.sent.length ? { text: t.toast.broadcastSent(m.sent.map(s => s.name).join(', '), m.refused.map(r => r.reason).join(' · ')), tone: 'ok' } : { text: t.toast.broadcastNobody(why), tone: 'error' });
     });
-  };
-  const answer = (x: Task, text: string) => {
-    const rid = randomUUID();
-    const off = tui.client.onMessage(m => {
-      if (m.type !== 'action.result' || m.rid !== rid) return;
-      off();
-      tui.toast(m.reason === undefined ? { text: t.toast.reply(x.giverName), tone: 'ok' } : { text: t.toast.answerFailed(m.reason), tone: 'error' });
-    });
-    setTimeout(off, 10_000);
-    tui.client.send({ type: 'action.run', rid, action: 'task.answer', args: { task: x.id, answer: text }, confirmed: true });
   };
   // Sessions near their context limit (context handover spec §3.2): H hands the selected one (else the first) over. They are no longer
   // listed here (#40, D10): the tree's ◔ says them, and a failed relief shows on the session itself.
@@ -83,13 +67,8 @@ export function Overview() {
   const near = useMemo(() => nearContext(d.sessions, threshold), [d.sessions, threshold]);
 
   useScreenKeys((input, key) => {
-    // The answer read again: y sends it, n or esc goes back to the field; nothing else goes through.
-    if (deciding) {
-      if (!deciding.confirm) { if (key.escape) setDeciding(null); return true; }
-      if (input === 'y' && decision) { setDeciding(null); answer(decision, deciding.draft.trim()); return true; }
-      if (input === 'n' || key.escape) { setDeciding({ ...deciding, confirm: false }); return true; }
-      return true;
-    }
+    // A decision's answer being written or read again: its keys only.
+    if (flow.onKey(input, key)) return true;
     if (writing) { if (key.escape) setWriting(null); return true; }
     if (input === 'm' && selected && writable) {
       const id = projects ? projectOf({ machineId: machineOf(selected), cwd: selected.cwd }, projects) : null;
@@ -97,20 +76,18 @@ export function Overview() {
       if (id && name) setWriting({ id, project: name, draft: '' }); else tui.toast({ text: t.toast.noProject, tone: 'info' });
       return true;
     }
-    if (input === 'D') { if (decisions[0]) setDeciding({ id: decisions[0].id, draft: '', confirm: false }); return true; }
+    if (input === 'D') { const x = decisionOf(decisions, selected?.id); if (x) flow.start(x); return true; }
     if (input === 'H') {
       const s = (selected && selected.source === 'launcher' && selected.state !== 'exited' && selected.tool !== 'omp' && (!selected.handover || selected.handover.state === 'failed') ? selected : undefined) ?? near.find(x => x.handover?.state !== 'failed') ?? near[0];
       if (!s) return true;
       handOver(tui.client, s, t, tui.toast);
       return true;
     }
-    // x puts away the oldest closed task Ledge gave (« À toi »).
-    if (input === 'x' && closed[0]) { tui.client.send({ type: 'task.cmd', rid: randomUUID(), by: LEDGE_GIVER, op: 'seen', task: closed[0].id }); return true; }
     if (input === 'j' || key.downArrow) { select(step(view.order, sel, 1)); return true; }
     if (input === 'k' || key.upArrow) { select(step(view.order, sel, -1)); return true; }
     if (key.tab) {
-      // The sessions that wait, round again.
-      const ids = view.yours.map(s => s.id);
+      // The sessions that wait, then those a decision waits on, round again.
+      const ids = [...view.yours.map(s => s.id), ...view.order.filter(id => asking.has(id) && !view.yours.some(s => s.id === id))];
       const next = ids.length ? ids[(ids.indexOf(sel ?? '') + 1) % ids.length]! : null;
       if (next) select(next);
       return true;
@@ -139,14 +116,10 @@ export function Overview() {
       ...n.branches.flatMap(b => [{ kind: 'branch' as const, key: `${n.key}|${b.branch}`, branch: b.branch, indent: 2 }, ...b.sessions.map(s => ({ kind: 'session' as const, key: s.id, s, indent: 0 }))])
     ];
   });
-  // The usage alerts moved to the footer's usage line (#40, D9), the routines to their screen (D4), the near-full sessions to the tree (D10).
-  const yoursCount = view.yours.length + decisions.length + closed.length;
-  const yoursHeight = Math.max(1, Math.min(yoursCount, 8));
-  // The status bar, the key bar, the toast, the boxes' borders and titles.
-  // The answer's field, or the answer read again whole, across the screen under the boxes.
-  const answerLines = deciding?.confirm ? wrap(deciding.draft.trim(), Math.max(10, columns - 4)) : [];
-  const decideHeight = writing ? fieldRows(columns, height) + 2 : !deciding ? 0 : deciding.confirm ? Math.min(answerLines.length, Math.max(1, height - 12)) + 2 : fieldRows(columns, height) + 2;
-  const allHeight = Math.max(3, height - 3 - (yoursHeight + 2) - decideHeight - 3);
+  // The status bar, the key bar, the toast, the boxes' borders and titles; then a field across the screen under the boxes (a message to
+  // the project, or a decision's answer). The tree takes the rest (#40, PR 3: no « À toi » box above it).
+  const decideHeight = writing ? fieldRows(columns, height) + 2 : flow.height(columns, height);
+  const allHeight = Math.max(3, height - 3 - decideHeight - 3);
   // The rigs' and the kernel's boxes take what their rows need (up to a few), the projects' the rest.
   const kernelHeight = kernelRows.length ? Math.min(kernelRows.length, 5) : 0;
   const rigsHeight = rigRows.length ? Math.min(rigRows.length, Math.max(3, Math.floor(allHeight / 3))) : 0;
@@ -155,36 +128,16 @@ export function Overview() {
   const inner = left - 4, nameW = 7;
   const stateW = Math.max(...Object.values(t.state).map(x => x.length)) + 1;
   const topicW = Math.max(6, inner - 6 - nameW - stateW - 3);
-  const askW = Math.max(6, inner - 2 - nameW - 9 - 7);
   // The rigs' box: each seat's role, then its harness at the same column (the longest role and two spaces).
   const roleW = Math.max(11, ...rigRows.map(r => (r.kind === 'session' ? [...(r.s.rig?.role ?? '')].length + 2 : 0)));
 
-  const yoursBox = (
-    <TitledBox title={t.overview.yours(yoursCount)} color={yoursCount ? C.red : C.line} titleColor={yoursCount ? C.red : C.dim} height={yoursHeight + 2}>
-      {yoursCount === 0 ? <Text color={C.faint}>{t.overview.nobodyWaits}</Text> : [...view.yours.slice(0, yoursHeight).map(s => {
-        const st = botState(s);
-        return (
-          <Text key={s.id} wrap="truncate" backgroundColor={s.id === sel ? C.sel : undefined}>
-            <Text color={STATE_COLOR[st]}>{g[st]} </Text><Text color={C.fg} bold>{fit(s.name, nameW)}</Text>
-            {/* A seat: name, then its rig and role, then the request, each two spaces apart. */}
-            {s.rig ? <><Text> </Text><Text color={C.blue}>{rigTag(s)}</Text><Text color={C.dim}>{seatSecond(s, '')}</Text><Text>{'   '}</Text></> : <Text color={C.dim}>{fit(s.repo ?? s.project, 9)}</Text>}<Text color={STATE_COLOR[st]}>{fit(oneLine(s.pending?.text ?? ''), s.rig ? Math.max(6, askW + 9 - rigTag(s).length - seatSecond(s, '').length - 4) : askW)}</Text>
-            <Text color={C.faint}> <Ago iso={s.lastActivityAt} /></Text>
-          </Text>
-        );
-      }), ...decisions.slice(0, Math.max(0, yoursHeight - view.yours.length)).map(x => (
-        <Text key={`decision:${x.id}`} wrap="truncate"><Text color={C.red}>{g.question} </Text><Text color={C.fg}>{t.overview.decision(x.giverName, x.title)}</Text>{x.text ? <Text color={C.dim}> · {oneLine(x.text)}</Text> : null}</Text>
-      )), ...closed.slice(0, Math.max(0, yoursHeight - view.yours.length - decisions.length)).map(x => (
-        <Text key={x.id} wrap="truncate"><Text color={x.state === 'done' ? C.green : C.yellow}>{x.state === 'done' ? g.ok : g.fail} </Text><Text color={C.fg}>{t.overview.ledgeTask(x.ownerName, x.title, x.state as 'done' | 'refused' | 'dropped')}</Text></Text>
-      ))]}
-    </TitledBox>
-  );
   const treeBox = (
     <TitledBox title={t.overview.projects} flexGrow={1}>
       {tree.length === 0 ? <Text color={C.faint}>{t.overview.noSession}</Text> : windowed(tree, sel, treeHeight).map(r => r.kind === 'project'
         ? <Text key={r.key} wrap="truncate"><Text color={r.color}>{g.project}</Text> <Text color={C.fg} bold>{r.label}</Text> <Text color={C.faint}>{t.overview.sessions(r.count)}</Text></Text>
         : r.kind === 'branch'
           ? <Text key={r.key} wrap="truncate" color={C.faint}>{' '.repeat(r.indent)}{g.branch} {r.branch}</Text>
-          : <SessionRow key={r.key} s={r.s} on={r.s.id === sel} nameW={nameW} topicW={Math.max(6, topicW - r.indent)} stateW={stateW} indent={r.indent} sigW={near.length ? SIG_W : 0} />)}
+          : <SessionRow key={r.key} s={r.s} on={r.s.id === sel} nameW={nameW} topicW={Math.max(6, topicW - r.indent)} stateW={stateW} indent={r.indent} sigW={near.length ? SIG_W : 0} asks={asking.has(r.s.id)} />)}
     </TitledBox>
   );
   const groupBox = (title: string, rows: Row[], rowsHeight: number) => rows.length === 0 ? null : (
@@ -192,7 +145,7 @@ export function Overview() {
       {windowed(rows, sel, rowsHeight).map(r => r.kind === 'project'
         ? <Text key={r.key} wrap="truncate"><Text color={r.color}>⬡</Text> <Text color={C.fg} bold>{r.label}</Text>{r.folder ? <Text color={C.faint}>  {r.folder}</Text> : null}<Text color={C.faint}>  {r.shown !== undefined ? t.overview.sessionsOf(r.count, r.shown) : t.overview.sessions(r.count)}</Text></Text>
         : r.kind === 'session'
-          ? <SessionRow key={r.key} s={r.s} on={r.s.id === sel} nameW={nameW} topicW={Math.max(6, topicW - r.indent)} stateW={stateW} indent={r.indent} group={r.group} roleW={roleW} />
+          ? <SessionRow key={r.key} s={r.s} on={r.s.id === sel} nameW={nameW} topicW={Math.max(6, topicW - r.indent)} stateW={stateW} indent={r.indent} group={r.group} roleW={roleW} asks={asking.has(r.s.id)} />
           : null)}
     </TitledBox>
   );
@@ -200,18 +153,17 @@ export function Overview() {
   const kernelBox = groupBox(t.overview.kernelGroup, kernelRows, kernelHeight);
 
   const stopped = !!selected && isStoppedOmpSeat(selected);
-  const keys: Array<readonly [string, string]> = writing ? [['↵', t.keys.sendOnly], ['alt+↵', t.keys.newLine], ['esc', t.keys.cancel]] : deciding?.confirm ? [['y', t.keys.sendAnswer], ['n esc', t.keys.edit]]
-    : deciding ? [['↵', t.keys.review], ['alt+↵', t.keys.newLine], ['esc', t.keys.cancel]] : [
+  const keys: Array<readonly [string, string]> = writing ? [['↵', t.keys.sendOnly], ['alt+↵', t.keys.newLine], ['esc', t.keys.cancel]] : flow.active ? flow.keys : [
     // On an OMP seat ↵ attaches its terminal; on a stopped one, neither ↵ nor a has anything to attach.
-    ['j k', t.keys.navigate], ...(stopped ? [] : [['↵', selected && isOmpSeat(selected) ? t.keys.attachSeat : t.keys.open] as const]), ...(view.yours.length ? [['tab', t.keys.next] as const, ['y n', t.keys.answer] as const] : []),
+    ['j k', t.keys.navigate], ...(stopped ? [] : [['↵', selected && isOmpSeat(selected) ? t.keys.attachSeat : t.keys.open] as const]), ...(view.yours.length || asking.size ? [['tab', t.keys.next] as const] : []), ...(view.yours.length ? [['y n', t.keys.answer] as const] : []),
     ...(stopped ? [] : [['a', t.keys.attach] as const]), ...(writable ? [['m', t.keys.writeProject] as const] : []),
-    ...(decisions.length ? [['D', t.keys.decide] as const] : []), ...(near.length ? [['H', t.keys.handover] as const] : []),
+    ...(decisionOf(decisions, selected?.id) ? [['D', t.keys.decide] as const] : []), ...(near.length ? [['H', t.keys.handover] as const] : []),
     ['+', t.keys.launch], [',', t.keys.settings], ['?', t.keys.help], ['q', t.keys.quit]
   ];
   return (
     <Frame crumb={tui.machines.map(m => `${m.label} ${m.ready ? g.machine : '○'}`).join('  ')} keys={keys}>
       <Box flexGrow={1}>
-        <Box flexDirection="column" width={left} flexShrink={0}>{yoursBox}{treeBox}{rigsBox}{kernelBox}</Box>
+        <Box flexDirection="column" width={left} flexShrink={0}>{treeBox}{rigsBox}{kernelBox}</Box>
         {wide ? (
           <Box flexDirection="column" flexGrow={1}>
             {selected ? (
@@ -238,12 +190,7 @@ export function Overview() {
       {writing ? (
         <Field title={t.overview.writeProjectTitle(writing.project)} value={writing.draft} onChange={v => setWriting(x => (x ? { ...x, draft: v } : x))}
           onSubmit={v => { if (!v.trim()) return false; setWriting(null); broadcast(writing.id, v.trim()); }} onEscape={() => setWriting(null)} active placeholder={t.overview.writeProjectHint} />
-      ) : deciding && decision ? (deciding.confirm
-        ? <TitledBox title={t.overview.confirmAnswer(decision.giverName)} color={C.red} titleColor={C.red} height={decideHeight} flexShrink={0}>
-          {answerLines.slice(0, decideHeight - 2).map((l, i) => <Text key={i} color={C.fg} wrap="truncate">{l || ' '}</Text>)}
-        </TitledBox>
-        : <Field title={t.overview.decisionTitle(decision.giverName, decision.title)} value={deciding.draft} onChange={v => setDeciding(x => (x ? { ...x, draft: v } : x))}
-          onSubmit={v => { if (!v.trim()) return false; setDeciding(x => (x ? { ...x, draft: v, confirm: true } : x)); }} onEscape={() => setDeciding(null)} active placeholder={t.overview.decisionHint} />) : null}
+      ) : flow.view(columns, height)}
     </Frame>
   );
 }
@@ -251,7 +198,7 @@ export function Overview() {
 /** The context signal's column in a session row: `◔88%` and a space. */
 const SIG_W = 6;
 
-function SessionRow({ s, on, nameW, topicW, stateW, indent = 0, group, roleW = 11, sigW = 0 }: { s: Session; on: boolean; nameW: number; topicW: number; stateW: number; indent?: number; group?: 'rig' | 'kernel'; roleW?: number; sigW?: number }) {
+function SessionRow({ s, on, nameW, topicW, stateW, indent = 0, group, roleW = 11, sigW = 0, asks = false }: { s: Session; on: boolean; nameW: number; topicW: number; stateW: number; indent?: number; group?: 'rig' | 'kernel'; roleW?: number; sigW?: number; asks?: boolean }) {
   const { t, g, client } = useTui();
   const near = useContextNear(client);
   const st = botState(s);
@@ -266,7 +213,10 @@ function SessionRow({ s, on, nameW, topicW, stateW, indent = 0, group, roleW = 1
       <Text color={on ? C.coral : C.faint}>{on ? '▌' : ' '}</Text>
       <Text>{' '.repeat(2 + indent)}</Text>
       <Text color={s.offline || stopped ? C.faint : STATE_COLOR[st]}>{g[st]} </Text>
-      <Text color={stopped ? C.faint : s.offline ? C.dim : C.fg} bold={!stopped}>{fit(s.name, nameW)}</Text>
+      {/* A decision waits on it (#40, PR 3, design-ux): « ? » in amber after its name, no text; D answers it. */}
+      {asks
+        ? <><Text color={stopped ? C.faint : s.offline ? C.dim : C.fg} bold={!stopped}>{fit(s.name, nameW - 1).trimEnd()}</Text><Text color={C.yellow}>?</Text><Text>{' '.repeat(Math.max(1, nameW - fit(s.name, nameW - 1).trimEnd().length - 1))}</Text></>
+        : <Text color={stopped ? C.faint : s.offline ? C.dim : C.fg} bold={!stopped}>{fit(s.name, nameW)}</Text>}
       {/* A seat: its tag whole, then its role and the topic in what is left (the topic goes first). */}
       {/* In the rigs' and the kernel's boxes the box says the rig: the role (and, for the kernel, the harness) instead. */}
       {group ? <Text color={stopped ? C.faint : C.dim}> {fit(roleTool, topicW - 1)} </Text> : <>
