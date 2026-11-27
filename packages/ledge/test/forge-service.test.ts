@@ -110,6 +110,25 @@ describe('what is followed (R1, R12)', () => {
     expect(s.state().prs[0]).not.toHaveProperty('blockers');
   });
 
+  it('one request once, with all its sessions, when their remotes name its repository differently (case, old name) (#11)', async () => {
+    // Two worktrees of one GitLab project: the remotes' case differs (and a third uses the project's old name, which GitLab
+    // still serves). Each is a repository of its own to read, and each read gives the same merge request under another id.
+    store.upsert(mk('a', { repoId: 'gitlab.example/Team/App', lastActivityAt: at(3000) }));
+    store.upsert(mk('b', { repoId: 'gitlab.example/team/app', lastActivityAt: at(2000) }));
+    store.upsert(mk('c', { repoId: 'gitlab.example/team/old-app', lastActivityAt: at(1000) }));
+    const glab = fakeReader();
+    glab.list = async (repo, targets) => {
+      glab.lists.push({ repo: repo.repo, branches: targets.map(t => t.branch) });
+      return [pr(5, 'feat/x', { id: `${repo.host}/${repo.path}#5`, forge: 'gitlab', host: repo.host, repo: repo.path, ref: '!5', head: repo.path,
+        url: 'https://gitlab.example/team/app/-/merge_requests/5' })];
+    };
+    const s = service(fakeReader(), glab, ['github.com', 'gitlab.example']);
+    await s.refresh();
+    expect(glab.lists).toHaveLength(3);
+    expect(s.state().prs).toHaveLength(1);
+    expect(s.state().prs[0]!.sessions).toEqual(['a', 'b', 'c']);
+  });
+
   it('reads one list per repository, whatever the number of sessions and branches', async () => {
     store.upsert(mk('a', { branch: 'feat/a' }));
     store.upsert(mk('b', { branch: 'feat/b' }));
