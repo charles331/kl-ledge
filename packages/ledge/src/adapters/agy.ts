@@ -18,9 +18,12 @@ function lastNonBlank(lines: string[], from = lines.length - 1): number {
 //   > Auto mode: edits & safe commands auto-approved (shift+tab to cycle)    the mode's hint, a draft, or nothing
 //   ──────────────────────────────────
 //   ? for shortcuts                                        auto · Gemini 4 Hydrogen · medium
-const RULE = /^─{10,}$/;
+/** A rule; the terminal can cut its last cell (seen live: a stray `�` at its end). */
+const RULE = /^─{10,}\uFFFD?$/;
 const REST_FOOTER = /^\? for shortcuts\b/;
 const BUSY_FOOTER = /^esc to cancel\b/;
+/** The footer with a draft in the box: only the mode and model, pushed to the right edge. */
+const DRAFT_FOOTER = /^\s{20,}\S/;
 
 // A dialog replaces the input box: a title (`Command`, `Pending edit`, `Question`), one rule, its body, numbered
 // options with `>` on the focused one, a hint line, then the `esc to cancel` footer:
@@ -231,8 +234,12 @@ function promptGone(pane: string, pending: Pending): boolean {
 /** The index of the input box's top rule, when the pane ends with the input box and a footer; else -1. */
 function inputTop(lines: string[]): number {
   const end = lastNonBlank(lines);
-  if (end < 0 || !(REST_FOOTER.test(lines[end]!.trim()) || BUSY_FOOTER.test(lines[end]!.trim()))) return -1;
-  const bottom = lastNonBlank(lines, end - 1);
+  if (end < 0) return -1;
+  // While a draft is typed the footer loses its left part (seen live: `> alive ?`, then only `Gemini 4 Hydrogen · medium`
+  // at the right edge); with no mode or model shown it can be blank, and the box's bottom rule ends the pane.
+  const footer = REST_FOOTER.test(lines[end]!.trim()) || BUSY_FOOTER.test(lines[end]!.trim()) || DRAFT_FOOTER.test(lines[end]!);
+  if (!footer && !RULE.test(lines[end]!.trim())) return -1;
+  const bottom = footer ? lastNonBlank(lines, end - 1) : end;
   if (bottom < 0 || !RULE.test(lines[bottom]!.trim())) return -1;
   let top = bottom - 1;
   while (top >= 0 && !RULE.test(lines[top]!.trim())) top--;
@@ -244,7 +251,8 @@ function atRest(pane: string): boolean {
   const lines = toLines(pane);
   if (parseDialog(lines) || parseTrust(lines)) return false;
   const end = lastNonBlank(lines);
-  return end >= 0 && REST_FOOTER.test(lines[end]!.trim()) && inputTop(lines) >= 0;
+  // `? for shortcuts` under the box, or no footer at all (a draft typed): a turn running always says `esc to cancel`.
+  return end >= 0 && !BUSY_FOOTER.test(lines[end]!.trim()) && inputTop(lines) >= 0;
 }
 
 /** The conversation without the input box and footer under it; a dialog is shown whole. */
@@ -262,8 +270,10 @@ const typed = (text: string) => (lastLines: string) => {
   const lines = toLines(lastLines);
   const top = inputTop(lines);
   if (top < 0) return false;
-  const end = lastNonBlank(lines);
-  const box = lines.slice(top + 1, lastNonBlank(lines, end - 1)).join('');
+  // The box ends at its bottom rule, the first one under its top (the footer under it may be blank).
+  let bottom = top + 1;
+  while (bottom < lines.length && !RULE.test(lines[bottom]!.trim())) bottom++;
+  const box = lines.slice(top + 1, bottom).join('');
   return compact(box) === compact(`> ${text}`);
 };
 

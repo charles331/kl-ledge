@@ -70,6 +70,14 @@ describe('agy adapter: reading the pane', () => {
     const cut = [lines[rule]!, ...lines.slice(asks + 1)].join('\n'); // the rule at the top, the request line gone
     expect(agyAdapter.detectPrompt(cut)).toBeNull();
   });
+  it('a draft in the box leaves only the model in the footer: still at rest, and a reply is seen in the box (seen live)', () => {
+    const draft = fx('rest-draft');
+    expect(agyAdapter.detectPrompt(draft)).toBeNull();
+    expect(agyAdapter.atRest!(draft)).toBe(true);
+    // The box held four copies of a reply whose Enter never came: a reply is seen only when the box holds exactly it.
+    expect((agyAdapter.replyPlan('alive ?')[1] as Until).until(draft)).toBe(false);
+    expect((agyAdapter.replyPlan('alive ?')[1] as Until).until(draft.replace('alive ?alive ?alive ?alive ?', 'alive ?'))).toBe(true);
+  });
   it('an open refusal note is still the command dialog', () => {
     expect(agyAdapter.detectPrompt(fx('permission-note-field'))).toEqual({ kind: 'permission', text: 'date +%Y' });
   });
