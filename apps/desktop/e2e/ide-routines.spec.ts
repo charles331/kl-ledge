@@ -132,11 +132,17 @@ test('a stale reread shows the new prompt and keeps the owner\'s own edit (revie
   expect(list[0]!.name).toBe('point-personnel');
 });
 
+/** A grouped request's page (« À toi » left with #40 PR 3): the Routines view, the group's first one-shot, its « Activer les 3 » banner. */
+async function groupPage(page: Page, name: RegExp = /^prepa-121/) {
+  await activity(page).getByRole('button', { name: 'Routines', exact: true }).click();
+  await page.locator('.ide-explorer [data-routine="local:r300000"] .rtn-hit').click();
+  return page.getByRole('tabpanel', { name });
+}
+
 test('a daemon without grouped commands is said in the screen\'s language (review of c1ecf1ea)', async ({ page }) => {
   await boot(page, 'dark', 'en', routines(), true);
-  await activity(page).getByRole('button', { name: 'For you', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  await page.locator('[data-block="routines"]').getByRole('button', { name: 'Activate all 3' }).click();
+  const tab = await groupPage(page);
+  await tab.locator('.rtn-bn').getByRole('button', { name: 'Activate all 3' }).click();
   await expect(page.locator('.toast-region')).toContainText('This machine’s Ledge is too old to activate or refuse a group: update it. Nothing changed.');
   await expect(page.locator('.toast-region')).not.toContainText('version trop ancienne');
   // Card 33: the toast opens on a red « ! ».
@@ -146,9 +152,8 @@ test('a daemon without grouped commands is said in the screen\'s language (revie
 for (const [theme, lang] of [['dark', 'fr'], ['dark', 'en'], ['light', 'fr'], ['light', 'en']] as const) {
   test(`card 33's toast (${theme}, ${lang})`, async ({ page }) => {
     await boot(page, theme, lang, routines(), true);
-    await activity(page).getByRole('button', { name: lang === 'fr' ? 'À toi' : 'For you', exact: true }).click();
-    await page.getByRole('button', { name: 'Page', exact: true }).click();
-    await page.locator('[data-block="routines"]').getByRole('button', { name: lang === 'fr' ? 'Refuser les 3' : 'Refuse all 3' }).click();
+    const tab = await groupPage(page);
+    await tab.locator('.rtn-bn').getByRole('button', { name: lang === 'fr' ? 'Activer les 3' : 'Activate all 3' }).click();
     const toast = page.locator('.toast-region .toast');
     await expect(toast.locator('.toast-mk.bad')).toBeVisible();
     const b = (await toast.boundingBox())!;
@@ -178,14 +183,13 @@ test('a stale reread keeps a weekday moved elsewhere when the owner only added a
 test('« Activer les 3 » sends nothing while a member was read without its key (review of 1de4cbb8)', async ({ page }) => {
   const list = routines();
   const daemon = await boot(page, 'dark', 'fr', list);
-  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  const blk = page.locator('[data-block="routines"]');
-  await expect(blk.getByRole('button', { name: 'Activer les 3' })).toBeVisible();
+  const tab = await groupPage(page);
+  const all = tab.locator('.rtn-bn').getByRole('button', { name: 'Activer les 3' });
+  await expect(all).toBeVisible();
   daemon.push({ type: 'routine.changed', routine: list.find(r => r.id === 'r300001') });
   await page.waitForTimeout(500);
-  await blk.getByRole('button', { name: 'Activer les 3' }).click();
-  await expect(blk.locator('.rtn-stale')).toBeVisible();
+  await all.click();
+  await expect(tab.locator('.rtn-stale')).toBeVisible();
   expect(daemon.received.some(m => m.type === 'routine.cmd' && m.op === 'approve')).toBe(false);
   expect(list.filter(r => r.id.startsWith('r3000')).every(r => r.state === 'pending')).toBe(true);
 });
@@ -193,34 +197,15 @@ test('« Activer les 3 » sends nothing while a member was read without its key 
 test('a daemon without grouped commands activates no member of a group (review of 1de4cbb8)', async ({ page }) => {
   const list = routines();
   const daemon = await boot(page, 'dark', 'fr', list, true);
-  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  const blk = page.locator('[data-block="routines"]');
-  await expect(blk.getByRole('button', { name: 'Activer les 3' })).toBeVisible();
+  const tab = await groupPage(page);
+  const all = tab.locator('.rtn-bn').getByRole('button', { name: 'Activer les 3' });
+  await expect(all).toBeVisible();
   const second = list.findIndex(r => r.id === 'r300001');
   list[second] = { ...list[second]!, prompt: 'Changed before group approval' };
-  await blk.getByRole('button', { name: 'Activer les 3' }).click();
+  await all.click();
   await expect(page.locator('.toast-region')).toContainText('Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.');
   expect(daemon.received.some(m => m.type === 'routine.cmd' && (m.op === 'approve' || m.op === 'refuse'))).toBe(false);
   expect(list.filter(r => r.id.startsWith('r3000')).every(r => r.state === 'pending')).toBe(true);
-});
-
-test('« Refuser les 3 » refuses every member, one changed and one without its key (dev-back 26169bb9)', async ({ page }) => {
-  const list = routines();
-  const daemon = await boot(page, 'dark', 'fr', list);
-  await activity(page).getByRole('button', { name: 'À toi', exact: true }).click();
-  await page.getByRole('button', { name: 'Page', exact: true }).click();
-  const blk = page.locator('[data-block="routines"]');
-  await expect(blk.getByRole('button', { name: 'Refuser les 3' })).toBeVisible();
-  const second = list.findIndex(r => r.id === 'r300001');
-  list[second] = { ...list[second]!, prompt: 'Changed before group refusal' };
-  daemon.push({ type: 'routine.changed', routine: list.find(r => r.id === 'r300002') });
-  await page.waitForTimeout(500);
-  await blk.getByRole('button', { name: 'Refuser les 3' }).click();
-  await expect.poll(() => list.filter(r => r.id.startsWith('r3000')).length).toBe(0);
-  const sent = daemon.received.find(m => m.type === 'routine.cmd' && m.op === 'refuse') as { expect?: string; others?: unknown };
-  expect(sent.expect).toBeUndefined();
-  expect(sent.others).toEqual([{ routine: 'r300001' }, { routine: 'r300002' }]);
 });
 
 for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
@@ -352,27 +337,10 @@ for (const [theme, lang] of [['dark', 'fr'], ['light', 'en']] as const) {
     await expect(page.locator('.dv-tab').filter({ hasText: 'briefing' })).toHaveCount(0);
   });
 
-  test(`Routines (${theme}, ${lang}): « À toi » and the explorer's clock`, async ({ page }) => {
+  test(`Routines (${theme}, ${lang}): the explorer's clock`, async ({ page }) => {
     await boot(page, theme, lang);
     const fr = lang === 'fr';
-    // Card 14: the sidebar's « À toi », short; its amber and red counts.
-    await activity(page).getByRole('button', { name: fr ? 'À toi' : 'For you', exact: true }).click();
-    const cards = page.locator('.rtn-st-card');
-    await expect(cards).toHaveCount(3);
-    await expect(cards.nth(0)).toContainText(fr ? 'veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant' : 'wants to schedule “point-hebdo”: 17:00 (Fri), in ~/assistant');
-    await expect(cards.nth(2)).toContainText(fr ? 'veut programmer 3 routines uniques' : 'wants to schedule 3 one-shot routines');
-    const side = await box(page, '.ide-explorer');
-    await shot(page, `atoi-side-${theme}-${lang}`, { x: side.x, y: side.y, width: side.width, height: 520 });
-    // Card 13: the page's block, after Décisions.
-    await page.getByRole('button', { name: 'Page', exact: true }).click();
-    const blk = page.locator('[data-block="routines"]');
-    await expect(blk.locator('.fg-blk-h')).toContainText(fr ? 'Routines3 · à activer, ou qui n’ont pas pu partir' : 'Routines3 · to activate, or that could not run');
-    await blk.getByRole('button', { name: fr ? '▸ Voir le prompt' : '▸ See the prompt' }).first().click();
-    await expect(blk.locator('.rtn-unfold').first()).toContainText('Point de la semaine');
-    const b = await blk.boundingBox();
-    await shot(page, `atoi-page-${theme}-${lang}`, { x: b!.x - 10, y: b!.y - 10, width: b!.width + 20, height: b!.height + 20 });
     // Card 12: the clock on Iris's row; a click shows the Routines view with her two routines lit (more than one).
-    await activity(page).getByRole('button', { name: fr ? 'Projets' : 'Projects', exact: true }).click();
     const clock = page.locator('.ide-explorer [data-routine-clock]').first();
     await expect(clock).toHaveAttribute('title', fr ? /routines · prochain tir aujourd’hui 13:30/ : /routines · next run today 13:30/);
     const row = await clock.locator('xpath=ancestor::div[contains(@class,"st-agent")]').boundingBox();

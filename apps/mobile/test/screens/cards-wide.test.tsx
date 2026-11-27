@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HumanAsk, PhoneServerMessage, PhoneSession } from '@ledge/protocol';
 import { platformAvailable } from '../../src/link/webauthn';
-import { RECEIPT_MS } from '../../src/model/atoi';
-import { AskDetail } from '../../src/screens/atoi/AskDetail';
+import { RECEIPT_MS } from '../../src/model/cards';
+import { AskDetail } from '../../src/screens/cards/AskDetail';
 import { RequestDetail } from '../../src/screens/RequestDetail';
 import { pending, session } from '../model/fixtures';
 import { snapshot } from '../state/helpers';

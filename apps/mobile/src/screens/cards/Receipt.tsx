@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { RECEIPT_MS } from '../../model/atoi';
+import { RECEIPT_MS } from '../../model/cards';
 import { Icon, type IconName } from '../../ui/icons';
 import { kitButtonClass } from '../../ui/kit/Controls';
 

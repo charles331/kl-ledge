@@ -30,7 +30,7 @@ const upFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Desktop's copy in French: the source of truth, whose shape is `Messages` (see messages.ts, which loads it on demand). */
 export const fr = {
-  /** « À toi »: what OpenRig's rigs ask the person (docs/mockups/ledge-human-operator-ab-lot1.html). */
+  /** What OpenRig's rigs ask the person, in the Rigs view's « Demandes » (docs/mockups/ledge-human-operator-ab-lot1.html, #40 D1). */
   asks: {
     sections: { decisions: 'Décisions', questions: 'Questions', updates: 'Nouvelles' } as Record<'decisions' | 'questions' | 'updates', string>,
     pill: { decision: 'décision', question: 'question', update: 'nouvelle', parked: 'en attente de vous' } as Record<'decision' | 'question' | 'update' | 'parked', string>,
@@ -86,7 +86,8 @@ export const fr = {
       noRig: 'Aucun rig pour l’instant.', noRigBody: 'Un rig est une équipe d’agents.', noRigOperator: (name: string) => `${name}, l’opérateur du kernel, peut t’aider à en composer un.`
     },
     active: (n: number) => plural(n, `${n} actif`, `${n} actifs`),
-    yours: 'À toi', yoursMore: (n: number) => `Voir les ${n} autres`, yoursLess: 'Réduire',
+    // #40 PR 3 (design-ux, 11/27 18:05Z): the tag of a session waiting for the person, in the Atelier skin's tree (the phone's D6 words).
+    waitTag: { approval: 'Accord', question: 'Question', error: 'Erreur' } as Record<'approval' | 'question' | 'error', string>,
     allow: 'Oui', deny: 'Non', reply: 'Répondre', see: 'Voir',
     ofHelper: (parent: string) => `↳ ${parent}`,
     hideDone: 'Seulement les projets avec un agent actif (H)', moreProjects: (n: number) => `+${n} ${plural(n, 'projet', 'projets')} sans agent actif`,
@@ -408,7 +409,7 @@ export const fr = {
       // « Échanges passés » (#41, docs/mockups/ledge-thread-cowork-complement.md §1), validé par jde le 2026-11-27.
       past: 'Échanges passés', pastHint: 'Dans le fil d’une session, un échange terminé garde sa demande et sa réponse en vue ; le travail entre les deux se replie sous « Travail ». Le dernier échange reste ouvert.',
       pastChoices: { folded: 'Repliés', open: 'Ouverts' }, pastSaved: { folded: 'Échanges passés : repliés', open: 'Échanges passés : ouverts' },
-      context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : « À toi » propose de passer le relais, et Ledge relève de lui-même une session qui travaille sans demander.',
+      context: 'Contexte max', contextHint: 'Au-delà, une session est proche de sa limite : l’arbre le montre (◔), « Passer le relais » est dans son menu, et Ledge relève de lui-même une session qui travaille sans demander.',
       usageAlert: 'Alerte de limite d’usage', usageAlertHint: 'Au-delà, Ledge Desktop vous prévient une seule fois qu’une fenêtre d’usage d’un harnais (5 h, semaine, par modèle) approche de sa limite. Les limites sont celles du compte, lues sur chaque machine.',
       usageAlertSaved: (pct: number) => `Alerte de limite d’usage : ${pct} %`, usageAlertUnknown: 'Aucune machine ne donne encore les limites de ses harnais : mettez à jour Ledge, ou connectez Claude Code.',
       // « Comptes lus » (docs/mockups/ledge-usage-sign-in.html, #301, validated 2026-11-13).
@@ -833,7 +834,7 @@ export const fr = {
     },
     history: { none: 'Aucune conversation aujourd’hui.', open: 'Voir dans la conversation' }
   },
-  /** A decision a session put to the user (`ledge task give ledge …`), answered from « À toi » or « Tâches » (task.answer). */
+  /** A decision a session put to the user (`ledge task give ledge …`), answered from the Tasks view (task.answer). */
   decision: {
     asks: (giver: string) => `${giver} attend votre décision`, answer: 'Répondre',
     form: (title: string) => `Réponse à « ${title} »`, field: 'Votre réponse', placeholder: 'Écrivez votre réponse, ou choisissez une option…', options: 'Options proposées',
@@ -1640,7 +1641,7 @@ export const fr = {
       seatsByRole: 'Sièges par rôle', seatsLocked: '· modifiables quand le rig tourne', apply: 'Appliquer', applying: 'En cours…', revert: 'Annuler',
       planAdd: (ids: readonly string[]) => `Ajoute ${ids.join(', ')}`, planRemove: (ids: readonly string[]) => `Retire ${ids.join(', ')}`,
       lastSnapshot: 'Dernier snapshot', noSnapshot: 'Aucun snapshot', snapshotNow: 'Snapshot maintenant',
-      queue: 'File OpenRig', queueTruncated: 'Les plus anciennes ne sont pas montrées', needsInput: 'À toi : cette ligne attend une réponse',
+      queue: 'File OpenRig', queueTruncated: 'Les plus anciennes ne sont pas montrées', needsInput: 'Cette ligne attend votre réponse',
       state: { pending: 'en attente', 'in-progress': 'en cours', blocked: 'bloquée' } as Record<string, string>,
       age: (a: 'now' | { n: number; unit: 'min' | 'h' | 'd' }) => (a === 'now' ? '< 1 min' : `${a.n} ${a.unit === 'd' ? 'j' : a.unit}`),
       role: 'Rôle', roleBody: ['Le rig d’OpenRig lui-même. L’', 'operator', ' t’aide à composer et lancer une équipe ; l’', 'advisor', ' relit les plans ; le ', 'queue worker', ' route les lignes de queue entre les sièges.'] as readonly string[],
@@ -1660,7 +1661,7 @@ export const fr = {
       broughtBack: 'Terminal ramené dans le panneau du bas.', onlyTerms: 'Seuls les terminaux se rangent dans le panneau du bas.'
     },
     sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite',
-    activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig', atoi: 'À toi',
+    activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig',
     atelierTab: 'Atelier (onglet)', settingsTab: 'Réglages (onglet)',
     resizeEdge: 'Glisser pour redimensionner · double-clic : largeur par défaut', resizeBottom: 'Glisser pour redimensionner · double-clic : hauteur par défaut',
     waiting: (n: number) => (n === 1 ? '1 demande' : `${n} demandes`),
@@ -1677,7 +1678,7 @@ export const fr = {
     // Lot 3: split (Ctrl+\), the empty group (mockup emptyGroup()), the link square (mockup .lkbtn).
     split: 'Diviser à droite', splitTip: 'Diviser à droite (Ctrl+\\)', splitKey: 'Ctrl \\', linkTip: 'Lier ce groupe : choisir une couleur', linkMenu: 'Lier ce groupe', linkNone: 'Aucune liaison', linkCurrent: 'actuelle', linkGroups: (n: number) => (n > 1 ? `${n} groupes` : '1 groupe'),
     links: { violet: 'Violet', teal: 'Vert d’eau', rose: 'Rose', lime: 'Citron vert', fuchsia: 'Fuchsia', sand: 'Sable' } as Record<'violet' | 'teal' | 'rose' | 'lime' | 'fuchsia' | 'sand', string>,
-    atoiNone: 'Rien ne t’attend.', operations: 'Opérations', usageOnce: (harness: string, window: string, line: string) => `${harness} · ${window} : ${line}`,
+    operations: 'Opérations', usageOnce: (harness: string, window: string, line: string) => `${harness} · ${window} : ${line}`,
     closeGroupTip: 'Fermer le groupe (Ctrl+W)',
     /** The zone at the right end of the editing area while a tab is dragged (mockup `.dropnew`), on two lines. */
     dropNew: ['Déposer ici :', 'nouveau groupe'],
@@ -1743,16 +1744,6 @@ export const fr = {
     resumeHint: 'Les sessions qui avaient un onglet ouvert à la fermeture de Ledge reprennent dans leur onglet. Une session que tu as terminée ne repart pas.',
     resumeOff: 'Reprise des sessions au démarrage désactivée',
     resumed: (n: number) => plural(n, `${n} session reprise`, `${n} sessions reprises`)
-  },
-  // The page « À toi » (D3, docs/ide-workspace-plan.md 4.1 point 3; mockup atoiPage).
-  atoiPage: {
-    title: 'À toi', sub: 'Ce qui attend ta décision ou ton regard, toutes sessions et tous rigs confondus. Le chat de Ledge reste dans le panneau de droite.',
-    requests: 'Demandes', keysBefore: 'ou ', keysAfter: ' sur la session active', open: 'Ouvrir',
-    allowCommand: 'Autoriser une commande', allow: 'Autoriser', deny: 'Refuser', noRequest: 'Rien ne t’attend.',
-    prsSub: 'pipelines échoués, prêtes à fusionner', prFailed: 'pipeline échoué', prReady: 'pipeline réussi, approuvée', prReadyNoCi: 'sans CI, approuvée', noPr: 'Aucune MR ni PR ne t’attend.',
-    finished: 'Terminé depuis ton passage', noFinished: 'Aucune session n’a fini.',
-    pageButton: 'Page', pageTip: 'La page À toi',
-    decisionsSub: 'ce que les sessions te demandent par Ledge', rigs: 'Rigs OpenRig', rigsSub: 'ce que les rigs te demandent', near: 'Contexte presque plein', fold: 'Replier'
   },
   // MR et PR (lot 8b, docs/mockups/ledge-ide-interactive.html : explorer `prs`, prPage, pipeGraph, statusbar).
   forge: {
@@ -1828,7 +1819,7 @@ export const fr = {
     emptyUnread: 'Ledge ne peut lire aucune forge pour l’instant : voir ci-dessus.',
     prKind: { github: 'PR', gitlab: 'MR' } as Record<'github' | 'gitlab', string>
   },
-  // Routines (spec 2026-11-23-routines-design, docs/mockups/ledge-routines.html: cards 1-14, 19-24), tutoiement as « À toi ».
+  // Routines (spec 2026-11-23-routines-design, docs/mockups/ledge-routines.html: cards 1-14, 19-24), tutoiement as the routine cards had it.
   routines: {
     view: 'Routines', add: 'Nouvelle routine', newTitle: 'Nouvelle routine',
     sub: 'Ledge réveille une session à heures fixes et lui tape un prompt. Les heures sont celles de ce PC.',
@@ -1909,19 +1900,5 @@ export const fr = {
     },
     // A failed run's reason built from its `field` (mockup T.failNoDir, T.failNoTool), so it reads in the screen's language.
     why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
-    atoi: {
-      block: 'Routines', blockSub: 'à activer, ou qui n’ont pas pu partir', kind: 'routine',
-      ask: (r: string, times: string, days: string, dir: string) => `veut programmer « ${r} » : ${times} (${days}), dans ${dir}`,
-      // Approved by the owner on 2026-11-23: a one-shot's request names its moment, without parentheses.
-      askOnce: (r: string, moments: string, dir: string) => `veut programmer « ${r} » : ${moments}, dans ${dir}`,
-      failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
-      failedShort: (r: string, why: string) => `${r} n’a pas pu partir : ${why}`,
-      more: (n: number) => ` et ${n} autres`,
-      // A session's change to a routine (its proposal), never « veut programmer » (card 29, owner's choice A).
-      editAsk: (r: string, times: string, days: string) => `veut modifier « ${r} » : ${times} (${days})`,
-      editAskOnce: (r: string, moments: string) => `veut modifier « ${r} » : ${moments}`,
-      groupAsk: (n: number) => `veut programmer ${n} routines uniques`, groupShort: (n: number, dates: string) => `veut programmer ${n} routines uniques : ${dates}`,
-      seePrompt: 'Voir le prompt', hidePrompt: 'Masquer le prompt'
-    }
   }
 };

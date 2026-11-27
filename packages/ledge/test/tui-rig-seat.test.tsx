@@ -20,7 +20,7 @@ describe('a rig seat among the sessions (model)', () => {
 });
 
 describe('ledge tui: rig seats in the overview and the session card', () => {
-  it('two seats tagged [first-factory] with their role, in « À TOI » and the projects; the card says rig · role; a plain session unchanged', async () => {
+  it('two seats by their role in the RIGS box; the card says rig · role; a plain session unchanged', async () => {
     const at = (i: number) => new Date(Date.parse('2026-11-02T10:00:00.000Z') + i * 60_000).toISOString();
     const sessions = [
       fakeSession('bix', { name: 'Bix', cwd: '/w/ledge', repo: 'ledge', repoPath: '/w/ledge', project: 'ledge', branch: 'feat/openrig', topic: 'Câbler OpenRig', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', tool: 'Bash', source: 'hook' }, rig: rig('dev.build'), startedAt: at(0) }),
@@ -30,12 +30,12 @@ describe('ledge tui: rig seats in the overview and the session card', () => {
     const tui = await startTui({ sessions });
     try {
       await tui.resize(160, 30);
-      await until(() => tui.frame().includes('[first-factory]'));
+      await until(() => tui.frame().includes('rig first-factory · dev.build'));
       const f = tui.frame();
       if (process.env.LEDGE_TUI_CAPTURE) writeFileSync(process.env.LEDGE_TUI_CAPTURE, f);
       const line = (name: string) => f.split('\n').filter(l => l.includes(name));
-      // « À TOI »: Bix waits, tagged; the RIGS box: the two seats by their role, the box saying the rig.
-      expect(line('Bix')[0]).toMatch(/Bix.*\[first-factory\] dev\.build/);
+      // The RIGS box: the two seats by their role, the box saying the rig (no « À toi » box any more, #40 PR 3).
+      expect(line('Bix')[0]).toMatch(/Bix\s+dev\.build/);
       expect(line('Nova').some(l => /Nova\s+dev\.review/.test(l))).toBe(true);
       expect(line('Otto').some(l => l.includes('Supprimer la branche') && !l.includes('['))).toBe(true);
       // The selected session's card: Bix, a seat.
@@ -82,7 +82,7 @@ describe('the overview\'s RIGS and KERNEL boxes', () => {
       expect(f).toMatch(/╭─ KERNEL ─/);
       expect(f).toMatch(/⬡ first-factory\s+ledge/);
       expect(f).toMatch(/Lu\s+operator\s+codex/);
-      expect(f.split('\n').filter(l => l.includes('◆ Bix')).length).toBe(2); // « À TOI » and RIGS, never PROJETS
+      expect(f.split('\n').filter(l => l.includes('◆ Bix')).length).toBe(1); // RIGS, never PROJETS
     } finally { await tui.cleanup(); }
   });
 });

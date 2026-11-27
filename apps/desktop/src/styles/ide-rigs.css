@@ -99,4 +99,4 @@
 .ide-rigs-req-b .ask-col.lit { box-shadow: 0 0 0 2px var(--ide-link-violet, #a78bfa); }
 /* A narrow sidebar: the card's head wraps rather than overflow. */
 .ide-rigs-req-b .ask-who { flex-wrap: wrap; row-gap: 3px; }
-.ide-rigs-req-partial { padding: 0 2px; }
+.ide-rigs-req-partial { display: inline-flex; align-items: center; gap: 6px; padding: 0 2px; font-size: 11.5px; color: var(--muted-foreground); }

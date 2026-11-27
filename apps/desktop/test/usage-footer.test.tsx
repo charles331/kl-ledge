@@ -6,7 +6,6 @@ import { HarnessLogo, UsageFooter } from '../src/usage/UsageFooter';
 import type { UsageGroup } from '../src/usage/model';
 import { fr as fr0 } from '../src/i18n/fr';
 import { alertWindowName } from '../src/usage/alertName';
-import { Attention } from '../src/shell/sidebar/Attention';
 
 const openUrl = vi.hoisted(() => vi.fn());
 vi.mock('../src/tauri/bridge', async orig => ({ ...(await orig<typeof import('../src/tauri/bridge')>()), openUrl }));
@@ -150,28 +149,6 @@ describe('the providers\' logos', () => {
     expect(k.querySelector('svg[fill="currentColor"]')).not.toBeNull();
     const o = render(<HarnessLogo harness="codex" />).container;
     expect(o.querySelector('svg[fill="currentColor"]')).not.toBeNull();
-  });
-});
-
-describe('« À toi »', () => {
-  // Attention reads the real clock: pin the date so « reprend le 1 déc. » (a reset 7+ days away) holds whatever day the suite runs.
-  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW); });
-  afterEach(() => { vi.useRealTimers(); });
-  const alert = (w: UsageWindow, level: 'full' | 'threshold' = 'full'): UsageAlert => ({ id: `a-${w.kind}-${w.pool ?? ''}`, harness: 'cursor', account: 'x', window: w, level, at: min(1) });
-  const card = (a: UsageAlert, lang: 'fr' | 'en' = 'fr') => render(
-    <LangProvider lang={lang}><Attention items={[]} current={null} projectOf={() => null} onOpen={() => {}} onDecide={() => {}} onMenu={() => {}} paused usageAlerts={[a]} /></LangProvider>
-  ).container;
-
-  it('a pool reached', () => {
-    const c = card(alert({ kind: 'pool', pool: 'other', pct: 100, resetsAt: DEC1 }));
-    expect(c).toHaveTextContent('Cursor Agent');
-    expect(c).toHaveTextContent('Autres modèles');
-    expect(c).toHaveTextContent('Atteinte · reprend le 1 déc.');
-  });
-  it('the month total, and the week total', () => {
-    expect(card(alert({ kind: 'month', pct: 81, resetsAt: DEC1 }, 'threshold'))).toHaveTextContent('total du mois');
-    cleanup();
-    expect(card(alert({ kind: 'seven_day', pct: 81, resetsAt: null }, 'threshold'))).toHaveTextContent('total de la semaine');
   });
 });
 

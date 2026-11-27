@@ -126,7 +126,7 @@ describe('D3 and D5: the Tasks view', () => {
 describe('D7 and D10 in the app', () => {
   const ctx = (used: number) => ({ used, window: 200_000, at: T(0) });
 
-  it('Projects carries the sessions\' badge (red for an approval, else amber), « À toi » none; Tasks its decisions', async () => {
+  it('Projects carries the sessions\' badge (red for an approval, else amber); Tasks its decisions', async () => {
     const { d } = await boot({ projects: PROJECTS, sessions: [
       fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'waiting_permission', pending: { kind: 'permission', text: 'rm -rf build', source: 'hook' } as never }),
       fakeSession('nova', { name: 'Nova', cwd: '/w/ledge', state: 'waiting_input', pending: { kind: 'question', text: 'Which?', source: 'hook' } as never })
@@ -134,7 +134,7 @@ describe('D7 and D10 in the app', () => {
     const bar = within(screen.getByRole('navigation', { name: 'Activity bar' }));
     await waitFor(() => expect(bar.getByRole('button', { name: 'Projects' }).querySelector('.ide-badge')).toHaveTextContent('1'));
     expect(bar.getByRole('button', { name: 'Projects' }).querySelector('.ide-badge')).not.toHaveClass('amber');
-    expect(bar.getByRole('button', { name: 'For you' }).querySelector('.ide-badge')).toBeNull();
+    expect(bar.queryByRole('button', { name: 'For you' })).toBeNull();   // « À toi » is gone (#40 PR 3)
     d.push({ type: 'task.updated', task: { id: 't-13', title: 'Pick the folder', giver: 'nova', giverName: 'Nova', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: T(0), updatedAt: T(0), log: [] } });
     await waitFor(() => expect(bar.getByRole('button', { name: 'Tasks (Ctrl+/)' }).querySelector('.ide-badge.amber')).toHaveTextContent('1'));
   });

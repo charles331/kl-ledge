@@ -13,7 +13,7 @@ import { requestsOf } from './requests';
 export type SessionFilter = 'all' | 'waiting' | 'working';
 export const SESSION_FILTERS: readonly SessionFilter[] = ['all', 'waiting', 'working'];
 
-/** A request of this session waits on the person: its card is in « À toi ». */
+/** A request of this session waits on the person: its card is at its thread's foot. */
 export const waitsOnYou = (s: PhoneSession): boolean =>
   s.pending !== undefined || s.state === 'waiting_permission' || s.state === 'waiting_input';
 
@@ -132,10 +132,10 @@ export function rowLine(s: PhoneSession, f: SessionFilter, now: number = Date.no
   const ctx = contextPct(s);
   const pct = ctx === undefined ? '' : ` · ${ctx} %`;
   const pending = requestsOf([s])[0];
-  if (pending) return (pending.kind === 'permission' ? L.permission : copy.atoi.pill[pending.kind]) + pct;
+  if (pending) return (pending.kind === 'permission' ? L.permission : copy.cards.pill[pending.kind]) + pct;
   switch (s.state) {
     case 'waiting_permission': return L.permission + pct;
-    case 'waiting_input': return copy.atoi.pill.question + pct;
+    case 'waiting_input': return copy.cards.pill.question + pct;
     case 'working': return L.working + pct;
     case 'exited': return s.exitedAt ? L.ended(endedAtLabel(s.exitedAt, now)) : L.endedPlain;
     case 'error': return L.error;
@@ -145,7 +145,7 @@ export function rowLine(s: PhoneSession, f: SessionFilter, now: number = Date.no
 
 /**
  * What an agent at work is doing (m2-toujours.html §2, Q68): `doing`'s label as the PC sends it (a command, a tool and its target,
- * OMP's intent), with no icon or prefix; between two tools, « Réfléchit… ». Shared by « Au travail » and « En cours » of « À toi ».
+ * OMP's intent), with no icon or prefix; between two tools, « Réfléchit… ». Shared by « Au travail » and the thread.
  */
 export const doingLine = (s: Pick<PhoneSession, 'doing'>): string => s.doing?.label || copy.sessions.line.thinking;
 

@@ -9,13 +9,13 @@ export const isDecision = (t: PhoneTask): boolean => t.owner === LEDGE_GIVER;
 /** A task Ledge gave: a PC that predates `giver` sent only those. */
 const givenByLedge = (t: PhoneTask): boolean => (t.giver ?? LEDGE_GIVER) === LEDGE_GIVER && !isDecision(t);
 
-/** The decisions not answered yet, the oldest first: items of « À toi », answered through the chat's card. A routine's item is
- *  not one of them: « À toi » answers it with its own buttons (`routine.cmd`), never through the chat. */
+/** The decisions not answered yet, the oldest first: answered at the foot of the thread of the session that asked (#40 D2). A routine's
+ *  item is not one of them: Routines answers it with its own buttons (`routine.cmd`). */
 export function openDecisions(tasks: Iterable<PhoneTask>): PhoneTask[] {
   return [...tasks].filter(t => isDecision(t) && !taskClosed(t) && !t.routine).sort((a, b) => a.at.localeCompare(b.at));
 }
 
-/** The closed tasks of Ledge not put away yet, the oldest first: items of « À toi » and « À traiter ». */
+/** The closed tasks of Ledge not put away yet, the oldest first: items of « À traiter ». */
 export function closedTasks(tasks: Iterable<PhoneTask>): PhoneTask[] {
   return [...tasks].filter(t => givenByLedge(t) && taskClosed(t) && !t.seen).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
 }

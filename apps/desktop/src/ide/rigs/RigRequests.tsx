@@ -4,7 +4,7 @@ import type { HumanAsk, Session } from '@ledge/protocol';
 import { Icon } from '@ledge/ui/ui/icons';
 import { useI18n } from '../../i18n/lang';
 import { AskCard, AskDone } from '../../asks/AskCard';
-import { AskBanner } from '../../asks/AsksColumn';
+import { AskBanner } from '../../asks/AskBanner';
 import { DONE_MS, openRequests, sessionOfAsk, whoOf } from '../../asks/model';
 
 const ALERT = ['M12 3 2 20h20z', 'M12 10v4', 'M12 17h.01'];
@@ -23,7 +23,7 @@ export const requestsShown = (view: OpenRigAsksView | undefined): boolean =>
 
 /**
  * « Demandes » at the top of the Rigs view (#40 D1, docs/mockups/ledge-remove-chat-d1-d3-d6.html, cards 1 to 4): what OpenRig asks
- * the person, every card whole (AskCard, as « À toi » showed it), the most urgent first. Hidden with nothing to show. It folds
+ * the person, every card whole (AskCard), the most urgent first. Hidden with nothing to show. It folds
  * (« Replier »), and opens again by itself when a new request comes. `focus` (« Ouvrir » on the island, Ledge's desk) unfolds it and
  * rings that card 1.5 s.
  */
@@ -74,7 +74,7 @@ export function RigRequests({ view, sessions, machineLabel, focus, onFocused, so
       {open && (
         <div className="ide-rigs-req-b">
           <AskBanner channel={view.channel} machineLabel={machineLabel} />
-          {!banner && view.partial && <span className="atoi-partial ide-rigs-req-partial" role="status"><Icon d={ALERT} size={12} />{t.asks.partial}</span>}
+          {!banner && view.partial && <span className="ide-rigs-req-partial" role="status"><Icon d={ALERT} size={12} />{t.asks.partial}</span>}
           {asks.map(ask => {
             const session = sessionOfAsk(ask, sessions);
             const d = done.get(ask.id);

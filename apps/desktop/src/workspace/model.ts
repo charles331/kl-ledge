@@ -10,9 +10,9 @@
  * Every function returns a new state, or the same object when nothing changed.
  */
 
-export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atoi' | 'atelier' | 'settings' | 'routine';
+export type TabKind = 'session' | 'seat' | 'changes' | 'terminal' | 'pr' | 'rig' | 'openrig' | 'atelier' | 'settings' | 'routine';
 /** Every tab kind, as the Ledge guide (docs/ledge-guide.md) describes the screens: a Record, so a new kind fails to compile until it is listed. */
-const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atoi: true, atelier: true, settings: true, routine: true };
+const TAB_KIND: Record<TabKind, true> = { session: true, seat: true, changes: true, terminal: true, pr: true, rig: true, openrig: true, atelier: true, settings: true, routine: true };
 export const TAB_KINDS = Object.keys(TAB_KIND) as TabKind[];
 export type View = 'thread' | 'terminal' | 'role';
 export interface Tab { kind: TabKind; ref: string; /** session and seat tabs: the view in front. */ view?: View }
@@ -427,6 +427,9 @@ export function reconcile(w: Workspace, exists: (t: Tab) => boolean): Workspace 
 /** A saved layout (« Dispositions »): the JSON a setting keeps. */
 export function serialize(w: Workspace): string { return JSON.stringify(w); }
 
+/** Tab kinds Ledge had and no longer has: a saved layout still holding one loses that tab only (« À toi », #40 PR 3). */
+const RETIRED_KINDS: readonly string[] = ['atoi'];
+
 /** Reads a saved layout back; anything malformed gives `null` (the caller falls back to `empty()`). Every tab read back is
  *  kept: a preview is a passing look, not part of a layout restored or applied. */
 export function deserialize(json: string): Workspace | null {
@@ -437,12 +440,18 @@ export function deserialize(json: string): Workspace | null {
   if (o.version !== 1 || !Array.isArray(o.windows) || !Array.isArray(o.groups) || typeof o.focus !== 'string' || typeof o.next !== 'number') return null;
   if (!o.windows.includes(MAIN)) return null;
   const kinds: readonly string[] = TAB_KINDS;
+  const groups: Group[] = [];
   for (const g of o.groups) {
     if (!g || typeof g.id !== 'string' || !o.windows.includes(g.window) || !Array.isArray(g.tabs) || typeof g.active !== 'number') return null;
     if (g.link !== null && !LINKS.includes(g.link)) return null;
-    if (!g.tabs.every(t => t && kinds.includes(t.kind) && typeof t.ref === 'string')) return null;
+    if (!g.tabs.every(t => t && (kinds.includes(t.kind) || RETIRED_KINDS.includes(t.kind)) && typeof t.ref === 'string')) return null;
+    // A tab of a kind Ledge no longer has (« À toi », #40 PR 3) is dropped, never the whole layout. The active index counts the
+    // tabs kept before it: the same tab when it is kept, else the one that took its place (repair keeps it in range).
+    const tabs = g.tabs.filter(t => !RETIRED_KINDS.includes(t.kind));
+    const active = g.tabs.slice(0, g.active).filter(t => !RETIRED_KINDS.includes(t.kind)).length;
+    groups.push({ ...g, tabs, active });
   }
-  return repair({ ...(o as Workspace), groups: (o.groups as Group[]).map(g => kept(g)) });
+  return repair({ ...(o as Workspace), groups: groups.map(g => kept(g)) });
 }
 
 /** A tab's ref: `machine:rig` (machine ids carry no `:`). */

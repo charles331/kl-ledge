@@ -44,7 +44,7 @@ export function attentionOf(rig: string, sessions: Iterable<PhoneSession>, asks:
   let perm = 0, ask = 0;
   for (const s of sessions) {
     if (s.rig?.name !== rig || !s.pending) continue;
-    // Plans and diffs count as permissions, as in « À toi ».
+    // Plans and diffs count as permissions, as on the Sessions badge.
     if (s.pending.kind === 'question') ask += 1; else perm += 1;
   }
   for (const a of asks ?? []) if (a.from.rig === rig && a.kind !== 'update') ask += 1;

@@ -1,6 +1,6 @@
 // The pull and merge requests of the paired PC, as the MR/PR tab shows them and acts on them (docs/mobile-forge-contract.md, mockup
 // docs/mockups/ledge-mobile-refonte/m5-mr-pr.html). Beside the store rather than in it, like the Rigs tab: the list is followed from the
-// app's opening while the PC offers it (the tab's badge and « À toi » need it), a request's detail is read on demand, and every action
+// app's opening while the PC offers it (the tab's badge needs it), a request's detail is read on demand, and every action
 // writes on the forge under the user's name, so each goes through the device's check (Q54).
 import { useSyncExternalStore } from 'react';
 import {

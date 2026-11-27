@@ -131,7 +131,7 @@
 .or-check-top { margin-top: 10px; }
 .or-indent { margin: 2px 0 0 21px; }
 
-/* An OpenRig seat's rig, beside its name (sidebar, atelier, « À toi »). */
+/* An OpenRig seat's rig, beside its name (sidebar, atelier, the Rigs view's requests). */
 .rig-tag { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid color-mix(in oklab, var(--info) 45%, transparent); color: var(--info); font: 500 10px/15px 'Geist Mono', monospace; vertical-align: middle; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 /* In the atelier, a seat's rig sits above its mascot, its role under its name in the machine's place: the seat keeps its height. */
 .office-shell .agent-seat .seat-rig-tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); pointer-events: none; }

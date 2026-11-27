@@ -12,8 +12,8 @@ import { Pill } from '../ui/kit/marks';
 import { useWide } from '../ui/layout';
 import { MobileBot } from '../ui/MobileBot';
 import { useNow } from '../useNow';
-import { Spin } from './atoi/SessionCard';
-import { RoutineItem } from './atoi/RoutineItem';
+import { Spin } from './cards/SessionCard';
+import { RoutineItem } from './cards/RoutineItem';
 import { usePlatform } from './device';
 
 /** A routine card's 40 px buttons, side by side (card 17), each as wide as its words plus an equal share of the rest, so « Lancer
@@ -45,7 +45,7 @@ function Late() {
 }
 
 /** One routine (card 17): who it wakes, when, its next and last run, then « Lancer maintenant » and « Pause » / « Reprendre »; a
- *  routine waiting on the user only leads to « À toi ». */
+ *  routine waiting on the user has its request at the top (#40 D4). */
 function RoutineCard({ store, routine: r, session, offline, now, focused }: { store: MobileStore; routine: PhoneRoutine; session: PhoneSession | undefined; offline: boolean; now: number; focused: boolean }) {
   const R = copy.routines;
   const [busy, setBusy] = useState<'run' | 'toggle' | null>(null);

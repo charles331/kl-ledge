@@ -77,7 +77,7 @@ export function useLedgeNotices(o: {
 
   const find = (key: string) => notices.find(n => n.key === key);
   const routineOf = (n: LedgeNotice) => {
-    // A decision that is a routine's item of « À toi » (routines mockup, cards 15 and 23): its task is the local daemon's.
+    // A decision that is a routine's request (routines mockup, cards 15 and 23): its task is the local daemon's.
     const task = n.notice.kind === 'decision' && n.machine === LOCAL_MACHINE.id ? tasks.find(x => `decision:${x.id}` === n.notice.id) : undefined;
     return { task, routine: routineNotice(n.notice, n.machine, task, routines, t) };
   };
@@ -118,7 +118,8 @@ export function useLedgeNotices(o: {
     if (n.notice.kind === 'rig.ask') { openInLedge(n.notice.qitem ? { kind: 'ask', id: n.notice.qitem } : { kind: 'requests' }); return; }
     const { routine } = routineOf(n);
     const task = n.notice.kind === 'decision' && n.notice.id.startsWith('decision:') ? n.notice.id.slice('decision:'.length) : null;
-    openInLedge(routine ? { kind: 'routine', machine: routine.machine, id: routine.first.id } : task ? { kind: 'task', id: task } : { kind: 'atoi' });
+    if (routine) openInLedge({ kind: 'routine', machine: routine.machine, id: routine.first.id });
+    else if (task) openInLedge({ kind: 'task', id: task });
   }
 
   const sendOn = (machine: string, m: ClientMessage): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
@@ -181,7 +182,7 @@ export function useLedgeNotices(o: {
     try {
       const [head, ...rest] = action === 'run' ? [r.first.id] : r.ids;
       // A daemon that does not answer groups would drop `others` and answer the first routine alone: too old (card 33).
-      if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { fail(t.atoi.routine.groupTooOld); return; }
+      if (rest.length && !machines.find(m => m.id === r.machine)?.daemon?.routineGroups) { fail(t.routine.groupTooOld); return; }
       dispatch({ type: 'decided' });
       // A refusal needs no key (refusing what changed is harmless): a member not read yet is still named, without one.
       const keyed = (id: string) => ({ routine: id, ...(r.keys[id] !== undefined ? { expect: r.keys[id] } : {}) });
@@ -189,14 +190,14 @@ export function useLedgeNotices(o: {
         await fleet.routineCmd(r.machine, { op: action, routine: head!, ...(action === 'approve' ? { expect: r.keys[head!]! } : {}), ...(rest.length ? { others: rest.map(keyed) } : {}) });
       } catch (e) {
         // Changed since the island showed it (card 32): nothing activated, the routines read again to show the new version.
-        if (action === 'approve' && (e as { code?: string }).code === 'stale') { fleet.rereadRoutines(r.machine); setStale({ key, message: t.atoi.routine.stale(r.first.name) }); dispatch({ type: 'decisionFailed', id: key }); return; }
+        if (action === 'approve' && (e as { code?: string }).code === 'stale') { fleet.rereadRoutines(r.machine); setStale({ key, message: t.routine.stale(r.first.name) }); dispatch({ type: 'decisionFailed', id: key }); return; }
         throw e;
       }
       setAside(key, true); o.onAnswered(action === 'refuse' ? 'deny' : 'accept');
     } catch (e) {
       // The island's own words for a machine down or too old; a daemon's refusal is said with its reason.
       const f = e as { code?: string; message?: string };
-      fail(f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.atoi.routine.tooOld : f.message ?? String(e));
+      fail(f.code === 'offline' ? t.offline : f.code === 'outdated' ? t.routine.tooOld : f.message ?? String(e));
     } finally { setBusy(null); }
   }
 

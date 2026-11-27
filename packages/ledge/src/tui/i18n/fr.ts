@@ -51,8 +51,8 @@ export const fr = {
   },
   overview: { rigsGroup: 'RIGS', kernelGroup: 'KERNEL', 
     rigSeat: (rig: string, role: string) => `rig ${rig} · ${role}`,
-    yours: (n: number) => `À toi · ${n}`, projects: 'Projets', exchanges: 'Échanges', terminal: (name: string) => `Terminal · ${name}`,
-    nobodyWaits: 'Personne ne t’attend.', noSession: 'Aucune session. + pour en lancer une.', noPreview: 'Pas d’aperçu.', noExchange: 'Aucun échange.',
+    projects: 'Projets', exchanges: 'Échanges', terminal: (name: string) => `Terminal · ${name}`,
+    noSession: 'Aucune session. + pour en lancer une.', noPreview: 'Pas d’aperçu.', noExchange: 'Aucun échange.',
     sessions: (n: number) => `${n} ${plural(n, 'session', 'sessions')}`, sessionsOf: (live: number, all: number) => `${live} ${plural(live, 'session', 'sessions')} sur ${all}`, outside: 'Hors projet', offline: 'hors ligne', readOnly: 'lecture seule',
     wantsToRun: 'Veut exécuter :', asks: 'Demande :', plan: 'Propose un plan :', diff: 'Veut modifier :',
     allow: 'Autoriser', deny: 'Refuser', always: 'Toujours', denyWithNote: 'Refuser en expliquant',
@@ -62,7 +62,6 @@ export const fr = {
     context: (pct: number) => `ctx ${pct} %`,
     relief: { briefing: 'relève : bilan demandé', launching: 'relève : lancement…', done: 'relevée', failed: 'relève échouée' } as Record<'briefing' | 'launching' | 'done' | 'failed', string>,
     relievedBy: (name: string) => `relevée par ${name}`, relieves: (name: string) => `relève de ${name}`,
-    ledgeTask: (owner: string, title: string, state: 'done' | 'refused' | 'dropped') => `${owner} a ${state === 'done' ? 'fini' : state === 'refused' ? 'refusé' : 'abandonné'} « ${title} » · tâche de Ledge`,
     decision: (giver: string, title: string) => `${giver} te demande : ${title}`,
     writeProjectTitle: (project: string) => `Écrire à tout le projet ${project}`, writeProjectHint: 'Ton message, tel que chaque session le lira…',
     decisionTitle: (giver: string, title: string) => `Répondre à ${giver} · ${title}`, decisionHint: 'Ta réponse, telle que la session la lira…',
@@ -352,14 +351,10 @@ export const fr = {
     },
     oldDaemon: 'Ce daemon ne connaît pas encore les routines : mettez Ledge à jour.',
     keys: { nav: 'naviguer', runNow: 'lancer maintenant', pauseResume: 'pause/reprendre', openSession: 'ouvrir la session' },
-    ask: (s: string, r: string, when: string, dir: string) => `${s} veut programmer « ${r} » : ${when}, dans ${dir}`,
-    groupAsk: (s: string, n: number, days: string) => `${s} veut programmer ${n} routines uniques : ${days}`,
-    itemKeys: { activate: 'activer', refuse: 'refuser', retry: 'relancer', activateAll: (n: number) => `activer les ${n}`, refuseAll: (n: number) => `refuser les ${n}` },
-    failed: (r: string, s: string, why: string) => `La routine ${r} (${s}) n’a pas pu partir : ${why}`,
+    itemKeys: { activate: 'activer', refuse: 'refuser' },
     stale: (r: string) => `« ${r} » a changé : relisez-la avant d’activer.`,
     causes: { timeout: 'pas tapée en 30 min (session occupée)' },
-    failedNamed: (r: string, why: string) => `La routine ${r} n’a pas pu partir : ${why}`,
-    change: (s: string, r: string, when: string) => `${s} veut modifier « ${r} » : ${when}`, waits: (r: string) => `« ${r} » attend votre accord`
+    change: (s: string, r: string, when: string) => `${s} veut modifier « ${r} » : ${when}`
   },
   cli: { notTty: 'ledge tui: needs a terminal (stdin and stdout must be a TTY)', movedToTab: 'ledge tui s’ouvre dans l’onglet Ledge.', loadingProfile: 'Windows Terminal charge le profil Ledge…' }
 };

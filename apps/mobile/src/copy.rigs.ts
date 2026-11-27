@@ -263,7 +263,7 @@ export const rigsFr = {
     state: { sent: 'envoyé', taken: 'pris', asking: 'question', proposed: 'équipe proposée', running: 'en cours', done: 'fini', closed: 'clos' },
     statePill: { sent: 'envoyé', taken: 'pris', asking: 'question', proposed: 'proposée', running: 'en cours', done: 'fini', closed: 'clos' },
     since: (t: string) => `depuis ${t}`,
-    atoiNote: 'Les propositions et questions de Max attendent aussi dans les Demandes, en tête de Rigs, où elles se répondent.',
+    requestsNote: 'Les propositions et questions de Max attendent aussi dans les Demandes, en tête de Rigs, où elles se répondent.',
     trail: {
       sent: 'Tu l\'as donné', taken: 'Max l\'a pris', note: (text: string) => `Tu as écrit : « ${text} »`, handed: (to: string) => `passé à ${to}`, closed: 'clos'
     },

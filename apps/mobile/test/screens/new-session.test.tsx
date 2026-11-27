@@ -304,7 +304,7 @@ describe('« Nouvelle session » (m2-sessions.html §9)', () => {
     it('its receipt in English', () => {
       setLang('en');
       expect(copy.launch.lostBody).toBe('The session may have started: check Sessions before launching again.');
-      expect(copy.atoi.seeSessions).toBe('See the sessions');
+      expect(copy.cards.seeSessions).toBe('See the sessions');
     });
 
     it('the PC restarted and its « received » was lost too: not sent again, by itself or by Réessayer', async () => {

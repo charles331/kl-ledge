@@ -1,36 +1,8 @@
 import type { HumanAsk, OpenRigAnswered, Session } from '@ledge/protocol';
 
-/** « À toi »'s sections for OpenRig's asks (docs/mockups/ledge-human-operator-ab-lot1.html): a decision with buttons goes to
- *  « Décisions », a decision without buttons and a row parked on the person to « Questions », a piece of news to « Nouvelles ». */
-export type AskSection = 'decisions' | 'questions' | 'updates';
-export const ASK_SECTIONS: readonly AskSection[] = ['decisions', 'questions', 'updates'];
-
-export const sectionOf = (a: HumanAsk): AskSection =>
-  a.kind === 'update' ? 'updates' : a.kind === 'decision' && a.questions.length > 0 ? 'decisions' : 'questions';
-
 /** The card's pill: what the ask is. */
 export const pillOf = (a: HumanAsk): 'decision' | 'question' | 'update' | 'parked' =>
   a.kind === 'update' ? 'update' : a.kind === 'parked' ? 'parked' : a.questions.length > 0 ? 'decision' : 'question';
-
-/** The sidebar's mark on the asking seat's row: only what waits on an answer, the most pressing first (decision, waiting on
- *  you, question); a piece of news marks nothing and counts in no rig (design-ux). */
-const MARK_RANK = { decision: 0, parked: 1, question: 2 } as const;
-export function markOf(asks: readonly HumanAsk[]): 'decision' | 'parked' | 'question' | null {
-  let best: 'decision' | 'parked' | 'question' | null = null;
-  for (const a of asks) {
-    const p = pillOf(a);
-    if (p === 'update') continue;
-    if (best === null || MARK_RANK[p] < MARK_RANK[best]) best = p;
-  }
-  return best;
-}
-
-/** The ask's asks per section, in the order the daemon sends them (critical, urgent, then the most recent). */
-export function bySection(asks: readonly HumanAsk[]): Record<AskSection, HumanAsk[]> {
-  const out: Record<AskSection, HumanAsk[]> = { decisions: [], questions: [], updates: [] };
-  for (const a of asks) out[sectionOf(a)].push(a);
-  return out;
-}
 
 /** The machine whose OpenRig the asks come from (lot 1: this computer's). */
 export const ASKS_MACHINE = 'local';

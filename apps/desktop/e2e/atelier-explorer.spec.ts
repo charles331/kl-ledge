@@ -113,11 +113,11 @@ for (const theme of ['dark', 'light'] as const) {
       expect(s.time!.y, name).toBeGreaterThanOrEqual(s.strong!.y + s.strong!.h);
       expect(s.row.x + s.row.w - (s.time!.x + s.time!.w), name).toBe(8);
     }
-    // « À toi » on the first line of a session that waits, in place of its time: 18 px high, its right edge 6 px from the row's
-    // (its width follows the font; the edge does not).
-    for (const name of ['Pim', 'Tom']) {
+    // What a waiting session waits for (#40 PR 3, design-ux: « Accord », « Question »), on its first line in place of its time:
+    // 18 px high, its right edge 6 px from the row's (its width follows the font; the edge does not).
+    for (const [name, text] of [['Pim', 'Accord'], ['Tom', 'Question']] as const) {
       const s = sessions[name]!;
-      expect(s.tagText, name).toBe('À toi');
+      expect(s.tagText, name).toBe(text);
       expect(s.tag!.h, name).toBe(18);
       expect(s.row.x + s.row.w - (s.tag!.x + s.tag!.w), name).toBe(6);
       expect(s.tag!.y, name).toBeLessThan(s.strong!.y + s.strong!.h);
@@ -136,13 +136,14 @@ for (const theme of ['dark', 'light'] as const) {
     expect(await page.locator('.ide-badge').first().boundingBox()).toMatchObject({ width: 16, height: 16 });
   });
 
-  // Not in the mockup's scene: a session in error keeps « À toi », outlined in the error colour (the owner's choice A, 2026-11-26).
-  test(`the explorer under the skin, ${theme}: a session in error says « À toi » outlined, the same box as a filled pill`, async ({ page }) => {
+  // Not in the mockup's scene: a session in error says « Erreur » (#40 PR 3), outlined in the error colour (the owner's choice A, 2026-11-26).
+  test(`the explorer under the skin, ${theme}: a session in error says « Erreur » outlined, as high as a filled pill`, async ({ page }) => {
     await scene(page, theme, [...SESSIONS, mk('zed', { name: 'Zed', state: 'error', branch: 'feat/ide-shell' })]);
     const tag = (name: string) => page.getByRole('treeitem', { name: new RegExp(`^${name}`) }).locator('.at-tag');
-    await expect(tag('Zed')).toHaveText('À toi');
+    await expect(tag('Zed')).toHaveText('Erreur');
     const [zed, pim] = await Promise.all([tag('Zed').boundingBox(), tag('Pim').boundingBox()]);
-    expect(zed).toMatchObject({ width: pim!.width, height: 18 });
+    expect(zed).toMatchObject({ height: pim!.height });
+    expect(zed!.height).toBe(18);
     const style = await tag('Zed').evaluate(el => {
       const c = getComputedStyle(el); const probe = document.createElement('i'); probe.style.color = 'var(--danger-text)'; el.append(probe);
       const danger = getComputedStyle(probe).color; probe.remove();
@@ -165,7 +166,7 @@ for (const theme of ['dark', 'light'] as const) {
 }
 
 // Issues #31 and #32 (state/pr/kl28-known-defects.md): a session row keeps its parts apart when room runs short. The name gives way
-// before the time or « À toi » (#31, compact); the branch tag gives way before the name, and the sub-agents' count stays (#32, not
+// before the time or the waiting tag (#31, compact); the branch tag gives way before the name, and the sub-agents' count stays (#32, not
 // grouped by branch). Long names and a long branch, Léa with a folded sub-agent; no mouse over the tree (its tools would cover the time).
 const LONG: Session[] = [
   mk('pim', { name: 'Pim', state: 'idle', branch: 'main', topic: 'Relire' }),
@@ -196,7 +197,7 @@ async function parts(page: Page, name: string) {
 }
 
 for (const theme of ['dark', 'light'] as const) {
-  test(`#31, compact, ${theme}: a long name ends with « … » before its time or « À toi », which stay whole`, async ({ page }) => {
+  test(`#31, compact, ${theme}: a long name ends with « … » before its time or its tag, which stay whole`, async ({ page }) => {
     await scene(page, theme, LONG, { hideDone: true, dense: true, byBranch: true });
     await page.mouse.move(900, 900);
     for (const name of ['Kit', 'Max']) {
@@ -205,7 +206,7 @@ for (const theme of ['dark', 'light'] as const) {
       expect(p.name!.right, name).toBeLessThanOrEqual(p.time!.x);
       expect(p.time!.right, name).toBeLessThanOrEqual(p.row.right);
     }
-    expect((await parts(page, 'Kit')).timeText).toBe('À toi');
+    expect((await parts(page, 'Kit')).timeText).toBe('Question');
     // A short name is not cut.
     expect((await parts(page, 'Zed')).nameCut).toBe(false);
   });

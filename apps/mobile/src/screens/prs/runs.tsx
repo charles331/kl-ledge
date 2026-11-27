@@ -3,7 +3,7 @@ import { copy } from '../../copy';
 import { mergeConditions, shortSha, inFoot } from '../../model/prs';
 import type { ForgeRun, ForgeStore } from '../../state/forge';
 import { isApple } from '../device';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Commands, HoldBar, Receipt, rigButtonClass } from '../rigs/kit';
 import { condText, forgeWords } from './parts';
 

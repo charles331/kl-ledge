@@ -35,7 +35,6 @@ export function ActivityBar({ layout, onLayout, onTab, activeTab, badge, prsFail
     <nav className="ide-activity" aria-label={t.ide.activityLabel} onClickCapture={e => noteClick(e.nativeEvent)}>
       {view('projects', SHELL_ICONS.files, t.ide.projects, mark)}
       {view('rigs', SHELL_ICONS.rig, t.ide.rigs, requestsBadge > 0 ? <span className="ide-badge amber">{requestsBadge}</span> : null)}
-      {view('atoi', SHELL_ICONS.inbox, t.ide.atoi)}
       {view('prs', <PrIcon />, t.forge.view, prsFailing > 0 ? <span className="ide-badge">{prsFailing}</span> : null)}
       {view('routines', <AlarmIcon size={18} />, t.routines.view, routinesBadge > 0 ? <span className="ide-badge">{routinesBadge}</span> : null)}
       {view('tasks', SHELL_ICONS.tasks, t.ide.tasksView, tasksBadge > 0 ? <span className="ide-badge amber">{tasksBadge}</span> : null)}

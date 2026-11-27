@@ -16,7 +16,7 @@ import { BackLink } from '../../ui/Header';
 import { Icon } from '../../ui/icons';
 import { Dot, Pill, RuntimeTag } from '../../ui/kit/marks';
 import { useWide } from '../../ui/layout';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Chip, Frame, HoldBar, IconLabel, Lbl, Opt, ReadFail, Strip, Tile, rigButtonClass, useLongPress } from './kit';
 import { RunNote, isRunning, lastRun } from './runs';
 import { MoreSheet, PermissionsSheet, ReseatForm, ReseatSheet, SeatSettingsSheet, SeatSheet, SnapshotList, SnapshotsSheet, StopSheet, snapWhen } from './sheets';

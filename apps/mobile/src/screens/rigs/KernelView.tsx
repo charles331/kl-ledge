@@ -14,7 +14,7 @@ import { BackLink } from '../../ui/Header';
 import { Icon } from '../../ui/icons';
 import { Dot, type DotState } from '../../ui/kit/marks';
 import { useWide } from '../../ui/layout';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { GoalThread, ReplyField, maxAt, maxWord } from './Max';
 import { Chip, Frame, IconLabel, Lbl, ReadFail, Strip, rigButtonClass } from './kit';
 import { DaemonChoices, DaemonRow, KERNEL_TONE } from './RigsList';

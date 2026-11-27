@@ -10,7 +10,7 @@ import { useMobile, type MobileStore } from '../../state/store';
 import { Icon } from '../../ui/icons';
 import { Dot } from '../../ui/kit/marks';
 import { useWide } from '../../ui/layout';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Att, Chip, Frame, IconLabel, Lbl, RRow, Strip, ToggleRow, rigButtonClass, type ChipTone } from './kit';
 import { RunNote, isRunning, lastRun } from './runs';
 import { RigsRequests } from './Requests';

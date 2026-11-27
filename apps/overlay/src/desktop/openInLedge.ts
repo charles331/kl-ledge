@@ -17,8 +17,6 @@ export type LedgeTarget =
   | { kind: 'requests' }
   /** A decision put to the user, by its task: Desktop's Tasks view on it (#40 D3). */
   | { kind: 'task'; id: string }
-  /** « À toi » itself: a decision put to the user, listed there. */
-  | { kind: 'atoi' }
   /** A routine's page (routines mockup, card 15: « Voir »), by the machine that holds it and its id. */
   | { kind: 'routine'; machine: string; id: string };
 

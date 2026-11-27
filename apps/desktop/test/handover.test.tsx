@@ -9,26 +9,19 @@ const ctx = (used: number) => ({ used, window: 200_000, at: AT });
 
 beforeEach(() => localStorage.clear());
 
-/** The IDE's « For you » view (its sidebar's « À toi »), shown; the sidebar's « Your turn » there. */
-async function forYou(user: Awaited<ReturnType<typeof boot>>['user']) {
-  if (!screen.queryByRole('region', { name: 'Your turn' })) await user.click(screen.getByRole('button', { name: /^For you/ }));
-  return within(await screen.findByRole('region', { name: 'Your turn' }));
-}
-const sidebar = () => within(screen.getByRole('complementary', { name: 'Sidebar' }));
+/** The tree's gauge on a session past the threshold (its row in « Projects »). */
+const gauge = (name: RegExp) => screen.getAllByRole('button', { name }).map(b => b.closest('.st-row')).find(Boolean)?.querySelector('.st-ctx') ?? null;
 afterEach(async () => { cleanup(); await closeDaemons(); });
 
 describe('a session near its context limit (context handover spec §3.2)', () => {
-  it('« Your turn » lists it with « Hand over » and « Later »; the session page shows the gauge and the button', async () => {
+  it('the tree shows its gauge; the session page shows the gauge, the « … » menu hands over (« À toi » left, #40 PR 3)', async () => {
     const { d, user } = await boot({ projects: PROJECTS, sessions: [
       fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', context: ctx(170_000) }),
       fakeSession('pim', { name: 'Pim', cwd: '/w/ledge', state: 'working', context: ctx(60_000) })
     ] });
-    const yours = await forYou(user);
-    expect(yours.getByText('Otto · context 85 %')).toBeVisible();
-    expect(yours.queryByText(/Pim · context/)).toBeNull();
+    await waitFor(() => expect(gauge(/^Otto/)).toHaveTextContent('85 %'));
+    expect(gauge(/^Pim/)).toBeNull();
     d.onMessage(m => { if (m.type === 'session.handover') d.push({ type: 'session.handover.result', rid: m.rid, ok: true }); });
-    await user.click(yours.getByRole('button', { name: 'Hand over' }));
-    await waitFor(() => expect(d.received).toContainEqual({ type: 'session.handover', rid: expect.any(String), id: 'otto' }));
     await user.click(screen.getByRole('button', { name: /^Otto,/ }));
     // The IDE's session bar carries the gauge; « Hand over » is in the session's « … » menu (its seat's, in the Atelier).
     await waitFor(() => expect(document.querySelector('.ide-bar .ugauge')).not.toBeNull());
@@ -39,19 +32,18 @@ describe('a session near its context limit (context handover spec §3.2)', () =>
     const item = await screen.findByRole('menuitem', { name: 'Hand over' });
     expect(item).toHaveTextContent('context 85 %');
     await user.click(item);
-    await waitFor(() => expect(d.received.filter(m => m.type === 'session.handover')).toHaveLength(2));
-    // Under way: the page says so, « Your turn » lets it be.
+    await waitFor(() => expect(d.received).toContainEqual({ type: 'session.handover', rid: expect.any(String), id: 'otto' }));
+    // Under way: the page says so.
     d.push({ type: 'session.updated', session: fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', context: ctx(170_000), handover: { state: 'briefing', at: AT } }) });
-    await waitFor(() => expect(sidebar().queryByText(/Otto · context/)).toBeNull());
     await user.click(screen.getByRole('button', { name: /^Otto,/ }));
     expect(await screen.findByText('relief: brief asked')).toBeVisible();
   });
 
-  it('« Max context » in Settings › General: the daemon\'s threshold, set there; the lists follow it', async () => {
+  it('« Max context » in Settings › General: the daemon\'s threshold, set there; the tree\'s gauge follows it', async () => {
     const { d, user } = await boot({ projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', context: ctx(150_000) })] });
     d.push({ type: 'context.prefs', prefs: { near: 0.8 } });
-    await user.click(screen.getByRole('button', { name: /^For you/ }));
-    expect(sidebar().queryByText(/Otto · context/)).toBeNull();
+    await screen.findAllByRole('button', { name: /^Otto/ });
+    expect(gauge(/^Otto/)).toBeNull();
     await user.keyboard('{Control>},{/Control}');
     await screen.findByRole('heading', { level: 1, name: 'General' });
     const select = screen.getByRole('combobox', { name: 'Max context' });
@@ -59,21 +51,8 @@ describe('a session near its context limit (context handover spec §3.2)', () =>
     await user.selectOptions(select, '70');
     await waitFor(() => expect(d.received).toContainEqual({ type: 'context.set', prefs: { near: 0.7 } }));
     d.push({ type: 'context.prefs', prefs: { near: 0.7 } });
-    // 75 % is past 70 %: « Your turn » lists it.
-    expect(await sidebar().findByText('Otto · context 75 %')).toBeVisible();
-  });
-
-  // « The point » is the page « À toi »'s « Context nearly full » in the IDE (lot 12).
-  it('the page « À toi » lists it as « Your turn » does; no « Later » any more (#40 D10)', async () => {
-    const { user } = await boot({ projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'idle', context: ctx(170_000) })] });
-    const yours = await forYou(user);
-    await user.click(screen.getByRole('button', { name: 'Page' }));
-    const block = await waitFor(() => { const b = document.querySelector<HTMLElement>('[data-block="near"]'); expect(b).not.toBeNull(); return b!; });
-    const row = within(block).getByText('Otto · context 85 %').closest('.atoi-line') as HTMLElement;
-    expect(within(row).getByRole('button', { name: 'Hand over' })).toBeVisible();
-    expect(yours.getByText('Otto · context 85 %')).toBeVisible();
-    expect(within(yours.getByText('Otto · context 85 %').closest('.st-card') as HTMLElement).queryByRole('button', { name: 'Later' })).toBeNull();
-    expect(within(row).queryByRole('button', { name: 'Later' })).toBeNull();
+    // 75 % is past 70 %: the tree shows its gauge.
+    await waitFor(() => expect(gauge(/^Otto/)).toHaveTextContent('75 %'));
   });
 
   it('« Later » puts it away until it grows by 5 points; a failed relief is listed with its reason', () => {

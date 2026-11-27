@@ -4,7 +4,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { PhoneForgeState, PhoneServerMessage } from '@ledge/protocol';
 import { copy } from '../../src/copy';
-import { clock } from '../../src/screens/Inbox';
+import { clock } from '../../src/clock';
 import { forgeState, mr, pr } from '../model/forge-fixtures';
 import { snapshot } from '../state/helpers';
 import { app } from './app-setup';

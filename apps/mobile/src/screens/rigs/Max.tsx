@@ -10,7 +10,7 @@ import { BackLink } from '../../ui/Header';
 import { Composer } from '../../ui/kit/Controls';
 import { Dot, Pill, type DotState, type PillTone } from '../../ui/kit/marks';
 import { useWide } from '../../ui/layout';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Frame, IconLabel, ReadFail, Receipt, Spinner, rigButtonClass } from './kit';
 import { isRunning } from './runs';
 import { iso } from './RigView';
@@ -19,7 +19,7 @@ import { snapWhen } from './sheets';
 /*
  * Max, the kernel's operator (m4-rigs.html, §9): the goals given to him, newest first, and a new one from the field; a goal opens as a
  * thread (what was written, his proposal or his question, the trail) with a field to write to him about it. His proposals and questions
- * are answered in « À toi ». No device check: this only writes to Max.
+ * are answered in the Rigs tab's « Demandes ». No device check: this only writes to Max.
  */
 
 const C = copy.rigs;
@@ -102,7 +102,7 @@ function trailWords(t: Goal['trail'][number]): string {
 }
 
 /**
- * A goal as a thread: what was written, the trail, what Max said and what waits in « À toi », then the replies under way. `compact`: the
+ * A goal as a thread: what was written, the trail, what Max said and what waits in the Rigs tab's « Demandes », then the replies under way. `compact`: the
  * kernel's pane on a tablet (M4 §10), without the trail nor the card's sentence.
  */
 export function GoalThread({ goal, runs, rigs, pc, compact = false, asks = null }: {
@@ -225,7 +225,7 @@ export function Max({ goalId, rigs, store }: { goalId?: string | undefined; rigs
             ))}
           {r.goals?.data?.partial && <p className="text-[12px] leading-4 text-muted">{M.partial}</p>}
           <GoalRuns runs={goalRuns} rigs={rigs} pc={name} bubble={false} />
-          <p className="text-[12px] leading-4 text-muted">{M.atoiNote}</p>
+          <p className="text-[12px] leading-4 text-muted">{M.requestsNote}</p>
         </div>
       </main>
       <div data-goal-field="" className={field}>

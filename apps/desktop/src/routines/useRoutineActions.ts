@@ -8,7 +8,7 @@ import { lastRunOf, routineRef, whyText } from './model';
 type R = Messages['routines'];
 type Source = Pick<Fleet, 'routineCmd'> & Partial<Pick<Fleet, 'rereadRoutines' | 'machines'>>;
 
-/** What the Routines screens ask the daemons (spec §3.4): every button of the sidebar, a page and « À toi » goes through here. */
+/** What the Routines screens ask the daemons (spec §3.4): every button of the sidebar, a page goes through here. */
 export interface RoutineActions {
   /** « Lancer maintenant » in flight, by tab ref: what the row and the page head say meanwhile (card 9). */
   running: ReadonlyMap<string, string>;

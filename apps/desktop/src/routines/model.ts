@@ -5,7 +5,7 @@ import { draftOf, scheduleChanges, scheduleErrors, scheduleOf, type ScheduleChan
 
 /**
  * The Routines screens' rules (docs/mockups/ledge-routines.html, « Fiche de transmission »), pure: a routine's tab ref, its
- * sidebar groups and order, the badge, the session it wakes, the « À toi » items, the form's draft and what it changes.
+ * sidebar groups and order, the badge, the session it wakes, the form's draft and what it changes.
  */
 
 type R = Messages['routines'];
@@ -33,12 +33,12 @@ export const routinesBadge = (rs: readonly Routine[]): number => rs.filter(r => 
 /** Past one-shots stay in the list this many days after their last run (owner's decision, card 21); the journal keeps them. */
 export const PAST_KEEP_DAYS = 30;
 
-/** Several routines a session asked for while its request waited: one « À toi » item (`TaskRoutine.ids`, card 23). */
+/** Several routines a session asked for while its request waited: one request (`TaskRoutine.ids`, card 23). */
 export interface Proposal { task: Task; who: string; ids: readonly string[] }
 /** The machine the tasks come from: the fleet keeps the LOCAL daemon's tasks only, and a routine id is unique per machine, so a
  *  task's `routine.id` / `ids` name that machine's routines, never another's with the same id. */
 export const TASKS_MACHINE = 'local';
-/** The open « À toi » items of the routines (tasks given to Ledge that carry `routine`), oldest first. */
+/** The open requests of the routines (tasks given to Ledge that carry `routine`), oldest first. */
 export const routineTasks = (tasks: readonly Task[]): Task[] => tasks.filter(t => !!t.routine && openDecision(t));
 export const proposalsOf = (tasks: readonly Task[]): Proposal[] =>
   routineTasks(tasks).filter(t => t.routine!.kind === 'approve' && (t.routine!.ids?.length ?? 0) > 1).map(t => ({ task: t, who: t.giverName, ids: t.routine!.ids! }));
@@ -109,23 +109,6 @@ export function routinesOfSession(s: Session, rs: readonly FleetRoutine[], home?
   const dir = expandHome(s.cwd, home);
   return rs.filter(r => r.state !== 'done' && r.machineId === (s.machineId ?? 'local') && r.target.name === s.name && expandHome(r.target.cwd, home) === dir)
     .sort((a, b) => nextAt(a) - nextAt(b));
-}
-
-/** A routine's « À toi » item (cards 13, 14, 23): the task, and the routines it covers that still wait (approve) or the failed one. */
-export interface AtoiRoutineItem { task: Task; kind: 'approve' | 'failed'; routines: FleetRoutine[] }
-export function atoiRoutineItems(tasks: readonly Task[], all: readonly FleetRoutine[], machine: string = TASKS_MACHINE): AtoiRoutineItem[] {
-  const out: AtoiRoutineItem[] = [];
-  const rs = all.filter(r => r.machineId === machine);
-  for (const task of routineTasks(tasks)) {
-    const tr = task.routine!;
-    const ids = tr.ids ?? [tr.id];
-    const found = ids.map(id => rs.find(r => r.id === id)).filter((r): r is FleetRoutine => !!r);
-    if (tr.kind === 'approve') {
-      const waiting = found.filter(waitsForOwner);
-      if (waiting.length) out.push({ task, kind: 'approve', routines: waiting });
-    } else if (found.length) out.push({ task, kind: 'failed', routines: found.slice(0, 1) });
-  }
-  return out;
 }
 
 /** What the form edits (cards 3-5, 19): the spec, its schedule as a draft, the target's mode. */

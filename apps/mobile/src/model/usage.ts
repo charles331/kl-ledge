@@ -65,7 +65,7 @@ export function shownUsage(usage: readonly PhoneHarnessUsage[], now: number, fre
   });
 }
 
-/** Every harness's windows past the threshold, for « À toi », in the windows' order (5 h, week, models), as the mockup lists
+/** Every harness's windows past the threshold, for Réglages › Usage's alert, in the windows' order (5 h, week, models), as the mockup lists
  *  them; never from values over an hour old. */
 export function overWindows(usage: readonly PhoneHarnessUsage[], alert: number | null, now: number = Date.now()): { harness: PhoneHarnessUsage['harness']; window: UsageWindow; tone: 'amber' | 'red' }[] {
   return shownUsage(usage, now).flatMap(h => (h.status === 'expired' || h.status === 'loading' ? [] : h.windows.flatMap(window => {

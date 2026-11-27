@@ -26,10 +26,8 @@ export { PrsView } from '../forge/PrsView';
 export { PrPage } from '../forge/PrPage';
 export { PrsStatus } from '../forge/PrsStatus';
 export { PrTabLabel } from '../forge/PrTabLabel';
-export { AtoiPage } from './atoi/AtoiPage';
 export { RoutinesView } from '../routines/RoutinesView';
 export { RoutinePage } from '../routines/RoutinePage';
-export { AtoiRoutinesBlock, AtoiRoutineCards } from '../routines/AtoiRoutines';
 
 export interface IdeFrameProps {
   layout: IdeLayout; onLayout(a: LayoutAction): void;

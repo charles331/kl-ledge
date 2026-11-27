@@ -6,7 +6,6 @@ import { LangProvider } from '../../src/i18n/lang';
 import { RoutinesView, sessionLook } from '../../src/routines/RoutinesView';
 import { RoutinePage } from '../../src/routines/RoutinePage';
 import { RoutineForm } from '../../src/routines/RoutineForm';
-import { AtoiRoutineCards, AtoiRoutinesBlock } from '../../src/routines/AtoiRoutines';
 import type { Task } from '@ledge/protocol';
 import { specDraft } from '../../src/routines/model';
 import { MESSAGES } from '../../src/i18n/messages';
@@ -83,35 +82,6 @@ describe('Routines on Desktop, card 28', () => {
     expect(MESSAGES.en.routines.toastLaunched('briefing', 'Iris')).toBe('Iris launched, “briefing” delivered.');
   });
 
-  it('« À toi »: a session’s change reads « veut modifier », built from the routine, never the daemon’s French title (card 29)', () => {
-    const r = routine('r000001', 'local', { schedule: { kind: 'recurring', times: ['08:00'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] } });
-    r.proposal = { spec: { ...r, schedule: { kind: 'recurring', times: ['07:30', '13:30', '16:30'], days: ['mon', 'tue', 'wed', 'thu', 'fri'] } }, by: { id: 's', name: 'Iris' }, at: '2026-11-23T01:00:00.000Z' };
-    const task: Task = { id: 't1', title: 'Iris veut modifier « r-r000001 » : 07:30, 13:30, 16:30 (lun-ven)', text: 'préparations trouvées dans l’agenda', giver: 's', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge',
-      state: 'open', at: r.createdAt, updatedAt: r.createdAt, log: [], routine: { kind: 'approve', id: r.id, name: r.name } };
-    const h = { items: [{ task, kind: 'approve' as const, routines: [r] }], dirLabel: () => '~/assistant', onActivate: vi.fn(), onRefuse: vi.fn(), onRetry: vi.fn(), onSee: vi.fn() };
-    const en = (ui: React.ReactElement) => render(<LangProvider lang="en">{ui}</LangProvider>);
-    const { unmount } = en(<AtoiRoutinesBlock {...h} />);
-    expect(document.querySelector('[data-routine-item]')).toHaveTextContent('Iris wants to change “r-r000001”: 07:30, 13:30, 16:30 (Mon–Fri)');
-    expect(document.body.textContent).not.toMatch(/veut|programmer|agenda/);
-    unmount();
-    const { unmount: u2 } = en(<div className="st"><AtoiRoutineCards {...h} /></div>);
-    expect(document.querySelector('.rtn-st-text')).toHaveTextContent('wants to change “r-r000001”: 07:30, 13:30, 16:30 (Mon–Fri)');
-    expect(document.body.textContent).not.toMatch(/veut|programmer/);
-    u2();
-    fr(<AtoiRoutinesBlock {...h} />);
-    expect(document.querySelector('[data-routine-item]')).toHaveTextContent('Iris veut modifier « r-r000001 » : 07:30, 13:30, 16:30 (lun–ven)');
-  });
-
-  it('« À toi »: a request a session changed since it was shown says so in amber above its buttons (card 32)', () => {
-    const r = routine('r000001', 'local');
-    const task: Task = { id: 't1', title: 'x', giver: 's', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge', state: 'open', at: r.createdAt, updatedAt: r.createdAt, log: [], routine: { kind: 'approve', id: r.id, name: r.name } };
-    const h = { items: [{ task, kind: 'approve' as const, routines: [r] }], dirLabel: () => '~/assistant', onActivate: vi.fn(), onRefuse: vi.fn(), onRetry: vi.fn(), onSee: vi.fn(), stale: new Set(['local:r000001']) };
-    const { unmount } = fr(<AtoiRoutinesBlock {...h} />);
-    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`« ${r.name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`);
-    unmount();
-    render(<LangProvider lang="en"><div className="st"><AtoiRoutineCards {...h} /></div></LangProvider>);
-    expect(document.querySelector('.rtn-stale')).toHaveTextContent(`“${r.name}” changed since you opened it: read it again before activating.`);
-  });
 });
 
 describe('the Tasks view (#40 D3)', () => {

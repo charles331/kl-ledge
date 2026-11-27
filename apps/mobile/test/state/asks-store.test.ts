@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PhoneServerMessage } from '@ledge/protocol';
-import { askEndOf } from '../../src/model/atoi';
+import { askEndOf } from '../../src/model/cards';
 import { UNCERTAIN_MS } from '../../src/state/operations';
 import { createStore, type MobileStore } from '../../src/state/store';
 import { fakeLink, MemoryStorage, snapshot } from './helpers';

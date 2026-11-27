@@ -8,8 +8,6 @@ import type { Copy, Model } from './copy';
 
 /** English counts only 1 as singular. */
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
-/** The first tab's name in English, as on Desktop (`ide.atoi`): design-ux, 2026-11-10 19:53Z. */
-const ATOI = 'For you';
 
 /** The phone app's strings in English, key for key with the French table of copy.ts. The words come first from the
  *  mockups' English column (docs/mockups/ledge-mobile-refonte), then from Ledge Desktop's en.ts. */
@@ -25,44 +23,20 @@ export const en: Copy = {
   percent: (n: number) => `${n}%`,
   /** The name beside the mark, in the header of the five tabs. */
   brand: 'Ledge',
-  inbox: {
-    /** A request's first line when it has no words of its own (Desktop's « Plan to approve »), and an age in the list. */
+  /** « À toi » (docs/mockups/ledge-mobile-refonte/m1-a-toi.html, 3228f5ed; m1-reponses-rig.html, adf70443): cards decided in the list, receipts. */
+  /** The request and ask cards: a session's request in its thread or on its own screen, an OpenRig ask in the Rigs tab's
+   *  « Demandes » (#40). Drawn for « À toi » (m1-a-toi.html), which they outlived. */
+  cards: {
     plan: 'Plan to approve', diff: (file: string) => `Edit ${file}`,
     age: { s: (n: number) => `${n}s`, min: (n: number) => `${n} min`, h: (n: number) => `${n} h`, d: (n: number) => `${n} d` },
-    title: ATOI,
-    subtitle: (n: number) => n === 0 ? 'All quiet' : n === 1 ? '1 request. Choose where to start.' : `${n} requests. Choose where to start.`,
-    filtersLabel: 'Filter the requests',
-    filters: { all: 'All', permission: 'Permissions', question: 'Questions', tasks: 'Tasks' },
-    /** With the closed tasks of Ledge (ledge home spec §2.4). */
-    subtitleTasks: (requests: number, tasks: number) => {
-      const r = requests === 0 ? '' : plural(requests, '1 request', `${requests} requests`);
-      const t = plural(tasks, '1 task finished', `${tasks} tasks finished`);
-      return `${r ? `${r} and ` : ''}${t}. Choose where to start.`;
-    },
-    taskDone: 'Task finished', taskClosed: 'Task closed',
-    finishedTitle: (title: string) => `Finished “${title}”`, refusedTitle: (title: string) => `Refused “${title}”`, droppedTitle: (title: string) => `Dropped “${title}”`,
-    ledgeTask: 'Ledge’s task', seeResult: 'See the result', putAway: 'Dismiss',
-    oldestFirst: 'OLDEST FIRST',
     examine: 'Examine',
     lastKnown: 'Last known state',
-    upToDate: 'You’re up to date',
-    upToDateHint: 'No request is waiting for a decision.',
-    seeAgents: 'See the sessions',
-    emptyFilter: 'No request in this filter',
-    emptyFilterHint: 'The other requests stay in “All”.',
-    offlineNote: 'You can read the requests. No decision is sent while offline.'
-  },
-  /** « À toi » (docs/mockups/ledge-mobile-refonte/m1-a-toi.html, 3228f5ed; m1-reponses-rig.html, adf70443): cards decided in the list, receipts. */
-  atoi: {
-    count: (n: number) => plural(n, '1 request', `${n} requests`),
     pill: { permission: 'permission', question: 'question', plan: 'plan', diff: 'changes' },
     allow: 'Allow', deny: 'Deny', always: 'Always in this project',
     readAll: 'Show all', other: 'Other answer…',
     sendHint: (bot: string) => `Your answer to ${bot} · Enter sends`,
     region: (what: string, who: string, where: string) => `${what} from ${who}${where ? `, ${where}` : ''}`,
     kindName: { permission: 'Permission', question: 'Question', plan: 'Plan', diff: 'Changes', rig: 'Request' },
-    requests: 'Requests', rigs: 'OpenRig rigs', working: 'Working',
-    more: (n: number) => `See the other ${n}`,
     receipt: {
       allowed: (who: string) => `Allowed · ${who}`, denied: (who: string) => `Denied · ${who}`,
       allowedBody: 'The terminal received your decision', deniedBody: 'The command was not run',
@@ -76,9 +50,6 @@ export const en: Copy = {
       answeredAt: (who: string, time: string, draft: boolean) => `${who} · Answered at ${time}. ${draft ? 'Your draft was not sent.' : 'No new answer was sent.'}`,
       gone: (who: string, draft: boolean) => `${who}.${draft ? ' Your draft was not sent.' : ''}`
     },
-    noRequest: 'Nothing is waiting for you.',
-    calmHint: 'No session and no rig needs your decision. New requests appear here, and on the lock screen if notifications are on.',
-    nothingRunning: 'No session is working right now either.',
     seeSessions: 'See the sessions',
     keys: 'Y / N on the keyboard',
     line: { permission: 'Allow a command' },
@@ -120,11 +91,11 @@ export const en: Copy = {
   },
   nav: {
     label: 'Main navigation',
-    /** The five tabs, the rail's Atelier and Settings (m0-socle.html, §1 and §2); the first one named by ATOI. */
-    atoi: ATOI, sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', chat: 'Ledge', atelier: 'Atelier', settings: 'Settings',
+    /** The three tabs (#40 D6), the rail's Atelier and Settings (m0-socle.html, §1 and §2). */
+    sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', chat: 'Ledge', atelier: 'Atelier', settings: 'Settings',
     /** « Back », named after the screen it leads to; plain when that screen is not known (after a reload). */
     back: 'Back',
-    backTo: { atoi: `Back to ${ATOI}`, sessions: 'Back to sessions', prs: 'Back to MR and PR', rigs: 'Back to rigs', chat: 'Back to Ledge', atelier: 'Back to the atelier', thread: 'Back to the thread', terminal: 'Back to the terminal', request: 'Back to the request', connection: 'Back to settings', rig: 'Back to the rig', kernel: 'Back to the kernel', max: 'Back to Max' } as Partial<Record<string, string>>
+    backTo: { sessions: 'Back to sessions', prs: 'Back to MR and PR', rigs: 'Back to rigs', chat: 'Back to Ledge', atelier: 'Back to the atelier', thread: 'Back to the thread', terminal: 'Back to the terminal', request: 'Back to the request', connection: 'Back to settings', rig: 'Back to the rig', kernel: 'Back to the kernel', max: 'Back to Max' } as Partial<Record<string, string>>
   },
   images: {
     attach: 'Attach an image', remove: 'Remove image', tooLarge: 'Image too large, even reduced', notImage: 'This file is not an image', max: '5 images per message at most',
@@ -137,8 +108,7 @@ export const en: Copy = {
     /** The Ledge tab of a PC that does not offer the chat (design-ux, M0 point 2). */
     unavailable: {
       title: (pc: string) => `${pc} does not offer the chat to this device yet`,
-      body: 'The chat with Ledge comes with a later version of Ledge on the PC.',
-      seeAtoi: `See “${ATOI}”`
+      body: 'The chat with Ledge comes with a later version of Ledge on the PC.'
     },
     point: {
       title: 'The point', label: 'The point', ago: (s: string) => `${s} ago`,

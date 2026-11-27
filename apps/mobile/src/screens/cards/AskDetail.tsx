@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import type { HumanAsk } from '@ledge/protocol';
 import { copy } from '../../copy';
-import { askEndOf } from '../../model/atoi';
+import { askEndOf } from '../../model/cards';
 import { goBack } from '../../router';
 import { useMobile, type MobileStore } from '../../state/store';
 import { BackHeader, linkView } from '../../ui/Header';
@@ -12,7 +12,7 @@ import { Receipt } from './Receipt';
 /**
  * An OpenRig ask in full (m1-a-toi.html §2 « Un appui sur la carte ouvre la demande en entier », §12 portrait): its whole text,
  * its source and « Détails », and the same answers as its card. Once answered, its receipt shows, then `onDone` (the phone goes
- * back to « À toi »; a wide screen opens the next request).
+ * back to Rigs; a wide screen opens the next request).
  */
 export function AskDetail({ store, id, onDone }: { store: MobileStore; id: string; onDone?: () => void }) {
   const state = useMobile(store);
@@ -37,7 +37,7 @@ export function AskDetail({ store, id, onDone }: { store: MobileStore; id: strin
 
   return (
     <>
-      <BackHeader title={copy.atoi.kindName.rig} fallback={{ name: 'rigs' }} label={copy.detail.back} link={linkView(state)} />
+      <BackHeader title={copy.cards.kindName.rig} fallback={{ name: 'rigs' }} label={copy.detail.back} link={linkView(state)} />
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 pb-[22px]">{body}</main>
     </>
   );

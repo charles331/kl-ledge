@@ -9,7 +9,7 @@ import { useMobile, type MobileStore } from '../../state/store';
 import { Icon } from '../../ui/icons';
 import { EmptyState } from '../../ui/kit/Box';
 import { useWide } from '../../ui/layout';
-import { clock } from '../Inbox';
+import { clock } from '../../clock';
 import { Att, Frame, Lbl, Strip, rigButtonClass } from '../rigs/kit';
 import { PipeChip, PrRow, dayWord, forgeWords, repoName } from './parts';
 

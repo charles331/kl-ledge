@@ -148,8 +148,6 @@ export const prsFr = {
   tooLargeBody: (host: string) => `Ouvre-la sur ${host}.`,
   open: 'Ouvrir',
   mergedInto: (target: string, when: string) => `dans ${target} · ${when}`,
-  /** §9: À toi and the session's foot. */
-  atoi: { title: 'MR et PR', sub: 'pipelines échoués, prêtes à fusionner', ready: 'pipeline réussi, approuvée', readyNoCi: 'sans CI, approuvée' },
   chipUnknown: (kind: string) => `${kind} ?`,
   chipTip: (forge: string, pc: string, kind: string) => `${forge} ne se lit pas sur ${pc} : Ledge ne sait pas si cette branche a une ${kind}.`
 };

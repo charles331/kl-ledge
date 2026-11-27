@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { copy } from '../copy';
 import { consequenceFor, lowRiskNoticeFor } from '../model/consequence';
 import { checkFreeAnswer } from '../model/freeAnswer';
-import { RECEIPT_MS } from '../model/atoi';
+import { RECEIPT_MS } from '../model/cards';
 import { outcomeFor } from '../model/requestOutcome';
 import { ageLabel, headline, requestsOf, type InboxItem } from '../model/requests';
 import { href } from '../router';
@@ -72,9 +72,9 @@ const PHONE_SIDE = '(orientation: landscape) and (max-height: 500px)';
 const HANDS = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
 export function RequestDetail({ store, sessionId, requestKey, onReconnect, panel, onSettled, keys = false }: {
   store: MobileStore; sessionId: string; requestKey: string; onReconnect?: () => void; panel?: RequestPanel;
-  /** A wide screen's « À toi »: Y / N decide from the keyboard, said in the footer. */
+  /** A wide screen: Y / N decide from the keyboard, said in the footer. */
   keys?: boolean;
-  /** A wide screen's « À toi » (m1-a-toi.html §12): once decided or handled elsewhere, the receipt shows for a while, then this (the next request). */
+  /** A wide screen (m1-a-toi.html §12): once decided or handled elsewhere, the receipt shows for a while, then this (the next request). */
   onSettled?: () => void;
 }) {
   const state = useMobile(store);
@@ -253,15 +253,15 @@ export function RequestDetail({ store, sessionId, requestKey, onReconnect, panel
   };
 
   const threadHref = panel ? href({ name: 'atelier', sessionId }) : href({ name: 'thread', sessionId });
-  // A wide screen's « À toi » (m1-a-toi.html §12): the head says who asks and where, with its pill and « Ouvrir le fil ».
+  // A wide screen (m1-a-toi.html §12): the head says who asks and where, with its pill and « Ouvrir le fil ».
   const paneHead = keys && !panel && (
     <DetailHeader
       back={<span className="w-2.5" />} tool={req.tool} name={req.botName}
       dot={req.kind === 'permission' ? 'perm' : req.kind === 'question' ? 'ask' : 'work'}
       sub={[req.repo, req.branch].filter(Boolean).join(' · ')}
       more={<>
-        {req.risk === 'high' ? <Pill tone="risk">{copy.risk.badge}</Pill> : <Pill tone={req.kind === 'question' ? 'ask' : req.kind === 'permission' ? 'perm' : 'plain'}>{copy.atoi.pill[req.kind]}</Pill>}
-        <a href={threadHref} className={kitButtonClass({ size: 'sm', className: 'ml-1' })}><Icon name="terminal" className="size-4" />{copy.atoi.openThread}</a>
+        {req.risk === 'high' ? <Pill tone="risk">{copy.risk.badge}</Pill> : <Pill tone={req.kind === 'question' ? 'ask' : req.kind === 'permission' ? 'perm' : 'plain'}>{copy.cards.pill[req.kind]}</Pill>}
+        <a href={threadHref} className={kitButtonClass({ size: 'sm', className: 'ml-1' })}><Icon name="terminal" className="size-4" />{copy.cards.openThread}</a>
       </>}
     />
   );

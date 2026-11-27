@@ -15,7 +15,7 @@ import { Dot } from '../ui/kit/marks';
 import { MODEL_TITLE_ID, ModelSheet } from '../ui/ModelSheet';
 import { iconButtonClass } from '../ui/Button';
 import { Segmented } from '../ui/Segmented';
-import { Receipt } from './atoi/Receipt';
+import { Receipt } from './cards/Receipt';
 import { isApple } from './device';
 import { rememberStarted } from './launchStarted';
 
@@ -382,7 +382,7 @@ function OutcomeReceipt({ outcome, agent, machine, taken, onRetry }: { outcome: 
   // A launch that may not go again may have started a session (Q88): the receipt sends to Sessions, never to a new launch.
   if (outcome.kind === 'timeout') return onRetry
     ? <Receipt tone="warn" title={L.timeout} body={L.timeoutBody} action={retry} />
-    : <Receipt tone="warn" title={L.timeout} body={L.lostBody} action={{ label: copy.atoi.seeSessions, href: href({ name: 'sessions' }) }} />;
+    : <Receipt tone="warn" title={L.timeout} body={L.lostBody} action={{ label: copy.cards.seeSessions, href: href({ name: 'sessions' }) }} />;
   if (outcome.kind === 'failed') return <Receipt tone="fail" title={L.failed(agent)} body={L.failedBody(agent)} action={retry} />;
   const R = L.refused;
   switch (outcome.reason) {

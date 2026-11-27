@@ -9,7 +9,7 @@ describe('« Open in Ledge » targets from the island', () => {
     for (const kind of ['settings', 'launch', 'update', 'machines']) expect(parseTarget(JSON.stringify({ kind }))).toEqual({ kind });
     expect(parseTarget('{"kind":"point","qid":"p-1"}')).toEqual({ kind: 'point', qid: 'p-1' });
     expect(parseTarget('{"kind":"ask","id":"qitem-9"}')).toEqual({ kind: 'ask', id: 'qitem-9' });
-    expect(parseTarget('{"kind":"atoi"}')).toEqual({ kind: 'atoi' });
+    expect(parseTarget('{"kind":"atoi"}')).toBeNull();   // « À toi » is gone (#40 PR 3)
     expect(parseTarget('{"kind":"routine","machine":"local","id":"r1a2b3c"}')).toEqual({ kind: 'routine', machine: 'local', id: 'r1a2b3c' });
     for (const raw of ['{"kind":"routine","machine":"local"}', '{"kind":"routine","machine":"a:b","id":"r1a2b3c"}', '{"kind":"routine","machine":"local","id":"briefing"}']) expect(parseTarget(raw)).toBeNull();
     for (const raw of ['', 'settings', '{"kind":"point"}', '{"kind":"ask","id":""}', '{"kind":"session"}', '{"kind":"session","id":""}', '{"kind":"nope"}', 'null', '[1]']) expect(parseTarget(raw)).toBeNull();
