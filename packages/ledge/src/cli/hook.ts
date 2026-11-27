@@ -432,8 +432,8 @@ function describeAgyTool(name: string | undefined, args: Payload): string {
  *
  * Only a session Ledge launched is followed: the global hooks file is shared with Antigravity's app and IDE, whose
  * hooks run without `LEDGE_SESSION`. A subagent (`invoke_subagent`) runs in the same pane and has the same
- * environment, under a conversation of its own: it is that session's helper, named by its conversation id. The parent
- * stops for good with `fullyIdle`; a `Stop` while a subagent still works is not the end of its turn.
+ * environment, under a conversation of its own: it is that session's helper, named by its conversation id. Each of the
+ * parent's `Stop`s ends its turn (see mapAgyEvent).
  */
 export function mapAgyHook(eventName: string, payload: unknown, at: string, env: NodeJS.ProcessEnv = process.env,
   read: { head?: (path: string) => AgyStep[]; tail?: (path: string) => AgyStep[] } = {}): MappedHook | null {
@@ -487,8 +487,9 @@ function mapAgyEvent(eventName: string, p: Payload, at: string, tail: (path: str
       return error ? { name: 'PostToolUseFailure', ...base, tool, ...call, error } : { name: 'PostToolUse', ...base, tool, ...call };
     }
     case 'Stop': {
-      // Not the end while a subagent works: agy stops again with fullyIdle once everything is done.
-      if (p.fullyIdle === false) return null;
+      // Every Stop of the session ends its turn, `fullyIdle: false` too (a subagent still working): agy does not always stop
+      // again once that subagent is done (seen live on 1.5.18: the parent's last Stop said false, its subagent's Stop came
+      // after, nothing more), and its reply would be lost. A parent woken by its subagent works again through its tools.
       const reason = str(p.terminationReason) ?? '';
       if (reason === 'USER_CANCELED') return { name: 'PostToolUseFailure', ...base, interrupt: true };
       if (reason === 'ERROR' || str(p.error)) {

@@ -55,8 +55,9 @@ describe('agy hooks', () => {
     const edit = { toolCall: { name: 'edit_file', id: 'call_2', args: { Path: '/home/dev/demo/math.js', Target: 'a', Replacement: 'b' } } };
     expect(map('PreToolUse', main(edit))?.event).toMatchObject({ text: '/home/dev/demo/math.js' });
   });
-  it('the turn ends with fullyIdle, its reply read from the transcript; a Stop while a subagent works is not the end', () => {
-    expect(map('Stop', main({ fullyIdle: false, terminationReason: 'NO_TOOL_CALL', error: '' }))).toBeNull();
+  it('the turn ends at each Stop of the session, its reply read from the transcript', () => {
+    // fullyIdle false (a subagent still working) ends the turn too: agy may never send the final Stop (seen live).
+    expect(map('Stop', main({ fullyIdle: false, terminationReason: 'NO_TOOL_CALL', error: '' }))?.event).toMatchObject({ name: 'Stop', text: 'Added `mul(a, b)` to math.js.' });
     expect(map('Stop', main({ fullyIdle: true, terminationReason: 'NO_TOOL_CALL', error: '' }))?.event).toEqual({ name: 'Stop', at, source: 'hook', text: 'Added `mul(a, b)` to math.js.', transcriptPath: transcript(PARENT), agentSessionId: PARENT });
     expect(map('Stop', main({ fullyIdle: true, terminationReason: 'ERROR', error: 'quota' }))?.event).toMatchObject({ name: 'StopFailure', text: 'quota' });
     expect(map('Stop', main({ fullyIdle: true, terminationReason: 'USER_CANCELED', error: '' }))?.event).toMatchObject({ name: 'PostToolUseFailure', interrupt: true });
