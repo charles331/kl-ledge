@@ -5,7 +5,7 @@ import { homedir, hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import { cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
+import { NO_PROJECT, sessionOrderFor, type Projects, cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
 import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
@@ -1573,8 +1573,22 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
             : 'a project needs at least one folder: without one, Ledge cannot file its sessions';
           return reply({ type: 'error', request: msg.type, code: problem.code, id: problem.project, message });
         }
-        writeProjects(msg.projects, projectsFile); // first: a failing write leaves memory unchanged and reaches the sender
-        projects = msg.projects; // already validated by parseClientMessage
+        // Issue #16: the sessions' order is written by `sessions.order` alone; a front saving its projects keeps it (a removed
+        // project's goes with it).
+        const kept = sessionOrderFor(msg.projects, projects.order);
+        const next: Projects = { projects: msg.projects.projects, rules: msg.projects.rules, ...(kept ? { order: kept } : {}) };
+        writeProjects(next, projectsFile); // first: a failing write leaves memory unchanged and reaches the sender
+        projects = next; // already validated by parseClientMessage
+        return broadcast(projectsMsg());
+      }
+      case 'sessions.order': {
+        if (msg.project !== NO_PROJECT && !projects.projects.some(p => p.id === msg.project)) return reply({ type: 'error', request: msg.type, code: 'stale', message: `no project ${msg.project}` });
+        const ids = [...new Set(msg.ids)];
+        const order = { ...projects.order };
+        if (ids.length) order[msg.project] = ids; else delete order[msg.project];
+        const next: Projects = { ...projects, order };
+        writeProjects(next, projectsFile);
+        projects = next;
         return broadcast(projectsMsg());
       }
       case 'usage.set': {

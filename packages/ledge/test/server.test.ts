@@ -2531,6 +2531,41 @@ describe('projects', () => {
     expect(await set({ ...old, projects: [old.projects[0]] })).toMatchObject({ type: 'projects' });
     a.close(); await s.close();
   });
+  it('sessions.order keeps a project\'s sessions\' order: written, broadcast, still there after a restart; a projects.set keeps it (#16)', async () => {
+    writeProjects(projectsState as Projects);
+    const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0 });
+    const a = await open(s.port), b = await open(s.port); const gotA = collect(a), gotB = collect(b);
+    await until(() => gotB.some(m => m.type === 'projects'));
+    const last = (got: ServerMessage[]) => got.filter(m => m.type === 'projects').at(-1) as Extract<ServerMessage, { type: 'projects' }>;
+    a.send(JSON.stringify({ type: 'sessions.order', project: 'ledge', ids: ['srv:b', 'local:a', 'local:a'] }));
+    a.send(JSON.stringify({ type: 'sessions.order', project: '', ids: ['local:x'] }));
+    await until(() => last(gotB)?.projects.order?.[''] !== undefined);
+    expect(last(gotB).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    // An unknown project: refused, nothing written.
+    a.send(JSON.stringify({ type: 'sessions.order', project: 'nope', ids: ['local:a'] }));
+    await until(() => gotA.some(m => m.type === 'error'));
+    expect(gotA.find(m => m.type === 'error')).toMatchObject({ request: 'sessions.order', code: 'stale' });
+    // Réglages saving its projects (without the order, or with an old one) never changes it.
+    const n = gotB.filter(m => m.type === 'projects').length;
+    a.send(JSON.stringify({ type: 'projects.set', projects: { ...projectsState, order: { ledge: ['local:old'] } } }));
+    await until(() => gotB.filter(m => m.type === 'projects').length > n);
+    expect(last(gotB).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    expect(JSON.parse(readFileSync(paths().projects, 'utf8')).order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    a.close(); b.close(); await s.close();
+    // After a restart, the same order.
+    const s2 = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0 });
+    const c = await open(s2.port); const gotC = collect(c);
+    await until(() => gotC.some(m => m.type === 'projects'));
+    expect(last(gotC).projects.order).toEqual({ ledge: ['srv:b', 'local:a'], '': ['local:x'] });
+    // The project deleted: its order goes, « Sans projet » keeps its own; an empty list clears one.
+    c.send(JSON.stringify({ type: 'projects.set', projects: { projects: [], rules: [] } }));
+    await until(() => gotC.filter(m => m.type === 'projects').length === 2);
+    expect(last(gotC).projects.order).toEqual({ '': ['local:x'] });
+    c.send(JSON.stringify({ type: 'sessions.order', project: '', ids: [] }));
+    await until(() => gotC.filter(m => m.type === 'projects').length === 3);
+    expect(last(gotC).projects.order).toEqual({});
+    c.close(); await s2.close();
+  });
   it('the chat reads the projects the daemon holds at each question: a later projects.set is in the next context', async () => {
     const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0, agentEnv: async () => ({ ...process.env, FAKE_CLAUDE_MODE: 'projects' }), claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))] });
     const ws = await open(s.port); const got = collect(ws);

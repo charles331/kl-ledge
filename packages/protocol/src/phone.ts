@@ -18,7 +18,7 @@ import { SlashCommandSchema } from './commands.js';
 import { GoalErrorSchema, HumanAnswerErrorSchema, HumanAnswerSchema, HumanAskSchema, HumanChannelSchema, OpenRigActionSchema, RigGraphSchema, RigNameSchema, RigSnapshotSchema } from './openrig.js';
 import { PHONE_GOALS_MAX, PHONE_RIG_ROWS_MAX, PHONE_RIG_SEATS_MAX, PHONE_RIG_TEXT_MAX, PhoneGoalSchema, PhoneOpenRigStateSchema, PhoneRigErrorSchema, PhoneRigPermissionSchema, PhoneRigQueueRowSchema, PhoneRigRejectedSchema, PhoneRigRoutingSchema, RigSeatCountsSchema } from './phoneRigs.js';
 import { QitemIdSchema, RigRowSchema } from './rigMessages.js';
-import { FolderPathSchema, ProjectColorSchema, ProjectIdSchema, ProjectNameSchema, projectNameKey } from './projects.js';
+import { FolderPathSchema, ProjectColorSchema, ProjectIdSchema, ProjectNameSchema, projectNameKey, SESSION_ORDER_MAX } from './projects.js';
 import { MachineIdSchema } from './machines.js';
 import { ForgeActionSchema } from './forge.js';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, PhoneForgeErrorSchema, PhoneForgeRejectedSchema, PhoneForgeStateSchema, PhonePrDetailSchema } from './phoneForge.js';
@@ -143,6 +143,10 @@ const SwitchableSessionSchema = SessionSchema.extend({ canSwitch: z.literal(true
  */
 export const PhoneProjectSchema = z.object({ id: ProjectIdSchema, name: z.string().max(80), color: ProjectColorSchema });
 export type PhoneProject = z.infer<typeof PhoneProjectSchema>;
+/** Issue #16: this PC's sessions' order per project (its id, '' for « Sans projet »), as session ids; one not listed comes after,
+ *  oldest first (sortSessions with `keyOf: s => s.id`). */
+export const PhoneSessionOrderSchema = z.record(z.string().max(64), z.array(z.string().max(200)).max(SESSION_ORDER_MAX));
+export type PhoneSessionOrder = z.infer<typeof PhoneSessionOrderSchema>;
 export const PHONE_PROJECTS_MAX = 100;
 export const PHONE_RIG_NAME_MAX = 100;
 
@@ -488,6 +492,9 @@ export const PhoneClientMessageSchema = z.discriminatedUnion('type', [
    */
   z.object({ type: z.literal('project.edit'), op: OperationIdSchema, id: ProjectIdSchema, name: ProjectNameSchema.optional(), color: ProjectColorSchema.optional() }).strict(),
   z.object({ type: z.literal('project.order'), op: OperationIdSchema, ids: z.array(ProjectIdSchema).min(1).max(PHONE_PROJECTS_MAX) }).strict(),
+  /** Issue #16: some of a project's sessions (`project` null: « Sans projet ») in a new order, this PC's ids; the others keep their
+   *  places (placeSessions). A session not in that project, or one gone, makes it stale. */
+  z.object({ type: z.literal('session.order'), op: OperationIdSchema, project: ProjectIdSchema.nullable(), ids: z.array(z.string().min(1).max(200)).min(1).max(SESSION_ORDER_MAX) }).strict(),
   /** Issue #2: with its first folder (`path`, of this PC) and the device's check over that name and folder (`newProjectSubject`). A
    *  create without it, from an older phone, is refused `folder_required`. */
   z.object({ type: z.literal('project.create'), op: OperationIdSchema, name: ProjectNameSchema, color: ProjectColorSchema,
@@ -649,6 +656,8 @@ export const PhoneServerMessageSchema = z.discriminatedUnion('type', [
     projectFolders: z.literal(true).optional(),
     /** The daemon takes `project.edit`, `project.order`, `project.create` and `project.delete` (Réglages › Projets). */
     projectEdit: z.literal(true).optional(),
+    /** Issue #16: the snapshot and `projects` carry `sessionOrder`, and the daemon takes `session.order`. */
+    sessionOrder: z.literal(true).optional(),
     /** The daemon takes `device.prefs` and `context.set` (the phone's Réglages); the device then carries its `prefs`. */
     settings: z.literal(true).optional(),
     /** The daemon sends `usage.state` (its harnesses' limits). */ usage: z.literal(true).optional(),
@@ -664,7 +673,7 @@ export const PhoneServerMessageSchema = z.discriminatedUnion('type', [
      *  `chat.reset` puts the conversation away. Absent (an older PC): « Nouvelle conversation » forgets it. */
     conversations: z.literal(true).optional() }),
   /** The user's projects (`daemon.atelier`), whole, in their order: absent from an older PC's snapshot. */
-  projects: z.array(PhoneProjectSchema).max(PHONE_PROJECTS_MAX).optional(), device: z.object({ confirm: z.boolean(), /** Its passkey can bring it back after a reinstall: without it, « Mettre à jour la passkey ». */ recover: z.literal(true).optional(), push: z.enum(['on', 'off', 'stale', 'unavailable']).optional(), chat: z.literal(true).optional(), contextNear: ContextPrefsSchema.shape.near.optional(),
+  projects: z.array(PhoneProjectSchema).max(PHONE_PROJECTS_MAX).optional(), sessionOrder: PhoneSessionOrderSchema.optional(), device: z.object({ confirm: z.boolean(), /** Its passkey can bring it back after a reinstall: without it, « Mettre à jour la passkey ». */ recover: z.literal(true).optional(), push: z.enum(['on', 'off', 'stale', 'unavailable']).optional(), chat: z.literal(true).optional(), contextNear: ContextPrefsSchema.shape.near.optional(),
     /** This device's id (its fingerprint, as decisions name it in `by`), its kind, and the name the user gave it (absent: none given). */
     id: z.string().optional(), kind: DeviceKindSchema.optional(), name: z.string().optional(),
     /** This device's own settings (`daemon.settings`). */
@@ -680,7 +689,7 @@ export const PhoneServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('session.updated'), session: PhoneSessionSchema }),
   /** The user's projects changed (a name, a colour, one added or removed, the order) (`daemon.atelier`): the list, whole. A session placed
    *  elsewhere by the change follows as its own `session.updated`, after this. */
-  z.object({ type: z.literal('projects'), projects: z.array(PhoneProjectSchema).max(PHONE_PROJECTS_MAX) }),
+  z.object({ type: z.literal('projects'), projects: z.array(PhoneProjectSchema).max(PHONE_PROJECTS_MAX), sessionOrder: PhoneSessionOrderSchema.optional() }),
   z.object({ type: z.literal('session.removed'), id: z.string() }),
   /** A session's checklist, sent to the phone that watches it; `null`: it has none (any more). */
   z.object({ type: z.literal('session.checklist'), id: z.string(), checklist: PhoneChecklistSchema.nullable() }),

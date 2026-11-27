@@ -11,6 +11,7 @@ import { Modal } from '../shell/Modal';
 import { SHELL_ICONS } from '../shell/icons';
 import type { SessionActions } from './useSessionActions';
 import type { ContextMenuState } from './useContextMenu';
+import { useReorderCtl } from '../shell/sidebar/useReorder';
 
 /** A session still runs when its machine answers and it has not exited. */
 export const isLiveSession = (s: Session): boolean => !s.offline && s.state !== 'exited';
@@ -69,6 +70,8 @@ export function SessionMenu({ session: s, at, actions, filing, projects, current
       <span><Icon d={icon} size={14} />{label}</span>{o.hint && <small aria-hidden="true"><Kbd>{o.hint}</Kbd></small>}
     </MenuItem>
   );
+  // Issue #16: the order of the sessions in their group (the tree's), greyed when it would not move.
+  const ro = useReorderCtl();
   const note: ReactNode = s.helpers.length > 0 ? <p className="session-menu-note">{m.kids(s.helpers.length, s.name)}</p> : null;
   return (
     <Menu open onOpenChange={o => { if (!o) onClose(); }} label={m.label(s.name)} className="session-menu-wrap" menuClassName="session-menu" at={at} trigger={() => null}>
@@ -92,6 +95,12 @@ export function SessionMenu({ session: s, at, actions, filing, projects, current
           {projects.filter(p => p.id !== current).map(p => <MenuItem key={p.id} onSelect={() => filing.file(s, p.id)}><span>{p.name}</span></MenuItem>)}
         </div>
       )}
+      {ro && (<>
+        <hr />
+        {item(m.up, [], () => ro.move('session', s.id, 'up'), { hint: m.upKey, key: 'Alt+ArrowUp', ...(ro.can('session', s.id, 'up') ? {} : { disabled: true as const }) })}
+        {item(m.down, [], () => ro.move('session', s.id, 'down'), { hint: m.downKey, key: 'Alt+ArrowDown', ...(ro.can('session', s.id, 'down') ? {} : { disabled: true as const }) })}
+        {item(m.top, [], () => ro.move('session', s.id, 'top'), { hint: m.topKey, key: 'Alt+Home', ...(ro.can('session', s.id, 'top') ? {} : { disabled: true as const }) })}
+      </>)}
       {onHandover && canHandOver(s) && item(s.handover?.state === 'failed' ? t.handover.retry : t.handover.pass, SHELL_ICONS.resume, () => onHandover(s),
         { ...(s.context ? { hint: t.handover.gauge(Math.round((s.context.used / s.context.window) * 100)) } : {}) })}
       <hr />

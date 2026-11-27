@@ -1,5 +1,4 @@
-import { projectOf } from '@ledge/fleet';
-import type { Projects, Session } from '@ledge/protocol';
+import { orderedSessions, type Projects, type Session } from '@ledge/protocol';
 
 const TOOLS: Record<Session['tool'], string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' };
 export const toolName = (tool: Session['tool']): string => TOOLS[tool];
@@ -7,16 +6,13 @@ export const taskOf = (s: Session): string => s.topic ?? s.title;
 /** The machine an agent runs on: the fleet's label, else its id. */
 export const machineOf = (s: Session): string => s.machineName ?? s.machineId ?? 'local';
 
-/** Agents grouped by project in the projects' order, « Sans projet » last (also for a project that is gone), oldest first (then by id) within a group. */
+/** Agents grouped by project in the projects' order, « Sans projet » last; within a project the order the person chose (issue #16,
+ *  kept by the daemon), then the others oldest first (a new one at the bottom). The shared sort of @ledge/protocol. */
 export function mainOrder(sessions: readonly Session[], projects: Projects | null): Session[] {
-  const rank = (s: Session): number => {
-    if (!projects) return 0;
-    const id = projectOf(s, projects);
-    const i = id === null ? -1 : projects.projects.findIndex(p => p.id === id);
-    return i < 0 ? projects.projects.length : i;
-  };
+  if (projects) return orderedSessions(sessions, projects);
+  // Projects not known yet: oldest first, then by id, as before.
   const at = (s: Session) => Date.parse(s.startedAt) || 0;
-  return [...sessions].sort((x, y) => rank(x) - rank(y) || at(x) - at(y) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  return [...sessions].sort((x, y) => at(x) - at(y) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
 }
 
 /** Agents principaux ni hors ligne ni terminés : le compteur « Atelier » et la bulle de Ledge. */

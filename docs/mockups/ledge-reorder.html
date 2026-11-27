@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Réordonner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#16 : réordonner projets et sessions par glisser-déposer. Base : l'arborescence de la maquette
+   docs/mockups/ledge-ide-atelier.html (kl/main 0d535d49 : projet, branches, session avec son heure sur la 2e ligne, « À toi »),
+   le « Ranger dans… » existant (i18n filing.*) et l'appui long du téléphone (apps/mobile/src/screens/longPress.ts). */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --foreground:#ece7df;--card:#232120;--muted:#2f2c29;--muted-foreground:#a39d94;--border:#ffffff17;--input:#ffffff26;
+  --side:#1c1a19;--pane:#181716;--page:#0f0e0d;--shell:#141312;--hover:#ffffff0d;--sel:#ffffff12;
+  --accent:#e0875f;--note:#a78bfa;--ok:#5fb98b;--blue:#6aa7e8;--ask:#e0b04f;--tip:#2a2826;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --foreground:#2a2622;--card:#fffdf9;--muted:#efe9e1;--muted-foreground:#7d756b;--border:#00000014;--input:#00000022;
+  --side:#f5f0e8;--pane:#fffdf9;--page:#ebe5dc;--shell:#f1ebe2;--hover:#0000000a;--sel:#00000010;
+  --accent:#c4643c;--note:#7c3aed;--ok:#2f8f5f;--blue:#2f6fb8;--ask:#a8730f;--tip:#2a2622;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1280px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted-foreground)}
+.card .why{padding:4px 14px 8px;color:var(--muted-foreground);font-size:12px}
+.card .why b{color:var(--foreground);font-weight:500}
+.card .keys{padding:0 14px 10px;font-size:11px;color:var(--muted-foreground)}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid;color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.scene{border-top:1px solid var(--border);background:var(--page);padding:16px;display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;overflow-x:auto}
+.cap{font-size:11px;color:var(--muted-foreground);text-align:center;margin-top:6px;max-width:300px}
+/* L'arborescence « Atelier ». */
+.side{width:250px;background:var(--side);border:1px solid var(--border);border-radius:8px;padding:6px 6px 10px;font-size:12.5px;position:relative;flex-shrink:0}
+.sh{display:flex;align-items:center;padding:4px 6px 8px;font-weight:600;font-size:12px}
+.sh span{margin-left:auto;display:flex;gap:9px;color:var(--muted-foreground);font-weight:400}
+.row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;position:relative;min-height:26px}
+.row.hov{background:var(--hover)}
+.row.sel{background:var(--sel)}
+.grip{position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:12px;color:var(--muted-foreground);font-size:11px;letter-spacing:-2px;text-align:center;opacity:0}
+.row.hov .grip,.row.grab .grip{opacity:1}
+.chev{width:10px;color:var(--muted-foreground);font-size:9px;flex:none}
+.pdot{width:8px;height:8px;border-radius:50%;flex:none}
+.row.proj b{font-weight:600}
+.cnts{margin-left:auto;display:flex;gap:4px}
+.cnt{min-width:16px;height:16px;border-radius:8px;display:grid;place-items:center;font:500 9.5px 'Geist Mono',monospace;padding:0 4px}
+.cnt.a{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent)}
+.cnt.b{background:color-mix(in srgb,var(--blue) 22%,transparent);color:var(--blue)}
+.cnt.g{background:var(--muted);color:var(--muted-foreground)}
+.row.br{padding-left:18px;color:var(--muted-foreground);font:11.5px 'Geist Mono',monospace}
+.row.br .cnt{margin-left:auto}
+.ses{display:flex;gap:7px;padding:5px 6px 5px 28px;border-radius:6px;position:relative}
+.ses.hov{background:var(--hover)}.ses.sel{background:var(--sel)}
+.ses .lg{width:14px;height:14px;border-radius:4px;flex:none;margin-top:2px}
+.ses .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ses .l1{display:flex;align-items:center;gap:6px}
+.ses .l1 b{font-weight:500}
+.ses .l2{display:flex;gap:6px;font-size:11.5px;color:var(--muted-foreground)}
+.ses .l2 span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ses .l2 i{font:normal 10.5px 'Geist Mono',monospace}
+.atoi{margin-left:auto;font-size:10px;font-weight:600;color:#1a1a1a;background:var(--ask);border-radius:6px;padding:0 5px}
+.ses .grip{left:13px}
+.ses.hov .grip,.ses.grab .grip{opacity:1}
+/* Le glissement. */
+.ph{border:1.5px dashed var(--input);border-radius:6px;opacity:.6}
+.ph .lg,.ph b,.ph span,.ph i{opacity:.35}
+.ghost{position:absolute;z-index:6;background:var(--card);border:1px solid var(--input);border-radius:7px;box-shadow:0 10px 28px #0008;width:220px}
+.line{height:2px;background:var(--note);border-radius:1px;margin:1px 6px 1px 26px;position:relative}
+.line::before{content:"";position:absolute;left:-5px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--note);background:var(--side)}
+.line.proj{margin-left:4px}
+.row.drop{box-shadow:inset 0 0 0 1.5px var(--note);background:color-mix(in srgb,var(--note) 10%,transparent)}
+.tip{position:absolute;z-index:8;background:var(--tip);color:#f6f2ec;font-size:11px;line-height:15px;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.cursor{position:absolute;z-index:9;font-size:15px}
+/* Menu et annonce. */
+.menu{width:230px;background:var(--card);border:1px solid var(--input);border-radius:8px;padding:4px;box-shadow:0 8px 24px #0006;font-size:12.5px}
+.menu .it{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px}
+.menu .it.on{background:var(--hover)}
+.menu .it.dis{opacity:.45}
+.menu .it small{margin-left:auto;font:10.5px 'Geist Mono',monospace;color:var(--muted-foreground)}
+.menu .sep{height:1px;background:var(--border);margin:3px 0}
+.live{font-size:11.5px;border:1px dashed var(--input);border-radius:7px;padding:6px 9px;color:var(--muted-foreground);max-width:250px}
+/* Téléphone. */
+.phone{width:320px;height:560px;border-radius:30px;border:1px solid var(--border);background:var(--pane);padding:14px 12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;position:relative;overflow:hidden}
+.phone .top{display:flex;align-items:center;font-size:18px;font-weight:600}
+.phone .top small{margin-left:auto;font-size:11px;font-weight:400;color:var(--muted-foreground)}
+.plbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);display:flex;align-items:center;gap:6px;padding:4px 2px}
+.frame{border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:visible;background:var(--card)}
+.prow{display:flex;gap:10px;align-items:center;padding:10px 11px;border-bottom:1px solid var(--border);min-height:52px;position:relative}
+.prow:last-child{border-bottom:0}
+.prow .lg{width:18px;height:18px;border-radius:5px;flex:none}
+.prow .m{flex:1;display:flex;flex-direction:column}
+.prow small{font-size:11.5px;color:var(--muted-foreground)}
+.prow.lift{position:absolute;left:8px;right:8px;z-index:6;background:var(--card);border:1px solid var(--input);border-radius:12px;box-shadow:0 14px 30px #0009;transform:scale(1.03)}
+.prow.ph{border:1.5px dashed var(--input);border-radius:10px;margin:2px 4px}
+.pline{height:3px;background:var(--note);border-radius:2px;margin:0 10px}
+.tabs{margin-top:auto;display:flex;justify-content:space-around;font-size:11px;color:var(--muted-foreground);border-top:1px solid var(--border);padding-top:8px}
+.tabs .on{color:var(--foreground);font-weight:500}
+.opts{display:flex;flex-direction:column;gap:8px;width:420px}
+.opt{border:1px solid var(--border);border-radius:9px;background:var(--card);padding:9px 12px;font-size:12px}
+.opt b{font-weight:600}.opt.reco{border-color:color-mix(in srgb,var(--note) 55%,var(--border))}
+.opt p{margin:3px 0 0;color:var(--muted-foreground)}
+section.fiche{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--border);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--muted-foreground);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:640px){main{padding:12px}.scene{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const T = {
+  fr: {
+    h1:'Réordonner projets et sessions en les glissant', hsub:'Issue kl-ledge/ledge#16, sur l’arborescence « Atelier ». À valider par l’utilisateur.',
+    projects:'Projets', atoi:'À toi', grip:'Glisser pour déplacer · Alt+↑ / Alt+↓',
+    up:'Monter', down:'Descendre', top:'En haut du projet', topList:'En haut de la liste', moveTo:'Ranger dans…', rename:'Renommer…', terminal:'Terminal',
+    moved:(n,i,N,p)=>`${n} est maintenant ${i}e sur ${N} dans ${p}.`, movedProj:(n,i,N)=>`${n} est maintenant ${i}e sur ${N} projets.`,
+    fileInto:(n,p)=>`Lâcher pour ranger ${n} dans ${p}`, cancelEsc:'Échap annule',
+    phTitle:'Sessions', phHint:'Glisse, puis lâche à sa place', phMoved:(n,i)=>`${n} : ${i}e`,
+  },
+  en: {
+    h1:'Reorder projects and sessions by dragging them', hsub:'Issue kl-ledge/ledge#16, on the “Atelier” tree. For the user to validate.',
+    projects:'Projects', atoi:'For you', grip:'Drag to move · Alt+↑ / Alt+↓',
+    up:'Move up', down:'Move down', top:'To the top of the project', topList:'To the top of the list', moveTo:'File in…', rename:'Rename…', terminal:'Terminal',
+    moved:(n,i,N,p)=>`${n} is now ${i} of ${N} in ${p}.`, movedProj:(n,i,N)=>`${n} is now ${i} of ${N} projects.`,
+    fileInto:(n,p)=>`Release to file ${n} in ${p}`, cancelEsc:'Esc cancels',
+    phTitle:'Sessions', phHint:'Drag, then release in place', phMoved:(n,i)=>`${n}: ${i}`,
+  }
+};
+let L = 'fr';
+const t = () => T[L];
+const LG = { claude:'#e0875f', codex:'#5fb98b', cursor:'#9a948c', omp:'#a78bfa' };
+const GRIP = '⋮⋮';
+
+const proj = (name, color, c, o={}) => `<div class="row proj ${o.hov?'hov':''} ${o.drop?'drop':''} ${o.ph?'ph':''}"><span class="grip">${GRIP}</span><span class="chev">${o.closed?'▸':'▾'}</span><span class="pdot" style="background:${color}"></span><b>${name}</b><span class="cnts">${c}</span>${o.extra||''}</div>`;
+const br = (name, n) => `<div class="row br"><span class="chev">▾</span>⎇ ${name}<span class="cnt g">${n}</span></div>`;
+const ses = (name, tool, topic, time, o={}) => `<div class="ses ${o.hov?'hov':''} ${o.sel?'sel':''} ${o.ph?'ph':''} ${o.grab?'grab':''}"><span class="grip">${GRIP}</span><span class="lg" style="background:${LG[tool]}"></span><span class="m"><span class="l1"><b>${name}</b>${o.atoi?`<span class="atoi">${t().atoi}</span>`:''}</span><span class="l2"><span>${topic}</span><i>${time}</i></span></span>${o.extra||''}</div>`;
+const F = () => L==='fr';
+const S = {
+  pim: (o) => ses('Pim','claude',F()?'Tests e2e de l’espace':'Workspace e2e tests','2 min',o),
+  ida: (o) => ses('Ida','claude',F()?'Maquette de l’espace':'Workspace mockup','5 min',o),
+  nova:(o) => ses('Nova','codex',F()?'Terminaux WebGL':'WebGL terminals','8 min',o),
+  otto:(o) => ses('Otto','claude',F()?'Relire la PR #231':'Review PR #231','12 min',o),
+  echo:(o) => ses('Echo','claude',F()?'Notifications':'Notifications','5 min',o),
+  tom: (o) => ses('Tom','omp',F()?'Port du relais':'Relay port','1 h',o),
+};
+const cnt = (a,b) => `${a?`<span class="cnt a">${a}</span>`:''}${b?`<span class="cnt b">${b}</span>`:''}`;
+const side = (body) => `<div class="side"><div class="sh">${t().projects}<span>⎇ ≡ +</span></div>${body}</div>`;
+
+function cards(){
+  const x = t(), C = [], Fr = F();
+  // 1. Poignée au survol.
+  C.push({title:Fr?'Au survol : la poignée':'On hover: the grip',
+    why:`Au survol (ou au focus) d’une ligne de <b>projet</b> ou de <b>session</b>, une poignée <b>⋮⋮</b> apparaît dans la marge gauche ; le curseur devient une main. Rien n’apparaît au repos : l’arborescence reste celle d’« Atelier ». Infobulle : « Glisser pour déplacer · Alt+↑ / Alt+↓ ». Toute la ligne se saisit (la poignée n’est qu’un signe) ; un simple clic ouvre comme aujourd’hui, le glissement ne commence qu’après 4 px.`,
+    keys:Fr?'Nouveau : side.reorder.grip':'New: side.reorder.grip',
+    scene: `<div>${side(proj('ledge','#6aa7e8',cnt(1,1),{hov:true, extra:`<span class="tip" style="top:28px;left:20px">${x.grip}</span>`}) + br('feat/ide-shell',3) + S.pim({atoi:true}) + S.ida({}) + S.nova({}) + proj('synapse','#5fb98b',cnt(0,1)) + br('main',2) + S.echo({}) + S.tom({atoi:true}))}<div class="cap">${Fr?'Survol d’un projet':'Hovering a project'}</div></div>
+      <div>${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + S.pim({atoi:true}) + S.ida({hov:true}) + S.nova({}) + proj('synapse','#5fb98b',cnt(0,1)) + br('main',2) + S.echo({}) + S.tom({atoi:true}))}<div class="cap">${Fr?'Survol d’une session':'Hovering a session'}</div></div>`});
+  // 2. Glisser une session.
+  C.push({title:Fr?'Glisser une session dans son projet':'Dragging a session within its project',
+    why:`La ligne saisie laisse un <b>emplacement en pointillé</b> ; un <b>aperçu</b> de la ligne (avec ombre) suit le pointeur ; une <b>ligne d’insertion</b> violette montre où elle tombera, entre deux sessions. Elle ne se place qu’entre les sessions de <b>son groupe</b> : son projet, ou sa branche quand l’arborescence est groupée par branche (une session ne change pas de branche en glissant). Lâcher la pose ; <b>Échap</b> annule et la remet en place. Près des bords, la liste défile.`,
+    keys:'—',
+    scene: `<div style="position:relative">${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + `<div class="line"></div>` + S.pim({atoi:true}) + S.ida({ph:true}) + S.nova({}) + proj('synapse','#5fb98b',cnt(0,1)) + br('main',2) + S.echo({}) + S.tom({atoi:true}))}
+      <div class="ghost" style="top:104px;left:70px">${S.ida({grab:true})}</div><span class="cursor" style="top:124px;left:190px"><svg width="16" height="18" viewBox="0 0 16 18"><path d="M2 1l11 9-5 .5 3 6-2 1-3-6-4 3z" fill="#fff" stroke="#000" stroke-width="1"/></svg></span>
+      <div class="cap">${Fr?'Ida remonte en tête de feat/ide-shell':'Ida moves to the top of feat/ide-shell'}</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + S.ida({sel:true}) + S.pim({atoi:true}) + S.nova({}))}<div class="live">${x.moved('Ida',1,3,'feat/ide-shell')}</div><div class="cap">${Fr?'Après : l’ordre est gardé, et annoncé aux lecteurs d’écran':'After: the order is kept, and announced to screen readers'}</div></div>`});
+  // 3. Glisser un projet.
+  C.push({title:Fr?'Glisser un projet':'Dragging a project',
+    why:`Un projet se déplace <b>en bloc</b> : saisi, il se replie dans l’aperçu (son nom et son nombre de sessions), sa place reste en pointillé, et la ligne d’insertion ne se pose qu’<b>entre deux projets</b>. C’est le même ordre que Réglages › Projets (ses flèches Monter / Descendre restent).`,
+    keys:'—',
+    scene: `<div style="position:relative">${side(`<div class="line proj"></div>` + proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + S.pim({atoi:true}) + S.ida({}) + S.nova({}) + proj('synapse','#5fb98b',cnt(0,1),{ph:true, closed:true}) + proj('paper','#e0b04f','<span class="cnt g">2</span>',{closed:true}))}
+      <div class="ghost" style="top:30px;left:30px;padding:2px">${proj('synapse','#5fb98b',`<span class="cnt g">2</span>`,{closed:true})}</div><span class="cursor" style="top:44px;left:150px"><svg width="16" height="18" viewBox="0 0 16 18"><path d="M2 1l11 9-5 .5 3 6-2 1-3-6-4 3z" fill="#fff" stroke="#000" stroke-width="1"/></svg></span>
+      <div class="cap">${Fr?'synapse passe en tête de liste':'synapse moves to the top of the list'}</div></div>`});
+  // 4. Vers un autre projet.
+  C.push({title:Fr?'Option : glisser une session vers un autre projet':'Option: dragging a session to another project',
+    why:`C’est le <b>« Ranger dans… »</b> qui existe déjà : déposer une session sur la ligne d’un autre projet la range dans ce projet (et Ledge s’en souvient pour son dossier, comme aujourd’hui). Au survol d’un autre projet pendant le glissement, la ligne du projet s’entoure et le texte existant dit « Lâcher pour ranger… ». Entre deux sessions d’un autre projet, la ligne d’insertion n’apparaît pas : on dépose sur le projet, et la session arrive à la place d’une nouvelle session (question 3).`,
+    keys:Fr?'Repris : filing.dropNow / filing.joined (texte de la ligne adapté)':'Reused: filing.dropNow / filing.joined (line text adapted)',
+    scene: `<div style="position:relative">${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + S.pim({atoi:true}) + S.ida({ph:true}) + S.nova({}) + proj('synapse','#5fb98b',cnt(0,1),{drop:true, extra:`<span class="tip" style="top:28px;left:30px">${x.fileInto('Ida','synapse')}</span>`}) + br('main',2) + S.echo({}) + S.tom({atoi:true}))}
+      <div class="ghost" style="top:150px;left:60px;opacity:.95">${S.ida({grab:true})}</div><span class="cursor" style="top:168px;left:170px"><svg width="16" height="18" viewBox="0 0 16 18"><path d="M2 1l11 9-5 .5 3 6-2 1-3-6-4 3z" fill="#fff" stroke="#000" stroke-width="1"/></svg></span></div>`});
+  // 5. Clavier et menu.
+  C.push({title:Fr?'Au clavier, et dans le menu':'With the keyboard, and in the menu',
+    why:`Sur une ligne qui a le focus : <b>Alt+↑ / Alt+↓</b> la monte ou la descend d’un cran dans son groupe (projet, ou branche) ; <b>Alt+Début</b> la met en tête. L’annonce « Ida est maintenant 1re sur 3 dans feat/ide-shell. » part dans une zone lue par les lecteurs d’écran. Le menu de la ligne (clic droit, « … ») gagne <b>Monter</b>, <b>Descendre</b> et <b>En haut du projet</b> (pour un projet : « En haut de la liste »), estompés quand ils ne bougeraient rien. Les raccourcis s’ajoutent à l’aide « ? ».`,
+    keys:Fr?'Nouveaux : manage.menu.up, .down, .top, .topList ; side.reorder.moved(n,i,N,p), .movedProject(n,i,N) ; shortcuts (Alt+↑/↓, Alt+Début)':'New: manage.menu.up, .down, .top, .topList; side.reorder.moved(n,i,N,p), .movedProject(n,i,N); shortcuts (Alt+↑/↓, Alt+Home)',
+    scene: `<div class="menu"><div class="it">${Fr?'Ouvrir la session':'Open the session'}</div><div class="it">${x.terminal}<small>T</small></div><div class="it">${x.rename}<small>F2</small></div><div class="it">${x.moveTo}</div><div class="sep"></div><div class="it on">${x.up}<small>Alt ↑</small></div><div class="it">${x.down}<small>Alt ↓</small></div><div class="it dis">${x.top}<small>Alt Début</small></div><div class="sep"></div><div class="it">${Fr?'Archiver':'Archive'}<small>E</small></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',3) + S.pim({atoi:true}) + S.nova({sel:true}) + S.ida({}))}<div class="live">${x.moved('Nova',2,3,'feat/ide-shell')}</div><div class="cap">${Fr?'Nova, Alt+↑ : elle passe 2e':'Nova, Alt+↑: it becomes 2nd'}</div></div>`});
+  // 6. Téléphone.
+  const prow = (n, tool, sub, o={}) => `<div class="prow ${o.lift?'lift':''} ${o.ph?'ph':''}" ${o.style?`style="${o.style}"`:''}><span class="lg" style="background:${LG[tool]}"></span><span class="m"><b style="font-weight:500">${n}</b><small>${sub}</small></span><span class="mut">›</span></div>`;
+  C.push({title:Fr?'Téléphone : appui long, puis glisser':'Phone: long press, then drag',
+    why:`Aujourd’hui un appui long ouvre les actions de la ligne. Proposé : <b>appui long puis glisser</b> soulève la ligne (petite vibration, ombre, légère mise à l’échelle) et la déplace ; la ligne d’insertion suit le doigt ; lâcher la pose. <b>Appui long sans bouger</b> ouvre les actions comme aujourd’hui, qui gagnent Monter / Descendre (pour qui ne veut pas glisser). Même règle pour les projets (leur en-tête).`,
+    keys:Fr?'Mobile : sessions.reorder.* (mêmes mots que Desktop, tutoiement)':'Mobile: sessions.reorder.* (same words as Desktop)',
+    scene: `<div><div class="phone"><div class="top">${x.phTitle}<small>● PC</small></div><div class="plbl"><span class="pdot" style="background:#6aa7e8"></span>ledge · 3</div>
+      <div class="pline" style="margin-bottom:2px"></div><div class="frame">${prow('Pim','claude',Fr?'Tests e2e · 2 min':'e2e tests · 2 min')}${prow('Ida','claude','',{ph:true})}${prow('Nova','codex',Fr?'Terminaux WebGL · 8 min':'WebGL terminals · 8 min')}</div>
+      <div class="plbl"><span class="pdot" style="background:#5fb98b"></span>synapse · 2</div><div class="frame">${prow('Echo','claude',Fr?'Notifications · 5 min':'Notifications · 5 min')}${prow('Tom','omp',Fr?'Port du relais · 1 h':'Relay port · 1 h')}</div>
+      ${prow('Ida','claude',Fr?'Maquette · 5 min':'Mockup · 5 min',{lift:true, style:'top:132px'})}<span class="cursor" style="top:150px;left:220px"><span style="display:block;width:30px;height:30px;border-radius:50%;background:#ffffff40;border:2px solid #ffffffaa"></span></span>
+      <div class="tabs"><span>${Fr?'À toi':'For you'}</span><span class="on">Sessions</span><span>MR/PR</span><span>Rigs</span><span>Ledge</span></div></div><div class="cap">${Fr?'Ida soulevée, posée en tête de ledge':'Ida lifted, set at the top of ledge'}</div></div>`});
+  // 7. Nouvelle session.
+  C.push({title:Fr?'Une nouvelle session : en bas ou en haut':'A new session: at the bottom or the top',
+    why:`L’ordre choisi est gardé par le daemon, le même sur chaque appareil et après redémarrage. Une session neuve doit prendre une place sans casser cet ordre.`,
+    keys:'—',
+    scene: `<div class="opts"><div class="opt reco"><b>A · ${Fr?'En bas de son projet (recommandé)':'At the bottom of its project (recommended)'}</b><p>${Fr?'Ce qu’on a mis en haut y reste : c’est le but de l’issue (« garder en haut celles que je suis de près »).':'What you put at the top stays there: that is the issue’s goal (“keep the ones I follow at the top”).'}</p></div>
+      <div class="opt"><b>B · ${Fr?'En haut de son projet':'At the top of its project'}</b><p>${Fr?'On la voit tout de suite, mais elle repousse l’ordre choisi d’un cran à chaque lancement.':'You see it right away, but it pushes the chosen order down one step at each launch.'}</p></div></div>
+      ${side(proj('ledge','#6aa7e8',cnt(1,1)) + br('feat/ide-shell',4) + S.ida({}) + S.pim({atoi:true}) + S.nova({}) + ses('Rex','claude',Fr?'Nouvelle session':'New session',Fr?'maint.':'now',{sel:true}))}`});
+  return C;
+}
+
+function fiche(){
+  return `<section class="fiche"><h2>Fiche de transmission (dev-back, dev-front)</h2><table>
+  <tr><th>Point</th><th>Règle</th></tr>
+  <tr><td>Ordre</td><td>Gardé par le daemon : l’ordre des projets (déjà là, Réglages › Projets) et, par projet, une liste d’identifiants de sessions. Diffusé à chaque client : même ordre sur Desktop, téléphone et <code>ledge tui</code>, après redémarrage. Une session absente de la liste (nouvelle) prend sa place selon la question 3.</td></tr>
+  <tr><td>Glisser</td><td>Pointeur : seuil 4 px, puis aperçu, emplacement en pointillé, ligne d’insertion <code>--note</code> (2 px, rond à gauche). Session : seulement dans son groupe (projet, ou branche si groupé par branche). Projet : entre projets, en bloc. Échap annule. Défilement auto près des bords. Mouvement réduit : pas d’échelle ni d’animation de remise en place.</td></tr>
+  <tr><td>Autre projet</td><td>Déposer une session sur la ligne d’un autre projet = le « Ranger dans… » existant (règle de dossier comprise), avec ses textes.</td></tr>
+  <tr><td>Clavier</td><td>Alt+↑ / Alt+↓ / Alt+Début sur la ligne qui a le focus ; annonce dans une zone <code>aria-live="polite"</code>. Menu : Monter, Descendre, En haut du projet / de la liste.</td></tr>
+  <tr><td>Téléphone</td><td>Appui long (500 ms, déjà en place) puis mouvement au-delà de 10 px = glisser ; sans mouvement = les actions, qui gagnent Monter / Descendre.</td></tr>
+  <tr><td>Tri du téléphone</td><td>Dans les groupes de projet, l’ordre choisi remplace le tri par état (les sessions qui attendent ne remontent plus d’elles-mêmes) : même ordre sur chaque appareil. Les groupes de rig, qu’on ne réordonne pas, gardent le tri par état. « À toi » et le filtre « En attente » restent pour les repérer (complément du 26/11).</td></tr>
+  <tr><td>En-tête de projet (téléphone)</td><td>Appui long puis glisser : déplace le projet. Appui long sans bouger : une petite feuille d’actions, le nom du projet en tête, puis Monter et Descendre (estompés quand ils ne bougeraient rien). Rien d’autre : les réglages du projet restent dans Réglages › Projets (complément du 26/11, textes existants).</td></tr>
+  <tr><td>Non enregistré</td><td>La ligne revient à sa place, et une notification le dit, sur le modèle de « Ranger dans… » (complément du 26/11, textes validés par l’utilisateur, « A », 21:09). Desktop : « Impossible de déplacer {n} : le daemon Ledge local n’est pas joignable. » · « Impossible de déplacer {n} : mettez à jour le daemon Ledge local, il ne sait pas encore garder l’ordre. » · « {n} n’a pas été déplacé : la liste a changé entre-temps. Réessayez. » EN : “Could not move {n}: the local Ledge daemon is not reachable.” · “Could not move {n}: update the local Ledge daemon, it can’t keep the order yet.” · “{n} was not moved: the list changed meanwhile. Try again.” Téléphone : « Impossible de déplacer {n} : le PC n’est pas joignable. » · « … : mets à jour Ledge sur le PC. » · « {n} n’a pas été déplacé : la liste a changé entre-temps. Réessaie. »</td></tr>
+  <tr><td>Textes</td><td>Nouveaux (FR · EN) : Glisser pour déplacer · Alt+↑ / Alt+↓ ; Monter / Descendre / En haut du projet / En haut de la liste ; {n} est maintenant {i}e sur {N} dans {p}. ; {n} est maintenant {i}e sur {N} projets. ; Lâcher pour ranger {n} dans {p} (variante de <code>filing.dropNow</code>). Téléphone : mêmes mots, tutoiement.</td></tr>
+  </table>
+  <h2 style="margin-top:14px">Questions pour l’utilisateur (recommandation en premier)</h2>
+  <ol>
+    <li><b>Glisser une session vers un autre projet</b> : A) oui, c’est le « Ranger dans… » existant, en déposant sur la ligne du projet (recommandé) ; B) non, seulement dans son projet ; le menu « Ranger dans… » reste.</li>
+    <li><b>Avec l’arborescence groupée par branche</b> : A) une session se déplace seulement parmi celles de sa branche (recommandé : sa branche vient de Git, pas d’un choix) ; B) l’ordre est par projet, et le groupement par branche l’ignore.</li>
+    <li><b>Une nouvelle session</b> : A) en bas de son projet (recommandé) ; B) en haut.</li>
+    <li><b>Le téléphone</b> : A) appui long puis glisser, et appui long sans bouger pour les actions qui gagnent Monter / Descendre (recommandé) ; B) un mode « Réorganiser » avec des poignées ≡, ouvert depuis le menu.</li>
+    <li><b>La poignée</b> : A) seulement au survol ou au focus (recommandé : l’arborescence reste calme) ; B) toujours visible.</li>
+    <li><b>Les textes nouveaux</b> (fiche) : d’accord ?</li>
+  </ol></section>`;
+}
+
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag">${L==='fr'?'nouveau':'new'}</span></h2><div class="why">${c.why}</div><div class="keys">${c.keys!=='—'?'<code>'+c.keys+'</code>':''}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>

@@ -35,7 +35,7 @@ describe('the session menu in the atelier', () => {
     const menu = await screen.findByRole('menu', { name: 'Manage Bix' });
     expect(menu).toHaveStyle({ position: 'fixed' });
     expect(within(menu).getAllByRole('menuitem').map(i => i.getAttribute('aria-label'))).toEqual([
-      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Resume session', 'Archive', 'Delete…'
+      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Resume session', 'Archive', 'Delete…'
     ]);
     await user.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
     await waitFor(() => expect(sent(d)).toContainEqual({ type: 'session.archive', id: 'bix' }));
@@ -47,7 +47,7 @@ describe('the session menu in the atelier', () => {
     fireEvent.contextMenu(seat('Otto'));
     const menu = await screen.findByRole('menu', { name: 'Manage Otto' });
     expect(within(menu).getAllByRole('menuitem').map(i => i.getAttribute('aria-label'))).toEqual([
-      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Hand over', 'End session', 'End and archive…', 'Delete…'
+      'Open', 'Open to the right', 'Its terminal', 'Open in Cursor', 'Rename…', 'Move to…', 'Move up', 'Move down', 'To the top of the project', 'Hand over', 'End session', 'End and archive…', 'Delete…'
     ]);
     expect(within(menu).getByText('1 subagent leaves with Otto.')).toBeVisible();
     await user.click(within(menu).getByRole('menuitem', { name: /^End and archive/ }));

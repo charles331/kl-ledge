@@ -182,3 +182,29 @@
 .st-main .st-bgcmd span{color:inherit;font-size:inherit}
 .st-tally .t-bg{color:var(--info)}
 .st-tally .t-bg i{background:none;border:1.5px solid currentColor;width:7px;height:7px}
+
+/* Issue #16 (docs/mockups/ledge-reorder.html): putting projects and sessions in order by dragging them. */
+/* The grip ⋮⋮ in the row's left margin, on hover or focus only; the whole row takes the drag (the grip is a sign). */
+.st-row.st-grab{cursor:grab}
+.st-grip{position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:12px;text-align:center;font-size:11px;letter-spacing:-2px;line-height:1;color:var(--muted-foreground);opacity:0;pointer-events:auto;cursor:grab}
+.st-agent > .st-grip{left:13px}
+.st-agent:has(> .st-chev) > .st-grip{left:0}
+.st-row:hover > .st-grip,.st-row:focus-within > .st-grip{opacity:1}
+/* The row lifted leaves its place dashed, its content faded. */
+.st-row.st-lifted{outline:1.5px dashed var(--input);outline-offset:-1.5px;background:transparent}
+.st-row.st-lifted > *{opacity:.35}
+/* Where it lands: a violet line between two rows, a ring at its start. */
+.st-row.st-mark-before::after,.st-row.st-mark-after::after{content:"";position:absolute;left:26px;right:6px;height:2px;border-radius:1px;background:var(--task);pointer-events:none;z-index:2}
+.st-row.st-mark-before::after{top:-1px}
+.st-row.st-mark-after::after{bottom:-1px}
+.st-project.st-mark-before::after,.st-project.st-mark-after::after{left:4px}
+.st-row.st-mark-before::before,.st-row.st-mark-after::before{content:"";position:absolute;left:21px;width:8px;height:8px;border-radius:50%;border:2px solid var(--task);background:var(--sidebar);box-sizing:border-box;pointer-events:none;z-index:3}
+.st-project.st-mark-before::before,.st-project.st-mark-after::before{left:-1px}
+.st-row.st-mark-before::before{top:-4px}
+.st-row.st-mark-after::before{bottom:-4px}
+/* A session from another project over this one: the row ringed, and the existing words under it. */
+.st-project.drop-over{outline-color:var(--task);background:color-mix(in srgb,var(--task) 10%,transparent)}
+.st-drop-tip{position:absolute;left:28px;top:calc(100% + 4px);z-index:8;padding:4px 10px;border-radius:7px;background:var(--popover);color:var(--foreground);border:1px solid var(--border);box-shadow:0 6px 18px #0006;font-size:12px;line-height:18px;white-space:nowrap;pointer-events:none}
+/* After the last project (#16 review C2): its line under its last row, at the tree's end. */
+.st-mark-end{position:relative;height:2px;margin:1px 6px 0 4px;border-radius:1px;background:var(--task)}
+.st-mark-end::before{content:"";position:absolute;left:-5px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--task);background:var(--sidebar);box-sizing:border-box}
