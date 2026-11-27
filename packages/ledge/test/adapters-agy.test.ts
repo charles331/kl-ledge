@@ -97,12 +97,13 @@ describe('agy adapter: reading the pane', () => {
     expect(agyAdapter.keysFor('accept', ask, box)).toEqual([{ keys: ['C-k'] }]);
     const deny = agyAdapter.keysFor('deny', ask, box);
     expect(deny[0]).toEqual({ keys: ['M-j'] });
-    expect((deny[1] as Until).until(panel)).toBe(true);
-    expect((deny[1] as Until).until(box)).toBe(false);
+    // Read as the daemon reads between keys, the last 30 lines: the panel's approval is above them, its hint is not.
+    expect((deny[1] as Until).until(tail(panel, 30))).toBe(true);
+    expect((deny[1] as Until).until(tail(box, 30))).toBe(false);
     expect(deny[2]).toEqual({ waitMs: 400 }); // the panel draws before it takes keys (seen live)
     expect(deny[3]).toEqual({ text: '2' });
-    expect((deny[4] as Until).until(panel)).toBe(false);
-    expect((deny[4] as Until).until(box)).toBe(true);
+    expect((deny[4] as Until).until(tail(panel, 30))).toBe(false);
+    expect((deny[4] as Until).until(tail(box, 30))).toBe(true);
     expect(deny[5]).toEqual({ keys: ['Escape'] });
     expect(() => agyAdapter.keysFor('always', ask, box)).toThrow(/always/);
     expect(() => agyAdapter.keysFor('deny', ask, box, 'no')).toThrow(/note/);
@@ -112,6 +113,10 @@ describe('agy adapter: reading the pane', () => {
     const typed = box.replace(/^>\s*$/m, '> hello');
     expect((agyAdapter.replyPlan('hello')[1] as Until).until(typed)).toBe(true);
     expect((agyAdapter.replyPlan('hello')[1] as Until).until(box)).toBe(false);
+  });
+  it('types nothing when no dialog is on screen: a number would land in the input box (seen in a live test)', () => {
+    expect(() => agyAdapter.keysFor('deny', command, fx('rest-ask'))).toThrow(/cannot be checked/);
+    expect(() => agyAdapter.keysFor('accept', command, fx('rest-ask'))).toThrow(/cannot be checked/);
   });
   it('a ` ┃` line of the conversation does not make a subagent request', () => {
     const spoof = fx('rest-ask').replace(/^(─{10,}�?)$/m, ' ┃ x needs approval for Bash\n ┃ ● Bash(rm -rf ~)\n   text between\n ┃ ctrl+k approve · alt+j manage\n$1');

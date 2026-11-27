@@ -1,5 +1,5 @@
 import type { Pending } from '@ledge/protocol';
-import { NO_ALWAYS, NO_NOTE, Refusal, assertDialogIs, bottomLines, flatten, type Adapter, type KeyPlan, type PanePromptMatch } from './types.js';
+import { NO_ALWAYS, NO_NOTE, Refusal, UNCHECKED, assertDialogIs, bottomLines, flatten, type Adapter, type KeyPlan, type PanePromptMatch } from './types.js';
 
 const rtrim = (l: string) => l.replace(/\s+$/, '');
 const isBlank = (l: string) => l.trim() === '';
@@ -288,9 +288,14 @@ function parseSubagentAsk(lines: string[]): { who: string; call: string } | null
   return call ? { who: ask[1]!, call: call.trim() } : null;
 }
 
-/** The subagent's panel (Alt-J) with its approval open, and the option under it. */
-const panelAsks = (lastLines: string) => { const t = toLines(lastLines).map(l => l.trim()); return t.includes('⚠ Approval Required') && t.some(l => /^2\. No, deny$/.test(l)); };
-const panelAnswered = (lastLines: string) => !toLines(lastLines).some(l => l.trim() === '⚠ Approval Required');
+/**
+ * The subagent's panel (Alt-J) with its approval open, told by its bottom hint: the panel fills the screen and the
+ * approval itself sits above the last lines the daemon reads between keys (seen live). Answered, the hint becomes the
+ * panel's scrolling one, ending in `esc back`.
+ */
+const PANEL_ASKS = /^↑\/↓ navigate · \/ select · enter confirm · esc cancel$/;
+const panelAsks = (lastLines: string) => toLines(lastLines).some(l => PANEL_ASKS.test(l.trim()));
+const panelAnswered = (lastLines: string) => !panelAsks(lastLines);
 
 /** At rest: the input box and `? for shortcuts` end the pane, with no dialog on it. */
 function atRest(pane: string): boolean {
@@ -397,9 +402,9 @@ export const agyAdapter: Adapter = {
     }
     const d = parseDialog(lines);
     if (!d) {
-      // No dialog read (a pane taller than the capture): the request's own first and last answers.
-      if (decision === 'always' || note) throw new Refusal(decision === 'always' ? NO_ALWAYS : NO_NOTE, 'not_offered');
-      return [{ text: decision === 'accept' ? '1' : pending.kind === 'diff' ? '2' : '4' }];
+      // No dialog read: a number typed now would land in the input box (seen in a live test, a « 4 » in the draft), so
+      // nothing is typed and the request is answered in the terminal.
+      throw new Refusal(UNCHECKED, 'no_prompt');
     }
     if (decision === 'deny' && note) return notePlan(d, note);
     if (d.title === QUESTION_TITLE) return decision === 'accept' ? [{ text: '1' }] : [{ keys: ['Escape'] }];
