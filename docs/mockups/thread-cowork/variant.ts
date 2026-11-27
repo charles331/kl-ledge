@@ -15,3 +15,10 @@ export function subscribeVariant(l: () => void): () => void {
   return () => { listeners.delete(l); };
 }
 document.documentElement.dataset.fil = current;
+
+/** A past exchange: its texts and actions folded under « Travail » (the request and the answer stay), or everything in sight, each
+ *  run of actions on its line. The bar sets it, for the owner to compare. */
+export type Past = 'folded' | 'open';
+let past: Past = new URLSearchParams(location.search).get('passe') === 'ouvert' ? 'open' : 'folded';
+export const getPast = (): Past => past;
+export function setPast(p: Past): void { past = p; for (const l of listeners) l(); }

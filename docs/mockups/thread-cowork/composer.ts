@@ -29,7 +29,8 @@ export function closeAside(id: string, aside: number): void { asides.set(key(id)
  *  taken (a bare « /btw » is taken too, and waits for its question). */
 export function takeBtw(session: Session, text: string, clear: () => void): boolean {
   const question = BTW.exec(text.trim());
-  if (getVariant() !== 'cowork' || !question) return false;
+  // Claude Code only: the other harnesses have no aside, « /btw » goes to them as any text.
+  if (getVariant() !== 'cowork' || session.tool !== 'claude' || !question) return false;
   if (!question[1]?.trim()) return true;
   asides.set(key(session.id), [...asidesOf(session.id), { id: next++, question: question[1].trim(), at: new Date().toISOString(),
     answer: `(Exemple de réponse) ${session.name} répond ici en quelques lignes, sans interrompre son travail et sans que l'échange entre dans le fil.` }]);

@@ -21,7 +21,7 @@ import { cls } from '../../../apps/desktop/src/shell/cls';
 import { SHELL_ICONS } from '../../../apps/desktop/src/shell/icons';
 import { StateBadge } from '../../../apps/desktop/src/shell/SessionBot';
 import { asidesOf, closeAside, subscribeComposer } from './composer';
-import { getVariant, subscribeVariant } from './variant';
+import { getPast, getVariant, subscribeVariant } from './variant';
 
 export { Tags } from '../../../apps/desktop/src/session/Thread';
 export type { ThreadProps, Waiting } from '../../../apps/desktop/src/session/Thread';
@@ -122,11 +122,12 @@ const Turn = memo(function Turn({ x, last, at, busy, client, onCapture, session,
   const sum = summarize(tools, now, false);
   // The answer: the last text of an exchange that is over.
   const answerAt = !busy ? x.segments.map(s => s.kind).lastIndexOf('say') : -1;
-  const fold = !last && answerAt > 0;
+  const past = useSyncExternalStore(subscribeVariant, getPast, getPast);
+  const fold = past === 'folded' && !last && answerAt > 0;
   const body = fold && !unfolded ? x.segments.slice(answerAt) : x.segments;
 
   const segment = (s: Segment, i: number): ReactNode => {
-    if (s.kind === 'say') return s.item.text !== '' && <div key={s.item.id} className="cw-say agent-message"><div className="msg-body"><ThreadMarkdown text={s.item.text} onDocument={ref => onDocument(ref.path)} /></div></div>;
+    if (s.kind === 'say') return s.item.text !== '' && <div key={s.item.id} className="cw-say agent-message"><div className="msg-body"><ThreadMarkdown text={s.item.text} onDocument={ref => onDocument(ref.path)} /></div><span className="cw-time mono">{clock(s.item.at)}</span></div>;
     if (s.kind === 'tools') return <Steps key={s.key} tools={s.tools} now={now} onChange={onChange} shots={{ client, onCapture, id: session.id, who: session.name }} />;
     if (s.kind === 'decision') return (
       <div key={s.item.id} className={cls('cw-decision', s.item.decision)}>
@@ -218,7 +219,7 @@ function Cowork({ client, onCapture, session, helper, items, xs, now, dispatch, 
         )}
         {helper === null && asides.map(a => (
           <li key={`aside-${a.id}`} className="cw-aside">
-            <div className="cw-aside-head"><span className="cw-aside-tag">btw</span><span>En aparté · hors du fil, {name} continue son travail</span>
+            <div className="cw-aside-head"><span className="cw-aside-tag">btw</span><span>En aparté · hors du fil, {name} continue son travail</span><span className="cw-time mono">{clock(a.at)}</span>
               <button type="button" aria-label="Fermer l'aparté" title="Fermer l'aparté" onClick={() => closeAside(session.id, a.id)}><Icon d={ICONS.close.d} size={13} /></button></div>
             <p className="cw-aside-q">{a.question}</p>
             <div className="cw-aside-a agent-message"><div className="msg-body"><ThreadMarkdown text={a.answer} onDocument={ref => onDocument(ref.path)} /></div></div>

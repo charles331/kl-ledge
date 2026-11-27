@@ -35,6 +35,7 @@
 
 /* ---------- What the agent says: plain prose, the column's width ---------- */
 .cw-say { min-width: 0; }
+.cw-say > .cw-time { display: block; margin-top: 4px; }
 .cw-say .msg-body { font-size: 14px; line-height: 23px; color: var(--at-ink); }
 .cw-say .msg-body > :first-child { margin-top: 0; }
 .cw-say .msg-body > :last-child { margin-bottom: 0; }
@@ -136,7 +137,8 @@ button.cw-helper { display: flex; align-items: center; gap: 10px; width: 100%; m
 .cw-aside-head { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; color: var(--at-ink2); }
 .cw-aside-head > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cw-aside-tag, .cw-aside-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; background: color-mix(in srgb, var(--at-coral) 16%, transparent); color: var(--at-coral); }
-.cw-aside-head button { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: auto; border-radius: 7px; color: var(--at-ink2); cursor: pointer; }
+.cw-aside-head > .cw-time { flex: none; margin-left: auto; }
+.cw-aside-head button { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; color: var(--at-ink2); cursor: pointer; }
 .cw-aside-head button:hover { background: var(--at-line); color: var(--at-ink); }
 .cw-aside-q { align-self: flex-end; margin: 0; max-width: 82%; padding: 7px 12px; border-radius: 14px 14px 5px 14px; background: var(--at-raise); font-size: 13.5px; line-height: 20px; overflow-wrap: anywhere; }
 .cw-aside-a .msg-body { font-size: 13.5px; line-height: 21px; }

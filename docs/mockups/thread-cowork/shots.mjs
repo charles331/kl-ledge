@@ -36,6 +36,7 @@ for (const theme of ['dark', 'light']) {
   await shot(`avant-${theme}`, `fil=today&theme=${theme}`);
   await shot(`pim-${theme}`, `theme=${theme}`);
   await shot(`pim-debut-${theme}`, `theme=${theme}`, { act: top });
+  await shot(`pim-passe-ouvert-${theme}`, `passe=ouvert&theme=${theme}`, { act: top });
   await shot(`pim-deplie-${theme}`, `theme=${theme}`, { act: unfold });
   await shot(`pim-accord-${theme}`, `theme=${theme}`, { act: page => page.keyboard.press('y') });
   await shot(`nova-${theme}`, `s=nova&theme=${theme}`);

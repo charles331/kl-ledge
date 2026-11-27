@@ -14,10 +14,10 @@ const PLAYWRIGHT = 'pnpm --filter desktop exec playwright test e2e/workspace.spe
 const sessions: Session[] = [
   session('pim', { name: 'Pim', state: 'waiting_permission', branch: 'feat/ide-shell', model: 'claude-opus-5-5', effort: 'high', context: { used: 124_000, window: 200_000, at: at(0) },
     pending: { kind: 'permission', text: PLAYWRIGHT, tool: 'Bash', source: 'hook' } }),
-  session('nova', { name: 'Nova', tool: 'codex', state: 'working', branch: 'fix/term-webgl', context: { used: 168_000, window: 200_000, at: at(0) } }),
+  session('nova', { name: 'Nova', state: 'working', branch: 'fix/term-webgl', context: { used: 168_000, window: 200_000, at: at(0) } }),
   session('ida', { name: 'Ida', state: 'idle', branch: 'docs/ide-workspace-mockup', topic: 'Maquette de l\'espace de travail' }),
   session('tom', { name: 'Tom', tool: 'omp', project: 'synapse', cwd: '/w/synapse', state: 'waiting_input', branch: 'main', pending: { kind: 'question', text: 'Quel port pour le relais ?', source: 'hook' } }),
-  session('echo', { name: 'Echo', project: 'synapse', cwd: '/w/synapse', state: 'working', branch: 'test/notifications' })
+  session('echo', { name: 'Echo', tool: 'codex', project: 'synapse', cwd: '/w/synapse', state: 'working', branch: 'test/notifications' })
 ] as Session[];
 
 const D = '/w/ledge/apps/desktop/';
@@ -30,8 +30,9 @@ const ACTIVE = ['Lecture de la coque actuelle', 'Création de WorkspaceShell', '
 /** Claude Code's work plan with its first `done` tasks completed and the next one in progress. */
 const todo = (id: string, s: number, turn: number, done: number): ThreadItem => tool(id, s, turn, 'TodoWrite', '', { durationMs: 10,
   input: JSON.stringify({ todos: PLAN.map((content, i) => ({ content, activeForm: ACTIVE[i], status: i < done ? 'completed' : i === done ? 'in_progress' : 'pending' })) }) });
-const codexPlan = (id: string, s: number, done: number): ThreadItem => tool(id, s, 1, 'update_plan', '', { durationMs: 10,
-  input: JSON.stringify({ plan: ['Trouver où WebGL est activé', 'Lâcher le contexte d\'un terminal masqué', 'Lancer les tests du terminal', 'Vérifier seize onglets ouverts'].map((step, i) => ({ step, status: i < done ? 'completed' : i === done ? 'in_progress' : 'pending' })) }) });
+const NOVA = ['Trouver où WebGL est activé', 'Lâcher le contexte d\'un terminal masqué', 'Lancer les tests du terminal', 'Vérifier seize onglets ouverts'];
+const novaPlan = (id: string, s: number, done: number): ThreadItem => tool(id, s, 1, 'TodoWrite', '', { durationMs: 10,
+  input: JSON.stringify({ todos: NOVA.map((content, i) => ({ content, activeForm: content, status: i < done ? 'completed' : i === done ? 'in_progress' : 'pending' })) }) });
 
 const threads: Record<string, ThreadItem[]> = {
   pim: [
@@ -71,14 +72,14 @@ const threads: Record<string, ThreadItem[]> = {
   ] as ThreadItem[],
   nova: [
     { kind: 'prompt', id: 'p1', at: at(-420), turn: 1, text: 'Les terminaux masqués gardent leur contexte WebGL : au bout de seize onglets, Chromium en ferme. Fais-les le lâcher.' },
-    codexPlan('pl1', -415, 0),
+    novaPlan('pl1', -415, 0),
     tool('t1', -410, 1, 'Grep', 'WebglAddon', { durationMs: 300 }),
     tool('t2', -404, 1, 'Read', D + 'src/term/Term.tsx', { durationMs: 300 }),
     { kind: 'message', id: 'm1', at: at(-390), turn: 1, text: 'Un terminal caché n\'a pas besoin de WebGL. Je le fais passer sur le rendu DOM ; il reprend WebGL quand son onglet redevient visible.' },
-    codexPlan('pl2', -388, 1),
+    novaPlan('pl2', -388, 1),
     edit('t3', -380, 1, 'Edit', 'src/term/Term.tsx', '- addon.activate(term);\n+ if (visible) addon.activate(term);\n+ else addon.dispose();', 200),
     edit('t4', -372, 1, 'Edit', 'src/term/useTerms.ts', '+ useEffect(() => { for (const t of terms) t.setVisible(t.id === front); }, [terms, front]);', 200),
-    codexPlan('pl3', -60, 2),
+    novaPlan('pl3', -60, 2),
     tool('t5', -48, 1, 'Bash', 'pnpm --filter desktop test term', { status: 'running' })
   ] as ThreadItem[],
   ida: [

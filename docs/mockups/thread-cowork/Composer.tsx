@@ -36,7 +36,7 @@ export function Composer({ client, session, filled, shut, btw, ownStop, stopping
       <span className="cw-bar-slot" />
       {btw && <span className="cw-btw-note"><b>btw</b>En aparté : {session.name} répond sans s'interrompre, hors du fil</span>}
       <button type="button" className={cls('cw-mic', mode === 'voice' && 'on')} aria-pressed={mode === 'voice'} disabled={shut}
-        aria-label={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter'} title={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter'} onClick={() => toggleMode(session.id, 'voice')}>
+        aria-label={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter'} title={mode === 'voice' ? 'Arrêter la dictée' : 'Dicter · saisie vocale de Windows'} onClick={() => toggleMode(session.id, 'voice')}>
         {mode === 'voice' ? <span className="cw-wave" aria-hidden="true"><i /><i /><i /><i /></span> : <Icon d={MIC} size={15} />}
       </button>
       {stops

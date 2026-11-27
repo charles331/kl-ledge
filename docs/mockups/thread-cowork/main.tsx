@@ -13,7 +13,8 @@ import { App } from '../../../apps/desktop/src/App';
 import { loadMessages } from '../../../apps/desktop/src/i18n/messages';
 import { bootLanguages } from '../../../apps/desktop/src/i18n/boot';
 import { setTheme } from '../../../apps/desktop/src/shell/theme';
-import { getVariant, setVariant } from './variant';
+import { getPast, getVariant, setPast } from './variant';
+import { setVariant } from './variant';
 
 const q = new URLSearchParams(location.search);
 const put = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
@@ -44,13 +45,15 @@ function draw() {
     <span class="mk-seg"><button data-fil="today" class="${fil === 'today' ? 'on' : ''}">Aujourd'hui</button><button data-fil="cowork" class="${fil === 'cowork' ? 'on' : ''}">Cowork</button></span>
     <span class="mk-seg"><button data-theme-set="dark" class="${dark ? 'on' : ''}">Sombre</button><button data-theme-set="light" class="${dark ? '' : 'on'}">Clair</button></span>
     <span class="mk-seg"><button data-vue="large" class="${vue === 'large' ? 'on' : ''}">Session large</button><button data-vue="split" class="${vue === 'split' ? 'on' : ''}">Deux groupes</button></span>
-    <span class="mk-sp"></span><small>Le vrai IDE Desktop sous l'habillage Atelier, sur des données d'exemple · Pim attend, Nova travaille, Ida a fini</small>`;
+    <span class="mk-seg" title="Les échanges passés"><button data-past="folded" class="${getPast() === 'folded' ? 'on' : ''}">Passé replié</button><button data-past="open" class="${getPast() === 'open' ? 'on' : ''}">Passé ouvert</button></span>
+    <span class="mk-sp"></span><small>Le vrai IDE Desktop, données d'exemple · Pim attend, Nova travaille, Ida a fini</small>`;
 }
 bar.addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest('button'); if (!b) return;
   if (b.dataset.fil) { setVariant(b.dataset.fil as 'today' | 'cowork'); draw(); }
+  if (b.dataset.past) { setPast(b.dataset.past as 'folded' | 'open'); draw(); }
   if (b.dataset.themeSet) setTheme(b.dataset.themeSet as 'dark' | 'light');
-  if (b.dataset.vue && b.dataset.vue !== vue) { const next = new URLSearchParams({ vue: b.dataset.vue, theme: themeNow(), fil: getVariant() }); location.search = next.toString(); }
+  if (b.dataset.vue && b.dataset.vue !== vue) { const next = new URLSearchParams({ vue: b.dataset.vue, theme: themeNow(), fil: getVariant(), passe: getPast() === 'open' ? 'ouvert' : 'replie' }); location.search = next.toString(); }
 });
 // The app sets the theme on the root from an effect: the bar follows it from there.
 new MutationObserver(draw).observe(root, { attributes: true, attributeFilter: ['data-theme'] });

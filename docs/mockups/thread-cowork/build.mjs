@@ -43,10 +43,10 @@ const swap = {
 // missing anchor fails the build rather than dropping the edit silently.
 const reply = path.join(desktop, 'src/session/Reply.tsx');
 const REPLY_EDITS = [
-  ['const submit = () => {', 'const submit = () => { if (takeBtw(session, text, () => setDraft(\'\'))) return;'],
+  ['const submit = () => {', 'const submit = () => { if (!pending && takeBtw(session, text, () => setDraft(\'\'))) return;'],
   ['const name = session.name;', 'const name = session.name; const cwMode = useComposerMode(session.id);'],
   ['placeholder={placeholder}', 'placeholder={cwMode === \'voice\' ? \'Je vous écoute…\' : placeholder}'],
-  ['</form>', '{ide && <Composer client={client} session={session} filled={!!text || withImages} shut={shut} btw={isBtw(draft)} ownStop={stoppable && client && !askCard ? stop : undefined} stopping={stopping} />}</form>']
+  ['</form>', '{ide && <Composer client={client} session={session} filled={!!text || withImages} shut={shut} btw={session.tool === \'claude\' && !pending && isBtw(draft)} ownStop={stoppable && client && !askCard ? stop : undefined} stopping={stopping} />}</form>']
 ];
 const composer = {
   name: 'ledge-cowork-composer', enforce: 'pre',
