@@ -292,6 +292,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     // focus), and `nav.chat` goes straight back to false, or the single keys, Alt + 1…9 and the screen's Escape would stay off.
     if (r.nav?.type === 'chat' && r.nav.open !== false) navDispatch({ type: 'chat', open: false });
     if (r.ws) wsStore.update(r.ws);
+    // A « Voir dans Tâches » that shows the Tasks view remembers the view it replaces, so Ctrl / goes back there (review-qa2, 2a).
+    if (r.layout?.type === 'showView' && r.layout.view === 'tasks') { const l = layoutNow.current; if (!(l.sideOpen && l.sideView === 'tasks')) beforeTasks.current = l.sideOpen ? l.sideView : null; }
     if (r.layout) onLayout(r.layout);
     // « Voir dans Tâches » (#40 D3) keeps the right panel's tab: the task is the Tasks view's.
     if (r.chat) { const c = r.chat; setRightTab(x => ({ ...x, ...(c.tab === 'tasks' ? {} : { tab: c.tab }), ...(c.task !== undefined ? { task: c.task, seen: x.seen + 1 } : {}) })); }

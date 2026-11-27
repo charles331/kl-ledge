@@ -139,6 +139,22 @@ describe('D7 and D10 in the app', () => {
     await waitFor(() => expect(bar.getByRole('button', { name: 'Tasks (Ctrl+/)' }).querySelector('.ide-badge.amber')).toHaveTextContent('1'));
   });
 
+  it('Ctrl+/ after a « Voir dans Tâches »: back to the view shown before (review-qa2)', async () => {
+    const { d, user } = await boot({ projects: PROJECTS, sessions: [fakeSession('otto', { name: 'Otto', cwd: '/w/ledge', state: 'working' })] });
+    // A task Otto holds: pinned on its page, with « See in Tasks ».
+    d.push({ type: 'task.updated', task: { id: 't-14', title: 'Review PR #36', giver: 'ledge', giverName: 'Ledge', owner: 'otto', ownerName: 'Otto', state: 'taken', at: T(0), updatedAt: T(0), log: [] } });
+    await user.click((await screen.findAllByRole('button', { name: /^Otto/ })).find(b => b.closest('.st-row'))!);
+    const see = await screen.findByRole('button', { name: 'See the tasks' });
+    const bar = within(screen.getByRole('navigation', { name: 'Activity bar' }));
+    await user.click(bar.getByRole('button', { name: 'OpenRig rigs' }));
+    await waitFor(() => expect(bar.getByRole('button', { name: 'OpenRig rigs' })).toHaveClass('on'));
+    await user.click(see);
+    await waitFor(() => expect(bar.getByRole('button', { name: 'Tasks (Ctrl+/)' })).toHaveClass('on'));
+    act(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+    await user.keyboard('{Control>}/{/Control}');
+    await waitFor(() => expect(bar.getByRole('button', { name: 'OpenRig rigs' })).toHaveClass('on'));
+  });
+
   it('a failed handover: the tree row says it in red, the session page has its strip with « Retry », which hands over again', async () => {
     const handover = { state: 'failed' as const, at: T(0), reason: 'Codex offline' };
     expect(reliefFailedShown({ handover, context: ctx(180_000) }, 0.8)).toBe(true);
@@ -147,7 +163,9 @@ describe('D7 and D10 in the app', () => {
     const { d, user } = await boot({ projects: PROJECTS, sessions: [fakeSession('nova', { name: 'Nova', cwd: '/w/ledge', state: 'idle', context: ctx(182_000), handover })] });
     const treeNova = async () => (await screen.findAllByRole('button', { name: /^Nova/ })).find(b => b.closest('.st-row'))!;
     const row = (await treeNova()).closest('.st-row') as HTMLElement;
-    expect(row.querySelector('.st-ctx.failed')).toHaveTextContent('relief failed');
+    // design-ux (track a): the ◔ in red, no label: the name stays whole.
+    expect(row.querySelector('.st-ctx.failed')).toHaveTextContent('');
+    expect(row.querySelector('.st-ctx.failed')).toHaveAttribute('aria-label', 'relief failed');
     expect(row.querySelector('.st-ctx.failed')).toHaveAttribute('title', 'Codex offline');
     await user.click(await treeNova());
     await waitFor(() => expect(document.querySelectorAll('.relief-failed')).toHaveLength(1));

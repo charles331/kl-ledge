@@ -91,7 +91,9 @@ for (const lang of ['fr', 'en'] as const) for (const theme of ['dark', 'light'] 
     test('D10: a failed handover on the tree row and the session page, « Réessayer »', async ({ page }) => {
       await open(page, theme, lang);
       const row = page.locator('.st-row').filter({ has: page.getByRole('button', { name: /^Nova/ }) });
-      await expect(row.locator('.st-ctx.failed')).toHaveText(fr ? 'relève échouée' : 'relief failed');
+      await expect(row.locator('.st-ctx.failed')).toHaveAttribute('aria-label', fr ? 'relève échouée' : 'relief failed');
+      await expect(row.locator('.st-ctx.failed')).toHaveText('');
+      await expect(row.getByRole('button', { name: /^Nova/ })).toContainText('Nova');
       await row.getByRole('button', { name: /^Nova/ }).click();
       const strip = page.locator('.relief-failed');
       await expect(strip).toContainText(fr ? 'Relève de Nova échouée : Codex hors ligne' : 'Handover of Nova failed: Codex hors ligne');
