@@ -46,37 +46,28 @@ describe('Réglages: the screen', () => {
 });
 
 describe('Réglages: notifications of this device', () => {
-  it('only once they are on: the three kinds, and requests always said to notify', () => {
+  it('only once they are on: « Décision à prendre » alone, and requests always said to notify (#40, card 8)', () => {
     const t = app('ready', { hash: '#/connection' });
     act(() => t.deliver(snap({ push: 'off' })));
-    expect(screen.queryByRole('switch', { name: 'Le point de Ledge' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Décision à prendre' })).not.toBeInTheDocument();
     act(() => t.deliver(snap()));
-    for (const name of ['Le point de Ledge', 'Réponse de Ledge', 'Décision à prendre']) expect(screen.getByRole('switch', { name })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Décision à prendre' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Décision à prendre' })).toHaveAccessibleDescription('Quand une session te demande de trancher.');
+    // The point and Ledge's answers left with the chat.
+    expect(screen.queryByRole('switch', { name: 'Le point de Ledge' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Réponse de Ledge' })).toBeNull();
     expect(screen.getByText(/Les demandes d’accord et les questions des agents préviennent toujours/)).toBeInTheDocument();
+    expect(screen.getByText('Aucune notification sur cet appareil pendant ce temps.')).toBeInTheDocument();
   });
 
-  it('settings show Le point de Ledge with its hint', () => {
+  it('the switch sends the whole settings with that kind off, the hidden kinds kept as they were', async () => {
     const t = app('ready', { hash: '#/connection' });
     act(() => t.deliver(snap()));
-    const sw = screen.getByRole('switch', { name: 'Le point de Ledge' });
-    expect(sw).toHaveAccessibleDescription('Quand Ledge fait le point : sessions finies, tâches, nouvelles des rigs.');
-    expect(screen.queryByText('Agent terminé')).toBeNull();
-    expect(screen.getByText('Aucune notification sur cet appareil pendant ce temps, le point compris.')).toBeInTheDocument();
-  });
-
-  it('a switch sends the whole settings with that kind off; a second change builds on the first while it waits', async () => {
-    const t = app('ready', { hash: '#/connection' });
-    act(() => t.deliver(snap()));
-    fireEvent.click(screen.getByRole('switch', { name: 'Le point de Ledge' }));
-    expect(screen.getByRole('switch', { name: 'Le point de Ledge' })).not.toBeChecked();
     fireEvent.click(screen.getByRole('switch', { name: 'Décision à prendre' }));
     const sent = t.of('device.prefs');
-    expect(sent.map(m => m.prefs.notify)).toEqual([
-      { finished: false, chat: true, decision: true },
-      { finished: false, chat: true, decision: false }
-    ]);
-    act(() => { t.deliver(result(sent[0]!.op, 'applied')); t.deliver(result(sent[1]!.op, 'applied')); });
-    act(() => t.deliver(snap({ prefs: { ...DEFAULT_DEVICE_PREFS, notify: { finished: false, chat: true, decision: false } } })));
+    expect(sent.map(m => m.prefs.notify)).toEqual([{ finished: true, chat: true, decision: false }]);
+    act(() => t.deliver(result(sent[0]!.op, 'applied')));
+    act(() => t.deliver(snap({ prefs: { ...DEFAULT_DEVICE_PREFS, notify: { finished: true, chat: true, decision: false } } })));
     await waitFor(() => expect(screen.getByRole('switch', { name: 'Décision à prendre' })).not.toBeChecked());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -84,10 +75,10 @@ describe('Réglages: notifications of this device', () => {
   it('a change the PC refuses is said, and the switch shows the PC\'s value again', async () => {
     const t = app('ready', { hash: '#/connection' });
     act(() => t.deliver(snap()));
-    fireEvent.click(screen.getByRole('switch', { name: 'Réponse de Ledge' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Décision à prendre' }));
     act(() => t.deliver(result(t.of('device.prefs')[0]!.op, 'rejected', 'invalid')));
     expect(await screen.findByText('Le PC n’a pas pris ce réglage. Réessaie.')).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Réponse de Ledge' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Décision à prendre' })).toBeChecked();
   });
 
   it('« 1 h » pauses them until an hour from now; a pause under way shows its end and « Reprendre » lifts it', () => {

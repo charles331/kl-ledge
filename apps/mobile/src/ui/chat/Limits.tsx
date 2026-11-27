@@ -124,7 +124,8 @@ export function CompactLimits({ usage: given, now, alert, fresh = true, at }: { 
 
 /** « LIMITES » in « Le point » (docs/mockups/ledge-harness-usage.html, phone 1): per harness its logo, then each window's
  *  percent and reset; reading, expired, old or unreachable say so. Nothing when the PC gives no limits. */
-export function Limits({ usage: given, now, alert, fresh = true }: { usage: readonly PhoneHarnessUsage[]; now: number; alert: number | null; fresh?: boolean }): JSX.Element | null {
+export function Limits({ usage: given, now, alert, fresh = true, heading = true }: { usage: readonly PhoneHarnessUsage[]; now: number; alert: number | null; fresh?: boolean;
+  /** « LIMITES » over the rows; Réglages › Usage has its own title (#40 D9). */ heading?: boolean }): JSX.Element | null {
   const P = copy.chat.point;
   const usage = shownUsage(given, now, fresh);
   if (!usage.length) return null;
@@ -132,7 +133,7 @@ export function Limits({ usage: given, now, alert, fresh = true }: { usage: read
   const unread = (i: number) => given[i]!.harness === 'cursor' && given[i]!.status === 'ok' && given[i]!.windows.length === 0 && given[i]!.readAt !== null;
   return (
     <div role="group" aria-label={P.limitsLabel} className="flex flex-col">
-      <h3 className="mt-1 text-meta tracking-[.4px] text-muted">{P.limits}</h3>
+      {heading && <h3 className="mt-1 text-meta tracking-[.4px] text-muted">{P.limits}</h3>}
       {usage.map((h, i) => {
         const age = h.readAt ? span(now - Date.parse(h.readAt)) : null;
         const dim = h.status === 'stale' || h.status === 'unreachable';

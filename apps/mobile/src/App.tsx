@@ -13,6 +13,7 @@ import { Choose, Recover } from './screens/Recover';
 import { usePlatform } from './screens/device';
 import { ProtectStep, usePasskeyDot } from './screens/Enroll';
 import { Connection } from './screens/Connection';
+import { Usage } from './screens/Usage';
 import { NotifyStep, offersNotifications } from './screens/Notifications';
 import { Denied } from './screens/Denied';
 import { clock } from './screens/Inbox';
@@ -316,7 +317,9 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
       if (route.name === 'max') return <Max key={route.goalId ?? ''} goalId={route.goalId} rigs={rigs} store={store} />;
       return null;
     })();
-    const connection = <Connection store={store} fetchImpl={fetchImpl} login={login} relay={relay} pinned={pinned} linkState={state} build={build} onSignOut={signOut} section={route.name === 'connection' ? route.section : undefined} />;
+    // Réglages › Usage is a screen of its own over the tab (#40 D9).
+    const usageScreen = route.name === 'connection' && route.section === 'usage' ? <Usage store={store} /> : null;
+    const connection = usageScreen ?? <Connection store={store} fetchImpl={fetchImpl} login={login} relay={relay} pinned={pinned} linkState={state} build={build} onSignOut={signOut} section={route.name === 'connection' && route.section === 'link' ? 'link' : undefined} />;
     // A wide screen keeps the list on the left and opens what it lists on the right (m0-socle.html, §2), the rail on its left.
     if (wide) {
       const content = (() => {

@@ -11,6 +11,8 @@ import { BackLink } from '../ui/Header';
 import { OUTLINE } from '../ui/Board';
 import { Segmented } from '../ui/Segmented';
 import { setTheme, useThemeChoice, type ThemeChoice } from '../theme';
+import { useUsageAlert } from './Usage';
+import { Icon } from '../ui/icons';
 import { ProtectRow, UpdateCard, UpdateRow, useEnroll, usePasskeyDot } from './Enroll';
 import { NotificationsRow } from './Notifications';
 import { PcSection } from './PcSection';
@@ -44,6 +46,7 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
   // One passkey update for the card at the top and the row of « Connexion »: one challenge prepared (#40 D8).
   const update = useEnroll(store, 'update');
   const cardUp = usePasskeyDot(store);
+  const usageAlert = useUsageAlert(store);
   const theme = useThemeChoice();
   const lang = useLang();
   useEffect(() => { if (section === 'link') document.getElementById('link-title')?.scrollIntoView({ block: 'start' }); }, [section]);
@@ -92,6 +95,16 @@ export function Connection({ store, login, relay, pinned, linkState, build, onSi
             </dl>
             <NotificationPrefs store={store} />
           </section>
+        )}
+        {/* Réglages › Usage (#40 D9, card 10): an amber dot on its row while a usage alert is on; none on ⚙ (kept for the passkey). */}
+        {state.daemon?.usage && (
+          <a href={href({ name: 'connection', section: 'usage' })} className="flex items-center justify-between gap-4 rounded-[10px] border border-line bg-surface px-4 py-3 text-body">
+            <span>{S.usage}</span>
+            <span className="flex items-center gap-2 text-muted">
+              {usageAlert && <span data-usage-dot aria-hidden="true" className="size-2 rounded-full bg-attention" />}
+              <Icon name="chevron" className="size-4" />
+            </span>
+          </a>
         )}
         <LedgePrefs store={store} />
         <ProjectsSection store={store} />

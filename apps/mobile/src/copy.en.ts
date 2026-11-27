@@ -761,13 +761,14 @@ export const en: Copy = {
     theme: 'Theme', lang: 'Language', langs: { fr: 'Français', en: 'English' },
     motion: 'Reduce motion', motionHint: 'When off, the device’s setting applies.',
     notifications: 'Notifications on this device',
+    usage: 'Usage',
     notify: {
       finished: 'Ledge’s point', finishedHint: 'When Ledge takes stock: finished sessions, tasks, news from the rigs.',
       chat: 'Ledge’s answer', chatHint: 'When Ledge has answered a question asked from here.',
       decision: 'Decision to make', decisionHint: 'When a session asks you to decide.',
       always: 'Approval requests and the agents’ questions always notify, except during a pause.'
     },
-    pause: 'Pause', pauseHint: 'No notification on this device during that time, the point included.',
+    pause: 'Pause', pauseHint: 'No notification on this device during that time.',
     pauseFor: { hour: '1 h', four: '4 h', morning: 'Until 8 am tomorrow' },
     pauseLabel: { hour: 'One-hour pause', four: 'Four-hour pause', morning: 'Pause until 8 am tomorrow' },
     pausedUntil: (when: string) => `Paused until ${when}`,

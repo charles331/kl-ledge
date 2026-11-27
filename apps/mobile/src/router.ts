@@ -20,8 +20,9 @@ export type Route =
   | { name: 'request'; sessionId: string; key: string }
   /** An OpenRig ask in full (`#/ask/<qitem>`), opened from its push or its card in the Rigs tab's « Demandes » (#40 D1, card 3). */
   | { name: 'ask'; id: string }
-  /** Réglages; `#/connection/link` opens it on its « Connexion » section (the host pill). */
-  | { name: 'connection'; section?: 'link' }
+  /** Réglages; `#/connection/link` opens it on its « Connexion » section (the host pill); `#/connection/usage` is its « Usage »
+   *  screen, the harnesses' limits (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10). */
+  | { name: 'connection'; section?: 'link' | 'usage' }
   /** A rig of the Rigs tab (`#/rigs/<rig>`), the kernel and its daemon (`#/kernel`), and Max's goals (`#/max`, `#/max/<goalId>` one of them as a
    *  thread): docs/mockups/ledge-mobile-refonte/m4-rigs.html. */
   | { name: 'rig'; rig: string }
@@ -48,7 +49,7 @@ export function parseRoute(hash: string): Route {
     if ((parts[0] === 'thread' || parts[0] === 'terminal') && parts.length === 2) return { name: parts[0], sessionId: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'atelier' && parts.length === 4 && parts[2] === 'request') return { name: 'atelier', sessionId: decodeURIComponent(parts[1]!), requestKey: decodeURIComponent(parts[3]!) };
     if (parts[0] === 'atelier' && parts.length <= 2) return parts[1] ? { name: 'atelier', sessionId: decodeURIComponent(parts[1]) } : { name: 'atelier' };
-    if (parts[0] === 'connection' && parts.length === 2 && parts[1] === 'link') return { name: 'connection', section: 'link' };
+    if (parts[0] === 'connection' && parts.length === 2 && (parts[1] === 'link' || parts[1] === 'usage')) return { name: 'connection', section: parts[1] };
     if (parts[0] === 'rigs' && parts.length === 2) return { name: 'rig', rig: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'prs' && parts.length === 2) return { name: 'pr', id: decodeURIComponent(parts[1]!) };
     if (parts[0] === 'routines' && parts.length === 2) return { name: 'routines', routine: decodeURIComponent(parts[1]!) };

@@ -13,7 +13,9 @@ const CARD = 'flex flex-col rounded-[10px] border border-line bg-surface text-bo
 const ROW = 'flex flex-col gap-1 border-b border-line px-4 py-3 last:border-b-0';
 /** « Contexte max »: 50 % to 95 %, by 5, as the desktop offers it. */
 export const NEARS = Array.from({ length: Math.round((CONTEXT_NEAR_MAX - CONTEXT_NEAR_MIN) * 20) + 1 }, (_, i) => Math.round((CONTEXT_NEAR_MIN + i * 0.05) * 100));
-const KINDS: readonly MutableNotification[] = ['finished', 'chat', 'decision'];
+// « Le point de Ledge » and « Réponse de Ledge » left with the chat (#40, docs/mockups/ledge-remove-chat-p2.html, card 8); their
+// prefs stay in the device's settings, read and ignored, so an older phone is not refused (D12).
+const KINDS: readonly MutableNotification[] = ['decision'];
 type ToolChoice = Tool | 'pc';
 const TOOL_CHOICES: readonly ToolChoice[] = ['pc', 'claude', 'codex', 'cursor', 'omp'];
 

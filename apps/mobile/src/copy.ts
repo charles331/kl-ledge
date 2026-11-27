@@ -784,13 +784,15 @@ const fr = {
     theme: 'Thème', lang: 'Langue', langs: { fr: 'Français', en: 'English' },
     motion: 'Réduire les animations', motionHint: 'Désactivé, le réglage de l’appareil s’applique.',
     notifications: 'Notifications sur cet appareil',
+    /** Réglages › Usage (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10): the harnesses' limits, the point's « LIMITES » before. */
+    usage: 'Usage',
     notify: {
       finished: 'Le point de Ledge', finishedHint: 'Quand Ledge fait le point : sessions finies, tâches, nouvelles des rigs.',
       chat: 'Réponse de Ledge', chatHint: 'Quand Ledge a répondu à une question posée d’ici.',
       decision: 'Décision à prendre', decisionHint: 'Quand une session te demande de trancher.',
       always: 'Les demandes d’accord et les questions des agents préviennent toujours, sauf pendant une pause.'
     },
-    pause: 'Pause', pauseHint: 'Aucune notification sur cet appareil pendant ce temps, le point compris.',
+    pause: 'Pause', pauseHint: 'Aucune notification sur cet appareil pendant ce temps.',
     pauseFor: { hour: '1 h', four: '4 h', morning: 'Jusqu’à demain 8 h' },
     pauseLabel: { hour: 'Pause d’une heure', four: 'Pause de quatre heures', morning: 'Pause jusqu’à demain 8 h' },
     pausedUntil: (when: string) => `En pause jusqu’à ${when}`,
