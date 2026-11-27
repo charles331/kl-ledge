@@ -1,12 +1,13 @@
 import type { JSX } from 'react';
 import type { DaemonClient } from '@ledge/fleet';
-import type { Session } from '@ledge/protocol';
+import { labelledName, type Session } from '@ledge/protocol';
 import { useI18n } from '../i18n/lang';
 import { dotOf } from '../nav/agents';
 import { keyOf, type Tab } from '../workspace/model';
 import { terminalViewTitle, useAgent, useAgentStatus, useHasBackend } from '../session/AgentView';
 import { providerOf, tabView } from '../workspace/sessionTab';
 import { ProviderLogo } from './ProviderLogo';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** What a session or seat tab says (mockup `tabLabel()`): logo, name, `>_` in the terminal view, the rig of a seat, the state
  *  dot. The extras are aria-hidden so the tab's accessible name stays the title alone. A session not known keeps its title.
@@ -18,7 +19,8 @@ export function SessionTabLabel({ session, tab, title, client, helper = null }: 
   return (
     <>
       <span aria-hidden="true" className="tab-logo"><ProviderLogo provider={providerOf(session.tool)} /></span>
-      <span className="tab-name">{title}</span>
+      {/* A nickname: « KB Projet 1 (Otto) », the name in brackets muted and cut first in a narrow tab (the title keeps both). */}
+      <span className="tab-name">{session.label && title === labelledName(session) ? <SessionName session={session} /> : title}</span>
       {tabView(tab, session) === 'terminal' && (client
         ? <TermMark client={client} session={session} helper={helper} viewer={keyOf(tab)} />
         : <span aria-hidden="true" className="tab-term" title={t.ide.tabTerminalView}>&gt;_</span>)}

@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/lang';
 import { transition } from '../motion';
 import { helperThread } from '../thread/turns';
 import { Thread } from './Thread';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 export interface HelperViewProps {
   session: Session; helperId: string; items: ThreadItem[]; visible: boolean;
@@ -28,7 +29,7 @@ export function HelperView({ session, helperId, items, visible, onBack, onClose,
       <div style={{ position: 'relative', flex: '0 0 auto', padding: '12px 17px 10px', borderBottom: '1px solid var(--border)' }}>
         <button type="button" data-back data-initial-focus onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 0, background: 'none', border: 0, font: 'inherit', fontSize: 12, color: 'var(--sidebar-foreground)', cursor: 'pointer', textAlign: 'left' }}>
           <span aria-hidden style={{ fontSize: 17, lineHeight: 1 }}>←</span>
-          <span>{session.name} · {t.thread.backTo}</span>
+          <span><SessionName session={session} /> · {t.thread.backTo}</span>
         </button>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
           <span style={muted}>{t.thread.delegatedBy} {session.name}{helper?.agentType ? ` · ${helper.agentType}` : ''}</span>

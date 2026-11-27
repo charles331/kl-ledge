@@ -18,6 +18,10 @@
 .modal:focus { outline: none; }
 .modal-title { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
 .modal-title h2 { font-size: 16px; font-weight: 500; margin: 0; }
+/* What a form puts beside the title (ModalTitleSlot): it takes the room between the title and « Fermer ». */
+/* A session's name in brackets after its nickname (SessionName): « KB Projet 1 (Otto) ». */
+.sn-name { color: var(--muted-foreground); font-weight: 400; }
+.modal-title-slot { flex: 1; min-width: 0; display: flex; align-items: center; }
 
 /* The « Commande » window bar (docs/mockups/ledge-titlebar.html, C): over the sidebar and the workspace, the native bar off. 32 px
    as a Windows title bar now that the search field is gone (#33); the detached Atelier's bar (#30) is the same. */

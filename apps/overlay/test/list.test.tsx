@@ -12,6 +12,11 @@ const sessions = [
 ];
 
 describe('<SessionList>', () => {
+  it('a session with a nickname reads « KB Projet 1 (Pim) » (docs/mockups/ledge-sidebar-names.html, card 2)', () => {
+    const named = sessions.map(x => (x.id === 'b' ? { ...x, label: 'KB Projet 1' } : x));
+    render(<SessionList sessions={named} visible selectedId={null} dnd={false} onToggleDnd={() => {}} onOpen={() => {}} onClose={() => {}} />);
+    expect(screen.getByText('KB Projet 1', { exact: false }).textContent).toBe('KB Projet 1 (Pim)');
+  });
   it('shows counts, rows with badges, and highlights the oldest ask', () => {
     render(<SessionList sessions={sessions} visible selectedId={null} dnd={false} onToggleDnd={() => {}} onOpen={() => {}} onClose={() => {}} />);
     expect(screen.getByText('4 sessions · 1 waiting for you')).toBeInTheDocument();

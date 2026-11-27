@@ -20,6 +20,7 @@ import { useLiftDrag, useLongPress } from './longPress';
 import { SessionActions } from './SessionHead';
 import { ProjectOrderSheet } from './SessionMore';
 import { SessionsAtelier } from './SessionsAtelier';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** The filter is kept on the device (m2-sessions.html, « Comportements »). */
 const FILTER_KEY = `${MOBILE_STORAGE_PREFIX}sessions.filter`;
@@ -105,7 +106,7 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
       href={href({ name: 'thread', sessionId: s.id })} selected={open} stale={offline} press={press} pressed={pressed}
       lead={<><Dot state={dot} pulse={dot === 'work' && !offline} /><RuntimeTag tool={s.tool} /></>}
       title={<>
-        <b className="font-semibold">{s.name}</b>
+        <b className="font-semibold"><SessionName session={s} nameClassName="font-normal text-muted" /></b>
         {woken && <span data-woken="" className="ml-1 inline-flex align-[-2px] text-muted"><Icon name="clock" className="size-[13px]" /></span>}
         {kids > 0 && <span aria-label={copy.sessions.kidsLabel(kids)} className="ml-1.5 font-mono text-small text-muted">{copy.sessions.kids(kids)}</span>}
       </>}

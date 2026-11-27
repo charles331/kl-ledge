@@ -5,6 +5,7 @@ import { dotOf } from '../nav/agents';
 import { LedgeMark } from '../shell/LedgeMark';
 import { providerOf } from '../workspace/sessionTab';
 import { ProviderLogo } from './ProviderLogo';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 export type EmptyPick = 'terminal' | 'launch' | 'search' | 'ledge' | 'next' | 'openrig' | 'atelier' | 'shell' | 'settings';
 
@@ -65,7 +66,7 @@ export function IdeWelcome(p: {
                 <button key={s.id} type="button" className="ide-wl-rec" onClick={() => p.onOpen(s.id)}>
                   <span aria-hidden="true" className={`tab-dot d-${dotOf(s)}`} />
                   <ProviderLogo provider={providerOf(s.tool)} size={14} />
-                  <b>{s.name}</b><span className="ide-wl-where">{p.where(s)}</span>
+                  <b><SessionName session={s} /></b><span className="ide-wl-where">{p.where(s)}</span>
                 </button>
               ))}
               <button type="button" className="ide-wl-more" onClick={() => p.onPick('search')}>{w.allSessions}</button>

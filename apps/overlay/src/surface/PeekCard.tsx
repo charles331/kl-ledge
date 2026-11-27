@@ -5,6 +5,7 @@ import { botState, poseFor } from '../bots/poseFor';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { useI18n } from '../i18n/lang';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** One line about a bot that is not waiting: its state, its task, and the way into Ledge Desktop. */
 export function PeekCard({ session, visible, frozen, reducedMotion, theme = 'dark', onClose, onOpen, ref }: {
@@ -19,7 +20,7 @@ export function PeekCard({ session, visible, frozen, reducedMotion, theme = 'dar
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Bot seed={session.id} readOnly={session.source === 'hook_only'} tool={session.tool} state={botState(session)} pose={poseFor(session.id, session.state)} size={40} theme={theme} paused={!visible} frozen={frozen} reducedMotion={reducedMotion} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          <strong style={{ fontSize: 14, lineHeight: '20px' }}>{session.name}</strong>
+          <strong style={{ fontSize: 14, lineHeight: '20px' }}><SessionName session={session} nameStyle={{ color: 'var(--muted-foreground)', fontWeight: 400 }} /></strong>
           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--muted-foreground)' }}>{session.project}</span>
         </div>
       </div>

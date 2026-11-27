@@ -58,6 +58,11 @@ export const fr = {
     }
   },
   side: {
+    // docs/mockups/ledge-sidebar-names.html, card 2 (v2): a session's nickname as a field in place of the old « Renommer… » box.
+    rename: {
+      placeholder: (n: string) => `Surnom de ${n}`, keep: 'renommer', escKey: 'Échap', cancel: 'annuler',
+      outdated: (machine: string) => `Mettez Ledge à jour sur ${machine} pour donner un surnom à cette session.`
+    },
     /** Issue #16 (docs/mockups/ledge-reorder.html): putting projects and sessions in order. `i` is already an ordinal (« 1re », « 2e »). */
     reorder: {
       grip: 'Glisser pour déplacer · Alt+↑ / Alt+↓',
@@ -919,14 +924,13 @@ export const fr = {
     menu: {
       label: (name: string): string => `Gérer la session ${name}`, more: 'Gérer la session (clic droit)',
       up: 'Monter', down: 'Descendre', top: 'En haut du projet', topList: 'En haut de la liste', upKey: 'Alt ↑', downKey: 'Alt ↓', topKey: 'Alt Début',
-      open: 'Ouvrir la session', terminal: 'Terminal', rename: 'Renommer…', moveTo: 'Ranger dans…', end: 'Terminer la session', resume: 'Reprendre la session',
+      open: 'Ouvrir la session', terminal: 'Terminal', rename: 'Renommer', moveTo: 'Ranger dans…', end: 'Terminer la session', resume: 'Reprendre la session',
       archive: 'Archiver', endAndArchive: 'Terminer et archiver…', delete: 'Supprimer…',
       kids: (n: number, name: string): string => `${n} ${plural(n, 'sous-agent part', 'sous-agents partent')} avec ${name}.`,
       cannotEnd: (machine: string): string => `${machine} est injoignable : Ledge ne peut pas l’arrêter.`,
       rigOwned: (rig: string) => `Siège du rig ${rig} : arrêtez-le ou relancez-le depuis la page OpenRig`, outsideLedge: 'Lancée hors de Ledge : Ledge ne peut pas l’arrêter.',
       deleteKey: 'Suppr', archiveFinished: 'Archiver les terminées'
     },
-    rename: { title: (name: string): string => `Renommer ${name}`, label: 'Nom de la session', save: 'Renommer', cancel: 'Annuler' },
     archivedBanner: {
       pill: 'Archivée', title: 'Session archivée',
       body: (ago: string): string => `${ago} · l’agent est arrêté, la conversation est en lecture seule.`,
@@ -1336,9 +1340,8 @@ export const fr = {
       limit: (pct: string, reset: string | null) => `Limite 5 h ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitMonth: (pct: string, reset: string | null) => `Limite du mois ${pct}${reset ? ` · réinit. ${reset}` : ''}`,
       limitWeek: (pct: string, reset: string | null) => `Limite de la semaine ${pct}${reset ? ` · réinit. ${reset}` : ''}`, limitUnread: 'Limite non lue',
       offline: 'hors ligne', launch: 'Lancer', launchKeys: 'Ctrl Entrée', cancel: 'Annuler',
-      // Issue #15 (docs/mockups/ledge-launch-name.html, v2): an optional name, behind a switch on the Project row.
-      nameToggle: 'Définir un nom ?', name: 'Nom', namePlaceholder: (n: string) => `Laissez vide pour ${n}`,
-      nameHint: 'C’est son adresse : les autres sessions lui écrivent sous ce nom (ledge who, SendMessage). Lettres, chiffres, - et _.',
+      // docs/mockups/ledge-sidebar-names.html, card 4: the name stands in the title and is edited there (it replaced #15's switch).
+      name: 'Nom', renameTip: 'Renommer', editHint: (n: string) => `Entrée valide le nom · Échap revient à ${n}`,
       cleaned: (n: string) => `La session s’appellera ${n} : espaces et ponctuation sont retirés.`,
       nameTaken: (n: string, p: string) => `${n} est déjà le nom d’une session de ${p}. Choisissez un autre nom, ou laissez vide.`,
       nameTakenBy: (n: string, o: string) => `${n} est déjà pris : ${o} porte ce nom.`,

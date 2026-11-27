@@ -141,81 +141,94 @@ describe('the IDE’s New session', () => {
 });
 
 // Issue #15 (docs/mockups/ledge-launch-name.html, v2): « Définir un nom ? » on the Project row.
-describe('the IDE’s New session, with a name', () => {
+describe('the IDE’s New session, its name in the title (docs/mockups/ledge-sidebar-names.html, cards 3 and 4)', () => {
   async function openModal() {
     const env = await mount();
     await env.user.keyboard('n');
-    const form = within(await screen.findByRole('dialog', { name: 'Nouvelle session' }));
-    return { ...env, form, sw: form.getByRole('switch', { name: 'Définir un nom ?' }) };
+    const box = await screen.findByRole('dialog', { name: 'Nouvelle session' });
+    return { ...env, box, form: within(box) };
   }
+  const message = (form: ReturnType<typeof within>) => form.getByRole('textbox', { name: 'Premier message' });
 
-  it('off at opening: no Name row, and the launch sends no name', async () => {
-    const { d, user, form, sw } = await openModal();
-    expect(sw).toHaveAttribute('aria-checked', 'false');
+  it('at opening the title says the name Ledge will give, no switch, and the launch sends no name', async () => {
+    const { d, user, form } = await openModal();
+    // Otto and Nova are live on this machine: Pim is the next free name.
+    expect(form.getByRole('button', { name: 'Renommer · Pim' })).toBeVisible();
+    expect(form.queryByRole('switch')).toBeNull();
     expect(form.queryByRole('textbox', { name: 'Nom' })).toBeNull();
-    await user.type(form.getByRole('textbox', { name: 'Premier message' }), 'Relis');
+    await user.type(message(form), 'Relis');
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     expect(launches(d)[0]!.name).toBeUndefined();
   });
 
-  it('on: the field takes the focus, shows the free name, and its cleaned name is sent', async () => {
-    const { d, user, form, sw } = await openModal();
-    await user.click(sw);
+  it('a click makes the name a field in the title, selected; Enter keeps the cleaned name, which is sent', async () => {
+    const { d, user, form } = await openModal();
+    await user.click(form.getByRole('button', { name: 'Renommer · Pim' }));
     const field = form.getByRole('textbox', { name: 'Nom' });
     expect(field).toHaveFocus();
-    // Otto and Nova are live on this machine: Pim is the next free name.
-    expect(field).toHaveAttribute('placeholder', 'Laissez vide pour Pim');
-    await user.type(field, 'revue pr!');
+    expect(field).toHaveValue('Pim');
+    expect([(field as HTMLInputElement).selectionStart, (field as HTMLInputElement).selectionEnd]).toEqual([0, 3]);
+    expect(form.getByText('Entrée valide le nom · Échap revient à Pim')).toBeVisible();
+    await user.keyboard('revue pr!');
     expect(form.getByText('La session s’appellera Revuepr : espaces et ponctuation sont retirés.')).toBeVisible();
-    await user.type(form.getByRole('textbox', { name: 'Premier message' }), 'Relis');
+    await user.keyboard('{Enter}');
+    expect(form.queryByRole('textbox', { name: 'Nom' })).toBeNull();
+    expect(form.getByRole('button', { name: 'Renommer · Revuepr' })).toBeVisible();
+    // The box stays open: Enter in the name only kept it.
+    expect(launches(d)).toHaveLength(0);
+    await user.type(message(form), 'Relis');
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     expect(launches(d)[0]!.name).toBe('Revuepr');
   });
 
-  it('on but empty: no name is sent, as when it is off', async () => {
-    const { d, user, form, sw } = await openModal();
-    await user.click(sw);
-    await user.type(form.getByRole('textbox', { name: 'Premier message' }), 'Relis');
+  it('emptied, or left as Ledge picked it, no name is sent', async () => {
+    const { d, user, form } = await openModal();
+    await user.click(form.getByRole('button', { name: 'Renommer · Pim' }));
+    await user.clear(form.getByRole('textbox', { name: 'Nom' }));
+    await user.keyboard('{Enter}');
+    expect(form.getByRole('button', { name: 'Renommer · Pim' })).toBeVisible();
+    await user.click(form.getByRole('button', { name: 'Renommer · Pim' }));
+    await user.keyboard('{Enter}');
+    await user.type(message(form), 'Relis');
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     expect(launches(d)[0]!.name).toBeUndefined();
   });
 
-  it('a taken name blocks « Lancer » and says whose it is; off, it is kept but not sent', async () => {
-    const { d, user, form, sw } = await openModal();
-    await user.type(form.getByRole('textbox', { name: 'Premier message' }), 'Relis');
-    await user.click(sw);
+  it('a taken name: the field is ringed, the reason replaces the hint, « Lancer » waits; Escape goes back to Pim and the box stays', async () => {
+    const { d, user, form } = await openModal();
+    await user.type(message(form), 'Relis');
+    await user.click(form.getByRole('button', { name: 'Renommer · Pim' }));
     const field = form.getByRole('textbox', { name: 'Nom' });
-    await user.type(field, 'nova');
+    await user.keyboard('nova');
     expect(field).toHaveAttribute('aria-invalid', 'true');
     expect(form.getByText('Nova est déjà le nom d’une session de Ledge. Choisissez un autre nom, ou laissez vide.')).toBeVisible();
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(form.getByRole('button', { name: /^Lancer/ })).toHaveAttribute('aria-disabled', 'true');
     expect(form.getByText('Choisissez un autre nom pour la session')).toBeVisible();
     expect(launches(d)).toHaveLength(0);
-    await user.click(sw);
-    expect(form.queryByRole('textbox', { name: 'Nom' })).toBeNull();
-    await user.click(sw);
-    expect(form.getByRole('textbox', { name: 'Nom' })).toHaveValue('nova');
-    await user.click(sw);
+    await user.keyboard('{Escape}');
+    expect(dialog()).not.toBeNull();
+    expect(form.getByRole('button', { name: 'Renommer · Pim' })).toBeVisible();
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     expect(launches(d)[0]!.name).toBeUndefined();
   });
 
-  it('a reopened box starts off, the name forgotten', async () => {
-    const { user, form, sw } = await openModal();
-    await user.click(sw);
-    await user.type(form.getByRole('textbox', { name: 'Nom' }), 'Ada');
+  it('F2 anywhere in the box opens the name; a reopened box has forgotten it', async () => {
+    const { user, form } = await openModal();
+    message(form).focus();
+    await user.keyboard('{F2}');
+    const field = form.getByRole('textbox', { name: 'Nom' });
+    expect(field).toHaveFocus();
+    await user.keyboard('Ada{Enter}');
+    expect(form.getByRole('button', { name: 'Renommer · Ada' })).toBeVisible();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(dialog()).toBeNull());
     await user.keyboard('n');
     const again = within(await screen.findByRole('dialog', { name: 'Nouvelle session' }));
-    const sw2 = again.getByRole('switch', { name: 'Définir un nom ?' });
-    expect(sw2).toHaveAttribute('aria-checked', 'false');
-    await user.click(sw2);
-    expect(again.getByRole('textbox', { name: 'Nom' })).toHaveValue('');
+    expect(again.getByRole('button', { name: 'Renommer · Pim' })).toBeVisible();
   });
 });

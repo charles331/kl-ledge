@@ -17,6 +17,11 @@ const tab: Tab = { kind: 'session', ref: 'otto' };
 const draw = (ui: JSX.Element) => render(<LangProvider lang="fr">{ui}</LangProvider>);
 
 describe('SessionTabLabel', () => {
+  it('a nickname: « KB Projet 1 » then « (Otto) » muted, cut first in a narrow tab', () => {
+    const { container } = draw(<SessionTabLabel session={fakeSession('otto', { name: 'Otto', label: 'KB Projet 1' })} tab={tab} title="KB Projet 1 (Otto)" />);
+    expect(container.querySelector('.tab-name')).toHaveTextContent('KB Projet 1 (Otto)');
+    expect(container.querySelector('.tab-name .sn-name')).toHaveTextContent('(Otto)');
+  });
   it('Claude working: the Anthropic logo, the name, the working dot', () => {
     const { container } = draw(<SessionTabLabel session={fakeSession('otto', { name: 'Otto', tool: 'claude', state: 'working' })} tab={tab} title="Otto" />);
     expect(screen.getByTitle('Anthropic')).toBeInTheDocument();

@@ -19,6 +19,7 @@ import { Thread } from './Thread';
 import { helperRows, type HelperRow } from '../thread/turns';
 import type { DocumentReference } from '../documents/references';
 import { TerminalBand, TerminalPane, TerminalRail } from './TerminalBand';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 const mono = "'Geist Mono', ui-monospace, monospace";
 const well: React.CSSProperties = { fontFamily: mono, fontSize: 13, lineHeight: '20px', padding: '10px 12px', background: 'var(--sidebar)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' };
@@ -334,7 +335,7 @@ function TopicLine({ session: s, t, now, onRename }: { session: Session; t: Mess
             onKeyDown={e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') { e.stopPropagation(); setEditing(null); } }}
             style={{ height: 22, boxSizing: 'border-box', padding: '0 6px', fontSize: 14, fontWeight: 650, background: 'var(--well)', color: 'inherit', border: '1px solid var(--input)', borderRadius: 'var(--radius-sm)' }} />}
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, lineHeight: '16px', color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
-        <span>{s.name}</span>
+        <span><SessionName session={s} /></span>
         {s.branch && <><span aria-hidden="true">·</span><BranchChip session={s} /></>}
         <span aria-hidden="true">·</span><span>{toolName(s.tool)}</span>
         <span aria-hidden="true">·</span><span>{relativeTime(s.startedAt, now, t)}</span>

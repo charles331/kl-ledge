@@ -7,6 +7,7 @@ import { useTheme } from '../theme';
 import { Icon } from '../ui/icons';
 import { Dot, RuntimeTag } from '../ui/kit/marks';
 import { useLongPress } from './longPress';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** « Projets · Rigs » across the width, then the eye that hides the sub-agents (m2-sessions.html §7). */
 function GroupBar({ by, onBy, helpers, onHelpers }: { by: Grouping; onBy: (g: Grouping) => void; helpers: boolean; onHelpers: () => void }) {
@@ -43,7 +44,7 @@ function Seat({ session: s, rig, helpers, pressed, onPress }: { session: PhoneSe
       <a href={thread} aria-label={label} {...long}
         className={`${SEAT} h-10 text-[13px] font-medium ${tone} ${s.state === 'exited' ? 'opacity-60' : ''} ${pressed ? 'shadow-[0_0_0_2px_var(--color-ring)]' : ''}`}>
         {!rig && <RuntimeTag tool={s.tool} />}
-        {s.name}
+        <SessionName session={s} nameClassName="font-normal text-muted" />
         <Dot state={dot} />
         {!helpers && s.helpers.length > 0 && <span aria-label={copy.sessions.kidsLabel(s.helpers.length)} className="ml-0.5 rounded-lg border border-input px-1.5 font-mono text-[11px] leading-[18px] text-muted">{copy.sessions.kids(s.helpers.length)}</span>}
       </a>

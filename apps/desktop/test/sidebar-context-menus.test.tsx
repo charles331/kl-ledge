@@ -196,7 +196,7 @@ describe('SidebarMenuHost on the Archives, some on a machine that cannot archive
     const list = [archived('a1', 'Nia'), archived('a2', 'Ned')];
     const request = vi.fn();
     const actions = { request, resume: vi.fn(), restore: vi.fn(), pending: null, confirm: vi.fn(), cancel: vi.fn(), allowed: (id: string) => id === 'a1' } as unknown as SessionActions;
-    const state = { menu: { target: { kind: 'archives' }, at: { x: 0, y: 0 }, opener: null }, session: null, renaming: null, open: vi.fn(), openOn: vi.fn(), close: vi.fn(), terminal: vi.fn(), rename: vi.fn(), closeRename: vi.fn(), sendRename: vi.fn() } as ContextMenuState;
+    const state = { menu: { target: { kind: 'archives' }, at: { x: 0, y: 0 }, opener: null }, session: null, renaming: null, renameOutdated: null, open: vi.fn(), openOn: vi.fn(), close: vi.fn(), terminal: vi.fn(), rename: vi.fn(), closeRename: vi.fn(() => false), sendRename: vi.fn(() => false) } as ContextMenuState;
     const user = userEvent.setup();
     render(<LangProvider lang="en"><SidebarMenuHost state={state} projects={PROJECTS} groups={[]} archived={list} actions={actions} dispatch={vi.fn()} broadcast={false}
       closed={new Set()} onClosed={vi.fn()} archivesOpen={false} onArchivesOpen={vi.fn()} notify={vi.fn()} /></LangProvider>);

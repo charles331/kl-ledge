@@ -180,7 +180,7 @@ L'onglet porte le logo de l'agent, son nom et une pastille d'état ; il est soul
 - **La réponse :** un champ sur plusieurs lignes (Entrée envoie, Maj+Entrée passe à la ligne).
 - **Le terminal :** `` Ctrl+` `` ou le menu de l'onglet bascule sur le tmux de l'agent, où l'on peut taper.
 - **La barre du bas :** le modèle (un clic en change), le contexte, la branche, le projet, la puce de sa MR ou PR, « Interrompre » pendant le travail et, tout à droite, `+N −N`, qui ouvre ses modifications à côté.
-- **Le menu « Gérer la session »** (clic droit dans l'explorateur) : « Renommer… », « Ranger dans… », « Terminer la session », « Archiver », « Supprimer… ». Quand le contexte de l'agent approche de sa limite, Ledge propose de passer le relais à une session neuve.
+- **Le menu « Gérer la session »** (clic droit dans l'explorateur) : « Renommer » (ou F2 : un champ s'ouvre sur place, dans l'explorateur, pour donner à la session un surnom affiché devant son nom, « KB Projet 1 (Otto) » ; la session garde son nom, son adresse pour les autres sessions ; Entrée garde le surnom, un champ vidé le retire, Échap annule), « Ranger dans… », « Terminer la session », « Archiver », « Supprimer… ». Quand le contexte de l'agent approche de sa limite, Ledge propose de passer le relais à une session neuve.
 - « Ouvrir dans… » envoie le dossier de la session à l'éditeur choisi dans Réglages › Espace de travail (Cursor, VS Code ou Zed).
 
 Y renvoyer l'utilisateur pour répondre à un agent, l'interrompre, ou gérer la session (renommer, archiver, supprimer, passer le relais).

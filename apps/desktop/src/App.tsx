@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncE
 import { ReportDialog } from './report/ReportDialog';
 import { appVersion } from './update/bridge';
 import { canBroadcast, daemonStore, qualify, prOfSession, prsFailing, prsWaitingForYou, sessionForge, projectOf, splitId, type BroadcastTo, type FleetPullRequest, useIsland, useMobile, useMobileError, useProjects, useTokenMissing, type DaemonClient } from '@ledge/fleet';
-import { isOmpSeat, type Project, type Projects, type Session } from '@ledge/protocol';
+import { isOmpSeat, labelledName, type Project, type Projects, type Session } from '@ledge/protocol';
 import { LangProvider, loadLang, messagesFor, saveLang, useI18n, type Lang } from './i18n/lang';
 import { loadMessages } from './i18n/messages';
 import { useFleet } from './fleet/useFleet';
@@ -561,7 +561,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const actions = useSessionActions({ client: fleetClient, sessions, archived: fleetView.archived, machines, errors, notify });
   resumeNow.current = { actions, notify };
   // The session menu, from the atelier's seats and the session page's header « … » (one at a time).
-  const sessionMenu = useContextMenu({ client: fleetClient, sessions, archived: fleetView.archived, projects: projects?.projects ?? NO_PROJECTS, onShowTerminal: showTerminal });
+  // A rename asked from the session page or the atelier happens in the sidebar's tree: it is brought into view first.
+  const sessionMenu = useContextMenu({ client: fleetClient, sessions, archived: fleetView.archived, projects: projects?.projects ?? NO_PROJECTS, onShowTerminal: showTerminal,
+    onRenameStart: () => { if (!(layout.sideOpen && layout.sideView === 'projects')) onLayout({ type: 'view', view: 'projects' }); } });
   const shared = useDecisions({ client: fleetClient, sessions, errors, notify });
   // Answering a request or sending a message keeps the session's tab, should it be a preview, from wherever it is done (spec
   // 2026-11-26-preview-tabs §5.4): its tab, « À toi », the status bar.
@@ -836,7 +838,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
 
   // A dialog over the application (a modal, a confirmation, the rename dialog): what lies behind it, the title bar's controls
   // included, takes neither clicks nor the focus.
-  const blocked = nav.modal !== null || actions.pending !== null || sessionMenu.renaming !== null || whatsNew || pairing !== null;
+  // The rename is a field in the tree now (docs/mockups/ledge-sidebar-names.html, card 2), no dialog: it leaves the shell live.
+  const blocked = nav.modal !== null || actions.pending !== null || whatsNew || pairing !== null;
 
   // The explorer's session menu in the IDE: open to the right, the agent's terminal tab beside the group that holds the session's
   // tab (linked; R3 for a seat; the session opened first where the setting says if it is not), a seat's message (the reply focused, R4).
@@ -973,7 +976,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   // A detached window's name (lot 9, v27): « Pim · ledge » for a session, « dev-front · ledge-dev » for a seat, else the tab's title.
   const windowTitle = (tab: Tab) => {
     const s = tab.kind === 'session' || tab.kind === 'seat' ? known.find(x => x.id === tab.ref) : undefined;
-    return s ? `${s.name} · ${s.rig ? s.rig.name : projectName(s)}` : title(tab);
+    return s ? `${labelledName(s)} · ${s.rig ? s.rig.name : projectName(s)}` : title(tab);
   };
   // The IDE shell: the pieces, in tabs and panels.
   const ideShell = (() => {
@@ -1220,7 +1223,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         // The IDE palette (lot 10, mockup `palItems`): the sessions and seats (`@`), the commands (`>`).
         const p = t.ide.palette.commands;
         const waitingIds = new Set(waitingSessions(sessions, waits).map(s => s.id));
-        const rows = known.map((s): PaletteSession => ({ kind: 'session', id: s.id, label: s.name, waiting: waitingIds.has(s.id), run: () => dispatch({ type: 'open', id: s.id }),
+        const rows = known.map((s): PaletteSession => ({ kind: 'session', id: s.id, label: labelledName(s), waiting: waitingIds.has(s.id), run: () => dispatch({ type: 'open', id: s.id }),
           hint: s.rig ? s.rig.name : fleetView.archived.includes(s) ? t.ide.palette.archived(projectName(s)) : projectName(s) }));
         const cmd = (id: string, label: string, run: () => void, hint?: string): PaletteCommand => ({ kind: 'command', id, label, run, ...(hint ? { hint } : {}) });
         // Around OpenRig's (the palette makes them): « Nouvelle session » first; the dispositions, then « Enregistrer… », last.

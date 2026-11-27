@@ -11,6 +11,10 @@ describe('tabTitle', () => {
     expect(tabTitle({ kind: 'session', ref: 'otto' }, ctx)).toBe('Otto');
     expect(tabTitle({ kind: 'seat', ref: 'otto' }, ctx)).toBe('Otto');
   });
+  it('a session with a nickname: « KB Projet 1 (Otto) » (docs/mockups/ledge-sidebar-names.html, card 2)', () => {
+    const named = fakeSession('kb', { name: 'Otto', label: 'KB Projet 1' });
+    expect(tabTitle({ kind: 'session', ref: 'kb' }, { ...ctx, session: () => named })).toBe('KB Projet 1 (Otto)');
+  });
   it('an unknown session: its ref', () => {
     expect(tabTitle({ kind: 'session', ref: 'gone' }, ctx)).toBe('gone');
   });

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Session } from '@ledge/protocol';
+import { labelledName, type Session } from '@ledge/protocol';
 import type { Messages } from '../i18n/messages';
 import { parseRigRef, sessionOf, type Tab } from '../workspace/model';
 
@@ -10,7 +10,7 @@ export type TabBody = (tab: Tab) => ReactNode;
  *  not (or no longer) known keeps its ref; a machine without a label, its id. */
 export function tabTitle(t: Tab, ctx: { session(id: string): Session | undefined; t: Messages; machine?(id: string): string | undefined; shell?(id: string): string | undefined; /** A request's ref (`#226`, `!41`) by its id (lot 8b). */ pr?(id: string): string | undefined; /** A routine's name by its tab ref. */ routine?(ref: string): string | undefined }): string {
   switch (t.kind) {
-    case 'session': case 'seat': return ctx.session(t.ref)?.name ?? t.ref;
+    case 'session': case 'seat': { const s = ctx.session(t.ref); return s ? labelledName(s) : t.ref; }
     case 'atelier': return ctx.t.side.atelier;
     case 'settings': return ctx.t.side.settings;
     case 'openrig': return ctx.t.ide.openrigTitle(ctx.machine?.(t.ref) ?? t.ref);

@@ -16,6 +16,7 @@ import { tildePath } from './groups';
 import { isYesNo } from '../keyboard/useKeyboard';
 import { Icon, ICONS } from '../ui/icons';
 import { messagesFor, useI18n, type Messages } from '../i18n/lang';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** A finished or read-only session can leave the list (`session.dismiss`); a live launcher session cannot. */
 export const canDismiss = (s: Session) => s.state === 'exited' || s.source === 'hook_only';
@@ -91,7 +92,7 @@ export function SessionList({ sessions, visible, selectedId, focusedId = null, d
         <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 0 }}>
           <span data-topic style={{ fontSize: 14, lineHeight: '18px', fontWeight: s.topic ? 600 : 500, color: s.topic ? undefined : 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.topic ?? t.list.noTopic}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 12, lineHeight: '16px', color: 'var(--muted-foreground)' }}>
-            <span style={{ flexShrink: 0 }}>{s.name}</span>
+            <span style={{ flexShrink: 0 }}><SessionName session={s} /></span>
             {s.machineName && <><span aria-hidden="true">·</span><span title={s.machineName} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.machineId === 'local' ? t.machines.local : s.machineName}</span></>}
             {s.branch && <><span aria-hidden="true">·</span><BranchChip session={s} /></>}
             <span aria-hidden="true">·</span><span style={{ flexShrink: 0 }}>{relativeTime(s.startedAt, now, t)}</span>

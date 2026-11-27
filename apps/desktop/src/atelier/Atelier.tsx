@@ -114,8 +114,6 @@ export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf,
   useScreenKeys(e => {
     if (view.keys(e)) return true;
     const target = e.target instanceof Element ? e.target : null;
-    // Renaming owns the keyboard (Escape closes it in the dialog itself).
-    if (menu.renaming !== null) return false;
     if (target?.closest('[role=tablist],[role=menu]')) return false;
     const key = e.key.toLowerCase();
     const step = key === 'j' || key === 'arrowdown' ? 1 : key === 'k' || key === 'arrowup' ? -1 : 0;

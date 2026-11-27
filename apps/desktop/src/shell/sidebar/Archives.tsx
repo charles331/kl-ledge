@@ -13,6 +13,7 @@ import type { MenuTarget } from '../../manage/useContextMenu';
 import { isMenuKey, menuPoint } from './menuPoint';
 import { filterArchived } from './model';
 import { RoutineClock } from './Tree';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 /** « 12 min » / « 1 h » / « 3 d », or the list's « just now ». Same units as the tree. */
 function shortWhen(iso: string | undefined, units: { min: string; h: string; d: string }, nowLabel: string): string {
@@ -102,7 +103,7 @@ export function Archives(p: {
                 <button type="button" className="st-main" data-arch-key={s.id} aria-current={selected ? 'page' : undefined}
                   aria-label={t.side.read(s.name, name, task, when)} onClick={() => p.onRead(s.id)}
                   onKeyDown={e => { if (isMenuKey(e)) { e.preventDefault(); p.onMenu({ kind: 'archive', id: s.id }, menuPoint(e, e.currentTarget), e.currentTarget); } }}>
-                  <strong><ProjectSwatch project={p.project(s)} />{s.name}<RoutineClock of={p.clock?.(s)} /></strong>{task && <span>{task}</span>}
+                  <strong><ProjectSwatch project={p.project(s)} /><SessionName session={s} /><RoutineClock of={p.clock?.(s)} /></strong>{task && <span>{task}</span>}
                 </button>
                 {kids > 0 && <span className="st-kids" title={t.side.kids(kids)}>{kids}</span>}
                 <span className="st-time" title={when}>{when}</span>

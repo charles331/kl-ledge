@@ -62,7 +62,7 @@ describe('the explorer\'s session menu in the IDE', () => {
     fireEvent.contextMenu(tree.getByRole('button', { name: /^Otto/ }));
     const items = labels();
     expect(items.slice(0, 3)).toEqual(['Ouvrir', 'Ouvrir à droite', 'Son terminal']);
-    expect(items).toContain('Renommer…');
+    expect(items).toContain('Renommer');
     expect(items).toContain('Supprimer…');
     expect(items).not.toContain('Ouvrir la session');
     // One terminal entry, as in the mockup: « Son terminal » replaces lot 2's « Terminal ».

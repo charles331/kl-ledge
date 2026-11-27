@@ -45,7 +45,8 @@ export function FilterChips<T extends string>({ label, options, value, onChange 
 
 /** A detail screen's head: back, the runtime, the name and its dot (`pulse`: at work, live), where it works, and « Plus d'actions ». */
 export function DetailHeader({ back, tool, name, dot, pulse = false, sub, under = false, more }: {
-  back: ReactNode; tool?: Tool; name: string; dot?: DotState; pulse?: boolean; sub?: string | undefined;
+  /** The session's name, or its nickname and name (SessionName). */
+  back: ReactNode; tool?: Tool; name: ReactNode; dot?: DotState; pulse?: boolean; sub?: string | undefined;
   /** `sub` goes under the name, in the same height: a phone's ended session, whose end time would not fit beside it (review-qa f3d4bee6, design-ux e39f7cba). */
   under?: boolean;
   more?: ReactNode;

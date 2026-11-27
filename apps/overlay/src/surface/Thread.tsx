@@ -9,6 +9,7 @@ import { turns } from '../thread/turns';
 import { LiveToolLine } from './LiveToolLine';
 import { ThreadMarkdown } from '../documents/MarkdownDocument';
 import type { DocumentReference } from '../documents/references';
+import { SessionName } from '@ledge/ui/ui/SessionName';
 
 export interface ThreadProps {
   session: Session; items: ThreadItem[]; t: Messages; theme: 'dark' | 'light';
@@ -39,7 +40,7 @@ function Item({ item, session, t, theme, paused, frozen, reducedMotion, onDocume
     case 'reply': return (
       <div data-item={item.kind} {...(item.kind === 'message' ? { 'data-message': '' } : { 'data-reply-item': '' })} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '14px 0 10px' }}>
         <Bot seed={`${session.id}:msg`} tool={session.tool} state={botState(session)} pose={poseFor(session.id, session.state)} size={20} theme={theme} paused={paused} frozen={frozen} reducedMotion={reducedMotion} />
-        <div style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: '20px', overflowWrap: 'anywhere' }}><strong style={{ fontWeight: 600 }}>{session.name}</strong> <ThreadMarkdown text={item.text} onDocument={onDocument} /></div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: '20px', overflowWrap: 'anywhere' }}><strong style={{ fontWeight: 600 }}><SessionName session={session} nameStyle={{ color: 'var(--muted-foreground)', fontWeight: 400 }} /></strong> <ThreadMarkdown text={item.text} onDocument={onDocument} /></div>
       </div>);
     case 'permission': return (
       <div data-item="permission" data-permission data-decision={item.decision ?? 'pending'} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
