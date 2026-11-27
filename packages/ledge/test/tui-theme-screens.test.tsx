@@ -77,11 +77,13 @@ describe('ledge tui: the theme (#95 lot D)', () => {
     } finally { await tui.cleanup(); }
   });
 
-  it('the Markdown of an answer in the light palette: # in coral, inline code on its background, links in blue', async () => {
+  it('the Markdown of a session’s reply in the light palette: # in coral, inline code on its background, links in blue', async () => {
     const tui = await startTui({ theme: 'light' });
+    tui.daemon.thread('bix', [{ kind: 'reply', id: 'r1', at: now(-1), turn: 1, text: '## Qui t’attend\n- `npm test` puis [la PR](https://x.io/1)' }]);
     try {
-      await tui.press('/');
-      tui.daemon.push({ type: 'chat.history', turns: [{ qid: 'h0', question: 'Qui ?', askedAt: now(-2), steps: [], answeredAt: now(-1), answer: '## Qui t’attend\n- `npm test` puis [la PR](https://x.io/1)' }] });
+      await tui.press('j'); await tui.press('j');
+      await until(() => tui.frame().includes('BIX · DOCUMENTER'));
+      await tui.press('\r');
       await until(() => tui.frame().includes('Qui t’attend'));
       const f = tui.frame();
       expect(f).toContain(fgOf(PALETTES.light.coral));

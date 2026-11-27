@@ -75,7 +75,7 @@ describe('ledge tui: OMP seats in the RIGS box', () => {
       await tui.press('j'); await tui.press('j');
       await until(() => !tui.frame().includes('attacher son terminal') && !tui.frame().includes('attacher (tmux)'));
       await tui.press('\r');
-      await until(() => tui.frame().includes('Tom est arrêté : son terminal n’existe plus. 6 ouvre OpenRig, où est son rig.'));
+      await until(() => tui.frame().includes('Tom est arrêté : son terminal n’existe plus. 5 ouvre OpenRig, où est son rig.'));
       await tui.press('a');
       expect(runs).toHaveLength(1);
       // Still the overview: ↵ did not open a session screen.

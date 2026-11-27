@@ -102,7 +102,7 @@ describe('ledge tui: launch a rig (+ on the OpenRig screen)', () => {
         }
       });
       await tui.resize(110, 36);
-      await tui.press('6');
+      await tui.press('5');
       await until(() => tui.frame().includes('RIGS'));
       await tui.press('+');
       await until(() => tui.frame().includes('ledge-x3'));
@@ -143,7 +143,7 @@ describe('ledge tui: launch a rig (+ on the OpenRig screen)', () => {
         if (m.type === 'openrig.status') tui.daemon.push({ type: 'openrig.state', requestId: m.requestId, state: STATE });
         if (m.type === 'openrig.specs') tui.daemon.push({ type: 'openrig.specList', requestId: m.requestId, specs: [], error: 'daemon_stopped' });
       });
-      await tui.press('6'); await until(() => tui.frame().includes('RIGS'));
+      await tui.press('5'); await until(() => tui.frame().includes('RIGS'));
       await tui.press('+');
       await until(() => tui.frame().includes('Démarrez le daemon OpenRig d’abord'));
       await tui.press('\u001b');

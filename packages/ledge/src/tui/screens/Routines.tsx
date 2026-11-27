@@ -6,7 +6,7 @@ import { targetNames } from '../../routine-text.js';
 import { useScreenKeys, useScreenSize, useTui } from '../context.js';
 import { step } from '../model/openrig.js';
 import { machineOf } from '../model/overview.js';
-import { routineLines, routineOrder, runReason, type RoutineMachine } from '../model/routines.js';
+import { awaitsOwner, routineLines, routineOrder, runReason, type RoutineMachine } from '../model/routines.js';
 import { C } from '../theme.js';
 import { Frame } from '../ui/Frame.js';
 import { LineText } from '../ui/Lines.js';
@@ -33,9 +33,10 @@ export function sessionOf(r: FleetRoutine, sessions: readonly Session[]): Sessio
 }
 
 /**
- * Screen 7, Routines (docs/mockups/ledge-routines.html, cards 18, 25 and 27): every routine in two lines, the one-shots under
+ * Screen 6, Routines (docs/mockups/ledge-routines.html, cards 18, 25 and 27): every routine in two lines, the one-shots under
  * their own title, machine by machine when there are several. j k choose, r runs the chosen one now (again, after a failure), p
- * pauses or resumes it, ↵ opens its session. A routine awaiting the owner's approval is read here and activated in « À toi ».
+ * pauses or resumes it, ↵ opens its session. A routine awaiting the owner's approval is answered here (#40, D4,
+ * docs/mockups/ledge-remove-chat-p2.html): a activates it (or the change a session asks), bound to the version shown, x refuses it.
  * What a run became, or why a key did nothing, comes as a toast. A daemon too old for routines says so in the frame.
  */
 export function RoutinesScreen() {
@@ -67,12 +68,19 @@ export function RoutinesScreen() {
     const why = e.message || e.code;
     tui.toast({ text: `! ${op === 'run' ? x.toast.failed(r.name, why) : op === 'pause' ? x.toast.pauseRefused(why) : x.toast.resumeRefused(why)}`, tone: 'error' });
   };
+  // « Activer » is bound to the version shown (`expect`): a routine changed since is not activated, and says so.
+  const answer = (r: FleetRoutine, op: 'approve' | 'refuse') => {
+    tui.fleet.routineCmd(r.machineId, { op, routine: r.id, ...(op === 'approve' && r.key ? { expect: r.key } : {}) }).catch((e: RoutineFailure) => {
+      tui.toast({ text: e.code === 'stale' ? `! ${x.stale(r.name)}` : t.toast.answerFailed(e.message || e.code || '?'), tone: 'error' });
+    });
+  };
   useScreenKeys((input, key) => {
     if (key.downArrow || input === 'j') { const n = rows[step(sel, 1, rows.length)]; if (n) setSelKey(keyOf(n)); return true; }
     if (key.upArrow || input === 'k') { const n = rows[step(sel, -1, rows.length)]; if (n) setSelKey(keyOf(n)); return true; }
     if (!chosen) return false;
+    if ((input === 'a' || input === 'x') && awaitsOwner(chosen)) { answer(chosen, input === 'a' ? 'approve' : 'refuse'); return true; }
     if (input === 'r') {
-      if (chosen.state === 'pending') return true;
+      if (awaitsOwner(chosen)) return true;
       runs.current.set(keyOf(chosen), chosen.lastRun?.at);
       tui.fleet.routineCmd(chosen.machineId, { op: 'run', routine: chosen.id }).catch(refused(chosen, 'run'));
       return true;
@@ -98,9 +106,10 @@ export function RoutinesScreen() {
   // One machine, or every one, too old for routines: the frame says so rather than « no routine » (card 27).
   const old = machines.length > 0 && machines.every(m => m.old);
   const top = Math.max(0, Math.min(list.lines.length - room, list.selLine - Math.floor(room / 2)));
-  const keys: Array<[string, string]> = [['j k', x.keys.nav], ['r', x.keys.runNow], ['p', x.keys.pauseResume], ['↵', x.keys.openSession]];
+  const waits = !!chosen && awaitsOwner(chosen);
+  const keys: Array<[string, string]> = [['j k', x.keys.nav], ...(waits ? [['a', x.itemKeys.activate], ['x', x.itemKeys.refuse]] as Array<[string, string]> : [['r', x.keys.runNow], ['p', x.keys.pauseResume]] as Array<[string, string]>), ['↵', x.keys.openSession]];
   return (
-    <Frame crumb={`7 · ${t.tabs.routines}`} crumbShort={t.tabs.routines} keys={keys}>
+    <Frame crumb={`6 · ${t.tabs.routines}`} crumbShort={t.tabs.routines} keys={keys}>
       <TitledBox title={`${x.title} · ${rows.length}`} flexGrow={1} paddingX={0} titleColor={C.fg} titleBold>
         {old ? <Text color={C.yellow}> {x.oldDaemon}</Text> : rows.length === 0 && list.lines.length === 0 ? <Text color={C.faint}> {x.empty}</Text>
           : list.lines.slice(top, top + room).map((l, i) => <Box key={top + i} flexShrink={0}><LineText line={l} /></Box>)}

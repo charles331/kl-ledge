@@ -44,8 +44,8 @@ describe('OpenRig screen model', () => {
   });
 });
 
-describe('ledge tui: OpenRig (6)', () => {
-  it('6 shows the daemon, the kernel and the rigs; ↵ unfolds the seats; s on a running rig asks y / n, then runs', async () => {
+describe('ledge tui: OpenRig (5)', () => {
+  it('5 shows the daemon, the kernel and the rigs; ↵ unfolds the seats; s on a running rig asks y / n, then runs', async () => {
     const tui = await startTui();
     try {
       const acts: OpenRigAction[] = [];
@@ -53,7 +53,7 @@ describe('ledge tui: OpenRig (6)', () => {
         if (m.type === 'openrig.status') tui.daemon.push({ type: 'openrig.state', requestId: m.requestId, state: STATE });
         if (m.type === 'openrig.act') { acts.push(m.action); tui.daemon.push({ type: 'openrig.done', requestId: m.requestId, ok: true, commands: ['rig down starter --snapshot'] }); }
       });
-      await tui.press('6');
+      await tui.press('5');
       await until(() => tui.frame().includes('STARTER') || tui.frame().includes('starter'));
       const f = tui.frame();
       expect(f).toContain('DAEMON');
@@ -86,7 +86,7 @@ describe('ledge tui: OpenRig (6)', () => {
         if (answer === 'outdated') tui.daemon.push({ type: 'error', message: 'invalid message', request: 'openrig.status' });
         else tui.daemon.push({ type: 'openrig.state', requestId: m.requestId, state: answer === 'absent' ? { ...STATE, installed: false, rigs: [] } : STATE });
       });
-      await tui.press('6');
+      await tui.press('5');
       await until(() => tui.frame().includes('epic-split'));
       await tui.press('D');
       await until(() => tui.frame().includes('Arrêter le daemon OpenRig ?'));
@@ -94,9 +94,9 @@ describe('ledge tui: OpenRig (6)', () => {
       await tui.press('n');
       await until(() => !tui.frame().includes('Arrêter le daemon OpenRig ?'));
       expect(acts).toEqual([]);
-      answer = 'absent'; await tui.press('1'); await tui.press('6');
+      answer = 'absent'; await tui.press('1'); await tui.press('5');
       await until(() => tui.frame().includes('OpenRig n’est pas installé'));
-      answer = 'outdated'; await tui.press('1'); await tui.press('6');
+      answer = 'outdated'; await tui.press('1'); await tui.press('5');
       await until(() => tui.frame().includes('ne connaît pas OpenRig'));
     } finally { await tui.cleanup(); }
   });

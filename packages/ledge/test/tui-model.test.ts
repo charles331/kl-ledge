@@ -13,7 +13,6 @@ import { cells, type Line } from '../src/tui/model/cells.js';
 import { markdownLines } from '../src/tui/model/markdown.js';
 import { helpLines } from '../src/tui/screens/Help.js';
 import { askRows } from '../src/tui/screens/Session.js';
-import { askHistory, chatLines, chatView, openCards } from '../src/tui/model/chat.js';
 import { ago, took } from '../src/tui/model/time.js';
 import { asked, notification } from '../src/tui/notify.js';
 import { defaultLang, loadSettings, saveSettings, settingsPath } from '../src/tui/settings.js';
@@ -242,49 +241,6 @@ describe('tui thread', () => {
   });
 });
 
-describe('tui chat', () => {
-  const turn = (extra: Partial<ChatTurn>): ChatTurn => ({ qid: 'q1', question: 'Qui a besoin de moi ?', askedAt: '2026-10-09T18:00:00.000Z', steps: [], ...extra });
-  it('shows when and what Ledge read on one line, then the streamed text while it writes, its caret last', () => {
-    const lines = text(chatLines([turn({ steps: [{ kind: 'sessions' }, { kind: 'pane', name: 'Otto' }] })], { qid: 'q1', text: 'Otto attend.' }, { t: fr, g: glyphsFor({}), width: 80 }));
-    expect(lines.some(l => /^  vous · \d\d:\d\d · lu : les sessions · le terminal de Otto$/.test(l))).toBe(true);
-    expect(lines.slice(-2)).toEqual(['  Otto attend.', '  ▍']);
-  });
-
-  it('the answer in Markdown; each line keeps its turn, so a scroll stays on it', () => {
-    const v = chatView([turn({ answer: '## Qui t’attend\n- **Otto** veut lancer `rm -rf coverage`', answeredAt: '2026-10-09T18:00:05.000Z' }), turn({ qid: 'q2', question: 'Et Luna ?' })],
-      null, { t: fr, g: glyphsFor({}), width: 80 });
-    const shown = text(v.lines);
-    expect(shown).toContain('  Qui t’attend');
-    expect(shown).toContain('  • Otto veut lancer rm -rf coverage');
-    expect(shown).not.toContain('  ▍');
-    expect(v.keys.length).toBe(v.lines.length);
-    expect(v.keys[shown.indexOf('❯ Et Luna ?')]).toBe('q2');
-    expect(anchorLine(v, { key: 'q2', offset: 0 })).toBe(shown.indexOf('❯ Et Luna ?') - 1);
-  });
-
-  it('the history of the field: the questions of the conversation, after the ones cleared since, each once', () => {
-    const at = (s: number) => `2026-10-09T18:00:0${s}.000Z`;
-    expect(askHistory([turn({ question: 'B', askedAt: at(2) }), turn({ qid: 'q2', question: 'C', askedAt: at(3) })],
-      [{ question: 'A', askedAt: at(1) }, { question: 'B', askedAt: at(2) }])).toEqual(['A', 'B', 'C']);
-    expect(askHistory([turn({ question: 'A' })], [])).toEqual(['A']);
-  });
-
-  it('the history of the field: a question that never got its turn (not sent) comes at its time, not first', () => {
-    const at = (s: number) => `2026-10-09T18:00:0${s}.000Z`;
-    expect(askHistory([turn({ question: 'B', askedAt: at(2) })], [{ question: 'B', askedAt: at(2) }, { question: 'D', askedAt: at(4) }]))
-      .toEqual(['B', 'D']);
-  });
-
-  it('keeps the cards still to act on, newest turn first', () => {
-    const cards = openCards([
-      turn({ qid: 'a', answeredAt: '2026-10-09T18:00:01.000Z', proposals: [{ cwd: '/w/ledge', project: 'ledge', tool: 'claude', launchedId: 'x' }, { cwd: '/w/web', project: 'web', tool: 'codex' }] }),
-      turn({ qid: 'b', answeredAt: '2026-10-09T18:00:02.000Z', relay: { id: 'o', name: 'Otto', tool: 'claude', text: 'Relance', status: 'sent' }, closes: [{ id: 'n', name: 'Nova', tool: 'codex' }] }),
-      turn({ qid: 'c' })
-    ]);
-    expect(cards).toEqual([{ kind: 'close', qid: 'b', rows: [0] }, { kind: 'launch', qid: 'a', rows: [1] }]);
-  });
-});
-
 describe('tui notifications', () => {
   it('tells a new request, not one already on screen nor a session seen for the first time', () => {
     const [otto, nova] = mockupSessions();
@@ -342,44 +298,6 @@ describe('tui overview and Ledge’s tasks', () => {
     const tasks = [task('t000001', { state: 'done', at: '2026-10-09T17:00:00.000Z', log: [given] }), task('t000002', { state: 'done', seen: true }), task('t000003', { giver: 'otto', giverName: 'Otto', state: 'done' })];
     expect(exchanges([], 3, tasks, 'Ledge (moi)')[0]).toEqual({ at: '2026-10-09T17:00:00.000Z', from: 'Ledge (moi)', to: 'Nova', summary: 'Tâche t000001', kind: 'task' });
     expect(closedLedgeTasks(tasks).map(x => x.id)).toEqual(['t000001']);
-  });
-  it('the task card: open until acted on, then its outcome stays in the conversation', () => {
-    const turn: ChatTurn = { qid: 'q1', question: 'Confie une tâche à Mila', askedAt: '2026-10-09T16:00:00.000Z', steps: [], answer: 'Voici.', answeredAt: '2026-10-09T16:00:05.000Z',
-      tasks: [{ to: 'mila', title: 'Implémenter' }] };
-    expect(openCards([turn])).toEqual([{ kind: 'task', qid: 'q1', rows: [0] }]);
-    const done: ChatTurn = { ...turn, tasks: [{ ...turn.tasks![0]!, taskId: 't91b0d4', ownerName: 'Mila', state: 'taken' }] };
-    expect(openCards([done])).toEqual([]);
-    const lines = text(chatLines([done], null, { t: fr, g: glyphsFor({}), width: 80 }));
-    expect(lines).toContain('  Implémenter · ✓ Confiée à Mila · t91b0d4 · prise');
-  });
-});
-
-describe('tui point turns', () => {
-  const at = '2026-11-13T09:00:00.000Z';
-  const item = (id: string, group: 'atoi' | 'done' | 'ongoing' | 'rigs', extra: Record<string, unknown> = {}) =>
-    ({ id, event: 1, group, tone: 'ask', who: 'Otto', text: 'veut lancer rm -rf coverage', at, ...extra });
-  const point = (items: unknown[], extra: Record<string, unknown> = {}): ChatTurn => ({ qid: 'p1', question: '', askedAt: at, steps: [], by: 'ledge', answer: '', answeredAt: at,
-    point: { since: at, lead: 'Otto attend toi.', leadBy: 'daemon', items: items as never }, ...extra } as ChatTurn);
-  const view = (turns: ChatTurn[]) => text(chatLines(turns, null, { t: fr, g: glyphsFor({}), width: 80 }));
-  it('a point turn renders its groups and a settled receipt', () => {
-    const lines = view([point([
-      item('session.request:a', 'atoi', { answers: [{ id: 'allow', label: 'Autoriser', style: 'primary' }] }),
-      item('session.request:b', 'atoi', { settled: { at, where: 'terminal' } }),
-      item('session:c', 'done', { tone: 'idle', who: 'Nova', text: 'a fini' })
-    ])]);
-    expect(lines).toContain('  Otto attend toi.');
-    expect(lines).toContain('  À TOI (2)');
-    expect(lines).toContain('  TERMINÉ (1)');
-    expect(lines.some(l => l.includes('Otto') && l.includes('veut lancer rm -rf coverage'))).toBe(true);
-    expect(lines.some(l => l.includes('✓ réglé dans le terminal'))).toBe(true);
-    expect(lines.some(l => l.includes('vous ·'))).toBe(false);
-  });
-  it('the open point offers its unsettled answerable rows as one card, until set aside', () => {
-    const t = point([item('a', 'atoi', { answers: [{ id: 'allow', label: 'Autoriser', style: 'primary' }] }), item('b', 'done')]);
-    expect(openCards([t])).toEqual([{ kind: 'point', qid: 'p1', items: ['a'] }]);
-    expect(openCards([{ ...t, point: { ...t.point!, laterAt: at } }])).toEqual([]);
-    expect(openCards([{ ...t, point: { ...t.point!, foldedAt: at } }])).toEqual([]);
-    expect(openCards([point([item('a', 'atoi', { settled: { at, where: 'chat' }, answers: [{ id: 'x', label: 'X', style: 'plain' }] })])])).toEqual([]);
   });
 });
 
@@ -482,12 +400,6 @@ describe('tui image lines', () => {
     const items: ThreadItem[] = [{ kind: 'prompt', id: 'p1', at, turn: 1, text: 'Regarde', images: [ref, { ...ref, id: 'b'.repeat(64), width: 800, height: 600, bytes: 1_400_000 }] }];
     expect(text(threadLines(items, { ...o, t: fr }))).toEqual(expect.arrayContaining(['  ▣ capture 1440×900 · 212 Ko · o ouvrir dans la visionneuse', '  ▣ capture 800×600 · 1,4 Mo · o ouvrir dans la visionneuse']));
     expect(text(threadLines(items, { ...o, t: en }))).toContain('  ▣ capture 1440×900 · 212 KB · o open in viewer');
-  });
-
-  it('a chat question shows its images with alt+o', () => {
-    const turn: ChatTurn = { qid: 'q1', question: 'Et ça ?', askedAt: at, steps: [], attachments: [ref] };
-    expect(text(chatLines([turn], null, { t: fr, g: glyphsFor({}), width: 80 }))).toContain('  ▣ capture 1440×900 · 212 Ko · alt+o ouvrir dans la visionneuse');
-    expect(text(chatLines([turn], null, { t: en, g: glyphsFor({}), width: 80 }))).toContain('  ▣ capture 1440×900 · 212 KB · alt+o open in viewer');
   });
 
   it('threadImages lists the images of the turns shown in full, oldest first', () => {

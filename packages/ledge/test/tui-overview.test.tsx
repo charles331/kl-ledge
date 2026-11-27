@@ -55,7 +55,7 @@ describe('ledge tui: overview', () => {
       await until(() => tui.frame().includes('NOVA · RECONNEXION SSH DU FLEET'));
       await tui.press('k');
       await until(() => tui.frame().includes('OTTO · CÂBLER'));
-      await tui.press('4');
+      await tui.press('3');
       await until(() => tui.frame().includes('NOUVELLE SESSION'));
     } finally { await tui.cleanup(); }
   });
@@ -101,6 +101,30 @@ describe('ledge tui: overview', () => {
       await tui.daemon.close();
       await until(() => tui.frame().includes('daemon injoignable'));
       expect(tui.frame()).toContain('Otto');
+    } finally { await tui.cleanup(); }
+  });
+});
+
+describe('ledge tui: the screens 1 to 6 (#40, D13, docs/mockups/ledge-remove-chat-p2.html)', () => {
+  it('« Demander à Ledge » is gone: 3 opens « Nouvelle session », 6 Routines; 7 and / do nothing; the help says 1–6', async () => {
+    const tui = await startTui();
+    try {
+      await tui.resize(120, 40);
+      await until(() => tui.frame().includes('PROJETS'));
+      expect(tui.frame()).not.toMatch(/\/ +demander à Ledge/);
+      await tui.press('/'); await tui.press('7');
+      await new Promise(r => setTimeout(r, 100));
+      expect(tui.frame()).toContain('PROJETS');
+      expect(tui.frame()).not.toContain('QUESTION');
+      await tui.press('3');
+      await until(() => tui.frame().includes('NOUVELLE SESSION'));
+      await tui.press('\x1b');
+      await tui.press('6');
+      await until(() => tui.frame().includes('6 · Routines'));
+      await tui.press('?');
+      await until(() => tui.frame().includes('changer d’écran'));
+      expect(tui.frame()).toMatch(/1–6 +changer d’écran/);
+      expect(tui.frame()).not.toContain('Demander à Ledge');
     } finally { await tui.cleanup(); }
   });
 });

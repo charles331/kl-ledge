@@ -30,7 +30,7 @@ ledge routine edit <id|nom> [options de add ou de once] [-- "<prompt>"]
 ledge routine rm <id|nom>                la supprimer (une unique passée : la retirer de l'historique)
 ledge routine approve|refuse <id|nom>    activer ou refuser une routine (ou sa modification) qu'une session demande
 --days : mon-fri, mon,wed,fri, daily. Le prompt peut contenir {slot} {date} {last}.
-Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'utilisateur dans « À toi ».`,
+Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'utilisateur dans Routines.`,
     noDaemon: "Ledge ne tourne pas (lance une session avec `ledge claude`, ou `ledge daemon`)",
     noAnswer: (why: string) => `pas de réponse de Ledge : ${why}`,
     refused: (why: string) => `refusé : ${why}`,
@@ -39,8 +39,8 @@ Depuis une session Ledge, une routine (ou sa modification) attend l'accord de l'
     outcomes: { delivered: 'remise', resumed: 'reprise', launched: 'lancée', failed: 'échec' } as Record<RoutineRun['outcome'], string>,
     late: 'en retard', next: 'prochains', last: 'dernier', never: 'jamais', every2: 'toutes les deux semaines', anchor: 'ancre',
     daily: 'tous les jours', once: 'unique',
-    added: (r: Routine) => r.state === 'pending' ? `routine ${r.name} (${r.id}) proposée : elle attend l'accord de l'utilisateur dans « À toi »` : `routine ${r.name} (${r.id}) programmée`,
-    proposed: (r: Routine) => `modification de ${r.name} proposée : la routine continue comme avant jusqu'à l'accord de l'utilisateur dans « À toi »`,
+    added: (r: Routine) => r.state === 'pending' ? `routine ${r.name} (${r.id}) proposée : elle attend l'accord de l'utilisateur dans Routines` : `routine ${r.name} (${r.id}) programmée`,
+    proposed: (r: Routine) => `modification de ${r.name} proposée : la routine continue comme avant jusqu'à l'accord de l'utilisateur dans Routines`,
     edited: (r: Routine) => `routine ${r.name} modifiée`,
     paused: (r: Routine) => `routine ${r.name} en pause`, resumed: (r: Routine) => `routine ${r.name} reprise`,
     ran: (r: Routine) => `routine ${r.name} lancée : son issue sera dans ledge routine show ${r.id}`,
@@ -61,7 +61,7 @@ ledge routine edit <id|name> [add or once options] [-- "<prompt>"]
 ledge routine rm <id|name>               remove it (a fired one-shot: take it out of the history)
 ledge routine approve|refuse <id|name>   approve or refuse a routine (or a change to one) a session asks for
 --days: mon-fri, mon,wed,fri, daily. The prompt may hold {slot} {date} {last}.
-From a Ledge session, a routine (or a change to one) waits for the user's approval in « À toi ».`,
+From a Ledge session, a routine (or a change to one) waits for the user's approval in Routines.`,
     noDaemon: 'daemon not running (start a session with `ledge claude`, or run `ledge daemon`)',
     noAnswer: (why: string) => `no answer from Ledge: ${why}`,
     refused: (why: string) => `refused: ${why}`,
@@ -70,8 +70,8 @@ From a Ledge session, a routine (or a change to one) waits for the user's approv
     outcomes: { delivered: 'delivered', resumed: 'resumed', launched: 'launched', failed: 'failed' } as Record<RoutineRun['outcome'], string>,
     late: 'late', next: 'next', last: 'last', never: 'never', every2: 'every two weeks', anchor: 'anchor',
     daily: 'every day', once: 'one-shot',
-    added: (r: Routine) => r.state === 'pending' ? `routine ${r.name} (${r.id}) proposed: it waits for the user's approval in « À toi »` : `routine ${r.name} (${r.id}) scheduled`,
-    proposed: (r: Routine) => `change to ${r.name} proposed: the routine goes on as before until the user approves it in « À toi »`,
+    added: (r: Routine) => r.state === 'pending' ? `routine ${r.name} (${r.id}) proposed: it waits for the user's approval in Routines` : `routine ${r.name} (${r.id}) scheduled`,
+    proposed: (r: Routine) => `change to ${r.name} proposed: the routine goes on as before until the user approves it in Routines`,
     edited: (r: Routine) => `routine ${r.name} changed`,
     paused: (r: Routine) => `routine ${r.name} paused`, resumed: (r: Routine) => `routine ${r.name} resumed`,
     ran: (r: Routine) => `routine ${r.name} fired: its outcome will be in ledge routine show ${r.id}`,

@@ -13,7 +13,6 @@ import { keepSelection, listed, openDecisions, overview } from './model/overview
 import { asked, notification, title, type NotifyMode } from './notify.js';
 import { Overview } from './screens/Overview.js';
 import { SessionScreen } from './screens/Session.js';
-import { Ask } from './screens/Ask.js';
 import { Launch } from './screens/Launch.js';
 import { Settings } from './screens/Settings.js';
 import { Mobile } from './screens/Mobile.js';
@@ -81,7 +80,7 @@ function Shell({ client, lang, setLang: setLangState, saveLang, theme, setThemeS
   const [lastToast, setToast] = useState<Toast | null>(null);
   const [editing, setEditingState] = useState(false);
   const keys = useRef<KeyHandler | null>(null);
-  const kept = useRef<Kept>({ drafts: new Map(), sent: new Map(), asked: [] }).current;
+  const kept = useRef<Kept>({ drafts: new Map(), sent: new Map() }).current;
   // When ctrl+c was last pressed with a draft waiting.
   const armed = useRef(0);
 
@@ -162,7 +161,7 @@ function Shell({ client, lang, setLang: setLangState, saveLang, theme, setThemeS
       if (keys.current?.(input, key)) return;
       // A draft is not lost by reflex: the first ctrl+c says so, a second one within 2 s quits. A session gone since takes
       // its draft with it: there is nowhere to send it.
-      const drafts = [...kept.drafts].some(([id, x]) => x.trim() && (id === 'ask' || d.byId.has(id)));
+      const drafts = [...kept.drafts].some(([id, x]) => x.trim() && d.byId.has(id));
       if (drafts && Date.now() - armed.current > QUIT_MS) {
         armed.current = Date.now();
         toast({ text: t.toast.draftQuit, tone: 'info', ms: QUIT_MS });
@@ -182,11 +181,10 @@ function Shell({ client, lang, setLang: setLangState, saveLang, theme, setThemeS
     if (input === 'L') { const first = waitingPairings(mobile)[0]; if (first) pairing.open(first.id); return; }
     if (input === '?') { go('help'); return; }
     if (input === ',') { go('settings'); return; }
-    if (input === '/') { go('ask'); return; }
     if (input === '+') { go('launch'); return; }
-    if (/^[1-7]$/.test(input)) { go(SCREENS[Number(input) - 1]!); return; }
+    if (/^[1-6]$/.test(input)) { go(SCREENS[Number(input) - 1]!); return; }
   });
 
-  const Body = { overview: Overview, session: SessionScreen, ask: Ask, launch: Launch, settings: Settings, mobile: Mobile, openrig: OpenRigScreen, rigLaunch: RigLaunchScreen, routines: RoutinesScreen, help: Help }[screen];
+  const Body = { overview: Overview, session: SessionScreen, launch: Launch, settings: Settings, mobile: Mobile, openrig: OpenRigScreen, rigLaunch: RigLaunchScreen, routines: RoutinesScreen, help: Help }[screen];
   return <TuiContext.Provider value={tui}><Body /></TuiContext.Provider>;
 }

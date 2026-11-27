@@ -25,6 +25,7 @@ import { Field, fieldRows } from '../ui/Field.js';
 import { layout } from '../model/field.js';
 import type { Messages } from '../i18n/lang.js';
 import { TitledBox } from '../ui/TitledBox.js';
+import { handOver } from '../handover.js';
 
 type Mode = 'read' | 'reply' | 'note' | 'model';
 
@@ -39,6 +40,8 @@ function SessionView({ s }: { s: Session }) {
   const { client, d, t, g, lang, actions, attach, toast, machines, kept, lastToast, tone, select, go } = useTui();
   const { columns, rows } = useScreenSize();
   const clock = useNow();
+  /** Its relief failed (#40, D10): said under the crumb, H tries again. */
+  const failedRelief = s.handover?.state === 'failed';
   // Opened by key r on an OpenRig message elsewhere: on the composer, its draft already there.
   const [mode, setMode] = useState<Mode>(() => { if (kept.openReply !== s.id) return 'read'; kept.openReply = undefined; return 'reply'; });
   // The draft outlives the field, the screen and ctrl+c: it is kept by the TUI, by session.
@@ -167,6 +170,8 @@ function SessionView({ s }: { s: Session }) {
     if (input === 't') { setTerminal(x => !x); return true; }
     if (input === 'o' && images.length) { openImage(images); return true; }
     if (input === 'a') { attach(s); return true; }
+    // A relief that failed (#40, D10): H tries again, as on the overview.
+    if (input === 'H' && failedRelief) { handOver(client, s, t, toast); return true; }
     if (input === 'i') { actions.interrupt(s); return true; }
     if (input === 'm') {
       if (!canSwitch) toast({ text: t.toast.modelSwitch, tone: 'info' }); else setMode('model');
@@ -207,11 +212,11 @@ function SessionView({ s }: { s: Session }) {
   const keys: Array<readonly [string, string]> = mode === 'model' ? [['↑ ↓', t.keys.choose], ['← →', t.launch.effort], ['↵', t.keys.choose], ['esc', t.keys.cancel]]
     : mode !== 'read' && browsing ? [['↵', t.keys.resend], ['↑ ↓', t.keys.history], ['esc', t.keys.backToDraft]]
     : mode !== 'read' ? [['↵', t.keys.sendOnly], ...(mode === 'reply' ? [['alt+v', t.keys.image] as const] : []), ['alt+↵', t.keys.newLine], ['esc', t.keys.keepAndLeave], ['↑ ↓', t.keys.lineHistory], ['ctrl ← →', t.keys.word], ['ctrl+u', t.keys.clear]]
-    : [['esc', t.keys.back], ...(p ? [['y n A', t.keys.answer] as const] : []), ...(rigEl ? [['↵', t.keys.write] as const, ...(!p && rigEl.reply ? [['r', t.keys.replyTo(rigEl.reply.peer.name)] as const] : []), ['b', t.keys.raw] as const] : [['r', t.keys.write] as const]), ['j k', t.keys.scroll], [t.keys.space, t.keys.unfold], ['d', t.keys.diffs], ['t', t.keys.terminal], ['a', t.keys.attach], ['m', t.keys.model], ['i', t.keys.interrupt], ...(images.length ? [['o', t.keys.openImage] as const] : [])];
+    : [['esc', t.keys.back], ...(p ? [['y n A', t.keys.answer] as const] : []), ...(rigEl ? [['↵', t.keys.write] as const, ...(!p && rigEl.reply ? [['r', t.keys.replyTo(rigEl.reply.peer.name)] as const] : []), ['b', t.keys.raw] as const] : [['r', t.keys.write] as const]), ['j k', t.keys.scroll], [t.keys.space, t.keys.unfold], ['d', t.keys.diffs], ['t', t.keys.terminal], ['a', t.keys.attach], ['m', t.keys.model], ['i', t.keys.interrupt], ...(images.length ? [['o', t.keys.openImage] as const] : []), ...(failedRelief ? [['H', t.keys.retry] as const] : [])];
   // The rows, in this order: the request (its keys left out while writing), the field, the thread with what is left, drawn
   // only with room for a line. The request is cut only when even that does not fit.
   const editing = mode === 'reply' || mode === 'note';
-  const body = rows - 2 - (lastToast ? 1 : 0);
+  const body = rows - 2 - (lastToast ? 1 : 0) - (failedRelief ? 1 : 0);
   const inner = Math.max(20, columns - 4);
   // The field as high as its text, up to its most (its prefix and the cursor's cell kept, as it lays itself out); the images
   // pasted take a line above it.
@@ -223,6 +228,8 @@ function SessionView({ s }: { s: Session }) {
   const drawsThread = mode === 'model' || room >= 3;
   return (
     <Frame crumb={`${s.repo ?? s.project}${s.branch ? ` › ${g.branch} ${s.branch}` : ''} › ${s.name} · ${machineLabel(s)}`} crumbShort={s.name} keys={keys} kept={draft !== ''}>
+      {/* A relief that failed shows on the session (#40, D10, docs/mockups/ledge-remove-chat-p2.html): its words in red, H to retry. */}
+      {failedRelief ? <Box paddingX={1} flexShrink={0}><Text wrap="truncate"><Text color={C.red}>{t.overview.reliefFailed(s.name, s.handover?.reason ?? '?')}</Text><Text color={C.faint}> · H {t.keys.retry}</Text></Text></Box> : null}
       {drawsThread ? <TitledBox title={terminal ? t.overview.terminal(paneName(s)) : title} flexGrow={1} minHeight={3} foot={showsThread ? foot : undefined}>
         {mode === 'model'
           ? <ModelPicker machine={machine} tool={s.tool} current={{ model: s.model ?? null, effort: s.effort ?? null }} onCancel={() => setMode('read')}
