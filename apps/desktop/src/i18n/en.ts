@@ -1573,7 +1573,7 @@ export const en: Messages = {
       lastClosed: 'Last terminal closed: the bottom panel hides. Ctrl+J opens it again with a shell.',
       broughtBack: 'Terminal brought back to the bottom panel.', onlyTerms: 'Only terminals go in the bottom panel.'
     },
-    sideToggle: 'Sidebar (Ctrl+B)', bottomToggle: 'Bottom panel (Ctrl+J)', rightToggle: 'Right panel (Ctrl+/)',
+    sideToggle: 'Sidebar (Ctrl+B)', bottomToggle: 'Bottom panel (Ctrl+J)', rightToggle: 'Right panel',
     activityLabel: 'Activity bar', projects: 'Projects', rigs: 'OpenRig rigs', atoi: 'For you',
     atelierTab: 'Atelier (tab)', settingsTab: 'Settings (tab)',
     resizeEdge: 'Drag to resize · double-click: default width', resizeBottom: 'Drag to resize · double-click: default height',

@@ -104,14 +104,14 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
     expect(opened).toEqual([{ kind: 'ask', id: 'q2' }]);
   });
 
-  it('a decision: « Decision », who asks, the session’s project and branch; View (O) opens « For you »', () => {
+  it('a decision: « Decision », who asks, the session’s project and branch; View (O) opens that decision in Desktop’s Tasks view (#40 D3)', () => {
     const f = fleetClient({ tasks: [task('t7', undefined, { giver: 'otto', giverName: 'Otto' })] }); mount(f);
     f.set({ local: [{ id: 'decision:t7', kind: 'decision', text: 'Which port?', who: 'Otto', priority: 'routine', at: AT }] });
     expect(card().querySelector('.di-badge')).toHaveTextContent('Decision');
     expect(card().querySelector('.di-sentence')).toHaveTextContent('Otto asks you for a decision');
     expect(card().querySelector('.di-meta')).toHaveTextContent('ledge · feat/routines-ui');
     fireEvent.click(screen.getByRole('button', { name: 'View O' }));
-    expect(opened).toEqual([{ kind: 'atoi' }]);
+    expect(opened).toEqual([{ kind: 'task', id: 't7' }]);
   });
 
   it('a routine to activate: « Routine », its words, Activate sends its key; « Received »', async () => {

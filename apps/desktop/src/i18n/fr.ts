@@ -1659,7 +1659,7 @@ export const fr = {
       /** A dock tab dropped on the panel: a terminal comes back; anything else stays. */
       broughtBack: 'Terminal ramené dans le panneau du bas.', onlyTerms: 'Seuls les terminaux se rangent dans le panneau du bas.'
     },
-    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite (Ctrl+/)',
+    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite',
     activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig', atoi: 'À toi',
     atelierTab: 'Atelier (onglet)', settingsTab: 'Réglages (onglet)',
     resizeEdge: 'Glisser pour redimensionner · double-clic : largeur par défaut', resizeBottom: 'Glisser pour redimensionner · double-clic : hauteur par défaut',

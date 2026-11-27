@@ -18,8 +18,11 @@ describe('screen keys', () => {
     render(<Harness state={base} keys={{ current: handler }} dispatch={dispatch} />);
     expect(fireEvent.keyDown(document.body, { key: 'j' })).toBe(false);
     expect(dispatch).not.toHaveBeenCalled();
+    // A key the screen declines stays global: N opens the New session dialog (« / » does nothing since #40).
     fireEvent.keyDown(document.body, { key: '/' });
-    expect(dispatch).toHaveBeenCalledWith({ type: 'ledge' });
+    expect(dispatch).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: 'n' });
+    expect(dispatch).toHaveBeenCalled();
   });
   it('never while typing, under a dialog or with the chat open; Escape and Alt stay global', () => {
     const handler = vi.fn(() => true);

@@ -100,7 +100,7 @@ describe('a decision card', () => {
   it('« Répondre autrement… » puts a field in place of the buttons: Ctrl Enter sends the words, Échap gives the buttons back', async () => {
     const { answer } = mount([ask()]);
     await userEvent.click(screen.getByRole('button', { name: 'Répondre autrement…' }));
-    const field = screen.getByRole('textbox', { name: 'Ta réponse, en quelques mots…' });
+    const field = screen.getByRole('textbox', { name: 'Votre réponse, en quelques mots…' });
     expect(field).toHaveFocus();
     expect(screen.queryByRole('button', { name: /Un seul modèle/ })).toBeNull();
     expect(screen.getByText('Ctrl Entrée · Échap')).toBeInTheDocument();
@@ -152,10 +152,10 @@ describe('a decision card', () => {
 });
 
 describe('questions and news', () => {
-  it('a row parked on the person: « en attente de toi », « Répondre… » asks what the seat should do, and sends resolve', async () => {
+  it('a row parked on the person: « en attente de vous » (#40: « vous » on Desktop), « Répondre… » asks what the seat should do, and sends resolve', async () => {
     const { answer } = mount([ask({ kind: 'parked', questions: [] })]);
     const card = within(screen.getByRole('region', { name: 'Questions' })).getByRole('article');
-    expect(card).toHaveTextContent('en attente de toi');
+    expect(card).toHaveTextContent('en attente de vous');
     await userEvent.click(within(card).getByRole('button', { name: 'Répondre…' }));
     await userEvent.type(screen.getByRole('textbox', { name: 'Ce que Bix doit faire…' }), 'Garde la carte');
     await userEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
@@ -191,9 +191,9 @@ describe('the channel’s banners (no button at lot 1)', () => {
   it.each([
     ['no_person', undefined, 'Ledge n’est pas encore le canal humain d’OpenRig.Les rigs passent encore par Max, ou par le TUI du kernel. Leurs demandes n’arrivent pas ici.', 'err'],
     ['no_default', 'rig human default ledge@external', 'OpenRig a plusieurs personnes, et aucune n’est désignée par défaut.Ses demandes n’arrivent donc pas ici. Pour en désigner une :rig human default ledge@external', 'err'],
-    ['openrig_stopped', undefined, 'OpenRig est arrêté : les rigs ne peuvent pas t’écrire.Les sessions de tes projets passent toujours par ici.', 'warn'],
+    ['openrig_stopped', undefined, 'OpenRig est arrêté : les rigs ne peuvent pas vous écrire.Les sessions de vos projets passent toujours par ici.', 'warn'],
     ['unreachable', 'connection refused on 127.0.0.1:7433', 'OpenRig ne répond pas.connection refused on 127.0.0.1:7433', 'warn'],
-    ['not_installed', undefined, 'OpenRig n’est pas installé sur WSL.Les sessions de tes projets passent toujours par ici.', '']
+    ['not_installed', undefined, 'OpenRig n’est pas installé sur WSL.Les sessions de vos projets passent toujours par ici.', '']
   ] as const)('%s', (state, message, text, tone) => {
     mount([], { channel: { state, person: null, slack: false, ...(message ? { message } : {}) } });
     const banner = document.querySelector('.ask-banner')!;

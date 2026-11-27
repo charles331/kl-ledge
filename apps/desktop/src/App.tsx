@@ -1155,7 +1155,7 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
         routinesBadge={routinesBadge(routines)} requestsBadge={openRequests(asks)} tasksBadge={tasksBadge(tasksApi.tasks)}
         explorer={layout.sideView === 'tasks'
-          ? <TasksView api={tasksApi} task={rightTab.task} seen={rightTab.seen} state={localMachine?.daemon ? (localDown ? 'offline' : 'ready') : localDown ? 'offline' : 'connecting'}
+          ? <TasksView api={tasksApi} task={rightTab.task} seen={rightTab.seen} state={fleet.localSnapshot() === null ? 'connecting' : localDown ? 'offline' : 'ready'}
               onShow={id => setRightTab(x => ({ ...x, task: id }))} report={reportHandlers} />
           : layout.sideView === 'routines'
           ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} machines={routineMachines} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}

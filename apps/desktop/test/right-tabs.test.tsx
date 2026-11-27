@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ChatTurn, Task } from '@ledge/protocol';
 import { LangProvider } from '../src/i18n/lang';
-import { HistoryPane, RightTabStrip, TasksPane, type ListState } from '../src/chat/RightTabs';
+import { HistoryPane, RightTabStrip } from '../src/chat/RightTabs';
+import { TasksPane, type ListState } from '../src/tasks/TasksView';
 import type { TasksApi } from '../src/tasks/useTasksApi';
 
 const T0 = '2026-11-09T09:12:00.000Z';
@@ -94,11 +95,11 @@ describe('« Tâches »', () => {
 });
 
 describe('the tab strip', () => {
-  it('Conversation · Tasks (its open tasks) · History; a click asks for the tab', () => {
+  it('Conversation · History (« Tasks » is a view of its own, #40 D3); a click asks for the tab', () => {
     const onTab = vi.fn();
-    render(<LangProvider lang="en"><RightTabStrip tab="tasks" open={3} onTab={onTab} /></LangProvider>);
-    expect(screen.getAllByRole('tab').map(x => x.textContent)).toEqual(['Conversation', 'Tasks3', 'History']);
-    expect(screen.getByRole('tab', { name: 'Tasks · 3' })).toHaveAttribute('aria-selected', 'true');
+    render(<LangProvider lang="en"><RightTabStrip tab="conversation" onTab={onTab} /></LangProvider>);
+    expect(screen.getAllByRole('tab').map(x => x.textContent)).toEqual(['Conversation', 'History']);
+    expect(screen.getByRole('tab', { name: 'Conversation' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: 'History' }));
     expect(onTab).toHaveBeenCalledWith('history');
   });

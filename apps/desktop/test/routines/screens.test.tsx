@@ -114,11 +114,12 @@ describe('Routines on Desktop, card 28', () => {
   });
 });
 
-describe('the « Tâches » tab', () => {
-  it('leaves a routine’s « À toi » item to « À toi » (its title is the daemon’s French)', async () => {
-    const { shownTasks } = await import('../../src/chat/RightTabs');
+describe('the Tasks view (#40 D3)', () => {
+  it('leaves a routine’s request to Routines (its title is the daemon’s French), and out of its badge', async () => {
+    const { shownTasks, tasksBadge } = await import('../../src/tasks/TasksView');
     const base = { giver: 's', giverName: 'Iris', owner: 'ledge', ownerName: 'Ledge', state: 'open' as const, at: '2026-11-23T01:00:00.000Z', updatedAt: '2026-11-23T01:00:00.000Z', log: [] };
     const tasks = [{ ...base, id: 'a', title: 'Une décision' }, { ...base, id: 'b', title: 'Iris veut programmer « x »', routine: { kind: 'approve' as const, id: 'r000001', name: 'x' } }];
     expect(shownTasks(tasks).map(x => x.id)).toEqual(['a']);
+    expect(tasksBadge(tasks)).toBe(1);
   });
 });
