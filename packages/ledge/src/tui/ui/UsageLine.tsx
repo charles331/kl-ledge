@@ -48,7 +48,7 @@ export function groupOfAlert(a: UsageAlert, groups: readonly UsageGroup[]): Usag
   if (a.account) return groups.find(x => x.key === `${a.harness}|${a.account}`);
   const mine = groups.filter(y => y.harness === a.harness && y.key.startsWith(`${a.harness}|@`));
   const win = (y: UsageGroup) => y.windows.find(w => sameWindow(w, a.window));
-  return mine.find(y => !!a.window.resetsAt && win(y)?.resetsAt === a.window.resetsAt)
+  return mine.find(y => !!a.window.resetsAt && win(y)?.resetsAt === a.window.resetsAt && (win(y)?.pct ?? -1) >= a.window.pct)
     ?? mine.find(y => win(y)?.pct === a.window.pct)
     ?? mine.find(y => (win(y)?.pct ?? -1) >= a.window.pct);
 }

@@ -124,6 +124,11 @@ describe('ledge tui: usage limits', () => {
     expect(line).toMatch(/>_ Local 5 h \S+ 22%/);
     expect(line).toContain('Codex · 5 h atteinte');
     expect(line).not.toMatch(/>_ Serveur/);
+    // The same reset to the millisecond on both: the alert still goes to the machine whose window reached it.
+    const same = usageGroups(new Map([['local', state([codex(22, reset)])], ['srv', state([codex(100, reset)], [alert])]]), () => true, Date.now());
+    const tied = usageSegments(same, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [alert] }).map(x => x[0]).join('');
+    expect(tied).toMatch(/>_ Local 5 h \S+ 22%/);
+    expect(tied).not.toMatch(/>_ Serveur/);
     // An alert none of whose windows matches leads the line, every machine keeping its own.
     const odd = { ...alert, window: { kind: 'seven_day' as const, pct: 99, resetsAt: at(9000) } };
     const lone = usageSegments(groups, { wide: true, threshold: 0.8, now: Date.now(), lang: 'fr', label: id => (id === 'srv' ? 'Serveur' : 'Local'), t: fr as never, g: glyphsFor({}), alerts: [odd] }).map(x => x[0]).join('');
