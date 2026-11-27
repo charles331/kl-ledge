@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* Approuvée par l'owner le 2026-11-27 : logo Gemini (« google ») et mascotte « L'étincelle » ; les variantes Antigravity et « L'arche » sont écartées.
+   Précisé le même jour : les tuiles d'agents de « Nouvelle session » par rangées de trois (cinq sur une ligne font passer chaque nom à la ligne
+   dans la fenêtre réelle) ; sur le téléphone, la tuile d'agy dit « Modèles Gemini » / « Gemini models », comme les autres disent leur rôle.
    Antigravity CLI (agy) comme cinquième agent : son identité (logo du fournisseur, mascotte) et les écrans où il apparaît.
    Base : docs/mockups/ledge-launch-name.html (même grille, mêmes tokens), packages/ui (ProviderLogo, Bot, logo.css),
    apps/desktop/src/launch/LaunchModal.tsx, settings/General.tsx, apps/mobile/src/screens/NewSession.tsx, ledge tui.
@@ -59,7 +61,7 @@ main{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap
 /* Nouvelle session (Desktop) */
 .modal{background:var(--background);border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;grid-template-columns:110px 1fr;gap:12px 14px;align-items:start}
 .lbl{color:var(--muted-foreground);font-size:12px;padding-top:9px}
-.agents{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.agents{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .agent{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;min-width:0}
 .agent.on{border-color:var(--foreground);background:color-mix(in srgb,var(--foreground) 3%,transparent)}
 .agent .an{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
