@@ -3,7 +3,7 @@ import { UiCopyProvider, setDefaultUiCopy, type UiCopy } from './copy';
 export { UiCopyProvider, useUiCopy, type UiCopy } from './copy';
 
 /** The language mechanism, generic over an app's message table: the island and Desktop share it, not their copy (spec §4.1). */
-export function createI18n<L extends string, M>(opts: { langs: readonly L[]; messages: Record<L, M>; fallback: L; prefix: string; uiCopy: (m: M) => UiCopy }) {
+export function createI18n<L extends string, M>(opts: { langs: readonly L[]; messages: Record<L, M>; fallback: L; prefix: string; /** The mascots' strings; an app that draws no mascot leaves it out. */ uiCopy?: (m: M) => UiCopy }) {
   const KEY = `${opts.prefix}.lang`;
   let fallback = opts.fallback;
   const loadLang = (): L => { try { const v = localStorage.getItem(KEY); return (opts.langs as readonly string[]).includes(v ?? '') ? (v as L) : fallback; } catch { return fallback; } };
@@ -11,9 +11,11 @@ export function createI18n<L extends string, M>(opts: { langs: readonly L[]; mes
   const messagesFor = (l: L = loadLang()): M => opts.messages[l];
   const LangContext = createContext<L | null>(null);
   function LangProvider({ lang, children }: { lang: L; children: ReactNode }) {
-    return <LangContext.Provider value={lang}><UiCopyProvider copy={opts.uiCopy(opts.messages[lang])}>{children}</UiCopyProvider></LangContext.Provider>;
+    const copy = opts.uiCopy;
+    return <LangContext.Provider value={lang}>{copy ? <UiCopyProvider copy={copy(opts.messages[lang])}>{children}</UiCopyProvider> : children}</LangContext.Provider>;
   }
   const useI18n = (): { lang: L; t: M } => { const lang = useContext(LangContext) ?? loadLang(); return { lang, t: opts.messages[lang] }; };
-  setDefaultUiCopy(() => opts.uiCopy(messagesFor()));
+  const copy = opts.uiCopy;
+  if (copy) setDefaultUiCopy(() => copy(messagesFor()));
   return { loadLang, saveLang, setFallbackLang: (l: L) => { fallback = l; }, LangProvider, useI18n, messagesFor };
 }

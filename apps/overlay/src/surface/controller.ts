@@ -55,10 +55,10 @@ export function createSurfaceController(opts: {
   return {
     dispatch,
     state: () => state,
-    /** Remaining bubble time in ms (running or paused), or null when no bubble clock exists; feeds the visible bar. */
-    bubbleRemaining: (): number | null => {
-      const p = paused.get('bubble'); if (p) return p.remaining;
-      const r = running.get('bubble'); return r ? Math.max(0, r.deadline - now()) : null;
+    /** What is left of a notice's 6 s in ms (running or paused), or null when no notice clock runs; feeds the ring. */
+    noticeRemaining: (): number | null => {
+      const p = paused.get('notice'); if (p) return p.remaining;
+      const r = running.get('notice'); return r ? Math.max(0, r.deadline - now()) : null;
     },
     dispose: () => { for (const r of running.values()) clearT(r.handle); running.clear(); paused.clear(); }
   };

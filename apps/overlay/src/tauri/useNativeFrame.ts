@@ -20,7 +20,10 @@ export function useNativeFrame(frame: Frame, settleMs: number, zoom = 1): void {
     clearTimeout(settle.current);
     const apply = (f: Frame) => { applied.current = f; void setFrame(f, zoom); };
     const was = applied.current;
-    if (!was || settleMs <= 0 || containsFrame(frame, was)) { apply(frame); return; }
+    // To or from no region (the island at rest, 0 × 0) there is nothing to hold: the island has already left, or is only
+    // coming out. A union with an empty frame at (0, 0) would stretch the region to the screen's corner.
+    const empty = (f: Frame) => f.w <= 0 || f.h <= 0;
+    if (!was || settleMs <= 0 || empty(was) || empty(frame) || containsFrame(frame, was)) { apply(frame); return; }
     apply(unionFrame(was, frame));
     settle.current = setTimeout(() => apply(frame), settleMs);
   }, [key, settleMs]); // `frame` and `zoom` are captured by value through `key`

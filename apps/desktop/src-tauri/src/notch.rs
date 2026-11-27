@@ -1,24 +1,13 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 /// The notch's window label (`tauri.conf.json`).
 pub const NOTCH: &str = "notch";
 
-/// Emitted when a mouse button goes down outside the overlay window while the outside watch is armed; no payload.
-pub const OUTSIDE_CLICK_EVENT: &str = "ledge://outside-click";
-/// Cursor positions near the notch, including while outside the webview. `null` ends the proximity gesture.
-pub const CURSOR_NEAR_EVENT: &str = "ledge://cursor-near";
-/// Emitted when a maximised (or monitor-covering) window takes or leaves the foreground: `{ covered }`.
-pub const FOREGROUND_EVENT: &str = "ledge://foreground";
-/// How far from the island (logical px) the poller still reports the cursor: the hot band's 40 px overhang plus
-/// the mascot's 140 px gaze reach, with margin.
-const NEAR_REACH: f64 = 170.0;
-/// The poller checks the foreground window every this many ticks (500 ms at the idle cadence, less near the drawing).
-const FOREGROUND_TICKS: u32 = 10;
+/// The cursor poll's cadence away from the island.
 const CURSOR_POLL: Duration = Duration::from_millis(50);
 /// The cadence while the cursor is within `NEAR_RECT_REACH` of the drawn rectangle: the window must take the mouse
 /// before a press lands on the island, so the hand-over is decided within a frame interval there.
@@ -27,33 +16,24 @@ const NEAR_POLL: Duration = Duration::from_millis(16);
 const NEAR_RECT_REACH: f64 = 40.0;
 /// Re-read the chosen monitor every 40 polls (2 s): resolution, scale or taskbar changes are picked up.
 const MONITOR_REFRESH_TICKS: u32 = 40;
-/// Whether a press outside the window folds the open panel: armed by the webview while a panel shows. The window never
-/// takes focus on a mouse open, so a click elsewhere gives the webview no blur to react to.
-#[derive(Default)]
-pub struct OutsideWatch(AtomicBool);
-
 /// The window that was in the foreground when a keyboard open took focus (a raw HWND), handed back by `release_focus`.
 #[derive(Default)]
 pub struct PrevForeground(Mutex<Option<isize>>);
 
 /// The Screen setting: the id of the monitor the overlay lives on (`None`: the primary), a generation bumped on every
-/// change so the poller re-reads its monitor at once, the last frame the webview asked for (re-applied on a change)
-/// and the window rectangle last placed.
+/// change so the poller re-reads its monitor at once, the island's rectangle the webview last sent and the window
+/// rectangle last placed.
 #[derive(Default)]
 pub struct Screen(Mutex<ScreenState>);
 #[derive(Default)]
 struct ScreenState {
     chosen: Option<String>,
     gen: u64,
+    /// The island's rectangle in logical px; `None` at rest (nothing drawn, every click goes through).
     last_frame: Option<(i32, i32, u32, u32)>,
     /// The window rectangle last placed (physical px): the whole work area of the chosen monitor. The window is
     /// placed once and again only when that area changes; the frame only sets its region.
     placed: Option<(i32, i32, u32, u32)>,
-    /// The island's x range in logical px (`set_hot_zone`): the poller watches the top band around it.
-    hot: Option<(i32, u32)>,
-    /// Set by `set_hot_zone` (the webview just mounted or reloaded): the next foreground check emits its state even
-    /// when it did not change, so a window already covering the screen at launch is reported.
-    foreground_dirty: bool,
 }
 
 /// One monitor as the Settings view lists it: logical sizes, the work area's height, whether it is the primary.
@@ -69,12 +49,6 @@ pub struct MonitorInfo {
     pub work_w: u32,
     pub primary: bool,
 }
-
-#[derive(Clone, Serialize)]
-struct CursorPayload { x: f64, y: f64 }
-
-#[derive(Clone, Serialize)]
-struct ForegroundPayload { covered: bool }
 
 /// The chosen monitor in physical px: its work area and its scale factor.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -139,18 +113,6 @@ pub fn frame_rect(area: Area, left: i32, top: i32, width: u32, height: u32) -> (
 /// The window rectangle in physical px: the whole work area of the chosen monitor.
 pub fn window_rect_of(area: Area) -> (i32, i32, u32, u32) { (area.x, area.y, area.w, area.h) }
 
-/// True when the logical cursor `(x, y)` is in the band along the top edge around the island `hot = (left, width)`,
-/// within `NEAR_REACH` of it: the hot band that opens the list and the region the mascot's gaze follows.
-pub fn cursor_near(hot: Option<(i32, u32)>, x: f64, y: f64) -> bool {
-    let Some((left, width)) = hot else { return false };
-    y >= 0.0 && y <= NEAR_REACH && x >= left as f64 - NEAR_REACH && x <= (left + width as i32) as f64 + NEAR_REACH
-}
-
-/// True when the window rectangle holds the whole monitor rectangle (a full-screen or maximised window).
-pub fn covers(win: (i32, i32, i32, i32), mon: (i32, i32, i32, i32)) -> bool {
-    win.0 <= mon.0 && win.1 <= mon.1 && win.2 >= mon.2 && win.3 >= mon.3
-}
-
 /// True when the physical `cursor` is in the rectangle `(x, y, width, height)`; the right and bottom edges are exclusive.
 pub fn inside_rect(cursor: (i32, i32), rect: (i32, i32, u32, u32)) -> bool {
     let (x, y, w, h) = rect;
@@ -166,15 +128,10 @@ pub fn poll_interval(rect: Option<(i32, i32, u32, u32)>, cursor: (i32, i32), sca
     if inside_rect(cursor, grown) { NEAR_POLL } else { CURSOR_POLL }
 }
 
-/// True when a mouse button has just gone down (`now_down` after `!prev_down`) with the physical cursor outside the
-/// drawn rectangle `(x, y, width, height)`. A press inside, or a button held since before, never counts.
-pub fn press_outside(prev_down: bool, now_down: bool, cursor: (i32, i32), rect: (i32, i32, u32, u32)) -> bool {
-    now_down && !prev_down && !inside_rect(cursor, rect)
-}
-
-/// Sets the frame: the bounding rectangle of everything the webview draws (surface, fillets, status, say, coachmark),
-/// `(left, top)` `width` x `height` in logical px from the work area's top-left corner. The window itself covers the
-/// whole work area of the chosen monitor and is placed once (and again only when that area changes), so nothing moves
+/// Sets the frame: the rectangle of the floating island, `(left, top)` `width` x `height` in logical px from the work
+/// area's top-left corner, sent at every step of its movement. A zero width or height is the island at rest: nothing is
+/// drawn, so the window takes the mouse nowhere and every click reaches the windows beneath (`frame_of`).
+/// The window itself covers the whole work area of the chosen monitor and is placed once (and again only when that area changes), so nothing moves
 /// or resizes the webview while the surface animates and the shell and the page can never disagree for a frame (the
 /// blink between two shapes when the window moved and the page was presented at its new offset in different compositor
 /// frames). The frame only tells the cursor poller where the drawing is: the window takes the mouse inside it and lets
@@ -182,9 +139,14 @@ pub fn press_outside(prev_down: bool, now_down: bool, cursor: (i32, i32), rect: 
 /// not a window region: a region makes DWM drop the window's alpha, and everything in it the page leaves clear shows white.
 #[tauri::command]
 pub async fn set_frame(window: WebviewWindow, left: i32, top: i32, width: u32, height: u32, screen: tauri::State<'_, Screen>) -> Result<(), String> {
-    if let Ok(mut s) = screen.0.lock() { s.last_frame = Some((left, top, width, height)); }
+    if let Ok(mut s) = screen.0.lock() { s.last_frame = frame_of(left, top, width, height); }
     let area = target_area(window.app_handle(), &screen);
     place_on(&window, area, &screen)
+}
+
+/// The frame to keep: `None` when the webview sent an empty rectangle (the island at rest).
+pub fn frame_of(left: i32, top: i32, width: u32, height: u32) -> Option<(i32, i32, u32, u32)> {
+    if width == 0 || height == 0 { None } else { Some((left, top, width, height)) }
 }
 
 /// Places the window on the whole of `area` unless it is already there.
@@ -196,12 +158,6 @@ fn place_on(window: &WebviewWindow, area: Area, screen: &Screen) -> Result<(), S
         if let Ok(mut s) = screen.0.lock() { s.placed = Some(win); }
     }
     Ok(())
-}
-
-/// The island's x range in logical px: the cursor poller reports the cursor in the top band around it.
-#[tauri::command]
-pub fn set_hot_zone(left: i32, width: u32, screen: tauri::State<'_, Screen>) {
-    if let Ok(mut s) = screen.0.lock() { s.hot = Some((left, width)); s.foreground_dirty = true; }
 }
 
 /// The monitors the Settings view offers, in the OS order.
@@ -220,7 +176,7 @@ pub fn list_monitors(app: AppHandle) -> Vec<MonitorInfo> {
 #[tauri::command]
 pub fn set_monitor(window: WebviewWindow, id: Option<String>, screen: tauri::State<'_, Screen>) -> Result<(), String> {
     let placed = match screen.0.lock() {
-        Ok(mut s) => { s.chosen = id; s.gen = s.gen.wrapping_add(1); s.last_frame.is_some() }
+        Ok(mut s) => { s.chosen = id; s.gen = s.gen.wrapping_add(1); s.placed.is_some() }
         Err(_) => return Err("screen state poisoned".into()),
     };
     if placed {
@@ -248,12 +204,6 @@ fn place_window(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> Resul
 fn place_window(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
     window.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     window.set_size(tauri::PhysicalSize::new(w, h)).map_err(|e| e.to_string())
-}
-
-/// Arms (or disarms) the watch for a mouse press outside the window.
-#[tauri::command]
-pub fn set_outside_watch(on: bool, state: tauri::State<'_, OutsideWatch>) {
-    state.0.store(on, Ordering::Relaxed);
 }
 
 /// Shows and focuses the overlay so single-letter keys reach the webview (keyboard opens only). The window that had the
@@ -300,45 +250,6 @@ fn restore_foreground(raw: isize) -> bool {
 #[cfg(not(windows))]
 fn restore_foreground(_raw: isize) -> bool { false }
 
-/// The shell's desktop windows: a click on the wallpaper or Win+D brings one of them to the foreground, and its
-/// rectangle spans the monitor (every monitor for `Progman`) without covering anything.
-pub fn desktop_class(class: &str) -> bool { matches!(class, "Progman" | "WorkerW") }
-
-/// Ledge's own window handle, to leave it out of the foreground check.
-#[cfg(windows)]
-fn own_hwnd(app: &AppHandle) -> Option<isize> { app.get_webview_window(NOTCH)?.hwnd().ok().map(|h| h.0 as isize) }
-
-#[cfg(not(windows))]
-fn own_hwnd(_app: &AppHandle) -> Option<isize> { None }
-
-/// True when the foreground window is maximised or covers the whole monitor whose work area starts at `area`.
-/// The desktop itself and Ledge's own window (`own`) never count as covering.
-#[cfg(windows)]
-fn foreground_covers(area: Area, own: Option<isize>) -> bool {
-    use windows::Win32::Foundation::RECT;
-    use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
-    use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow, GetWindowRect, IsZoomed};
-    unsafe {
-        let hwnd = GetForegroundWindow();
-        if hwnd.0.is_null() { return false; }
-        if own == Some(hwnd.0 as isize) { return false; }
-        let mut buf = [0u16; 128];
-        let n = GetClassNameW(hwnd, &mut buf) as usize;
-        if desktop_class(&String::from_utf16_lossy(&buf[..n])) { return false; }
-        let mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-        if !GetMonitorInfoW(mon, &mut info).as_bool() { return false; }
-        if info.rcWork.left != area.x || info.rcWork.top != area.y { return false; }
-        if IsZoomed(hwnd).as_bool() { return true; }
-        let mut r = RECT::default();
-        if GetWindowRect(hwnd, &mut r).is_err() { return false; }
-        covers((r.left, r.top, r.right, r.bottom), (info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom))
-    }
-}
-
-#[cfg(not(windows))]
-fn foreground_covers(_area: Area, _own: Option<isize>) -> bool { false }
-
 #[cfg(windows)]
 fn cursor_position() -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
@@ -351,34 +262,17 @@ fn cursor_position() -> Option<(i32, i32)> {
 #[cfg(not(windows))]
 fn cursor_position() -> Option<(i32, i32)> { None }
 
-/// Whether the left or the right mouse button is down right now, wherever the cursor is.
-#[cfg(windows)]
-fn mouse_down() -> bool {
-    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
-    let down = |vk: i32| (unsafe { GetAsyncKeyState(vk) } as u16 & 0x8000) != 0;
-    down(VK_LBUTTON.0 as i32) || down(VK_RBUTTON.0 as i32)
-}
-
-#[cfg(not(windows))]
-fn mouse_down() -> bool { false }
-
-/// The rectangle the overlay draws in physical px: the last frame, on `area`. The window itself covers the whole work
-/// area, so it takes the mouse inside this rectangle only, and a press is "outside" when it misses the drawing.
+/// The rectangle the overlay draws in physical px: the last frame, on `area`; `None` at rest. The window itself covers the
+/// whole work area, so it takes the mouse inside this rectangle only.
 fn drawn_rect(app: &AppHandle, area: Area) -> Option<(i32, i32, u32, u32)> {
     let (left, top, width, height) = app.state::<Screen>().0.lock().ok()?.last_frame?;
     Some(frame_rect(area, left, top, width, height))
 }
 
-/// Polls the cursor every 50 ms (16 ms within reach of the drawn rectangle): hands the window the mouse while the
-/// cursor is on the drawn rectangle and lets it through to the windows beneath elsewhere, reports it in the top band
-/// around the island (the hot zone and the mascot's gaze), reports a maximised window taking or leaving the
-/// foreground, and, while the outside watch is armed, emits `OUTSIDE_CLICK_EVENT` on a mouse press outside the drawing.
+/// Polls the cursor every 50 ms (16 ms within reach of the island): hands the window the mouse while the cursor is on
+/// the island and lets it through to the windows beneath everywhere else, and always while the island is at rest.
 fn spawn_cursor_poller(app: tauri::AppHandle) {
     std::thread::spawn(move || {
-        let mut was_near = false;
-        let mut was_covered = false;
-        let mut foreground_due = false;
-        let mut was_down = false;
         let mut seen_screen: u64 = 0;
         let mut area: Option<Area> = None;
         let mut tick: u32 = 0;
@@ -387,50 +281,27 @@ fn spawn_cursor_poller(app: tauri::AppHandle) {
         let mut sleep = CURSOR_POLL;
         loop {
             std::thread::sleep(sleep);
-            let (chosen, screen_gen, hot, dirty) = match app.state::<Screen>().0.lock() { Ok(mut s) => (s.chosen.clone(), s.gen, s.hot, std::mem::take(&mut s.foreground_dirty)), Err(_) => continue };
-            foreground_due |= dirty;
+            let (chosen, screen_gen) = match app.state::<Screen>().0.lock() { Ok(s) => (s.chosen.clone(), s.gen), Err(_) => continue };
             if tick % MONITOR_REFRESH_TICKS == 0 || screen_gen != seen_screen {
                 seen_screen = screen_gen;
                 if let Some(m) = target_monitor(&app, chosen.as_deref()) { area = Some(area_of(&m)); }
             }
             tick = tick.wrapping_add(1);
             let (Some(a), Some(c)) = (area, cursor_position()) else { continue };
-            let x = (c.0 - a.x) as f64 / a.scale;
-            let y = (c.1 - a.y) as f64 / a.scale;
-            let near = cursor_near(hot, x, y);
-            if near {
-                let _ = app.emit_to(NOTCH, CURSOR_NEAR_EVENT, Some(CursorPayload { x, y }));
-            } else if was_near {
-                let _ = app.emit_to(NOTCH, CURSOR_NEAR_EVENT, None::<CursorPayload>);
-            }
-            was_near = near;
-            if tick % FOREGROUND_TICKS == 0 {
-                let covered = foreground_covers(a, own_hwnd(&app));
-                if covered != was_covered || foreground_due { let _ = app.emit_to(NOTCH, FOREGROUND_EVENT, ForegroundPayload { covered }); }
-                was_covered = covered;
-                foreground_due = false;
-            }
             let rect = drawn_rect(&app, a);
-            let on_drawing = rect.is_some_and(|r| inside_rect(c, r));
-            if takes_mouse != Some(on_drawing) {
+            let on_island = rect.is_some_and(|r| inside_rect(c, r));
+            if takes_mouse != Some(on_island) {
                 if let Some(w) = app.get_webview_window(NOTCH) {
-                    if w.set_ignore_cursor_events(!on_drawing).is_ok() { takes_mouse = Some(on_drawing); }
+                    if w.set_ignore_cursor_events(!on_island).is_ok() { takes_mouse = Some(on_island); }
                 }
             }
             sleep = poll_interval(rect, c, a.scale);
-            let down = mouse_down();
-            if app.state::<OutsideWatch>().0.load(Ordering::Relaxed) {
-                if let Some(rect) = rect {
-                    if press_outside(was_down, down, c, rect) { let _ = app.emit_to(NOTCH, OUTSIDE_CLICK_EVENT, ()); }
-                }
-            }
-            was_down = down;
         }
     });
 }
 
 /// Readies the notch window: on top of everything, letting the mouse through until the poller finds the cursor on the
-/// drawing, and the poller itself. Runs whatever the launch shows, so the notch is there even from the tray.
+/// island, and the poller itself. Runs whatever the launch shows, so the notch is there even from the tray.
 pub fn setup(app: &tauri::App) -> tauri::Result<()> {
     if let Some(w) = app.get_webview_window(NOTCH) {
         let _ = w.set_always_on_top(true);
@@ -442,7 +313,7 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{choose, covers, cursor_near, desktop_class, frame_rect, inside_rect, poll_interval, press_outside, window_rect_of, Area, CURSOR_POLL, NEAR_POLL};
+    use super::{choose, frame_of, frame_rect, inside_rect, poll_interval, window_rect_of, Area, CURSOR_POLL, NEAR_POLL};
 
     #[test] fn the_window_takes_the_mouse_inside_the_drawn_rectangle_only() {
         let rect = (100, 0, 200, 60);
@@ -463,14 +334,6 @@ mod tests {
         assert_eq!(poll_interval(rect, (150, 139), 2.0), NEAR_POLL); // the reach is in logical px: 80 physical at 200%
         assert_eq!(poll_interval(rect, (150, 140), 2.0), CURSOR_POLL);
         assert_eq!(poll_interval(None, (0, 0), 1.0), CURSOR_POLL); // nothing drawn yet
-    }
-
-    #[test] fn the_desktop_and_its_workers_never_cover_the_screen() {
-        assert!(desktop_class("Progman"));
-        assert!(desktop_class("WorkerW"));
-        assert!(!desktop_class("CASCADIA_HOSTING_WINDOW_CLASS"));
-        assert!(!desktop_class("Chrome_WidgetWin_1"));
-        assert!(!desktop_class(""));
     }
 
     #[test] fn the_chosen_monitor_is_used_while_plugged_in_else_the_primary() {
@@ -497,32 +360,10 @@ mod tests {
         assert_eq!(window_rect_of(TOP_TASKBAR), (0, 48, 1920, 1032));
     }
 
-    #[test] fn the_cursor_is_near_in_the_top_band_around_the_island_only() {
-        let hot = Some((454, 117));
-        assert!(cursor_near(hot, 300.0, 5.0));    // 170 px left of the island, on the edge
-        assert!(cursor_near(hot, 740.0, 160.0));  // under its right end, within reach of the gaze
-        assert!(!cursor_near(hot, 300.0, 200.0)); // too low
-        assert!(!cursor_near(hot, 100.0, 5.0));   // too far left
-        assert!(!cursor_near(None, 500.0, 5.0));  // nothing known yet
-    }
-
-    #[test] fn a_window_covers_the_monitor_when_its_rect_holds_the_whole_of_it() {
-        let mon = (0, 0, 2560, 1440);
-        assert!(covers((0, 0, 2560, 1440), mon));
-        assert!(covers((-8, -8, 2568, 1448), mon)); // a maximised window's invisible border
-        assert!(!covers((0, 0, 2560, 1400), mon));
-        assert!(!covers((100, 0, 2660, 1440), mon));
-    }
-
-    #[test] fn only_a_fresh_press_outside_the_window_counts() {
-        let rect = (0, 500, 380, 400); // x 0..380, y 500..900
-        assert!(press_outside(false, true, (600, 700), rect)); // to the right
-        assert!(press_outside(false, true, (100, 300), rect)); // above
-        assert!(press_outside(false, true, (100, 900), rect)); // just below (the bottom edge is exclusive)
-        assert!(!press_outside(false, true, (100, 700), rect)); // inside
-        assert!(!press_outside(false, true, (0, 500), rect)); // the top-left corner is inside
-        assert!(!press_outside(true, true, (600, 700), rect)); // held since before: not a new press
-        assert!(!press_outside(false, false, (600, 700), rect)); // no button down
-        assert!(!press_outside(true, false, (600, 700), rect)); // a release
+    #[test] fn an_empty_frame_is_the_island_at_rest_and_every_click_goes_through() {
+        assert_eq!(frame_of(0, 0, 0, 0), None);
+        assert_eq!(frame_of(924, 8, 0, 36), None); // no width: nothing drawn
+        assert_eq!(frame_of(924, 8, 72, 0), None); // no height either
+        assert_eq!(frame_of(924, 8, 72, 36), Some((924, 8, 72, 36))); // the pill, 8 px under the edge
     }
 }

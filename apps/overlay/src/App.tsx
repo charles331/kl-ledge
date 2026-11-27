@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_ISLAND_PREFS } from '@ledge/protocol';
+import { applyAccent, loadAccent } from '@ledge/ui/accent';
+import { applySkin } from '@ledge/ui/skin';
 import { createDaemonClient } from './daemon/client';
 import { createFleetClient } from './daemon/fleet';
 import { fleetOptions } from './surface/fleetOptions';
 import { loadMachines, useIsland } from './daemon/machines';
 import { attachClient } from './daemon/store';
-import { useTokenMissing } from '@ledge/fleet';
 import { Surface } from './surface/Surface';
 import { daemonTokenSource, isTauri, listMonitors, screenHeight, screenWidth, setMonitor } from './tauri/bridge';
-import { autoScale, loadScale, migrateLegacyScale, resolveScale, saveScale, type ScaleTarget, type UiScale } from './scale';
+import { loadScale, migrateLegacyScale, resolveScale, saveScale, type UiScale } from './scale';
 import { loadMonitor, monitorOfScreen, saveMonitor, type MonitorInfo } from './monitor';
 import { LangProvider, loadLang, type Lang } from './i18n/lang';
 import { LANGS } from './i18n/messages';
-import { DND_KEY, UPDATE_KEY, loadDesktopUpdate, loadDnd, onStorageKey } from './shared';
+import { DND_KEY, loadDnd, onStorageKey } from './shared';
 import { createWebAudioPlayer } from './sounds/player';
-import { applyAccent, loadAccent, saveAccent } from './accent';
-import { loadIslandPosition, saveIslandPosition, loadDiscreet, saveDiscreet, loadIslandPrefs, saveIslandPrefs, localIslandPrefs, type IslandPosition } from './island';
+import { loadIslandPosition, saveIslandPosition, loadIslandPrefs, saveIslandPrefs, localIslandPrefs, type IslandPosition } from './island';
 
 export function App() {
   // An isolated browser demo can point at a fake daemon without disturbing the live WSL daemon.
@@ -24,45 +24,39 @@ export function App() {
   const client = useMemo(() => demo
     ? createDaemonClient({ url: import.meta.env.VITE_LEDGE_DEMO_WS })
     : createFleetClient(loadMachines(), undefined, { ...fleetOptions, token }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const daemonOutdated = useTokenMissing(demo ? undefined : token);
-  // The work-area height in logical px. The page is never zoomed: each layer applies its own scale.
+  // The work area in logical px. The page is never zoomed: the island's layer applies its own size.
   const [workH, setWorkH] = useState(window.innerHeight);
   const [workW, setWorkW] = useState(window.innerWidth);
-  const [scales, setScales] = useState<Record<ScaleTarget, UiScale>>(() => { migrateLegacyScale(); return { handle: loadScale('handle'), panel: loadScale('panel') }; });
-  // The Screen setting (null: the primary monitor) and the monitors it can choose from, listed again when Settings opens.
+  const [scale, setScale] = useState<UiScale>(() => { migrateLegacyScale(); return loadScale('handle'); });
+  // The Screen setting (null: the primary monitor) and the monitors it can resolve to.
   const [monitor, setMonitorChoice] = useState<string | null>(loadMonitor);
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
-  // The language is Desktop's (`desktop.lang`): the notch only follows it.
+  // The language is Desktop's (`desktop.lang`): the island only follows it.
   const [lang, setLang] = useState<Lang>(loadLang);
   useEffect(() => onStorageKey('desktop.lang', v => { if ((LANGS as readonly string[]).includes(v ?? '')) setLang(v as Lang); }), []);
   const [islandPosition, setIslandPosition] = useState<IslandPosition>(loadIslandPosition);
-  const [discreet, setDiscreet] = useState(loadDiscreet);
   useEffect(() => { saveIslandPosition(islandPosition); }, [islandPosition]);
-  useEffect(() => { saveDiscreet(discreet); }, [discreet]);
-  // Do not disturb is Desktop's switch: the notch starts from it, follows it, and its own toggles write it back.
+  // Do not disturb is Desktop's switch: the island starts from it and follows it.
   const [dnd, setDnd] = useState(loadDnd);
   useEffect(() => onStorageKey(DND_KEY, v => setDnd(v === '1')), []);
-  // Desktop checks for updates; the notch only shows the version it found.
-  const [desktopUpdate, setDesktopUpdate] = useState<string | null>(loadDesktopUpdate);
-  useEffect(() => onStorageKey(UPDATE_KEY, v => setDesktopUpdate(v || null)), []);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => { try { return (localStorage.getItem('ledge.theme') as 'dark' | 'light') || 'dark'; } catch { return 'dark'; } });
-  const [accent, setAccent] = useState<string | null>(loadAccent);
+  // The island wears Desktop's « Atelier » skin (@ledge/ui/skin, issue #28) with Desktop's accent, so its coral is Desktop's.
+  const [accent, setAccent] = useState<string | null>(() => loadAccent('desktop'));
+  useEffect(() => onStorageKey('desktop.accent', () => setAccent(loadAccent('desktop'))), []);
   const [player] = useState(() => createWebAudioPlayer());
   const tauri = isTauri();
-  const handleScale = resolveScale(scales.handle, workH, 'handle');
-  const panelScale = resolveScale(scales.panel, workH, 'panel');
+  const islandScale = resolveScale(scale, workH, 'handle');
   useEffect(() => { const off = attachClient(client); client.connect(); return () => { off(); client.close(); }; }, [client]);
   const refreshMonitors = () => { listMonitors().then(setMonitors).catch(() => {}); };
   useEffect(refreshMonitors, []);
   // The island's settings live in Ledge Desktop and come through the local daemon: they win over what the island stored,
-  // and are stored in turn, so an offline start keeps the last ones. The others (visible, shows, shortcut) apply from here.
+  // and are stored in turn, so an offline start keeps the last ones.
   const island = useIsland(client);
   const [kept] = useState(loadIslandPrefs);
   const applied = island ?? kept ?? DEFAULT_ISLAND_PREFS;
   useEffect(() => {
     if (!island) return;
-    saveIslandPrefs(island); setIslandPosition(island.position); setDiscreet(island.discreet);
-    setScales(x => (x.handle === island.islandScale && x.panel === island.panelScale ? x : { handle: island.islandScale, panel: island.panelScale }));
+    saveIslandPrefs(island); setIslandPosition(island.position); setScale(island.islandScale);
   }, [island]);
   // The screen Desktop chose: the primary, or a monitor by its id; an older `second` is the first one that is not the primary,
   // listed again whenever it is asked for.
@@ -80,26 +74,19 @@ export function App() {
     migrated.current = true;
     try { client.fleet.setIsland(localIslandPrefs()); } catch { migrated.current = false; }
   }, [island, client]);
-  const onSettingsOpen = refreshMonitors;
-  // The shell moves the overlay to the chosen monitor; the surface then lays itself out in that monitor's work area.
+  // The shell moves the overlay to the chosen monitor; the island then lays itself out in that monitor's work area.
   useEffect(() => { saveMonitor(monitor); let live = true; setMonitor(monitor).then(() => Promise.all([screenHeight(monitor), screenWidth(monitor)])).then(([h, w]) => { if (live) { setWorkH(h); setWorkW(w); } }).catch(() => {}); return () => { live = false; }; }, [monitor]);
   // In the browser the viewport is the work area: follow its resizes.
   useEffect(() => { if (tauri) return; const h = () => { setWorkH(window.innerHeight); setWorkW(window.innerWidth); }; window.addEventListener('resize', h); return () => window.removeEventListener('resize', h); }, [tauri]);
-  useEffect(() => { const d = document.documentElement.dataset; d.handleScale = String(handleScale); d.panelScale = String(panelScale); }, [handleScale, panelScale]);
-  useEffect(() => { saveScale('handle', scales.handle); saveScale('panel', scales.panel); }, [scales]);
+  useEffect(() => { saveScale('handle', scale); }, [scale]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem('ledge.theme', theme); } catch { /* ignore */ } }, [theme]);
-  useEffect(() => { saveAccent(accent); applyAccent(accent, theme); }, [accent, theme]);
-  useEffect(() => { try { localStorage.setItem(DND_KEY, dnd ? '1' : '0'); } catch { /* ignore */ } }, [dnd]);
+  useEffect(() => { applyAccent(accent, theme); applySkin({ theme, accent }); }, [theme, accent]);
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 't') setTheme(t => (t === 'dark' ? 'light' : 'dark')); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, []);
   return (
     <LangProvider lang={lang}>
-      <Surface daemonOutdated={daemonOutdated} desktopUpdate={desktopUpdate} screenH={workH} screenW={workW} handleScale={handleScale} panelScale={panelScale} scales={scales} autoScales={{ handle: autoScale(workH, 'handle'), panel: autoScale(workH, 'panel') }}
-        onScale={(target, s) => setScales(x => ({ ...x, [target]: s }))}
-        monitors={monitors} monitor={monitor} onMonitor={setMonitorChoice} onSettingsOpen={onSettingsOpen}
-        theme={theme} client={client} dnd={dnd} soundPlayer={player} onToggleDnd={() => setDnd(d => !d)} onToggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-        accent={accent} onAccent={setAccent} islandPosition={islandPosition} onIslandPosition={setIslandPosition} discreet={discreet} onDiscreet={setDiscreet}
-        visible={applied.visible} shows={applied.shows} shortcut={applied.shortcut} />
+      <Surface screenH={workH} screenW={workW} islandScale={islandScale} client={client} dnd={dnd} soundPlayer={player}
+        islandPosition={islandPosition} visible={applied.visible} shows={applied.shows} />
     </LangProvider>
   );
 }

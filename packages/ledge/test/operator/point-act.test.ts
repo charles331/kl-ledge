@@ -216,16 +216,17 @@ describe('point.later and operator.read', () => {
     return { operator, desktop, journal, told };
   }
 
-  it('later hides the notice until a newer point', () => {
+  it('later sets the point aside, a newer point is not, and neither is ever a notch notice (#27)', () => {
     const { operator, desktop, told } = operatorSetup();
     const qid = desktop.postPoint({ since: AT, lead: 'one', leadBy: 'daemon', items: [{ ...requestItem }] }, [], () => {});
     operator.refreshNotices();
-    expect(told.at(-1)).toEqual([`point:${qid}`]);
-    operator.later('desktop', qid);
     expect(told.at(-1)).toEqual([]);
+    operator.later('desktop', qid);
+    expect(desktop.points().find(p => p.qid === qid)!.point.laterAt).toBeDefined();
     const next = desktop.postPoint({ since: AT, lead: 'two', leadBy: 'daemon', items: [{ ...requestItem }] }, [], () => {});
     operator.refreshNotices();
-    expect(told.at(-1)).toEqual([`point:${next}`]);
+    expect(desktop.points().find(p => p.qid === next)!.point.laterAt).toBeUndefined();
+    expect(told.at(-1)).toEqual([]);
   });
 
   it('operator.read moves only the sender device cursor', () => {

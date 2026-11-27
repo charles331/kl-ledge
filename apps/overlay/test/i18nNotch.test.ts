@@ -11,13 +11,9 @@ function allStrings(node: unknown, out: string[] = []): string[] {
 }
 const words = (lang: 'fr' | 'en') => allStrings(MESSAGES[lang]).join('\n');
 
-describe('the notch is called the notch', () => {
+describe('the island never names itself', () => {
   it('never says island any more', () => {
     expect(words('fr')).not.toMatch(/\bîles?\b|l’île|l'île/i);
     expect(words('en')).not.toMatch(/\bislands?\b/i);
-  });
-  it('names the notch in each language', () => {
-    expect(words('fr')).toMatch(/encoche/i);
-    expect(words('en')).toMatch(/notch/i);
   });
 });

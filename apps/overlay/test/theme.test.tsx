@@ -27,12 +27,4 @@ describe('App theme', () => {
     expect(localStorage.getItem('ledge.theme')).toBe('light');
   });
 
-  it('paints a stored accent onto the root and leaves danger-text to CSS', () => {
-    localStorage.clear();
-    localStorage.setItem('ledge.accent', '#3366ff');
-    render(<App />);
-    expect(document.documentElement.style.getPropertyValue('--sidebar-primary')).toMatch(/^#[0-9a-f]{6}$/);
-    expect(document.documentElement.style.getPropertyValue('--ledge-glow')).toMatch(/^#[0-9a-f]{6}$/);
-    expect(document.documentElement.style.getPropertyValue('--danger-text')).toBe('');
-  });
 });

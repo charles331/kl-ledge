@@ -1,468 +1,89 @@
-import { actionCopy } from '@ledge/ui/chat/actionCopy';
-import type { SoundCategory } from '../sounds/preferences';
-import type { BotState } from '../bots/poseFor';
-import type { SshProblem } from '../daemon/machines';
-
 /**
- * Every user-visible string of the overlay, aria-labels and tooltips included, in French (the default) and English.
- * `en` is typed as `Messages` (the shape of `fr`): a key missing or extra on either side is a type error. Plurals are
- * explicit (`plural`), never guessed by appending an "s".
+ * Every user-visible string of the island, aria-labels included, in French (the default) and English. `en` is typed as
+ * `Messages` (the shape of `fr`): a key missing or extra on either side is a type error. The island says « tu » (the
+ * owner's choice for #27); the words are the dynamic-island mockup's and its validated complement's
+ * (docs/mockups/ledge-dynamic-island.html: an agent card's other states, Ledge's own notices).
  */
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+import type { AgentKind } from '../surface/Island';
 
 const fr = {
-  machines: { title: 'Machines', target: 'Machine', hint: 'Le compagnon et son dossier vivent sur cette machine.', local: 'Cette machine', online: 'Connectée', offline: 'Hors ligne', reconnecting: (names: string) => `${names} : reconnexion en cours`, count: (n: number) => `${n} machines`, add: 'Ajouter une machine', save: 'Enregistrer', remove: 'Retirer', label: 'Nom', ssh: 'Alias SSH', invalid: 'Vérifiez le nom et l’alias SSH. Chaque alias ne peut être ajouté qu’une fois.', daemonOffline: 'Le démon Ledge local n’est pas connecté : réessayez dans un instant.',
-    intro: 'Ledge rejoint vos serveurs par SSH, depuis WSL. Leurs sessions s’affichent dans vos projets, avec le nom de la machine.', localMeta: 'Local · WSL', connecting: 'Connexion…', version: (v: string) => `Ledge ${v}`, sessions: (n: number) => `${n} session${n > 1 ? 's' : ''}`,
-    test: 'Tester', retry: 'Réessayer', edit: 'Modifier', cancel: 'Annuler', removeAsk: 'Retirer', removeNote: '? Ses sessions disparaissent de la liste. Rien n’est arrêté ni supprimé sur le serveur.', none: 'Aucun serveur pour l’instant. Vos sessions locales ne changent pas.',
-    editTitle: (name: string) => `Modifier ${name}`, labelHint: 'Ce que vous verrez dans les sessions et le chat.', labelPlaceholder: 'Serveur de dev', sshHint: 'Le nom d’un bloc Host de ~/.ssh/config dans WSL.', duplicate: 'Cet alias est déjà ajouté.',
-    before: 'Avant d’ajouter un serveur', steps: [['L’alias fonctionne depuis WSL, sans mot de passe : ', 'ssh mon-serveur'], ['La clé du serveur est déjà approuvée (première connexion faite à la main).'], ['Node 22+ et tmux sont installés sur le serveur.'], ['Ledge est installé et démarré sur le serveur : ', 'npm i -g @paradow/ledge && ledge setup']] as ReadonlyArray<readonly [string, string?]>,
-    probe: 'Tester la connexion', probing: 'Connexion à', probeOk: (v: string | undefined, n: number) => `${v ? `Ledge ${v}` : 'Ledge'} répond · ${n} session${n > 1 ? 's' : ''}`, savedAnyway: 'Le test est facultatif : une machine injoignable peut être enregistrée.',
-    problem: { alias: 'Alias introuvable. Ajoutez un bloc Host pour cet alias dans ~/.ssh/config de WSL.', key: 'La clé SSH est refusée. Vérifiez IdentityFile pour cet alias dans ~/.ssh/config de WSL.', hostKey: 'La clé du serveur n’est pas encore approuvée. Connectez-vous une fois depuis WSL avec ssh et cet alias.', unreachable: 'Le serveur ne répond pas. Il est peut-être éteint, ou hors du réseau.', ledge: 'Ledge est absent ou trop ancien sur ce serveur. Installez-le, puis lancez « ledge setup ».', stopped: 'Le service Ledge ne tourne pas sur le serveur. Lancez « ledge setup » sur le serveur.', local: 'Mettez à jour Ledge sur cette machine pour rejoindre un serveur.', other: 'La connexion a échoué.' } as Record<SshProblem, string>, clarification: 'Vous pouvez aussi répondre dans le chat.', destination: 'Destination', choose: (name: string) => `Sur ${name}.`, configure: 'Configurer les machines' },
-  time: { seconds: (n: number) => `${n} s`, minutes: (n: number) => `${n} min`, hours: (n: number) => `${n} h`, locale: 'fr-FR' },
-  state: { approval: 'Votre accord', question: 'Une question', starting: 'Démarrage', idle: 'Disponible', working: 'Au travail', done: 'Terminée', error: 'Erreur', readonly: 'Lecture seule' } as Record<BotState, string>,
-  /** The bot's accessible state, read after the tool name. */
-  botLabel: { starting: 'Démarrage', working: 'Au travail', approval: 'Attend votre accord', question: 'A une question', idle: 'Disponible', error: 'Erreur', done: 'Terminée', readonly: 'Lecture seule' } as Record<BotState, string>,
-  botReadOnly: 'Lecture seule',
-  resident: { name: 'Ledge', offline: 'Ledge · connexion perdue', tip: (n: number) => n === 0 ? 'Aucune session · cliquer pour ouvrir' : `${n} session${n > 1 ? 's' : ''} · cliquer pour ouvrir`, unread: 'a répondu', unreadTip: 'Ledge a répondu · cliquer pour ouvrir', strip: (n: number) => n === 0 ? 'Ledge, aucune session, ouvrir' : `Ledge, ${n} session${n > 1 ? 's' : ''}, ouvrir`, more: (n: number) => `${n} autre${n > 1 ? 's' : ''} session${n > 1 ? 's' : ''}, ouvrir la liste` },
-  say: {
-    ledge: ['Hey ! Je t’ai répondu !', 'C’est prêt, jette un œil.', 'Voilà ce que j’en pense.', 'Je t’attendais là-dessus.'],
-    finished: ['J’ai fini !', 'Mission accomplie.', 'C’est tout bon de mon côté.', 'Je te laisse relire.'],
-    approval: ['J’ai besoin de ton OK.', 'Je bloque sans toi.', 'Un petit feu vert ?', 'Ça attend ton accord.'],
-    question: ['Une question pour toi.', 'Je suis pas sûr — tu confirmes ?', 'Faut que je te demande.', 'Ton avis ?'],
-    diff: ['J’ai un diff à te montrer.', 'Des changements à relire.', 'Un coup d’œil sur le patch ?'],
-    plan: ['J’ai un plan à te soumettre.', 'On valide la suite ?', 'Le plan est prêt.'],
-    error: ['Oups, ça a planté.', 'Je suis bloqué.', 'Il y a un souci.']
-  },
-  botNotLive: 'Figé',
-  /** The handle's bot buttons: "<Name> <label>, open". */
-  handleLabel: { starting: 'démarre', idle: 'disponible', approval: 'attend votre accord', question: 'a une question', working: 'au travail', done: 'terminée', error: 'en erreur', readonly: 'en lecture seule' } as Record<BotState, string>,
-  open: 'ouvrir',
-  hint: { startedWithoutLedge: 'lancée sans Ledge', exited: (code: string) => `terminée (code ${code})`, error: 'erreur', available: 'disponible', running: 'au travail', helpersRunning: (n: number) => `disponible · ${n} sous-agent${n > 1 ? 's' : ''} au travail` },
-  offline: 'Hors connexion : reconnexion au daemon',
-  readOnlyBlocked: 'Lecture seule : lancée sans Ledge, répondez dans son terminal',
-  unreachable: 'daemon injoignable, nouvelle tentative',
-  daemonOutdated: 'Démon Ledge à mettre à jour · voir Ledge Desktop',
+  offline: 'Hors connexion : reconnexion au daemon',
+  readOnlyBlocked: 'Lecture seule : lancée sans Ledge, réponds dans son terminal',
   lost: 'La connexion a été perdue avant la réponse du terminal',
   notTaken: 'Le terminal ne l’a pas pris en compte',
-  list: {
-    summary: (n: number, waiting: number) => n === 0 ? 'Aucune session' : `${n} ${plural(n, 'session', 'sessions')} · ${waiting ? `${waiting} ${plural(waiting, 'demande', 'demandes')} pour vous` : 'tout est à jour'}`,
-    dnd: 'Ne pas déranger', settings: 'Réglages', collapse: 'Replier', help: 'Raccourcis clavier', newSession: 'Nouvelle session',
-    row: (project: string, name: string) => `${project}, ${name}, ouvrir`,
-    noTopic: 'Sans sujet encore', groupCount: (n: number) => `${n} ${plural(n, 'bot', 'bots')}`, rowTitle: (tool: string, cwd: string) => `${tool} · ${cwd}`,
-    approve: 'Autoriser', deny: 'Refuser', openRow: 'Ouvrir',
-    dismiss: 'Retirer de la liste', dismissRow: (project: string, name: string) => `Retirer de la liste : ${project}, ${name}`,
-    emptyTitle: 'Personne au travail.',
-    emptyHint: 'Démarrez un compagnon d’ici, ou avec', emptyHintAfter: 'dans un terminal : il apparaîtra dans cette liste.',
-    launched: (name: string, project: string) => `${name} démarre dans ${project}.`, openTerminal: 'Ouvrir le terminal'
+  /** Said to a screen reader when Ledge Desktop is asked to open a session, or could not. */
+  handoff: {
+    session: (name: string) => `Ouverture de ${name} dans Ledge Desktop`,
+    failed: 'Ledge Desktop n’a pas pu s’ouvrir.'
   },
-  launch: {
-    title: 'Nouvelle session',
-    folder: 'Dossier', folderHint: 'Le projet dans lequel le compagnon travaille.', folderPlaceholder: '~/Workspace/mon-projet',
-    recents: 'Récents', busy: (name: string) => `${name} y travaille`, noRecents: 'Les dossiers de vos sessions apparaîtront ici.',
-    pick: (project: string, cwd: string) => `Choisir ${project} (${cwd})`,
-    tool: 'Outil', toolHint: 'Chacun est suivi par ses hooks ; ses demandes se règlent depuis Ledge.',
-    bot: 'Compagnon', botHint: (title: string) => `Son nom donne le titre de l’onglet : ${title}.`, anotherName: 'Un autre nom', botPlaceholder: 'Au choix de Ledge',
-    prompt: 'Première instruction', optional: 'facultatif', promptKey: 'Touche I pour y aller',
-    promptHint: (name: string) => `Envoyée dès que ${name} est prêt. Sinon il attend votre tour dans son terminal.`,
-    promptPlaceholder: (name: string) => `Que doit faire ${name} en premier ?`,
-    resume: 'Reprendre la dernière conversation', resumeHint: 'Démarre avec --continue dans ce dossier.',
-    openTab: 'Ouvrir l’onglet du terminal', openTabHint: 'Sinon le compagnon tourne en arrière-plan, l’onglet reste à un clic depuis sa fiche.',
-    cancel: 'Annuler', start: 'Démarrer', starting: 'Démarrage…',
-    failed: (why: string) => `Impossible de démarrer : ${why}`,
-    needFolder: 'Indiquez un dossier pour démarrer.',
-    browse: 'Parcourir les dossiers'
+  time: { locale: 'fr-FR' },
+  /** Ledge's own notices (dynamic-island complement, cards #ledge): a rig's question, a decision, a routine, a machine offline. */
+  ledge: {
+    badge: { rig: 'Question d’un rig', decision: 'Décision', routine: 'Routine', offline: 'Hors ligne' },
+    rigQuote: (text: string) => `« ${text.replace(/ (?=[?!:;])/g, '\u202f')} »`, colon: ' : ',
+    answerIn: 'Répondre dans Ledge', decisionAsks: ' te demande une décision', see: 'Voir',
+    offline: 'Une machine est hors ligne', offlineSub: 'Reconnexion automatique', openMachines: 'Ouvrir les machines dans Ledge'
   },
-  browse: {
-    title: 'Choisir un dossier', back: 'Retour au formulaire', path: 'Chemin du dossier', up: 'Dossier parent', open: (name: string) => `Ouvrir ${name}`,
-    empty: 'Aucun sous-dossier.', loading: 'Chargement…',
-    newFolder: 'Nouveau dossier', newFolderName: 'Nom du nouveau dossier', create: 'Créer', choose: 'Choisir ce dossier',
-    failed: (why: string) => `Impossible : ${why}`
-  },
-  detail: { back: 'Retour aux sessions', close: 'Fermer' },
-  reader: { title: 'Document', back: 'Retour à la réponse', close: 'Replier', expand: 'Agrandir', shrink: 'Réduire', read: 'Lecture', source: 'Markdown', outline: 'Sommaire', reload: 'Recharger', retry: 'Réessayer', readonly: 'Lecture seule', loading: 'Ouverture du document…', empty: 'Ce document est vide.', targetMissing: 'La position demandée n’existe pas dans ce document.', escape: 'Échap pour revenir', error: { not_found: 'Fichier introuvable', not_file: 'Ce chemin ne désigne pas un fichier', unsupported_path: 'Chemin non pris en charge', unsupported_type: 'Seuls les fichiers Markdown sont pris en charge', too_large: 'Fichier trop volumineux', invalid_utf8: 'Le fichier n’est pas en UTF-8', permission_denied: 'Accès refusé', ambiguous_path: 'Impossible de déterminer le dossier de ce document', session_missing: 'La session d’origine n’existe plus', read_failed: 'Lecture impossible', timeout: 'Le document ne répond pas', offline: 'Connexion au daemon perdue' } },
-  session: {
-    rename: 'Renommer la session', topicPlaceholder: 'Le sujet de cette session',
-    reading: 'Mode lecture', focusTerminal: 'Voir l’onglet du terminal', close: 'Fermer',
-    eyebrow: { ask: 'À vous de jouer', working: 'En cours', error: 'À examiner', session: 'Session' },
-    title: {
-      permission: (name: string) => `${name} souhaite lancer une commande.`,
-      diff: (name: string) => `${name} propose des modifications.`,
-      plan: (name: string) => `${name} propose un plan.`,
-      readonly: 'Visible, en lecture seule.',
-      starting: 'La session se prépare.', working: 'Concentré sur sa tâche.', idle: 'En attente de vos instructions.',
-      error: 'La session a rencontré un problème.', exited: 'Cette session est terminée.'
-    },
-    helpers: 'Sous-agents', helpersMore: (n: number) => `+${n} ${plural(n, 'autre', 'autres')}`,
-    readonlyLead: (name: string) => `${name} a été lancé sans le lanceur Ledge.`,
-    readonlyNote: 'Son état reste visible. Pour répondre à cette session, retrouvez son terminal d’origine.',
-    readonlyNext: 'Pour une prochaine session interactive :',
-    runIn: (project: string) => `Exécution dans ${project}`,
-    reviewIn: (project: string) => `À relire dans ${project}`,
-    reviewHint: 'Relisez-le dans le terminal : le bandeau en bas, ou T.',
-    always: 'Toujours pour cette session',
-    alwaysWhy: 'Aucun outil ne confirme encore une autorisation durable : chaque demande se décide une à une.',
-    scope: 'La décision concerne cette commande uniquement : « Toujours » n’est pas encore pris en charge.',
-    allow: 'Autoriser', deny: 'Refuser',
-    options: 'Options',
-    other: 'Autre', otherAnswer: 'Autre réponse', otherPlaceholder: 'Ou proposez autre chose…',
-    otherWhy: 'Réponse libre pas encore prise en charge : répondez dans le terminal',
-    send: 'Envoyer la réponse →',
-    failed: (why: string) => `${why}. Réessayez ou ouvrez l’onglet.`,
-    terminal: 'Terminal', terminalNote: (n: number) => `${n} dernières lignes · lecture seule`,
-    band: { working: 'Travaille', approval: 'Attend votre accord', question: 'Pose une question', idle: 'À vous', done: 'Terminé', error: 'Échec', open: 'ouvrir le mode lecture' },
-    peek: '8 dernières lignes', peekHint: 'Clic ou T : mode lecture',
-    foldTerminal: 'Replier le terminal', unfoldTerminal: 'Rouvrir le terminal',
-    replyLabel: (name: string) => `Répondre à ${name}`,
-    replyPlaceholder: (_name: string) => 'Une instruction pour votre compagnon…',
-    sendReply: 'Envoyer',
-    hintPrompt: (kind: string) => `${kind === 'permission' ? 'Autorisez ou refusez la commande' : kind === 'diff' ? 'Acceptez ou refusez les modifications' : 'Acceptez ou refusez le plan'} avant de répondre`,
-    hintQuestion: 'Une question se répond par une option ; le reste, dans son terminal',
-    hintFree: 'Entrée envoie le texte au terminal tel quel',
-    interrupt: 'Interrompre', kill: 'Arrêter la session'
-  },
-  /** The agent's last message, read like a plan (the "your turn" view). */
-  reply: {
-    finished: (name: string, when: string) => `${name} a terminé il y a ${when}`,
-    question: 'Question',
-    typeAnswer: 'Répondre librement',
-    recommended: 'Recommandé',
-    showRaw: 'Réponse complète, telle quelle', showStructured: 'Vue structurée',
-    hintChips: 'Une puce remplit le champ, Entrée envoie',
-    hintAnswerAll: 'Une ligne par question, Entrée envoie'
-  },
-  bubble: {
-    more: (n: number) => `+${n} ${plural(n, 'autre', 'autres')}`,
-    failed: (why: string) => `${why}. Réessayez ou ouvrez la session.`,
-    lostDefault: 'La décision n’a pas été transmise',
-    finished: (name: string) => `${name} a terminé`,
-    finishedSub: (duration: string, project: string) => `${duration} de travail · ${project}`,
-    finishedSubNoTime: (project: string) => project,
-    ok: 'OK',
-    openSession: 'Ouvrir dans Ledge',
-    pending: 'Envoyé, en attente du terminal', confirmed: 'Reçu',
-    later: 'Plus tard', laterNext: 'Plus tard, suivante', reviewAction: 'Relire dans Ledge', deny: 'Refuser', approve: 'Autoriser',
-    reply: 'Répondre', choices: 'Réponses proposées', short: 'Ou répondre en quelques mots…', shortLabel: 'Réponse courte',
-    choose: 'Choisissez une réponse ou écrivez-en une.', close: 'Fermer',
-    offline: 'Une machine est hors ligne', offlineSub: 'Reconnexion automatique', offlineBadge: 'Hors ligne',
-    failedTitle: (name: string) => `${name} s’est arrêtée sur une erreur`, errorSub: 'La session s’est arrêtée.',
-    answer: (opt: string) => `Répondre : ${opt}`, firstOption: 'première option',
-    /** Ledge's sentence about a session's request, after the session's name (board 6 of the operator mockup). */
-    sentence: {
-      run: (cmd: string) => `veut lancer \`${cmd}\``,
-      use: (tool: string, text: string) => `veut utiliser ${tool} : \`${text}\``,
-      asks: (text: string) => `te demande : ${text}`, asksNothing: 'a une question pour toi',
-      review: (kind: 'diff' | 'plan'): string => kind === 'diff' ? 'propose des modifications à relire' : 'propose un plan à relire',
-      waits: 'attend ton accord'
-    },
-    /** A notice from the operator: a point, or an urgent question from a rig. */
-    point: { later: 'Plus tard', see: 'Voir le point' },
-    rigAsk: { colon: ' : ', quote: (text: string) => `« ${text.replace(/ (?=[?!:;])/g, ' ')} »`, open: 'Répondre dans Ledge' },
-    /** A decision a session put to the user: Ledge names who asks, « Voir » opens « À toi ». */
-    decision: { asks: ' te demande une décision', see: 'Voir' }
-  },
-  /** Routines' items of « À toi » in the island (docs/mockups/ledge-routines.html, cards 15 and 23): an activation request, several
-   *  one-shots proposed together, a run that could not leave; the words a schedule reads with there. */
   atoi: {
     routine: {
-      kind: 'routine',
-      ask: (who: string, name: string, when: string, dir: string) => `${who} veut programmer « ${name} » : ${when}, dans ${dir}`,
-      groupAsk: (who: string, n: number, list: string) => `${who} veut programmer ${n} routines uniques : ${list}`,
+      ask: (who: string, name: string, when: string, dir: string) => `${who} veut programmer « ${name} » : ${when}, dans ${dir}`,
+      groupAsk: (who: string, n: number, list: string) => `${who} veut programmer ${n} routines uniques : ${list}`,
       /** A session's change to a routine (card 29): the settings it asks for. */
-      editAsk: (who: string, name: string, when: string) => `${who} veut modifier « ${name} » : ${when}`,
-      failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
-      activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer', see: 'Voir',
+      editAsk: (who: string, name: string, when: string) => `${who} veut modifier « ${name} » : ${when}`,
+      failed: (name: string, who: string, why: string) => `La routine ${name} (${who}) n’a pas pu partir : ${why}`,
+      activate: 'Activer', activateAll: (n: number) => `Activer les ${n}`, refuse: 'Refuser', retry: 'Relancer',
       days: { mon: 'lun', tue: 'mar', wed: 'mer', thu: 'jeu', fri: 'ven', sat: 'sam', sun: 'dim' }, daily: 'tous les jours', every2: '1 sem. sur 2',
       /** Why a run did not leave, as cards 8, 13-16 and 29 draw it, by the field the daemon names; any other reason is the daemon's own. */
-      why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
+      why: { cwd: (dir: string) => `dossier introuvable : ${dir}`, tool: (tool: string) => `outil absent : ${tool}`, timeout: 'pas tapée en 30 min (session occupée)' },
+      /** An approval refused because the routine changed since the island showed it (card 32): nothing activated. */
+      stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
       /** Before the routine is read: never the daemon's French task title (card 30). */
-      /** An approval refused because the routine changed since the bubble showed it (card 32): nothing activated. */
-      stale: (name: string) => `« ${name} » a changé depuis que tu l’as ouverte : relis-la avant d’activer.`,
-      fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
+      fallbackAsk: (name: string) => `« ${name} » attend ton accord`, fallbackFailed: (name: string, why: string) => `La routine ${name} n’a pas pu partir : ${why}`,
       /** Past three moments in a request (card 28). */
       more: (list: string, n: number) => `${list} et ${n} autres`,
       /** A daemon too old for a grouped answer, or for any routine command (card 33): nothing was sent, nothing changed. */
-      groupTooOld: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
-      tooOld: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'
+      groupTooOld: 'Le Ledge de cette machine est trop ancien pour activer ou refuser un groupe : mets-le à jour. Rien n’a changé.',
+      tooOld: 'Le Ledge de cette machine est trop ancien pour cette action : mets-le à jour. Rien n’a changé.'
     }
   },
-  handoff: {
-    session: (name: string) => `Ouverture de ${name} dans Ledge Desktop`,
-    terminal: (name: string) => `Ouverture du terminal de ${name} dans Ledge Desktop`,
-    document: (path: string) => `Ouverture de ${path} dans Ledge Desktop`,
-    settings: 'Ouverture des réglages dans Ledge Desktop',
-    launch: 'Ouverture d’une nouvelle session dans Ledge Desktop',
-    update: 'Ouverture des mises à jour dans Ledge Desktop',
-    machines: 'Ouverture des machines dans Ledge Desktop',
-    point: 'Ouverture du point dans Ledge Desktop',
-    ask: 'Ouverture de « À toi » dans Ledge Desktop',
-    routine: (name: string) => `Ouverture de la routine « ${name} » dans Ledge Desktop`,
-    failed: 'Ledge Desktop n’a pas pu s’ouvrir.'
-  },
-  menu: {
-    label: 'Menu de Ledge', gear: 'Menu de Ledge',
-    settings: 'Réglages dans Ledge Desktop', settingsHint: 'Affichage, machines, notifications, sons, mises à jour',
-    dnd: 'Ne pas déranger', dndHint: 'Les demandes attendent dans l’encoche, sans bulle ni son',
-    quit: 'Quitter Ledge'
-  },
-  settings: {
-    title: 'Votre Ledge', tabs: 'Sections des réglages', tabDisplay: 'Affichage', tabNotifications: 'Notifications', tabSounds: 'Sons', islandSize: 'Taille de l’encoche', islandSizeHint: 'L’encoche et ses compagnons en haut de l’écran.', windowSize: 'Taille des fenêtres', windowSizeHint: 'Bulle, liste, session, réglages et aide.', auto: (p: string) => `Auto (${p})`,
-    screen: 'Écran', screenHint: (w: number, h: number) => `L’encoche se pose en haut de cet écran (${w}\u00a0×\u00a0${h}).`, screenHintNone: 'L’encoche se pose en haut de l’écran principal.',
-    islandPosition: 'Position de l’encoche', islandPositionHint: 'Au centre du bord supérieur, ou décalée au quart de l’écran pour laisser libres les titres et les onglets.', islandPositions: { center: 'Centre', left: 'À gauche', right: 'À droite' },
-    discreet: 'Mode discret sous une fenêtre', discreetHint: 'Un simple trait quand une fenêtre maximisée occupe l’écran ; un survol la redéploie.',
-    screenPrimary: 'Principal', screenNth: (n: number) => `Écran ${n}`, screenMissing: 'Débranché',
-    defaultTool: 'Harnais par défaut', defaultToolHint: 'Les nouvelles sessions et le chat Ledge. À changer si un quota est saturé.',
-    dnd: 'Ne pas déranger', dndHint: 'Les demandes restent dans l’encoche.',
-    reduced: 'Mouvements réduits', reducedHint: 'Les états restent lisibles sans animation.',
-    osReduced: 'Votre système demande des mouvements réduits ; Ledge continue de le respecter.',
-    finished: 'Quand un bot ou Ledge a terminé', finishedHint: 'Une bulle de 6 s, un son, les deux, ou seulement l’encoche.',
-    finishedBoth: 'Bulle et son', finishedBubble: 'Bulle', finishedSound: 'Son', finishedNone: 'Encoche seule',
-    sounds: 'Sons', soundsHint: 'Des tons courts et doux pour ce qui vous attend. Jamais en Ne pas déranger.',
-    volume: 'Volume', volumeHint: 'Test joue le signal de question.', volumeQuiet: 'Bas', volumeNormal: 'Normal', volumeLoud: 'Fort', test: 'Test',
-    playWhen: 'Jouer un son quand',
-    category: { requests: 'Un bot a besoin de vous · accord, question', finished: 'Un bot ou Ledge a terminé sa tâche', errors: 'Quelque chose échoue', decisions: 'Vous acceptez ou refusez', team: 'Un bot arrive ou part' } as Record<SoundCategory, string>,
-    behind: 'Seulement quand le terminal est derrière', behindHint: 'Si Windows Terminal est la fenêtre au premier plan, vous regardez déjà : pas de son, la bulle s’affiche quand même.',
-    soundsNote: 'Un seul son à la fois : une rafale de demandes ne joue qu’une fois, la poignée montre le reste. Ouvrir, fermer et survoler sont silencieux.',
-    themeLight: 'Thème clair · Galet', themeDark: 'Thème sombre · Signal', themeHint: 'Changer le thème et la matière des mascottes',
-    accent: 'Couleur de Ledge', accentHint: 'Le point, les boutons et le halo de Ledge. Les erreurs restent rouges.',
-    accentHex: 'Hex', accentReset: 'Corail'
-  },
-  chat: {
-    title: 'Ledge', subtitle: (n: number, repos: number) => `Voit ${n} ${plural(n, 'session', 'sessions')} · ${repos} ${plural(repos, 'dépôt', 'dépôts')} · lecture seule`,
-    ask: 'Demander à Ledge', askPlaceholder: 'Demander à Ledge…', open: 'Ouvrir la conversation avec Ledge', send: 'Envoyer', stop: 'Arrêter', reset: 'Nouvelle conversation', back: 'Retour aux sessions', close: 'Fermer',
-    emptyTitle: 'Demandez-moi des nouvelles.',
-    emptyHint: (n: number) => `${n === 0 ? 'Je ne vois aucune session pour l’instant.' : n === 1 ? 'Je vois 1 session, son terminal et son dépôt.' : `Je vois ${n} sessions, les terminaux et les dépôts.`} Je lis, je ne touche à rien.`,
-    starters: 'Pour commencer',
-    chips: ['Où en sont les autres ?', 'Qu’est-ce qui attend ma décision ?', 'Quelles branches peuvent être fusionnées ?'],
-    thinking: 'Ledge cherche…',
-    step: { sessions: 'Relit les sessions', pane: (name: string) => `Lit le terminal de ${name}`, reply: (name: string) => `Lit la dernière réponse de ${name}`, git: (name: string) => `git dans le dossier de ${name}`, repo: (path: string) => `Lit ${path}` },
-    source: { sessions: 'les sessions', pane: (name: string) => `le terminal de ${name}`, reply: (name: string) => `la dernière réponse de ${name}`, git: (name: string) => `git dans le dossier de ${name}`, repo: (path: string) => path },
-    sources: 'Sources', sourcesNone: 'aucune lecture', ago: (when: string) => `il y a ${when}`,
-    error: (why: string) => `Ledge n’a pas pu répondre : ${why}`,
-    interrupted: 'Ledge n’a pas pu répondre : le daemon s’est arrêté avant la réponse.',
-    stopped: 'Arrêté.',
-    card: {
-      label: 'Session proposée', folder: 'Dossier', tool: 'Harnais', byDefault: (tool: string) => `${tool} · par défaut`, prompt: 'Instruction', noPrompt: 'Aucune, session vide',
-      launch: 'Lancer la session', launching: 'Lancement…', retry: 'Réessayer', orRephrase: 'ou reformule ta demande', orFolder: 'ou donne-moi un autre dossier',
-      failed: (why: string) => `Échec du lancement : ${why}`, started: 'a démarré', startedUnknown: 'Session démarrée', terminal: 'Terminal'
-    },
-    // #24 : plusieurs sessions dans une réponse.
-    group: { label: (n: number) => `${n} sessions proposées`, launchAll: (n: number) => `Tout lancer (${n})`, launchRow: 'Lancer', pick: (project: string) => `Lancer ${project}` },
-    closeGroup: { label: (n: number) => n === 1 ? 'Session à fermer' : `${n} sessions à fermer`, row: 'Fermer', all: (n: number) => `Fermer tout (${n})`, closing: 'Fermeture…', closed: 'Fermée', killed: 'Fermée de force', ended: 'Terminée', retry: 'Réessayer', failed: (m: string) => `Échec : ${m}` },
-    relay: {
-      label: 'Instruction à envoyer', session: 'Session', instruction: 'Instruction',
-      send: 'Envoyer', sending: 'Envoi…', cancel: 'Annuler', retry: 'Réessayer', orRephrase: 'ou reformule ta demande',
-      queued: 'travaille, j’enverrai dès qu’il aura fini', sentTo: 'Envoyé à', failed: (why: string) => `Échec de l’envoi : ${why}`,
-      pill: { yours: 'à toi', working: 'travaille', waiting: 'attend ta réponse', stopped: 'arrêtée' }
-    },
-    // #94 : la carte générique, une ligne par action, un plan au-delà d’une (docs/mockups/ledge-action-card.html).
-    action: actionCopy.fr,
-    project: {
-      label: 'Proposition de projet', title: (name: string) => `Proposition de projet · ${name}`, complete: (name: string) => `Compléter ${name}`,
-      repos: (n: number) => `${n} dépôt${n > 1 ? 's' : ''}`, review: 'Vérifier la proposition'
-    },
-  },
-  help: {
-    title: 'Au bout des doigts.',
-    keys: [['Ouvrir la liste', ['Ctrl Alt L']], ['Choisir une session', ['J', 'K']], ['Ouvrir la sélection', ['Entrée']], ['Autoriser / refuser', ['Y', 'N']],
-      ['Session précédente / suivante', ['Alt ←', 'Alt →']], ['Nouvelle session', ['Ctrl Alt N']], ['Aller à la première instruction', ['I']], ['Répondre', ['R']], ['Ouvrir l’onglet du terminal', ['O']], ['Mode lecture, le terminal à côté', ['T']], ['Ne pas déranger', ['D']], ['Retour, puis replier', ['Échap']]] as Array<[string, string[]]>,
-    tab: 'Tab conserve la navigation entre les contrôles.',
-    chat: 'Au chat, « ouvre une session dans ledge pour corriger le build » propose une carte : le clic sur Lancer démarre la session. « Dis à Otto de lancer les tests » propose une instruction : Envoyer la tape dans sa session, tout de suite ou dès qu’il a fini.'
-  },
-  coach: {
-    label: 'Clavier', title: 'Naviguer au clavier', ok: 'Compris',
-    upDown: 'monter et descendre', prevNext: 'session précédente / suivante', decide: 'décider', close: 'fermer', esc: 'Échap',
-    note: 'Affiché aux trois premières ouvertures au clavier'
-  },
-  update: {
-    pip: { new: (v: string) => `Ledge ${v} est prêt`, busy: 'Mise à jour en cours…', bad: 'La mise à jour a échoué', ok: 'Ledge est à jour' }
-  },
-  thread: {
-    you: 'Vous', loading: 'Le fil arrive…',
-    empty: 'Le fil se remplit au prochain événement de l’agent.',
-    liveLabel: 'Outil en cours',
-    permission: 'Permission demandée', decided: { accept: 'Autorisée', deny: 'Refusée', always: 'Toujours autorisée', unknown: 'Répondue dans le terminal', denyByClose: 'Refusée par la fermeture' }, questionByClose: 'Refusée par la fermeture', undecided: 'En attente de votre décision',
-    cursorNote: 'Cette source ne transmet ni résultats ni messages intermédiaires.',
-    helperOpen: 'Ouvrir la discussion', helperDone: 'Terminé', helperWorking: 'Au travail',
-    backTo: 'Discussion principale', delegatedBy: 'Délégué par', instruction: 'Consigne', report: 'Rapport final', helperWaiting: 'attend son rapport…',
-    image: { capture: 'Capture', unavailable: 'Image indisponible', close: 'Fermer', prev: 'Image précédente', next: 'Image suivante' }
-  },
-  /** The closed notch's activity line and music slot (mockup docs/mockups/ledge-notch-activity.html). */
-  notch: {
-    line: {
-      tool: { read: 'lit', edit: 'modifie', search: 'cherche', command: 'lance', other: (tool: string) => `utilise ${tool}` },
-      helper: '› sous-agent', thinking: 'réfléchit…',
-      reason: { permission: 'attend votre accord', question: 'vous pose une question', plan: 'vous soumet un plan', diff: 'vous montre un diff', finished: 'a terminé', error: 's’est arrêté sur une erreur' },
-      ago: (t: string) => `il y a ${t}`, open: (who: string) => `Ouvrir ${who} dans Ledge`
-    },
-    music: {
-      label: (title: string, artist: string) => `Musique en cours : ${title}${artist ? `, ${artist}` : ''}`,
-      prev: 'Précédent', pause: 'Pause', play: 'Lecture', next: 'Suivant',
-      cantPrev: 'Ce lecteur ne permet pas de revenir en arrière', cantNext: 'Ce lecteur ne permet pas de passer au suivant', cantPlay: 'Ce lecteur ne se met pas en pause depuis Ledge',
-      paused: 'En pause'
-    },
-    /** A request waits: Ledge's dot, its tooltip and label (mockup complement 673aea87). */
-    pending: {
-      tip: (kind: 'permission' | 'question', who: string, n: number) => `${kind === 'permission' ? `${who} attend votre accord` : `${who} vous pose une question`}${n > 1 ? ` (+${n - 1} autre${n > 2 ? 's' : ''})` : ''}. Cliquer pour rouvrir la demande.`,
-      aria: (kind: 'permission' | 'question', who: string, n: number) => `Ledge, ${n > 1 ? `${n} demandes attendent` : 'une demande attend'} : rouvrir ${kind === 'permission' ? `l’accord demandé par ${who}` : `la question de ${who}`}`
-    }
-  },
-  shortcut: 'Ctrl Alt L'
+  island: {
+    badge: { finished: 'Terminé', error: 'Erreur', permission: 'Ton accord', question: 'Une question', plan: 'Plan à approuver', diff: 'À relire' } as Record<AgentKind, string>,
+    say: { finished: 'a terminé', error: 's’est arrêtée sur une erreur', permission: 'veut exécuter une commande', question: 'te pose une question', plan: 'propose un plan', diff: 'propose des modifications à relire' } as Record<AgentKind, string>,
+    deny: 'Refuser', approve: 'Autoriser', reply: 'Répondre', review: 'Relire dans Ledge', later: 'Plus tard', laterNext: 'Plus tard, suivante',
+    open: 'Ouvrir dans Ledge', short: 'Ou répondre en quelques mots…', choices: 'Réponses proposées',
+    pending: 'Envoyé, en attente du terminal', confirmed: 'Reçu',
+    failed: (why: string) => `${why}. Réessaie ou ouvre la session.`,
+    choose: 'Choisis une réponse ou écris-en une.',
+    more: (n: number) => `+${n} ${n > 1 ? 'autres' : 'autre'}`,
+    openAria: (who: string) => `Ouvrir ${who} dans Ledge`
+  }
 };
 
 export type Messages = typeof fr;
 
 const en: Messages = {
-  machines: { title: 'Machines', target: 'Machine', hint: 'The companion and its folder live on this machine.', local: 'This machine', online: 'Connected', offline: 'Offline', reconnecting: (names: string) => `${names}: reconnecting`, count: (n: number) => `${n} machines`, add: 'Add a machine', save: 'Save', remove: 'Remove', label: 'Name', ssh: 'SSH alias', invalid: 'Check the name and SSH alias. Each alias can only be added once.', daemonOffline: 'The local Ledge daemon is not connected: try again in a moment.',
-    intro: 'Ledge reaches your servers over SSH, from WSL. Their sessions show in your projects, with the machine’s name.', localMeta: 'Local · WSL', connecting: 'Connecting…', version: (v: string) => `Ledge ${v}`, sessions: (n: number) => `${n} session${n === 1 ? '' : 's'}`,
-    test: 'Test', retry: 'Retry', edit: 'Edit', cancel: 'Cancel', removeAsk: 'Remove', removeNote: '? Its sessions leave the list. Nothing is stopped or deleted on the server.', none: 'No servers yet. Your local sessions do not change.',
-    editTitle: (name: string) => `Edit ${name}`, labelHint: 'What you will see in sessions and the chat.', labelPlaceholder: 'Dev server', sshHint: 'The name of a Host block in ~/.ssh/config in WSL.', duplicate: 'This alias is already added.',
-    before: 'Before adding a server', steps: [['The alias works from WSL, without a password: ', 'ssh my-server'], ['The server’s host key is already approved (first connection made by hand).'], ['Node 22+ and tmux are installed on the server.'], ['Ledge is installed and running on the server: ', 'npm i -g @paradow/ledge && ledge setup']],
-    probe: 'Test the connection', probing: 'Connecting to', probeOk: (v: string | undefined, n: number) => `${v ? `Ledge ${v}` : 'Ledge'} answers · ${n} session${n > 1 ? 's' : ''}`, savedAnyway: 'The test is optional: an unreachable machine can be saved.',
-    problem: { alias: 'Alias not found. Add a Host block for this alias to ~/.ssh/config in WSL.', key: 'The SSH key is refused. Check IdentityFile for this alias in ~/.ssh/config in WSL.', hostKey: 'The server’s host key is not approved yet. Connect once from WSL with ssh and this alias.', unreachable: 'The server does not answer. It may be off, or out of the network.', ledge: 'Ledge is missing or too old on this server. Install it, then run “ledge setup”.', stopped: 'The Ledge service is not running on the server. Run “ledge setup” on the server.', local: 'Update Ledge on this machine to reach a server.', other: 'The connection failed.' }, clarification: 'You can also answer in the chat.', destination: 'Destination', choose: (name: string) => `On ${name}.`, configure: 'Configure machines' },
-  time: { seconds: (n: number) => `${n}s`, minutes: (n: number) => `${n}m`, hours: (n: number) => `${n}h`, locale: 'en-US' },
-  state: { approval: 'Approval', question: 'Question', starting: 'Starting', idle: 'Available', working: 'Running', done: 'Done', error: 'Error', readonly: 'Read only' },
-  botLabel: { starting: 'Starting', working: 'Working', approval: 'Needs your approval', question: 'Has a question', idle: 'Available', error: 'Error', done: 'Finished', readonly: 'Read-only' },
-  botReadOnly: 'Read-only',
-  resident: { name: 'Ledge', offline: 'Ledge · connection lost', tip: (n: number) => n === 0 ? 'No sessions · click to open' : `${n} session${n > 1 ? 's' : ''} · click to open`, unread: 'replied', unreadTip: 'Ledge replied · click to open', strip: (n: number) => n === 0 ? 'Ledge, no sessions, open' : `Ledge, ${n} session${n > 1 ? 's' : ''}, open`, more: (n: number) => `${n} more session${n > 1 ? 's' : ''}, open the list` },
-  say: {
-    ledge: ['Hey! I answered you!', "It's ready, take a look.", "Here's what I think.", "I've been waiting on this."],
-    finished: ["I'm done!", 'Mission accomplished.', 'All good on my side.', "I'll let you review."],
-    approval: ['I need your OK.', "I'm stuck without you.", 'A quick green light?', 'Waiting on your OK.'],
-    question: ['A question for you.', "I'm not sure — can you confirm?", 'I have to ask you.', 'Your call?'],
-    diff: ["I've got a diff to show you.", 'Changes to review.', 'A look at the patch?'],
-    plan: ["I've got a plan for you.", 'Shall we lock the next steps?', 'The plan is ready.'],
-    error: ['Oops, that crashed.', "I'm stuck.", 'Something went wrong.']
-  },
-  botNotLive: 'Not live',
-  handleLabel: { starting: 'starting', idle: 'available', approval: 'needs your approval', question: 'has a question', working: 'working', done: 'done', error: 'error', readonly: 'read only' },
-  open: 'open',
-  hint: { startedWithoutLedge: 'started without ledge', exited: (code: string) => `exited ${code}`, error: 'error', available: 'available', running: 'running', helpersRunning: (n: number) => `available · ${n} subagent${n > 1 ? 's' : ''} working` },
   offline: 'Offline: reconnecting to the daemon',
   readOnlyBlocked: 'Read only: started without Ledge, answer in its terminal',
-  unreachable: 'daemon unreachable, retrying',
-  daemonOutdated: 'Ledge daemon to update · see Ledge Desktop',
   lost: 'The connection dropped before the terminal answered',
   notTaken: 'The terminal did not take it',
-  list: {
-    summary: (n: number, waiting: number) => n === 0 ? 'No sessions' : `${n} ${plural(n, 'session', 'sessions')} · ${waiting ? `${waiting} waiting for you` : 'nothing waiting'}`,
-    dnd: 'Do not disturb', settings: 'Settings', collapse: 'Collapse', help: 'Keyboard shortcuts', newSession: 'New session',
-    row: (project: string, name: string) => `${project}, ${name}, open`,
-    noTopic: 'No topic yet', groupCount: (n: number) => `${n} ${plural(n, 'bot', 'bots')}`, rowTitle: (tool: string, cwd: string) => `${tool} · ${cwd}`,
-    approve: 'Approve', deny: 'Deny', openRow: 'Open',
-    dismiss: 'Remove from list', dismissRow: (project: string, name: string) => `Remove from list: ${project}, ${name}`,
-    emptyTitle: 'Nobody at work.',
-    emptyHint: 'Start a companion from here, or with', emptyHintAfter: 'in a terminal: it will show up in this list.',
-    launched: (name: string, project: string) => `${name} is starting in ${project}.`, openTerminal: 'Open the terminal'
+  handoff: {
+    session: (name: string) => `Opening ${name} in Ledge Desktop`,
+    failed: 'Ledge Desktop could not open.'
   },
-  launch: {
-    title: 'New session',
-    folder: 'Folder', folderHint: 'The project the companion works in.', folderPlaceholder: '~/Workspace/my-project',
-    recents: 'Recent', busy: (name: string) => `${name} works there`, noRecents: 'The folders of your sessions will show up here.',
-    pick: (project: string, cwd: string) => `Choose ${project} (${cwd})`,
-    tool: 'Tool', toolHint: 'Each is tracked through its hooks; its asks are answered from Ledge.',
-    bot: 'Companion', botHint: (title: string) => `Its name titles the terminal tab: ${title}.`, anotherName: 'Another name', botPlaceholder: 'Ledge picks one',
-    prompt: 'First instruction', optional: 'optional', promptKey: 'Press I to get here',
-    promptHint: (name: string) => `Sent as soon as ${name} is ready. Otherwise it waits for your turn in its terminal.`,
-    promptPlaceholder: (name: string) => `What should ${name} do first?`,
-    resume: 'Resume the last conversation', resumeHint: 'Starts with --continue in this folder.',
-    openTab: 'Open the terminal tab', openTabHint: 'Otherwise the companion runs in the background; the tab is one click away from its card.',
-    cancel: 'Cancel', start: 'Start', starting: 'Starting…',
-    failed: (why: string) => `Could not start: ${why}`,
-    needFolder: 'Give a folder to start in.',
-    browse: 'Browse folders'
-  },
-  browse: {
-    title: 'Choose a folder', back: 'Back to the form', path: 'Folder path', up: 'Parent folder', open: (name: string) => `Open ${name}`,
-    empty: 'No subfolders.', loading: 'Loading…',
-    newFolder: 'New folder', newFolderName: 'New folder name', create: 'Create', choose: 'Choose this folder',
-    failed: (why: string) => `Could not: ${why}`
-  },
-  detail: { back: 'Back to sessions', close: 'Close' },
-  reader: { title: 'Document', back: 'Back to reply', close: 'Collapse', expand: 'Expand', shrink: 'Shrink', read: 'Reading', source: 'Markdown', outline: 'Contents', reload: 'Reload', retry: 'Retry', readonly: 'Read only', loading: 'Opening document…', empty: 'This document is empty.', targetMissing: 'The requested position does not exist in this document.', escape: 'Esc to go back', error: { not_found: 'File not found', not_file: 'This path is not a file', unsupported_path: 'Unsupported path', unsupported_type: 'Only Markdown files are supported', too_large: 'File is too large', invalid_utf8: 'File is not UTF-8', permission_denied: 'Access denied', ambiguous_path: 'Cannot determine this document’s folder', session_missing: 'The source session no longer exists', read_failed: 'Cannot read file', timeout: 'Document did not respond', offline: 'Lost connection to daemon' } },
-  session: {
-    rename: 'Rename the session', topicPlaceholder: 'What this session is about',
-    reading: 'Reading mode', focusTerminal: 'Focus terminal tab', close: 'Close',
-    eyebrow: { ask: 'Your turn', working: 'In progress', error: 'To check', session: 'Session' },
-    title: {
-      permission: (name: string) => `${name} wants to run a command.`,
-      diff: (name: string) => `${name} proposes changes.`,
-      plan: (name: string) => `${name} proposes a plan.`,
-      readonly: 'Visible, read only.',
-      starting: 'The session is starting.', working: 'Focused on its task.', idle: 'Waiting for your instructions.',
-      error: 'The session ran into a problem.', exited: 'This session has ended.'
-    },
-    helpers: 'Subagents', helpersMore: (n: number) => `+${n} more`,
-    readonlyLead: (name: string) => `${name} was started without the Ledge launcher.`,
-    readonlyNote: 'Its state stays visible. To answer this session, go back to its own terminal.',
-    readonlyNext: 'For your next interactive session:',
-    runIn: (project: string) => `Run in ${project}`,
-    reviewIn: (project: string) => `To review in ${project}`,
-    reviewHint: 'Review it in the terminal: the strip at the bottom, or T.',
-    always: 'Always for this session',
-    alwaysWhy: 'No tool confirms a lasting authorization yet: each request is decided on its own.',
-    scope: 'The decision covers this command only: “Always” is not supported yet.',
-    allow: 'Approve', deny: 'Deny',
-    options: 'Options',
-    other: 'Other', otherAnswer: 'Other answer', otherPlaceholder: 'Other…',
-    otherWhy: 'answer in the terminal',
-    send: 'Answer',
-    failed: (why: string) => `${why}, try again or open the tab`,
-    terminal: 'Terminal', terminalNote: (n: number) => `last ${n} lines · read only`,
-    band: { working: 'Working', approval: 'Waiting for your approval', question: 'Asking a question', idle: 'Your turn', done: 'Done', error: 'Failed', open: 'open reading mode' },
-    peek: 'Last 8 lines', peekHint: 'Click or T: reading mode',
-    foldTerminal: 'Fold the terminal', unfoldTerminal: 'Reopen the terminal',
-    replyLabel: (name: string) => `Reply to ${name}`,
-    replyPlaceholder: (name: string) => `Reply to ${name}…`,
-    sendReply: 'Send',
-    hintPrompt: (kind: string) => `Approve or deny the ${kind} first, then reply`,
-    hintQuestion: 'A question takes an option number; answer anything else in its terminal',
-    hintFree: 'Enter sends to the terminal as typed',
-    interrupt: 'Interrupt', kill: 'Kill session'
-  },
-  reply: {
-    finished: (name: string, when: string) => `${name} finished ${when} ago`,
-    question: 'Question',
-    typeAnswer: 'Type an answer',
-    recommended: 'Recommended',
-    showRaw: 'Full reply as written', showStructured: 'Structured view',
-    hintChips: 'A chip fills the field, Enter sends',
-    hintAnswerAll: 'One line per question, Enter sends'
-  },
-  bubble: {
-    more: (n: number) => `+${n} more`,
-    failed: (why: string) => `${why}. Try again or open the session.`,
-    lostDefault: 'The decision was not delivered',
-    finished: (name: string) => `${name} finished`,
-    finishedSub: (duration: string, project: string) => `${duration} of work · ${project}`,
-    finishedSubNoTime: (project: string) => project,
-    ok: 'OK',
-    openSession: 'Open in Ledge',
-    pending: 'Sent, waiting for the terminal', confirmed: 'Received',
-    later: 'Later', laterNext: 'Later, next', reviewAction: 'Review in Ledge', deny: 'Deny', approve: 'Approve',
-    reply: 'Reply', choices: 'Suggested answers', short: 'Or answer in a few words…', shortLabel: 'Short answer',
-    choose: 'Choose an answer or write one.', close: 'Close',
-    offline: 'A machine is offline', offlineSub: 'Reconnecting on its own', offlineBadge: 'Offline',
-    failedTitle: (name: string) => `${name} stopped on an error`, errorSub: 'The session stopped.',
-    answer: (opt: string) => `Answer: ${opt}`, firstOption: 'first option',
-    sentence: {
-      run: (cmd: string) => `wants to run \`${cmd}\``,
-      use: (tool: string, text: string) => `wants to use ${tool}: \`${text}\``,
-      asks: (text: string) => `asks you: ${text}`, asksNothing: 'has a question for you',
-      review: (kind: 'diff' | 'plan'): string => kind === 'diff' ? 'has changes for you to review' : 'has a plan for you to review',
-      waits: 'needs your approval'
-    },
-    point: { later: 'Later', see: 'See the point' },
-    rigAsk: { colon: ': ', quote: (text: string) => `“${text}”`, open: 'Answer in Ledge' },
-    decision: { asks: ' asks you for a decision', see: 'See' }
+  time: { locale: 'en-US' },
+  ledge: {
+    badge: { rig: 'Rig question', decision: 'Decision', routine: 'Routine', offline: 'Offline' },
+    rigQuote: (text: string) => `“${text}”`, colon: ': ',
+    answerIn: 'Answer in Ledge', decisionAsks: ' asks you for a decision', see: 'View',
+    offline: 'A machine is offline', offlineSub: 'Reconnecting on its own', openMachines: 'Open the machines in Ledge'
   },
   atoi: {
     routine: {
-      kind: 'routine',
       ask: (who: string, name: string, when: string, dir: string) => `${who} wants to schedule “${name}”: ${when}, in ${dir}`,
       groupAsk: (who: string, n: number, list: string) => `${who} wants to schedule ${n} one-shot routines: ${list}`,
       editAsk: (who: string, name: string, when: string) => `${who} wants to change “${name}”: ${when}`,
       failed: (name: string, who: string, why: string) => `The routine ${name} (${who}) could not run: ${why}`,
-      activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Run again', see: 'View',
+      activate: 'Activate', activateAll: (n: number) => `Activate all ${n}`, refuse: 'Refuse', retry: 'Retry',
       days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }, daily: 'every day', every2: 'every 2 wks',
       why: { cwd: (dir: string) => `folder not found: ${dir}`, tool: (tool: string) => `tool missing: ${tool}`, timeout: 'not typed within 30 min (session busy)' },
       stale: (name: string) => `“${name}” changed since you opened it: read it again before activating.`,
@@ -472,126 +93,17 @@ const en: Messages = {
       tooOld: 'This machine’s Ledge is too old for this action: update it. Nothing changed.'
     }
   },
-  handoff: {
-    session: (name: string) => `Opening ${name} in Ledge Desktop`,
-    terminal: (name: string) => `Opening ${name}’s terminal in Ledge Desktop`,
-    document: (path: string) => `Opening ${path} in Ledge Desktop`,
-    settings: 'Opening settings in Ledge Desktop',
-    launch: 'Opening a new session in Ledge Desktop',
-    update: 'Opening updates in Ledge Desktop',
-    machines: 'Opening machines in Ledge Desktop',
-    point: 'Opening the point in Ledge Desktop',
-    ask: 'Opening “For you” in Ledge Desktop',
-    routine: (name: string) => `Opening the routine “${name}” in Ledge Desktop`,
-    failed: 'Ledge Desktop could not open.'
-  },
-  menu: {
-    label: 'Ledge menu', gear: 'Ledge menu',
-    settings: 'Settings in Ledge Desktop', settingsHint: 'Display, machines, notifications, sounds, updates',
-    dnd: 'Do not disturb', dndHint: 'Asks wait in the notch, with no bubble and no sound',
-    quit: 'Quit Ledge'
-  },
-  settings: {
-    title: 'Your Ledge', tabs: 'Settings sections', tabDisplay: 'Display', tabNotifications: 'Notifications', tabSounds: 'Sounds', islandSize: 'Notch size', islandSizeHint: 'The notch and its companions at the top of the screen.', windowSize: 'Window size', windowSizeHint: 'Bubble, list, session, settings and help.', auto: (p: string) => `Auto (${p})`,
-    screen: 'Screen', screenHint: (w: number, h: number) => `The notch sits at the top of this screen (${w}\u00a0×\u00a0${h}).`, screenHintNone: 'The notch sits at the top of the primary screen.',
-    islandPosition: 'Notch position', islandPositionHint: 'Centred on the top edge, or a quarter of the way in to keep window titles and tabs clear.', islandPositions: { center: 'Centre', left: 'Left', right: 'Right' },
-    discreet: 'Discreet under a window', discreetHint: 'A thin strip while a maximised window fills the screen; hovering brings the notch back.',
-    screenPrimary: 'Primary', screenNth: (n: number) => `Screen ${n}`, screenMissing: 'Unplugged',
-    defaultTool: 'Default harness', defaultToolHint: 'New sessions and the Ledge chat. Change it when a quota runs out.',
-    dnd: 'Do not disturb', dndHint: 'New asks stay in the notch.',
-    reduced: 'Reduced motion', reducedHint: 'States stay readable without animation.',
-    osReduced: 'Your system asks for reduced motion; Ledge keeps respecting it.',
-    finished: 'When a bot or Ledge finishes', finishedHint: 'A 6 s bubble, a sound, both, or the notch only.',
-    finishedBoth: 'Bubble and sound', finishedBubble: 'Bubble', finishedSound: 'Sound', finishedNone: 'Notch only',
-    sounds: 'Sounds', soundsHint: 'Short, soft tones for what needs you. Never while Do not disturb is on.',
-    volume: 'Volume', volumeHint: 'Test plays the question cue.', volumeQuiet: 'Quiet', volumeNormal: 'Normal', volumeLoud: 'Loud', test: 'Test',
-    playWhen: 'Play a sound when',
-    category: { requests: 'A bot needs you · approval, question', finished: 'A bot or Ledge finishes its task', errors: 'Something fails', decisions: 'You approve or deny', team: 'A bot joins or leaves' } as Record<SoundCategory, string>,
-    behind: 'Only when the terminal is behind', behindHint: 'When Windows Terminal is the front window you are already looking: no sound, the bubble still shows.',
-    soundsNote: 'One sound at a time: a burst of asks plays once, the handle shows the rest. Opening, closing and hovering are silent.',
-    themeLight: 'Light theme · Pebble', themeDark: 'Dark theme · Signal', themeHint: 'Switch the theme and the mascot material',
-    accent: 'Ledge color', accentHint: 'The period, the buttons and Ledge’s glow. Errors stay red.',
-    accentHex: 'Hex', accentReset: 'Coral'
-  },
-  chat: {
-    title: 'Ledge', subtitle: (n: number, repos: number) => `Sees ${n} ${plural(n, 'session', 'sessions')} · ${repos} ${plural(repos, 'repository', 'repositories')} · read only`,
-    ask: 'Ask Ledge', askPlaceholder: 'Ask Ledge…', open: 'Open the conversation with Ledge', send: 'Send', stop: 'Stop', reset: 'New conversation', back: 'Back to sessions', close: 'Close',
-    emptyTitle: 'Ask me how things are going.',
-    emptyHint: (n: number) => `${n === 0 ? 'I see no session yet.' : n === 1 ? 'I see 1 session, its terminal and its repository.' : `I see ${n} sessions, the terminals and the repositories.`} I read, I touch nothing.`,
-    starters: 'To start with',
-    chips: ['How are the others doing?', 'What is waiting for my decision?', 'Which branches can be merged?'],
-    thinking: 'Ledge is looking…',
-    step: { sessions: 'Reads the sessions', pane: (name: string) => `Reads ${name}'s terminal`, reply: (name: string) => `Reads ${name}'s last reply`, git: (name: string) => `git in ${name}'s folder`, repo: (path: string) => `Reads ${path}` },
-    source: { sessions: 'the sessions', pane: (name: string) => `${name}'s terminal`, reply: (name: string) => `${name}'s last reply`, git: (name: string) => `git in ${name}'s folder`, repo: (path: string) => path },
-    sources: 'Sources', sourcesNone: 'nothing read', ago: (when: string) => `${when} ago`,
-    error: (why: string) => `Ledge could not answer: ${why}`,
-    interrupted: 'Ledge could not answer: the daemon stopped before the answer.',
-    stopped: 'Stopped.',
-    card: {
-      label: 'Proposed session', folder: 'Folder', tool: 'Harness', byDefault: (tool: string) => `${tool} · default`, prompt: 'Instruction', noPrompt: 'None, empty session',
-      launch: 'Start the session', launching: 'Starting…', retry: 'Retry', orRephrase: 'or rephrase your request', orFolder: 'or give me another folder',
-      failed: (why: string) => `Could not start: ${why}`, started: 'has started', startedUnknown: 'Session started', terminal: 'Terminal'
-    },
-    // #24: several sessions in one answer.
-    group: { label: (n: number) => `${n} proposed sessions`, launchAll: (n: number) => `Start all (${n})`, launchRow: 'Start', pick: (project: string) => `Start ${project}` },
-    closeGroup: { label: (n: number) => n === 1 ? 'Session to close' : `${n} sessions to close`, row: 'Close', all: (n: number) => `Close all (${n})`, closing: 'Closing…', closed: 'Closed', killed: 'Force closed', ended: 'Ended', retry: 'Retry', failed: (m: string) => `Failed: ${m}` },
-    relay: {
-      label: 'Instruction to send', session: 'Session', instruction: 'Instruction',
-      send: 'Send', sending: 'Sending…', cancel: 'Cancel', retry: 'Retry', orRephrase: 'or rephrase your request',
-      queued: "is working; I'll send it as soon as it's done", sentTo: 'Sent to', failed: (why: string) => `Could not send: ${why}`,
-      pill: { yours: 'your turn', working: 'working', waiting: 'waiting for you', stopped: 'stopped' }
-    },
-    // #94: the generic card, a row per action, a plan past one (docs/mockups/ledge-action-card.html).
-    action: actionCopy.en,
-    project: {
-      label: 'Project proposal', title: (name: string) => `Project proposal · ${name}`, complete: (name: string) => `Complete ${name}`,
-      repos: (n: number) => `${n} ${n === 1 ? 'repository' : 'repositories'}`, review: 'Review the proposal'
-    },
-  },
-  help: {
-    title: 'Keyboard',
-    keys: [['Open the list', ['Ctrl Alt L']], ['Choose a session', ['J', 'K']], ['Open the selection', ['Enter']], ['Approve or deny', ['Y', 'N']],
-      ['Previous or next session', ['Alt ←', 'Alt →']], ['New session', ['Ctrl Alt N']], ['Go to the first instruction', ['I']], ['Reply', ['R']], ['Open the terminal tab', ['O']], ['Reading mode, the terminal alongside', ['T']], ['Do not disturb', ['D']], ['Back, then collapse', ['Esc']]],
-    tab: 'Tab keeps moving between the controls.',
-    chat: 'Ask the chat "open a session in ledge to fix the build": it proposes a card, and Start the session starts it. "Tell Otto to run the tests" proposes an instruction: Send types it into his session, now or as soon as he is done.'
-  },
-  coach: {
-    label: 'Keyboard', title: 'Move with the keyboard', ok: 'Got it',
-    upDown: 'up and down', prevNext: 'previous / next session', decide: 'decide', close: 'close', esc: 'Esc',
-    note: 'Shown on the first three keyboard opens'
-  },
-  update: {
-    pip: { new: (v: string) => `Ledge ${v} is ready`, busy: 'Update in progress…', bad: 'The update failed', ok: 'Ledge is up to date' }
-  },
-  thread: {
-    you: 'You', loading: 'Loading the thread…',
-    empty: 'The thread fills up with the agent’s next event.',
-    liveLabel: 'Running tool',
-    permission: 'Permission requested', decided: { accept: 'Allowed', deny: 'Denied', always: 'Always allowed', unknown: 'Answered in the terminal', denyByClose: 'Denied by the close' }, questionByClose: 'Dismissed by the close', undecided: 'Waiting for your decision',
-    cursorNote: 'This source sends neither results nor intermediate messages.',
-    helperOpen: 'Open the discussion', helperDone: 'Done', helperWorking: 'Working',
-    backTo: 'Main discussion', delegatedBy: 'Delegated by', instruction: 'Instruction', report: 'Final report', helperWaiting: 'is waiting for its report…',
-    image: { capture: 'Capture', unavailable: 'Image unavailable', close: 'Close', prev: 'Previous image', next: 'Next image' }
-  },
-  notch: {
-    line: {
-      tool: { read: 'reads', edit: 'edits', search: 'searches', command: 'runs', other: (tool: string) => `uses ${tool}` },
-      helper: '› sub-agent', thinking: 'is thinking…',
-      reason: { permission: 'needs your approval', question: 'has a question', plan: 'has a plan for you', diff: 'has a diff for you', finished: 'is done', error: 'stopped on an error' },
-      ago: (t: string) => `${t} ago`, open: (who: string) => `Open ${who} in Ledge`
-    },
-    music: {
-      label: (title: string, artist: string) => `Now playing: ${title}${artist ? `, ${artist}` : ''}`,
-      prev: 'Previous', pause: 'Pause', play: 'Play', next: 'Next',
-      cantPrev: 'This player can’t go back', cantNext: 'This player can’t skip ahead', cantPlay: 'This player can’t be paused from Ledge',
-      paused: 'Paused'
-    },
-    pending: {
-      tip: (kind: 'permission' | 'question', who: string, n: number) => `${kind === 'permission' ? `${who} needs your approval` : `${who} has a question`}${n > 1 ? ` (+${n - 1} more)` : ''}. Click to reopen the request.`,
-      aria: (kind: 'permission' | 'question', who: string, n: number) => `Ledge, ${n > 1 ? `${n} requests are waiting` : 'a request is waiting'}: reopen ${kind === 'permission' ? `${who}’s approval request` : `${who}’s question`}`
-    }
-  },
-  shortcut: 'Ctrl Alt L'
+  island: {
+    badge: { finished: 'Done', error: 'Error', permission: 'Approval', question: 'Question', plan: 'Plan to approve', diff: 'To review' },
+    say: { finished: 'finished', error: 'stopped on an error', permission: 'wants to run a command', question: 'asks you a question', plan: 'proposes a plan', diff: 'has changes for you to review' },
+    deny: 'Deny', approve: 'Allow', reply: 'Reply', review: 'Review in Ledge', later: 'Later', laterNext: 'Later, next',
+    open: 'Open in Ledge', short: 'Or answer in a few words…', choices: 'Suggested answers',
+    pending: 'Sent, waiting for the terminal', confirmed: 'Received',
+    failed: (why: string) => `${why}. Try again or open the session.`,
+    choose: 'Choose an answer or write one.',
+    more: (n: number) => `+${n} more`,
+    openAria: (who: string) => `Open ${who} in Ledge`
+  }
 };
 
 export type Lang = 'fr' | 'en';
