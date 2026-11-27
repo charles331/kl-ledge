@@ -48,8 +48,7 @@ export function useDaemonAsks(o: { sessions: Session[]; status: DaemonStatus; la
   useEffect(() => {
     const before = prev.current;
     const now = new Map(sessions.map(s => [s.id, s]));
-    const ids = [...now.keys()];
-    for (const id of before.keys()) if (!now.has(id)) { forget(id); workingSince.current.delete(id); dispatch({ type: 'removed', id, remaining: ids }); }
+    for (const id of before.keys()) if (!now.has(id)) { forget(id); workingSince.current.delete(id); dispatch({ type: 'removed', id }); }
     for (const s of sessions) {
       const was = before.get(s.id);
       const change = changeOf(was, s);

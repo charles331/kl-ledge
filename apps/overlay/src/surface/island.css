@@ -1,0 +1,124 @@
+/* The island (issue #27, docs/mockups/ledge-dynamic-island.html, sources docs/mockups/dynamic-island/island.css): an
+   « Atelier » card that floats under the top edge. Atelier draws every surface from one colour, --at-base, with one coral for
+   what waits on the person; the island takes its default palette (« Établi »). The window shows nothing else, so the ladder
+   is declared on the root, in the theme the app sets. */
+:root[data-theme="dark"] {
+  --at-base: #221f1b; --at-coral: #f27a63; --at-coral-ink: oklch(from var(--at-coral) .2 .04 h);
+  --at-b: oklch(from var(--at-base) l min(c, .04) h);
+  --at-well: oklch(from var(--at-b) calc(l - .04) c h);
+  --at-card: oklch(from var(--at-b) calc(l + .04) c h);
+  --at-raise: oklch(from var(--at-b) calc(l + .075) c h);
+  --at-field: var(--at-well);
+  --at-ink: oklch(from var(--at-b) .95 calc(c * .9 + .004) h);
+  --at-ink2: oklch(from var(--at-b) .69 calc(c + .004) h);
+  --at-line: oklch(from var(--at-ink) l c h / .09);
+  --at-line2: oklch(from var(--at-ink) l c h / .17);
+  --success: #34d399; --warning: #fbbf24; --danger-text: oklch(0.704 0.191 22.216);
+  --di-shadow: 0 14px 34px -12px rgba(0, 0, 0, .75);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --at-base: #fbf7f1; --at-coral: #d6543d; --at-coral-ink: #fff;
+  --at-b: oklch(from var(--at-base) l min(c, .028) h);
+  --at-well: oklch(from var(--at-b) calc(l - .035) c h);
+  --at-card: oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h);
+  --at-raise: oklch(from var(--at-b) calc(l - .055) c h);
+  --at-field: var(--at-card);
+  --at-ink: oklch(from var(--at-b) .24 calc(c + .012) h);
+  --at-ink2: oklch(from var(--at-b) .52 calc(c + .012) h);
+  --at-line: oklch(from var(--at-ink) l c h / .11);
+  --at-line2: oklch(from var(--at-ink) l c h / .2);
+  --success: #059669; --warning: #b45309; --danger-text: oklch(0.505 0.213 27.518);
+  --di-shadow: 0 14px 30px -12px rgba(60, 40, 20, .32);
+  color-scheme: light;
+}
+:root[data-theme] {
+  --background: var(--at-field); --foreground: var(--at-ink);
+  --card: var(--at-card); --card-foreground: var(--at-ink);
+  --secondary: var(--at-raise); --secondary-foreground: var(--at-ink);
+  --muted: var(--at-raise); --muted-foreground: var(--at-ink2); --accent: var(--at-raise); --accent-foreground: var(--at-ink);
+  --border: var(--at-line); --input: var(--at-line2); --ring: var(--at-ink2);
+  --sidebar-foreground: var(--at-ink); --sidebar-accent: var(--at-raise); --sidebar-accent-foreground: var(--at-ink); --sidebar-border: var(--at-line);
+  --well: var(--at-well);
+  --primary: var(--at-coral); --primary-foreground: var(--at-coral-ink); --primary-hover: oklch(from var(--at-coral) calc(l - .05) c h);
+  --sidebar-primary: var(--at-coral);
+  --radius-sm: 8px; --radius-md: 10px; --radius-lg: 12px; --radius-xl: 16px;
+}
+
+/* Where the island hangs: its axis on the top edge, 8 px under it. The layer is scaled by the island's size setting. */
+.di-anchor { position: absolute; top: 0; display: flex; justify-content: center; width: 0; }
+.di-anchor > .di-island { margin-top: 8px; }
+
+.di-island { --di-spring: cubic-bezier(.3, 1.22, .42, 1); --di-surface: var(--at-card); --di-rim: var(--at-line2);
+  position: relative; flex: none; overflow: hidden; box-sizing: border-box; background: var(--di-surface); color: var(--at-ink);
+  border-radius: 18px; box-shadow: 0 0 0 1px var(--di-rim), var(--di-shadow); transform-origin: 50% 0;
+  transition: width .42s var(--di-spring), height .42s var(--di-spring), border-radius .3s ease,
+    opacity .18s ease, transform .26s var(--di-spring), background-color .2s ease, box-shadow .2s ease; }
+.di-island[data-phase="gone"] { opacity: 0; transform: translateY(-46px) scale(.6); pointer-events: none; }
+.di-island[data-phase="open"] { border-radius: var(--radius-xl); }
+/* A request waiting for the person: the card takes the coral's tint. A question, a plan or a diff: an amber rim. */
+.di-island[data-phase="open"][data-kind="permission"] { --di-surface: color-mix(in srgb, var(--at-coral) 11%, var(--at-card)); --di-rim: color-mix(in srgb, var(--at-coral) 50%, transparent); }
+.di-island[data-phase="open"]:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"]) { --di-rim: color-mix(in srgb, var(--warning) 45%, var(--at-line2)); }
+/* Reduced motion: no trip and no bounce, a fade in and out. */
+.di-island[data-reduced] { transition: opacity .18s ease, background-color .2s ease, box-shadow .2s ease; }
+.di-island[data-reduced][data-phase="gone"] { transform: none; }
+.di-island[data-reduced] * { transition: none !important; }
+
+.di-seed { position: absolute; left: 0; top: 0; width: 72px; height: 36px; display: flex; align-items: center; justify-content: center; gap: 9px; transition: opacity .12s ease .1s; }
+.di-island[data-phase="open"] .di-seed { opacity: 0; transition-delay: 0s; }
+.di-island .logo { display: inline-grid; place-items: center; flex: none; }
+.di-card { position: absolute; left: 50%; top: 0; width: 420px; margin-left: -210px; box-sizing: border-box; padding: 13px 14px 14px; display: flex; flex-direction: column; gap: 10px; text-align: left;
+  font-size: 13.5px; line-height: 20px; opacity: 0; transition: opacity .1s ease; }
+.di-island[data-phase="open"] .di-card { opacity: 1; transition: opacity .2s ease .14s; }
+.di-card[role="button"] { cursor: pointer; }
+.di-card:focus-visible { outline: none; }
+.di-island:has(.di-card:focus-visible) { box-shadow: 0 0 0 2px var(--ring), var(--di-shadow); }
+
+.di-head { display: flex; align-items: flex-start; gap: 10px; flex: none; }
+.di-logo { position: relative; flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-top: 1px; border-radius: 9px; background: var(--at-raise); box-shadow: inset 0 0 0 1px var(--at-line); }
+.di-island[data-kind="permission"] .di-logo { background: color-mix(in srgb, var(--at-coral) 14%, var(--at-card)); }
+.di-island:has(.di-ring) .di-logo { box-shadow: none; }
+.di-id { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.di-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.di-badge { flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; line-height: 1; font-weight: 600; white-space: nowrap; color: var(--tone); background: color-mix(in srgb, var(--tone) 17%, transparent); }
+.di-badge[data-kind="finished"] { --tone: var(--success); }
+.di-badge[data-kind="error"] { --tone: var(--danger-text); }
+.di-badge[data-kind="permission"] { --tone: var(--at-coral); }
+.di-badge:is([data-kind="question"], [data-kind="plan"], [data-kind="diff"]) { --tone: var(--warning); }
+.di-sentence { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.di-sentence b { font-weight: 600; }
+.di-meta { font: 12px/16px 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.di-meta em { font-style: normal; }
+.di-preview { flex: none; margin: 0; font-size: 13px; line-height: 19px; color: var(--muted-foreground); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.di-preview[data-mono] { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; }
+.di-question { margin: 0; font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.di-command { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--at-line); border-radius: 10px; background: var(--at-well); }
+.di-command code { min-width: 0; font: 12px/17px 'Geist Mono', ui-monospace, monospace; overflow-wrap: anywhere; }
+.di-chip-k { flex: none; display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px !important; box-sizing: border-box; height: 18px; padding: 0 7px; border: 1px solid var(--at-line2); border-radius: 9px; font: 10.5px/1 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); }
+
+/* The middle (command, question, answers, field) scrolls when the card would pass the height available; the head and the
+   actions stay in view, with a hairline above and below the part that scrolls (design-ux, states of an agent's card, 7). */
+.di-body { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 0 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+.di-body[data-scrolls] { border-top: 1px solid var(--at-line); border-bottom: 1px solid var(--at-line); padding: 8px 0; }
+.di-choices { display: flex; flex-direction: column; gap: 6px; }
+.di-choice { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--at-line2); border-radius: 10px; background: transparent; color: inherit; font-size: 13.5px; line-height: 20px; text-align: left; cursor: pointer; }
+.di-choice:hover, .di-choice[aria-checked="true"] { background: var(--at-raise); }
+.di-reply { flex: none; height: 34px; padding: 0 11px; box-sizing: border-box; border: 1px solid var(--at-line2); border-radius: 10px; background: var(--at-field); color: inherit; font-size: 13.5px; }
+.di-reply::placeholder { color: var(--muted-foreground); }
+.di-reply:focus { outline: none; border-color: var(--ring); }
+.di-note { flex: none; font-size: 12px; line-height: 16px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.di-note[data-tone="bad"] { color: var(--danger-text); }
+.di-actions { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; }
+.di-actions .ledge-btn { gap: 7px !important; }
+.di-actions .ledge-btn kbd { margin-right: -4px; }
+.di-ack { margin-left: auto; font-size: 12px; line-height: 16px; color: var(--muted-foreground); }
+.di-foot { display: flex; gap: 12px; margin-left: auto; }
+.di-foot button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--muted-foreground); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.di-foot button:hover { color: var(--at-ink); }
+
+/* A notice's time left: the ring around the logo's tile empties in the state's colour; the hover holds it. */
+@keyframes di-drain { to { stroke-dashoffset: 100; } }
+.di-ring { position: absolute; inset: -3px; width: 34px; height: 34px; overflow: visible; }
+.di-ring rect { fill: none; stroke-width: 2; stroke-linecap: round; }
+.di-track { stroke: var(--at-line2); }
+.di-left { stroke-dasharray: 100; }

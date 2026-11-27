@@ -7,17 +7,8 @@ import type { Tab } from './model';
 
 /** The pure rules of a session tab (docs/mockups/ledge-ide-interactive.html): what it shows and says, without React.
  *  Types only from changedFiles, so the first bundle does not pull the session chunk. */
-export type Provider = 'anthropic' | 'openai' | 'cursor' | 'omp';
-
-/** The provider whose logo a tool wears. */
-export function providerOf(tool: Session['tool']): Provider {
-  switch (tool) {
-    case 'claude': return 'anthropic';
-    case 'codex': return 'openai';
-    case 'cursor': return 'cursor';
-    case 'omp': return 'omp';
-  }
-}
+export { providerOf, type Provider } from '@ledge/ui/logos/ProviderLogo';
+import type { Provider } from '@ledge/ui/logos/ProviderLogo';
 
 /** The provider of a model, by its id (each segment of « provider/model » tried): Claude's, OpenAI's or Cursor's own; null
  *  for one with no logo in our set (Gemini…) or none known, where the caller shows the tool's provider. The session bar

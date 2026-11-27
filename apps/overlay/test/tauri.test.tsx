@@ -3,7 +3,6 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import WebSocket from 'ws';
 import { createMockDaemon, fakeSession } from './mockDaemon';
 import { frameOf, unionFrame, FRAME_PAD } from '../src/surface/frame';
-import { SHOULDER_R } from '../src/surface/Shoulders';
 // The native side, stubbed: `invoke` records commands, the window's `listen` keeps the handler so a test can emit a shell event,
 // the global shortcut plugin keeps each handler by its accelerator (`shortcut` is Ctrl+Alt+L's).
 const native = vi.hoisted(() => ({
@@ -59,10 +58,8 @@ describe('bridge', () => {
   it('in the browser nothing reaches the shell', async () => {
     const b = await loadBridge();
     await expect(b.setFrame({ left: 0, top: 1, w: 2, h: 3 })).resolves.toBe(false);
-    b.setOutsideWatch(true); await b.focusOverlay(); await b.releaseFocus();
-    await expect(b.focusTerminal('Otto')).resolves.toBe(false);
-    await expect(b.openTerminal('Otto', ['node', 'cli', 'attach', 'a'])).resolves.toBe(false);
-    const fn = vi.fn(); b.onOutsideClick(fn)();
+    await b.focusOverlay(); await b.releaseFocus();
+    await expect(b.foregroundIsTerminal()).resolves.toBe(false);
     await Promise.resolve();
     expect(native.invoke).not.toHaveBeenCalled();
     expect(native.listeners.size).toBe(0);
@@ -93,37 +90,11 @@ describe('bridge', () => {
     expect(calls('set_frame')).toHaveLength(2);
   });
 
-  it('the outside-click watch, overlay focus and terminal focus are commands', async () => {
+  it('overlay focus and its release are commands', async () => {
     enterTauri(); const b = await loadBridge();
-    b.setOutsideWatch(true); b.setOutsideWatch(true); b.setOutsideWatch(false);
     await b.focusOverlay(); await b.releaseFocus();
-    native.invoke.mockImplementationOnce(async () => true);
-    await expect(b.focusTerminal('Otto · harness-assistant')).resolves.toBe(true);
-    await vi.waitFor(() => expect(calls('set_outside_watch')).toEqual([{ on: true }, { on: false }]));
     expect(calls('focus_overlay')).toEqual([undefined]);
     expect(calls('release_focus')).toEqual([undefined]);
-    expect(calls('focus_terminal')).toEqual([{ title: 'Otto · harness-assistant' }]);
-  });
-
-  it('open_terminal takes the tab title and the WSL command; a refusal or a failure reads false', async () => {
-    enterTauri(); const b = await loadBridge();
-    native.invoke.mockImplementationOnce(async () => true);
-    await expect(b.openTerminal('Juno · api-gateway', ['/usr/bin/node', '/opt/ledge/cli.js', 'attach', 'n1'])).resolves.toBe(true);
-    expect(calls('open_terminal')).toEqual([{ title: 'Juno · api-gateway', command: ['/usr/bin/node', '/opt/ledge/cli.js', 'attach', 'n1'] }]);
-    native.invoke.mockRejectedValueOnce(new Error('wt.exe not found'));
-    await expect(b.openTerminal('x', ['y'])).resolves.toBe(false);
-    native.invoke.mockRejectedValueOnce(new Error('no window'));
-    await expect(b.focusTerminal('x')).resolves.toBe(false);
-  });
-
-  it('onOutsideClick forwards ledge://outside-click and unlistens on dispose', async () => {
-    enterTauri(); const b = await loadBridge();
-    const fn = vi.fn(); const off = b.onOutsideClick(fn);
-    await vi.waitFor(() => expect(native.listeners.has('ledge://outside-click')).toBe(true));
-    native.listeners.get('ledge://outside-click')!({ payload: null });
-    expect(fn).toHaveBeenCalledOnce();
-    off();
-    expect(native.unlisten).toHaveBeenCalledTimes(1);
   });
 
   it('Ctrl+Alt+L and Ctrl+Alt+N are global shortcuts under Tauri and window keys in the browser', async () => {
@@ -197,195 +168,82 @@ describe('bridge', () => {
     await expect(b.setMonitor('x')).resolves.toBeUndefined();
   });
 
-  it('the hot zone goes to the shell once per distinct band; the foreground event reaches the page in both worlds', async () => {
-    enterTauri();
-    const b = await loadBridge();
-    b.setHotZone(900, 117); b.setHotZone(900, 117); b.setHotZone(880, 157);
-    await vi.waitFor(() => expect(calls('set_hot_zone')).toEqual([{ left: 900, width: 117 }, { left: 880, width: 157 }]));
-    const seen: boolean[] = [];
-    const off = b.onForegroundCovered(c => seen.push(c));
-    await vi.waitFor(() => expect(native.listeners.has('ledge://foreground')).toBe(true));
-    native.listeners.get('ledge://foreground')!({ payload: { covered: true } });
-    expect(seen).toEqual([true]);
-    off();
-    leaveTauri();
-    const b2 = await loadBridge();
-    const seen2: boolean[] = [];
-    const off2 = b2.onForegroundCovered(c => seen2.push(c));
-    window.dispatchEvent(new CustomEvent('ledge:foreground', { detail: { covered: true } }));
-    window.dispatchEvent(new CustomEvent('ledge:foreground', { detail: { covered: false } }));
-    expect(seen2).toEqual([true, false]);
-    off2();
-    expect(calls('set_hot_zone')).toHaveLength(2);
-  });
 });
 
 describe('<Surface> under Tauri', () => {
   let mock: Awaited<ReturnType<typeof createMockDaemon>>; let detach: () => void; let close: () => void;
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
   const surface = () => document.querySelector('[data-surface]') as HTMLElement;
-  const content = () => document.querySelector('[data-frame-content]') as HTMLElement | null;
-  const lastFrame = () => calls('set_frame').at(-1) as { left: number; top: number; width: number; height: number };
+  const frames = () => calls('set_frame') as Array<{ left: number; top: number; width: number; height: number }>;
+  const asking = fakeSession('b', { name: 'Pim', tool: 'codex', project: 'speos-api', startedAt: '2026-10-09T18:01:00.000Z', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } });
 
-  async function mount(opts: { tauri: boolean; handleScale?: number; panelScale?: number; screenH?: number; launcher?: string[]; onToggleDnd?: () => void }) {
+  async function mount(opts: { tauri: boolean; islandScale?: number }) {
     if (opts.tauri) enterTauri();
+    // The movement itself, not the reduced fade the unit suite runs with.
+    vi.stubEnv('VITE_LEDGE_MOTION', '1');
     vi.resetModules();
     const [{ Surface }, { createDaemonClient }, { attachClient, daemonStore }] = await Promise.all([
       import('../src/surface/Surface'), import('../src/daemon/client'), import('../src/daemon/store')
     ]);
     daemonStore.reset(); mock = await createMockDaemon();
-    if (opts.launcher) mock.extras.launcher = opts.launcher;
-    mock.sessions.set('a', fakeSession('a')); mock.sessions.set('b', fakeSession('b', { name: 'Pim', tool: 'codex', project: 'speos-api', startedAt: '2026-10-09T18:01:00.000Z' }));
+    mock.sessions.set('a', fakeSession('a'));
     const client = createDaemonClient({ url: mock.url, WebSocketImpl: WebSocket as never }); detach = attachClient(client); client.connect();
     close = () => client.close();
     await sleep(100);
-    render(<Surface screenH={opts.screenH ?? 1080} handleScale={opts.handleScale} panelScale={opts.panelScale} theme="dark" client={client} dnd={false} onToggleDnd={opts.onToggleDnd ?? (() => {})} />);
+    render(<Surface screenH={1080} screenW={1920} islandScale={opts.islandScale} client={client} dnd={false} />);
   }
   beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
   afterEach(async () => { detach(); close(); await mock.close(); vi.useRealTimers(); });
 
-  it('a session started from a chat card opens a tab through the launcher when no window carries its title', async () => {
-    await mount({ tauri: true, launcher: ['/usr/bin/node', '/opt/ledge/cli.js'] });
-    await waitFor(() => expect(native.shortcut).not.toBeNull());
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'chat');
-    const ask = document.querySelector('[data-chat-input]') as HTMLInputElement;
-    fireEvent.change(ask, { target: { value: 'ouvre une session' } });
-    fireEvent.keyDown(ask, { key: 'Enter' });
-    await vi.waitFor(() => expect(mock.received.some(m => m.type === 'chat.ask')).toBe(true));
-    const qid = mock.received.find(m => m.type === 'chat.ask')!.qid;
-    const proposal = { cwd: '/w/api-gateway', project: 'api-gateway', tool: 'claude' as const, prompt: 'Fix it' };
-    await act(async () => { mock.push({ type: 'chat.done', qid, text: 'Voici.', at: new Date().toISOString(), proposal }); await sleep(20); });
-    fireEvent.click(document.querySelector('[data-launch-card] button') as HTMLElement);
-    await vi.waitFor(() => expect(mock.received.some(m => m.type === 'session.launch')).toBe(true));
-    native.invoke.mockImplementation(async (cmd: string) => (cmd === 'focus_terminal' ? false : cmd === 'open_terminal' ? true : undefined));
-    await act(async () => { mock.launched(fakeSession('n1', { name: 'Juno', project: 'api-gateway', title: 'Juno · api-gateway', state: 'starting' })); await sleep(50); });
-    await vi.waitFor(() => expect(calls('open_terminal')).toEqual([{ title: 'Juno · api-gateway', command: ['/usr/bin/node', '/opt/ledge/cli.js', 'attach', 'n1'] }]));
-    expect(calls('focus_terminal')).toEqual([{ title: 'Juno · api-gateway' }]);
-  });
-
   it('in the browser nothing goes to a shell', async () => {
     await mount({ tauri: false });
-    expect(content()).toBeNull();
+    await act(async () => { await sleep(20); });
     expect(native.invoke).not.toHaveBeenCalled();
   });
 
-  it('sends the bounding frame (island plus fillets); the page is drawn in work-area coordinates, never shifted', async () => {
+  it('at rest the frame is 0 × 0, so every click goes through; a request sends the pill’s rectangle, then the open card’s, then 0 × 0 again', async () => {
     await mount({ tauri: true });
-    // Ledge alone on a 1024 px wide jsdom viewport, whatever the sessions: the 21 px filet at x 502, 10 px high.
-    expect(surface()).toHaveStyle({ left: '502px', top: '0px', width: '21px', height: '10px' });
-    await waitFor(() => expect(lastFrame()).toEqual({ left: 502 - SHOULDER_R - FRAME_PAD.left, top: 0, width: 21 + 2 * SHOULDER_R + FRAME_PAD.left + FRAME_PAD.right, height: 10 + FRAME_PAD.bottom }));
-    // The window covers the work area and only its region follows the frame: the page needs no offset wrapper.
-    expect(content()).toBeNull();
+    await waitFor(() => expect(frames().at(-1)).toEqual({ left: 0, top: 0, width: 0, height: 0 }));
+    await act(async () => { mock.upsert(asking); await sleep(50); });
+    // The pill: 72 × 36 under the top edge, centred on the 1920 px axis, with room for its shadow.
+    await waitFor(() => expect(frames()).toContainEqual({ left: 960 - 36 - FRAME_PAD.left, top: 8, width: 72 + FRAME_PAD.left + FRAME_PAD.right, height: 36 + FRAME_PAD.bottom }));
+    await act(async () => { vi.advanceTimersByTime(300); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'open');
+    await waitFor(() => expect(frames().at(-1)!.width).toBe(420 + FRAME_PAD.left + FRAME_PAD.right));
+    expect(frames().at(-1)!.left).toBe(960 - 210 - FRAME_PAD.left);
+    // Answered in the terminal: the request leaves, the island closes and leaves, the region goes.
+    await act(async () => { mock.upsert(fakeSession('b', { name: 'Pim', tool: 'codex', project: 'speos-api', startedAt: '2026-10-09T18:01:00.000Z', state: 'working' })); await sleep(50); });
+    await act(async () => { vi.advanceTimersByTime(320 + 240 + 500); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'gone');
+    await waitFor(() => expect(frames().at(-1)).toEqual({ left: 0, top: 0, width: 0, height: 0 }));
   });
 
-  it('a grow goes out as soon as the list opens, the fold back right after it, in call order and without waiting for the shell', async () => {
-    const seen: number[] = [];
-    const pending: Array<() => void> = [];
-    const answer = () => act(async () => { while (pending.length) pending.shift()!(); await Promise.resolve(); });
-    native.invoke.mockImplementation((cmd: string, a?: unknown) => {
-      if (cmd !== 'set_frame') return Promise.resolve(undefined);
-      seen.push((a as { left: number }).left);
-      return new Promise<undefined>(r => pending.push(() => r(undefined)));
-    });
+  it('at 2× the pill and its frame are doubled', async () => {
+    await mount({ tauri: true, islandScale: 2 });
+    await act(async () => { mock.upsert(asking); await sleep(50); });
+    await waitFor(() => expect(frames()).toContainEqual({ left: 960 - 72 - FRAME_PAD.left, top: 16, width: 144 + FRAME_PAD.left + FRAME_PAD.right, height: 72 + FRAME_PAD.bottom }));
+  });
+
+  it('Ctrl+Alt+L reopens a request set aside and takes the focus; once the island has left it gives the focus back. Without a request it does nothing', async () => {
     await mount({ tauri: true });
-    const handleLeft = 502 - SHOULDER_R - FRAME_PAD.left;
-    await waitFor(() => expect(seen.at(-1)).toBe(handleLeft));
-    await answer();
-    // Handle to list: the list is wider, so its frame starts further left and holds the island's; it goes out at once.
     await waitFor(() => expect(native.shortcut).not.toBeNull());
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    const listLeft = parseFloat(surface().style.left) - SHOULDER_R - FRAME_PAD.left;
-    expect(listLeft).toBeLessThan(handleLeft);
-    await waitFor(() => expect(seen.at(-1)).toBe(listLeft));
-    expect(pending).toHaveLength(1); // the shell has not answered: the request did not wait for it
-    await answer();
-    // List to handle (no settle with VITE_LEDGE_MOTION=0): straight back, after the list frame's answer (frames are sequenced).
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    await answer();
-    await waitFor(() => expect(seen.at(-1)).toBe(handleLeft));
-  });
-
-  it('an island at 2x on a 4K work area: the surface and the frame are the 512-unit ones doubled', async () => {
-    // A 4K work area (2160 logical px), island 200 %: the island lays out in a 512 x 1080 unit screen and is drawn at 2x.
-    await mount({ tauri: true, screenH: 2160, handleScale: 2, panelScale: 1 });
-    expect(surface()).toHaveStyle({ left: '492px', top: '0px', width: '42px', height: '20px' });
-    expect((document.querySelector('[data-zoom="handle"]') as HTMLElement).style.zoom).toBe('2');
-    expect((document.querySelector('[data-panel]') as HTMLElement).style.zoom).toBe('1');
-    const left = 492 - SHOULDER_R - FRAME_PAD.left;
-    await waitFor(() => expect(lastFrame()).toEqual({ left, top: 0, width: 42 + 2 * SHOULDER_R + FRAME_PAD.left + FRAME_PAD.right, height: 20 + FRAME_PAD.bottom }));
-    // The windows keep their own scale: the chat opens at its base 480 px, centred on the real screen.
-    await waitFor(() => expect(native.shortcut).not.toBeNull());
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    expect(surface()).toHaveStyle({ width: '480px', top: '0px' });
-    const chatLeft = parseFloat(surface().style.left);
-    expect(Math.abs(chatLeft + 240 - 512)).toBeLessThanOrEqual(1);
-  });
-
-  it('the filet keeps Ledge’s rectangle; a cursor event does not mount a face', async () => {
-    await mount({ tauri: true });
-    await waitFor(() => expect(document.querySelector('[data-ledge-mark]')).not.toBeNull());
-    expect(document.querySelector('[data-resident] svg')).toBeNull();
-  });
-
-  it('hovering the handle opens nothing; a click opens the chat and arms the outside-click watch', async () => {
-    await mount({ tauri: true });
-    await waitFor(() => expect(native.listeners.has('ledge://outside-click')).toBe(true));
-    await waitFor(() => expect(calls('set_outside_watch').at(-1)).toEqual({ on: false }));
-    fireEvent.mouseEnter(surface());
-    await act(async () => { vi.advanceTimersByTime(180); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
+    await act(async () => { native.shortcut!({ state: 'Pressed' }); await sleep(20); });
     expect(calls('focus_overlay')).toHaveLength(0);
-    fireEvent.click(document.querySelector('[data-resident]') as HTMLElement);
-    await act(async () => { vi.advanceTimersByTime(180); });
-    expect(surface()).toHaveAttribute('data-mode', 'chat');
-    await waitFor(() => expect(calls('set_outside_watch').at(-1)).toEqual({ on: true }));
-    await act(async () => { native.listeners.get('ledge://outside-click')!({ payload: null }); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
-    await waitFor(() => expect(calls('set_outside_watch').at(-1)).toEqual({ on: false }));
-    // The shell watches the top band over the island's span (the band's depth and overhang are its own).
-    expect(calls('set_hot_zone').at(-1)).toEqual({ left: 502, width: 21 });
-  });
-
-  it('a press outside a keyboard-opened panel folds it without handing focus back over the window just clicked', async () => {
-    await mount({ tauri: true });
-    await waitFor(() => expect(native.shortcut).not.toBeNull());
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'chat');
-    await waitFor(() => expect(calls('focus_overlay')).toHaveLength(1));
-    await act(async () => { native.listeners.get('ledge://outside-click')!({ payload: null }); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
-    await act(async () => { await sleep(20); });
-    expect(calls('release_focus')).toHaveLength(0);
-  });
-
-  it('Ctrl+Alt+N notes a new session and does not open a form or take focus', async () => {
-    await mount({ tauri: true });
-    await waitFor(() => expect(native.shortcuts.has('Ctrl+Alt+N')).toBe(true));
-    await act(async () => { native.shortcuts.get('Ctrl+Alt+N')!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
-    expect(document.body.textContent).toContain('Ledge Desktop');
+    expect(surface()).toHaveAttribute('data-phase', 'gone');
+    // A request opens without taking the focus.
+    await act(async () => { mock.upsert(asking); await sleep(50); vi.advanceTimersByTime(300); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'open');
     expect(calls('focus_overlay')).toHaveLength(0);
-    await act(async () => { native.shortcuts.get('Ctrl+Alt+N')!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
+    // Later: it leaves. The shortcut brings it back, focused.
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Plus tard/ })); vi.advanceTimersByTime(320 + 240); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'gone');
+    await act(async () => { native.shortcut!({ state: 'Pressed' }); await sleep(20); vi.advanceTimersByTime(300); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'open');
+    expect(calls('focus_overlay')).toHaveLength(1);
     expect(calls('release_focus')).toHaveLength(0);
-  });
-
-  it('a shortcut open focuses the overlay and its close releases it; asks do neither', async () => {
-    await mount({ tauri: true });
-    await waitFor(() => expect(native.shortcut).not.toBeNull());
-    await act(async () => { native.shortcut!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'chat');
-    await waitFor(() => expect(calls('focus_overlay')).toHaveLength(1));
-    expect(calls('release_focus')).toHaveLength(0);
-    await act(async () => { native.shortcut!({ state: 'Released' }); native.shortcut!({ state: 'Pressed' }); });
-    expect(surface()).toHaveAttribute('data-mode', 'handle');
-    await waitFor(() => expect(calls('release_focus')).toHaveLength(1)); // the keyboard close hands focus back
-    await act(async () => { mock.upsert(fakeSession('b', { name: 'Pim', tool: 'codex', project: 'speos-api', startedAt: '2026-10-09T18:01:00.000Z', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } })); await sleep(50); vi.advanceTimersByTime(540); });
-    expect(surface()).toHaveAttribute('data-mode', 'bubble');
-    await act(async () => { await sleep(20); });
-    expect(calls('focus_overlay')).toHaveLength(2);
-    expect(calls('release_focus')).toHaveLength(1);
+    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }); vi.advanceTimersByTime(320 + 240); await sleep(20); });
+    expect(surface()).toHaveAttribute('data-phase', 'gone');
+    await waitFor(() => expect(calls('release_focus')).toHaveLength(1));
   });
 });
 
@@ -437,6 +295,15 @@ describe('useNativeFrame', () => {
     p.rerender(list); // back to the list before the settle: the union (the list frame) already holds it
     await tick(400);
     expect(log).toEqual([LIST]); // the cancelled settle never shrank the region to the handle
+  });
+
+  it('from no region (0 × 0, the island at rest) a frame goes out alone, never unioned with the screen’s corner; back to none at once', async () => {
+    const p = await probe({ left: 0, top: 0, w: 0, h: 0 });
+    await tick(0);
+    p.rerender(handle); await tick(0);
+    expect(log).toEqual(['{"left":0,"top":0,"width":0,"height":0}', HANDLE]);
+    p.rerender({ left: 0, top: 0, w: 0, h: 0 }); await tick(0);
+    expect(log.at(-1)).toBe('{"left":0,"top":0,"width":0,"height":0}');
   });
 
   it('with no settle time a shrink applies at once', async () => {
