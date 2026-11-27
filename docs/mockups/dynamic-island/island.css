@@ -210,3 +210,36 @@ body { overflow: auto; background: var(--at-bench); color: var(--foreground); }
 }
 @media (max-width: 460px) { .di-holder { zoom: .78; } .di-decisions article { padding: 12px; } .di-decisions .di-holder { zoom: .68; } }
 @media (prefers-reduced-motion: reduce) { .di-island, .di-island * { transition: none !important; } }
+
+/* ---- complement (2026-11-27): a diff to review, the card's states, Ledge's own notices, the settings page ---- */
+.di-badge[data-kind="diff"] { --tone: var(--warning); }
+.di-island[data-phase="open"][data-kind="diff"] { --di-rim: color-mix(in srgb, var(--warning) 45%, var(--at-line2)); }
+.di-body { display: grid; gap: 10px; min-width: 0; }
+.di-body:empty { display: none; }
+/* Too tall for the screen: the head and the actions stay, the middle scrolls between two hairlines. */
+.di-body[data-scroll] { max-height: calc(var(--di-max, 600px) - 150px); overflow-y: auto; overscroll-behavior: contain; padding: 8px 0; border-block: 1px solid var(--at-line); }
+.di-note { font-size: 12px; line-height: 16px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.di-note[data-tone="bad"] { color: var(--danger-text); }
+.di-island[data-ledge="ask"][data-phase="open"] { --di-rim: color-mix(in srgb, var(--warning) 45%, var(--at-line2)); }
+.di-island[data-ledge="bad"][data-phase="open"] { --di-rim: color-mix(in srgb, var(--danger-text) 45%, var(--at-line2)); }
+.di-texts { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 19px; }
+.di-texts th, .di-texts td { text-align: left; vertical-align: top; padding: 7px 10px 7px 0; border-top: 1px solid var(--at-line); }
+.di-texts th { font-weight: 600; color: var(--muted-foreground); font-size: 12px; }
+.di-texts td:first-child { white-space: nowrap; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: var(--muted-foreground); }
+@media (max-width: 720px) { .di-texts td:first-child { white-space: normal; } .di-texts { font-size: 12px; } }
+.di-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.di-scard { display: grid; gap: 0; align-content: start; padding: 14px 16px 6px; border: 1px solid var(--at-line); border-radius: var(--radius-lg); background: var(--at-pane); }
+.di-scard h3 { margin: 0; font-size: 15px; line-height: 22px; font-weight: 600; }
+.di-snote { margin: 2px 0 8px; font-size: 13px; color: var(--muted-foreground); }
+.di-srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--at-line); font-size: 13px; line-height: 19px; }
+.di-srow > div { display: grid; gap: 2px; min-width: 0; }
+.di-srow span { color: var(--muted-foreground); }
+.di-srow s { color: var(--muted-foreground); opacity: .7; font-size: 12px; text-decoration-color: var(--danger-text); }
+.di-srow em { font-style: normal; align-self: start; padding: 3px 9px; border: 1px solid var(--at-line2); border-radius: 8px; font-size: 12px; white-space: nowrap; }
+.di-srow i { grid-column: 1 / -1; font: normal 10.5px/14px 'Geist Mono', ui-monospace, monospace; color: var(--muted-foreground); }
+.di-srow[data-status="new"] i { color: var(--warning); }
+.di-srow[data-status="gone"] b { text-decoration: line-through; text-decoration-color: var(--at-coral); }
+.di-srow[data-status="gone"] i { color: var(--danger-text); }
+/* A tool's name longer than the chip allows (an MCP tool) is cut with an ellipsis; the full name is in its title. */
+.di-chip-k { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 16px; }
+.di-texts { table-layout: fixed; } .di-texts td, .di-texts th { overflow-wrap: anywhere; }
