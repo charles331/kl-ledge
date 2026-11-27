@@ -46,3 +46,32 @@ for (const theme of ['light', 'dark'] as const) {
     await group.screenshot({ path: info.outputPath(`default-agent-choices-${theme}.png`) });
   });
 }
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`Appearance › Theme: Claude's provider logo in each swatch, centred (${theme})`, async ({ page }, info) => {
+    await seedAtelier(page);
+    await page.addInitScript(([t]) => { try { localStorage.setItem('desktop.theme', t!); localStorage.setItem('desktop.lang', 'en'); } catch { /* ignore */ } }, [theme]);
+    await fakeDaemon(page, eight, { projects: twoProjects });
+    await page.goto('/');
+    await expect(page.locator('.ide')).toBeVisible({ timeout: 20_000 });
+    await page.keyboard.press('Control+Comma');
+    await page.locator('.settings-nav').getByRole('button', { name: 'Appearance', exact: true }).click();
+    const group = page.getByRole('radiogroup', { name: 'Theme' });
+    await expect(group).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await expect(group.locator('.logo-bot')).toHaveCount(0);
+    const swatches = group.locator('.theme-swatch');
+    await expect(swatches).toHaveCount(2);
+    for (let i = 0; i < 2; i++) {
+      const swatch = swatches.nth(i);
+      await expect(swatch.locator('.logo')).toHaveAttribute('title', 'Anthropic');
+      const box = (await swatch.boundingBox())!;
+      const mark = (await swatch.locator('.logo svg').boundingBox())!;
+      expect(mark.width).toBe(22); expect(mark.height).toBe(22);
+      // The mark sits in the middle of its swatch, both ways.
+      expect(Math.abs((mark.x + mark.width / 2) - (box.x + box.width / 2))).toBeLessThanOrEqual(0.5);
+      expect(Math.abs((mark.y + mark.height / 2) - (box.y + box.height / 2))).toBeLessThanOrEqual(0.5);
+    }
+    await group.screenshot({ path: info.outputPath(`theme-swatches-${theme}.png`) });
+  });
+}

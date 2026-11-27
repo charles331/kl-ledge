@@ -94,6 +94,8 @@ input[type=color]{width:34px;height:32px;padding:2px;border-radius:var(--radius-
 .theme-swatch{width:52px;height:44px;border-radius:var(--radius-md);display:grid;place-items:center;border:1px solid var(--border)}
 .theme-pick[data-preview=light] .theme-swatch{background:#f6f6f5}
 .theme-pick[data-preview=dark] .theme-swatch{background:#1a1a1a}
+/* The sample on each theme is Claude's provider logo, boxed to its mark so the grid centres it exactly. */
+.theme-swatch .logo{display:inline-flex}
 .theme-pick>span:last-child{display:flex;flex-direction:column}
 .theme-pick strong{font-size:13px;font-weight:500}
 .theme-pick small{font-size:11px;color:var(--muted-foreground)}
