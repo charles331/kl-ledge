@@ -448,6 +448,7 @@ export const en: Copy = {
     destination: 'Destination'
   },
   decide: {
+    sent: (name: string) => `Answer sent to ${name}.`, ofN: (k: number, n: number) => `${k} of ${n}`, openSettings: 'Open Settings',
     deny: 'Deny', allow: 'Allow',
     onPc: 'To accept on the PC',
     onPcHint: 'A high-impact request is accepted on the PC. You can deny it from here.',

@@ -469,6 +469,8 @@ const fr = {
     destination: 'Destination'
   },
   decide: {
+    /** A decision a session put to Ledge, answered in its thread (#40 D2, docs/mockups/ledge-remove-chat-p2.html, cards 1 and 2). */
+    sent: (name: string) => `Réponse envoyée à ${name}.`, ofN: (k: number, n: number) => `${k} sur ${n}`, openSettings: 'Ouvrir les Réglages',
     deny: 'Refuser', allow: 'Autoriser',
     onPc: 'À accepter sur le PC',
     onPcHint: 'Une demande à impact élevé s’accepte sur le PC. Tu peux la refuser d’ici.',

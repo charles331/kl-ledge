@@ -297,7 +297,8 @@ export function App({ link, store, storage, fetchImpl = defaultFetch, updates = 
     const failed = prsOn ? failedCount(prs) : 0;
     // Each badge on the tab that holds what it counts (#40 D7, docs/mockups/ledge-remove-chat-p2.html, card 6).
     const badges = {
-      sessions: sessionsBadge(requestsOf([...mobile.sessions.values()]), openDecisions(mobile.tasks.values()).length),
+      // The decisions count where they are answered: in their thread, on a PC that takes `task.answer` (D2).
+      sessions: sessionsBadge(requestsOf([...mobile.sessions.values()]), mobile.daemon?.taskAnswer ? openDecisions(mobile.tasks.values()).length : 0),
       rigs: rigsBadge(mobile.asks ?? []),
       // The open requests whose pipeline failed, in red (M0, M5 §1).
       prs: failed ? { text: failed > 99 ? '99+' : String(failed), tone: 'red' as const } : null
