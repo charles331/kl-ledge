@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Champ de réponse fermé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Issue kl-ledge/ledge#44 : le texte d'attente d'un champ de réponse fermé (question à choix seulement : Codex, Cursor).
+   Base : apps/desktop/src/session/Reply.tsx (placeholder, reply-hint, `shut`), styles ide.css § .ide-reply et
+   thread-cowork.css (champ Cowork de #46), habillage Atelier palette « Établi » (tokens de docs/mockups/ide-atelier/atelier.css). */
+:root{ --at-base:#221f1b; --at-coral:#f27a63; --at-b:oklch(from var(--at-base) l min(c, .04) h);
+  --at-pane:var(--at-b); --at-side:oklch(from var(--at-b) calc(l - .018) c h); --at-well:oklch(from var(--at-b) calc(l - .04) c h);
+  --at-bench:oklch(from var(--at-b) calc(l - .068) calc(c * .9) h); --at-card:oklch(from var(--at-b) calc(l + .04) c h); --at-raise:oklch(from var(--at-b) calc(l + .075) c h);
+  --at-ink:oklch(from var(--at-b) .95 calc(c * .9 + .004) h); --at-ink2:oklch(from var(--at-b) .69 calc(c + .004) h);
+  --at-line:oklch(from var(--at-ink) l c h / .09); --at-line2:oklch(from var(--at-ink) l c h / .17);
+  --field:var(--at-well); --note:#a78bfa; --warn:#e0b04f; --ok:#5fb98b; --bad:#f08a7a; color-scheme:dark }
+:root[data-theme="light"]{ --at-base:#fbf7f1; --at-coral:#d6543d; --at-b:oklch(from var(--at-base) l min(c, .028) h);
+  --at-side:oklch(from var(--at-b) calc(l - .025) c h); --at-well:oklch(from var(--at-b) calc(l - .035) c h); --at-bench:oklch(from var(--at-b) calc(l - .08) calc(c * 1.1) h);
+  --at-card:oklch(from var(--at-b) min(1, l + .02) calc(c * .5) h); --at-raise:oklch(from var(--at-b) calc(l - .055) c h);
+  --at-ink:oklch(from var(--at-b) .24 calc(c + .012) h); --at-ink2:oklch(from var(--at-b) .52 calc(c + .012) h);
+  --at-line:oklch(from var(--at-ink) l c h / .11); --at-line2:oklch(from var(--at-ink) l c h / .2);
+  --field:var(--at-card); --note:#7c3aed; --warn:#a8730f; --ok:#2f8f5f; --bad:#b9382a; color-scheme:light }
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--at-bench);color:var(--at-ink);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0}
+code{font-family:'Geist Mono',monospace;font-size:11.5px}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--at-side);border-bottom:1px solid var(--at-line)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--at-ink2);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--at-line2);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--at-ink2);cursor:pointer}
+.seg button.on{background:var(--at-raise);color:var(--at-ink)}
+main{padding:20px;display:flex;flex-direction:column;gap:18px;max-width:1120px;margin:0 auto}
+.card{background:var(--at-pane);border:1px solid var(--at-line);border-radius:12px;overflow:hidden}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card>h2 .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--at-ink2)}
+.card .why{padding:4px 14px 10px;color:var(--at-ink2);font-size:12px}
+.card .why b{color:var(--at-ink);font-weight:500}
+.tag{font-size:10.5px;border-radius:8px;padding:0 6px;border:1px solid;color:var(--note);border-color:color-mix(in srgb,var(--note) 45%,transparent)}
+.tag.reco{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+.scene{border-top:1px solid var(--at-line);background:var(--at-bench);padding:16px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.col{width:520px;display:flex;flex-direction:column;gap:10px}
+/* La question en attente (carte de demande, fil Cowork). */
+.ask{border:1px solid color-mix(in srgb,var(--at-coral) 45%,var(--at-line));background:color-mix(in srgb,var(--at-coral) 10%,var(--at-pane));border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.ask .h{display:flex;gap:8px;align-items:center;color:var(--at-ink2);font-size:12px}
+.ask .h b{color:var(--at-ink);font-weight:500}
+.ask .lg{width:14px;height:14px;border-radius:4px;background:#5fb98b}
+.opts{display:flex;flex-direction:column;gap:5px}
+.opt{display:flex;gap:8px;align-items:center;border:1px solid var(--at-line2);border-radius:8px;padding:5px 8px;background:var(--at-card)}
+.opt kbd{font:10.5px 'Geist Mono',monospace;border:1px solid var(--at-line2);border-radius:4px;padding:0 5px;color:var(--at-ink2)}
+/* Le champ (form .ide-reply.session-reply, Cowork). */
+.reply{border:1px solid var(--at-line2);border-radius:16px;background:var(--field);display:flex;flex-direction:column}
+.ta{min-height:46px;padding:12px 14px 4px;font-size:13px;line-height:20px}
+.ta .ph{color:var(--at-ink2)}
+.hint{margin:0 14px 6px;font-size:11.5px;color:var(--at-ink2)}
+.tools{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 8px 0 14px}
+.tools .bar{flex:1;font-size:11px;color:var(--at-ink2)}
+.mic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--at-ink2);opacity:.45}
+.send{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--at-raise);color:var(--at-ink2)}
+.bad{color:var(--bad);font-weight:500}
+.cr{font:11px 'Geist Mono',monospace;color:var(--at-ink2);display:flex;flex-direction:column;gap:2px}
+.cr span.ok{color:var(--ok)}.cr span.ko{color:var(--bad)}
+section.fiche{background:var(--at-pane);border:1px solid var(--at-line);border-radius:12px;padding:14px 18px;font-size:12.5px}
+section.fiche h2{font-size:13px;margin:0 0 6px}
+section.fiche table{border-collapse:collapse;width:100%;font-size:12px}
+section.fiche td,section.fiche th{border-top:1px solid var(--at-line);padding:5px 8px;text-align:left;vertical-align:top}
+section.fiche th{color:var(--at-ink2);font-weight:500}
+section.fiche ol{margin:6px 0 0;padding-left:20px}section.fiche li{margin:6px 0}
+@media (max-width:600px){main{padding:12px}.col{width:100%}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="h1"></h1><span class="sub" id="hsub"></span><span style="flex:1"></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<canvas id="cv" width="1" height="1" style="display:none"></canvas>
+<script>
+const T = {
+  fr: { h1:'Champ de réponse fermé : ce qu’il dit', hsub:'Issue kl-ledge/ledge#44, fil Cowork (#46), Atelier « Établi ». À valider par l’utilisateur.',
+    asks:'Nova vous pose une question', q:'Quelle base pour la branche du lot 13 ?', o:['main','develop','release/0.68'],
+    phFree:'Ou répondez librement à Nova…', only:'Choisissez une des réponses proposées (1–9).', phB:'Choisissez une réponse ci-dessus (1–9)', phC:'Pas de réponse libre pour cette question',
+    bar:'Codex · gpt-5.5 · main' },
+  en: { h1:'Closed reply field: what it says', hsub:'Issue kl-ledge/ledge#44, Cowork thread (#46), Atelier “Établi”. For the user to validate.',
+    asks:'Nova asks you a question', q:'Which base for the lot 13 branch?', o:['main','develop','release/0.68'],
+    phFree:'Or answer Nova freely…', only:'Choose one of the proposed answers (1–9).', phB:'Choose an answer above (1–9)', phC:'No free answer for this question',
+    bar:'Codex · gpt-5.5 · main' }
+};
+let L = 'fr';
+const t = () => T[L];
+const F = () => L==='fr';
+const SEND = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+const MIC = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>';
+const ask = () => { const x = t(); return `<div class="ask"><div class="h"><span class="lg"></span><b>${x.asks}</b></div><div>${x.q}</div><div class="opts">${x.o.map((o,i)=>`<div class="opt"><kbd>${i+1}</kbd>${o}</div>`).join('')}</div></div>`; };
+/* o = {ph, hint, mark} */
+const field = (o) => `<div class="reply"><div class="ta shut" data-ph>${o.ph?`<span class="ph">${o.ph}</span>`:'&nbsp;'}</div>${o.hint?`<div class="hint" data-hint>${o.hint}</div>`:''}<div class="tools"><span class="bar">${t().bar}</span><span class="mic">${MIC}</span><span class="send">${SEND}</span></div></div>`;
+const contrast = (id) => `<div class="cr" id="cr-${id}"></div>`;
+
+function cards(){
+  const x = t(), fr = F(), C = [];
+  C.push({tag:fr?'aujourd’hui':'today', title:fr?'Aujourd’hui : deux phrases qui se contredisent':'Today: two sentences that contradict each other',
+    why:fr?`Le champ est fermé (<code>disabled</code>), mais son texte d’attente invite à « répondre librement », et la ligne d’aide juste dessous dit le contraire.`:`The field is closed (<code>disabled</code>), yet its placeholder invites to “answer freely”, and the hint just below says the opposite.`,
+    scene:`<div class="col">${ask()}${field({ph:x.phFree, hint:x.only})}${contrast(0)}</div>`});
+  C.push({tag:fr?'recommandé':'recommended', reco:true, title:fr?'A · Pas de texte d’attente, la ligne d’aide reste (recommandé)':'A · No placeholder, the hint stays (recommended)',
+    why:fr?`Quand le champ est fermé, il n’a <b>plus de texte d’attente</b>. Seule la ligne d’aide existante parle : « Choisissez une des réponses proposées (1–9). ». Une seule phrase, au même endroit que les autres raisons (nom pris, note trop longue…). Le contraste est le même que celui d’un texte d’attente (même couleur, <code>--muted-foreground</code>), mesuré ci-dessous. Aucun texte nouveau.`:`When the field is closed, it has <b>no placeholder</b>. Only the existing hint speaks: “Choose one of the proposed answers (1–9).”. One sentence, in the same place as the other reasons. Contrast is the same as a placeholder’s (same colour, <code>--muted-foreground</code>), measured below. No new text.`,
+    scene:`<div class="col">${ask()}${field({hint:x.only})}${contrast(1)}</div>`});
+  C.push({tag:'B', title:fr?'B · La consigne dans le champ, la ligne d’aide retirée':'B · The instruction in the field, the hint removed',
+    why:fr?`Le texte d’attente devient « Choisissez une réponse ci-dessus (1–9) » et la ligne d’aide disparaît. L’œil va au champ, il y trouve la consigne. Mais un texte d’attente se lit comme une invitation à taper, dans un champ où l’on ne peut pas taper ; et c’est un texte nouveau.`:`The placeholder becomes “Choose an answer above (1–9)” and the hint goes away. The eye goes to the field and finds the instruction there. But a placeholder reads as an invitation to type, in a field where you cannot type; and it is a new text.`,
+    scene:`<div class="col">${ask()}${field({ph:x.phB})}${contrast(2)}</div>`});
+  C.push({tag:'C', title:fr?'C · Un texte d’attente neutre, la ligne d’aide reste':'C · A neutral placeholder, the hint stays',
+    why:fr?`Le champ dit pourquoi il est fermé (« Pas de réponse libre pour cette question ») et la ligne d’aide dit quoi faire. Deux phrases qui ne se contredisent plus, mais qui se répètent un peu.`:`The field says why it is closed (“No free answer for this question”) and the hint says what to do. Two sentences that no longer contradict each other, but repeat each other a little.`,
+    scene:`<div class="col">${ask()}${field({ph:x.phC, hint:x.only})}${contrast(3)}</div>`});
+  return C;
+}
+function fiche(){
+  const fr = F();
+  return `<section class="fiche"><h2>${fr?'Fiche (dev-front)':'Sheet (dev-front)'}</h2><table>
+  <tr><th>Option</th><th>${fr?'Règle':'Rule'}</th></tr>
+  <tr><td>A</td><td>${fr?'Dans <code>Reply.tsx</code>, <code>placeholder</code> vide quand <code>shut</code> (question à choix, demande à carte, note impossible) ; la ligne d’aide (<code>reason</code>) inchangée. Aucun texte nouveau.':'In <code>Reply.tsx</code>, empty <code>placeholder</code> when <code>shut</code>; the hint (<code>reason</code>) unchanged. No new text.'}</td></tr>
+  <tr><td>B</td><td>${fr?'<code>placeholder</code> = « Choisissez une réponse ci-dessus (1–9) » / “Choose an answer above (1–9)” quand <code>optionsOnly</code> ; la ligne d’aide masquée dans ce cas.':'<code>placeholder</code> = “Choose an answer above (1–9)” when <code>optionsOnly</code>; the hint hidden then.'}</td></tr>
+  <tr><td>C</td><td>${fr?'<code>placeholder</code> = « Pas de réponse libre pour cette question » / “No free answer for this question” quand <code>optionsOnly</code> ; la ligne d’aide inchangée.':'<code>placeholder</code> = “No free answer for this question” when <code>optionsOnly</code>; hint unchanged.'}</td></tr>
+  <tr><td>${fr?'Contraste':'Contrast'}</td><td>${fr?'Mesuré dans la page sur les couleurs réelles (WCAG 2, texte de 13 px : 4,5:1 attendu). Le code n’estompe pas le champ fermé : texte d’attente et ligne d’aide ont la même couleur (<code>--muted-foreground</code>, base.css), donc le même contraste dans les trois options.':'Measured in the page on the actual colours (WCAG 2, 13 px text: 4.5:1 expected). The code does not dim the closed field: placeholder and hint share the same colour, so the same contrast in all three options.'}</td></tr>
+  </table>
+  <h2 style="margin-top:14px">${fr?'Question pour l’utilisateur':'Question for the user'}</h2>
+  <ol><li>${fr?'<b>Le champ de réponse fermé</b> (question qui n’accepte qu’un chiffre) : A) pas de texte d’attente, la ligne d’aide « Choisissez une des réponses proposées (1–9). » reste seule (recommandé : une seule phrase, à l’endroit des autres raisons, aucun texte nouveau) ; B) « Choisissez une réponse ci-dessus (1–9) » dans le champ, la ligne d’aide retirée ; C) « Pas de réponse libre pour cette question » dans le champ, la ligne d’aide reste.':'<b>The closed reply field</b>: A) no placeholder, the hint stays alone (recommended); B) “Choose an answer above (1–9)” in the field, hint removed; C) “No free answer for this question” in the field, hint stays.'}</li></ol></section>`;
+}
+/* Contrast: the colour as rendered (opacity included), over the field's background. */
+const cv = document.getElementById('cv').getContext('2d', { willReadFrequently: true });
+const rgb = (css) => { cv.clearRect(0,0,1,1); cv.fillStyle = '#000'; cv.fillStyle = css; cv.fillRect(0,0,1,1); const d = cv.getImageData(0,0,1,1).data; return [d[0],d[1],d[2]]; };
+const lum = ([r,g,b]) => { const f = v => { v /= 255; return v <= .03928 ? v/12.92 : ((v+.055)/1.055)**2.4; }; return .2126*f(r)+.7152*f(g)+.0722*f(b); };
+const ratio = (a,b) => { const x = lum(a), y = lum(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); };
+const mix = (fg, bg, a) => fg.map((v,i)=>Math.round(v*a+bg[i]*(1-a)));
+function measure(){
+  document.querySelectorAll('.col').forEach((col, i) => {
+    const out = col.querySelector('.cr'); if (!out) return;
+    const bg = rgb(getComputedStyle(col.querySelector('.reply')).backgroundColor);
+    const lines = [];
+    const ph = col.querySelector('.ta .ph');
+    if (ph) { const c = rgb(getComputedStyle(ph).color); const r = ratio(c, bg); lines.push(`<span class="${r>=4.5?'ok':'ko'}">${F()?'Texte d’attente':'Placeholder'} : ${r.toFixed(2)}:1 ${r>=4.5?'✓':'✗ < 4,5'}</span>`); }
+    const hint = col.querySelector('.hint');
+    if (hint) { const r = ratio(rgb(getComputedStyle(hint).color), bg); lines.push(`<span class="${r>=4.5?'ok':'ko'}">${F()?'Ligne d’aide':'Hint'} : ${r.toFixed(2)}:1 ${r>=4.5?'✓':'✗ < 4,5'}</span>`); }
+    out.innerHTML = lines.join('');
+  });
+}
+function render(){
+  const x = t();
+  document.getElementById('h1').textContent = x.h1;
+  document.getElementById('hsub').textContent = x.hsub;
+  document.getElementById('main').innerHTML = cards().map((c,i)=>`<article class="card" id="s${i+1}"><h2><span class="n">${i+1}</span>${c.title}<span class="tag ${c.reco?'reco':''}">${c.tag}</span></h2><div class="why">${c.why}</div><div class="scene">${c.scene}</div></article>`).join('') + fiche();
+  requestAnimationFrame(measure);
+}
+function set(kind, v){
+  if (kind==='theme') document.documentElement.dataset.theme = v; else { L = v; document.documentElement.lang = v; }
+  document.querySelectorAll(`#${kind} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('theme').addEventListener('click', e => { if (e.target.dataset.v) set('theme', e.target.dataset.v); });
+document.getElementById('lang').addEventListener('click', e => { if (e.target.dataset.v) set('lang', e.target.dataset.v); });
+const qs = new URLSearchParams(location.search);
+set('theme', qs.get('theme')==='light'?'light':'dark'); set('lang', qs.get('lang')==='en'?'en':'fr');
+</script>
+</body>
+</html>
