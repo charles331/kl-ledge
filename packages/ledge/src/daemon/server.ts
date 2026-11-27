@@ -5,7 +5,7 @@ import { homedir, hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import { folderProblems, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
+import { cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
 import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
@@ -1346,13 +1346,29 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     const { failure } = await applyRow(r, msg.rid);
     return answer({ row: r, ...(failure !== undefined ? { reason: failure, code: 'failed' } : {}) });
   }
+  /** The names given to launches still under way (#15): taken until their session is recorded. */
+  const launchingNames = new Set<string>();
   type LaunchReq = { tool: Tool; cwd: string; name?: string; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string; approval?: OmpApproval };
   /** Spawns the agent as `ledge <tool>` would and records it; throws the reason (bad folder, tmux). */
   async function launch(req: LaunchReq): Promise<Session> {
-    const cwd = await resolveFolder(req.cwd, opts.home);
-    if (req.approval && req.tool !== 'omp') throw new Error(`launch: ${req.tool} takes no approval mode`);
-    const session = req.tool === 'omp' ? await launchOmp({ ...req, cwd }) : await launchTmux({ ...req, cwd, tool: req.tool });
-    return store.get(session.id) ?? session;
+    // Issue #15: a name given is the user's choice: taken, it is refused (the front says so before), never changed behind them.
+    // Checked and held before the first await: a second launch of that name meanwhile (the PC and the phone, a double send) is
+    // refused too, never suffixed (review of 72e0a45c).
+    const wanted = req.name !== undefined ? cleanName(req.name) : '';
+    if (wanted) {
+      const live = store.all();
+      if (nameRefusal([...namesInUse(live), ...heldNames(live), ...launchingNames], wanted)) {
+        const holder = nameHolder(live.filter(s => s.state !== 'exited' && !s.archivedAt), wanted);
+        throw new Refusal(`le nom ${wanted} est déjà pris${holder ? ` : ${holder.name} porte ce nom` : ''}`, 'name_taken');
+      }
+      launchingNames.add(wanted);
+    }
+    try {
+      const cwd = await resolveFolder(req.cwd, opts.home);
+      if (req.approval && req.tool !== 'omp') throw new Error(`launch: ${req.tool} takes no approval mode`);
+      const session = req.tool === 'omp' ? await launchOmp({ ...req, cwd }) : await launchTmux({ ...req, cwd, tool: req.tool });
+      return store.get(session.id) ?? session;
+    } finally { if (wanted) launchingNames.delete(wanted); }
   }
   /** `omp --mode rpc-ui` owned by the daemon: no pane. `continue` has no meaning here (a folder's latest journal is never picked). */
   async function launchOmp(req: LaunchReq): Promise<Session> {
@@ -1373,7 +1389,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     const cwd = req.cwd;
     const dirs = req.dirs?.length ? await Promise.all(req.dirs.map(d => resolveFolder(d, opts.home))) : undefined;
     const live = store.all();
-    const names = [...namesInUse(live), ...heldNames(live)];
+    // The names other launches hold right now are not this one's to take (#15), its own aside.
+    const own = req.name !== undefined ? cleanName(req.name) : '';
+    const names = [...namesInUse(live), ...heldNames(live), ...[...launchingNames].filter(n => n !== own)];
     const env = await agentEnv();
     const spawned = await spawnSession({ tool: req.tool, args: launchArgs({ ...req, dirs }), name: openName(names, req.name), cwd, tmux, now, env,
       taken: { names, ids: live.map(s => s.id) } });

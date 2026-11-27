@@ -98,10 +98,10 @@ export const OperationStatusSchema = z.enum(['received', 'applied', 'rejected', 
 export type OperationStatus = z.infer<typeof OperationStatusSchema>;
 
 /** Why an operation was refused: a refusal code of the local fronts, or one only a phone can meet. */
-/** `name_taken`: another project already has that name (case and accents aside). `folder_taken`: another project has that folder.
+/** `name_taken`: another project already has that name (case and accents aside), or a session the name given at launch (#15). `folder_taken`: another project has that folder.
  *  `not_found`: no such folder on this PC. */
 /** `not_pending`: the routine answered is no longer waiting for the owner. */
-export const OperationReasonSchema = z.enum([...RefusalCodeSchema.options, 'untypable', 'confirm_required', 'conflict', 'assertion_invalid', 'assertion_expired', 'scheduled', 'name_taken', 'folder_taken', 'not_found', 'not_pending', ...ModelRefusalSchema.options]);
+export const OperationReasonSchema = z.enum([...RefusalCodeSchema.options, 'untypable', 'confirm_required', 'conflict', 'assertion_invalid', 'assertion_expired', 'scheduled', 'folder_taken', 'not_found', 'not_pending', ...ModelRefusalSchema.options]);
 export type OperationReason = z.infer<typeof OperationReasonSchema>;
 
 /** What an adapter knows how to type for a phone, beyond accept, deny and an option number. A phone hides an answer its session's tool cannot give. */
@@ -334,7 +334,9 @@ export const PhoneLaunchSchema = z.object({
   project: ProjectIdSchema, tool: ToolSchema,
   folders: z.array(FolderPathSchema).min(1).max(PHONE_LAUNCH_FOLDERS_MAX),
   prompt: z.string().trim().min(1).max(MESSAGE_MAX),
-  model: ModelIdSchema.optional(), effort: EffortSchema.optional(), approval: OmpApprovalSchema.optional()
+  model: ModelIdSchema.optional(), effort: EffortSchema.optional(), approval: OmpApprovalSchema.optional(),
+  /** Issue #15: the session's name (its address), cleaned as every name; taken: refused `name_taken`. Absent: the first free one. */
+  name: z.string().max(200).optional()
 }).strict();
 export type PhoneLaunch = z.infer<typeof PhoneLaunchSchema>;
 /** What a `pc` challenge covers: installing a version then restarting, or restarting alone. */

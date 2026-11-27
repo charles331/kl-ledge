@@ -12,6 +12,9 @@ afterEach(async () => { vi.useRealTimers(); delete (Element.prototype as { scrol
 
 const launches = (d: MockDaemon) => d.received.filter(m => m.type === 'session.launch');
 const dialog = () => screen.queryByRole('dialog', { name: 'New session' });
+/** The name the i-th launch's session carries: none is sent while « Définir un nom ? » is off (#15), and the mock daemon then names
+ *  its launches Agent1, Agent2… in the order it answers them (here, the order they were sent). */
+const launchedName = (d: MockDaemon, i: number) => launches(d)[i]!.name ?? `Agent${i + 1}`;
 const launchButton = (form: ReturnType<typeof within>) => form.getByRole('button', { name: /Launch/ });
 
 describe('launching', () => {
@@ -26,8 +29,10 @@ describe('launching', () => {
     await user.click(form.getByRole('button', { name: /Launching…/ }));
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     // The IDE's modal sends more (its model, where it opens): what the launch is made of.
-    expect(launches(d)).toEqual([expect.objectContaining({ type: 'session.launch', tool: 'codex', cwd: '/w/ledge/app', name: expect.any(String), prompt: 'Relis la PR' })]);
-    const name = launches(d)[0]!.name!;
+    expect(launches(d)).toEqual([expect.objectContaining({ type: 'session.launch', tool: 'codex', cwd: '/w/ledge/app', prompt: 'Relis la PR' })]);
+    // « Définir un nom ? » off (#15): no name goes, the daemon picks the first free one.
+    expect(launches(d)[0]!.name).toBeUndefined();
+    const name = launchedName(d, 0);
     d.releaseLaunch();
     await waitFor(() => expect(dialog()).toBeNull());
     expect(screen.getByText(`${name} is starting at the Ledge table.`)).toBeVisible();
@@ -43,7 +48,7 @@ describe('launching', () => {
     d.holdLaunch();
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(launches(d)).toHaveLength(1));
-    const name = launches(d)[0]!.name!;
+    const name = launchedName(d, 0);
     const [ledge, ...others] = LAUNCH_PROJECTS.projects;
     d.projects({ projects: [{ ...ledge!, repos: ledge!.repos.filter(r => r.path !== '/w/ledge/app') }, ...others], rules: [] });
     d.releaseLaunch();
@@ -108,7 +113,7 @@ describe('launching', () => {
     await user.keyboard('{Escape}');
     expect(dialog()).toBeNull();
     // The held launch answers late: the agent appears at its place, nothing reopens, nothing is said.
-    const name = launches(d)[0]!.name!;
+    const name = launchedName(d, 0);
     d.releaseLaunch();
     await screen.findByRole('button', { name: new RegExp(`^${name},`) });
     act(() => { vi.advanceTimersByTime(1000); });
@@ -125,7 +130,7 @@ describe('launching', () => {
     await waitFor(() => expect(launches(d)).toHaveLength(1));
     await user.click(form.getByRole('button', { name: 'Cancel' }));
     expect(dialog()).toBeNull();
-    const name = launches(d)[0]!.name!;
+    const name = launchedName(d, 0);
     d.releaseLaunch();
     await screen.findByRole('button', { name: new RegExp(`^${name},`) });
     expect(document.querySelector('.toast')).toBeNull();
@@ -164,7 +169,7 @@ describe('launching', () => {
     // B answers: the form closes, the notice names B at the table its session sits at.
     d.releaseLaunch();
     await waitFor(() => expect(dialog()).toBeNull());
-    expect(screen.getByText(`${launches(d)[1]!.name} is starting at the Payment Service Platform Migration Europe table.`)).toBeVisible();
+    expect(screen.getByText(`${launchedName(d, 1)} is starting at the Payment Service Platform Migration Europe table.`)).toBeVisible();
   });
 
 });

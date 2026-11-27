@@ -108,7 +108,7 @@ export const launchSubject = (l: PhoneLaunch): string => `new:${createHash('sha2
 
 /** A launch the PC turns down: `not_found` (a folder is not there) or `invalid` (too wide a folder, an option the agent does not take). */
 export class PhoneLaunchRefused extends Error {
-  constructor(readonly reason: 'not_found' | 'invalid', message: string) { super(message); this.name = 'PhoneLaunchRefused'; }
+  constructor(readonly reason: 'not_found' | 'invalid' | 'name_taken', message: string) { super(message); this.name = 'PhoneLaunchRefused'; }
 }
 
 /** What a `rigs` challenge is bound to: that very OpenRig action, or that very change of a rig's seats, so an assertion approves nothing else. */
@@ -210,7 +210,7 @@ export function createPhoneGateway(deps: {
    * Starts a session as the PC's own `session.launch` does (« Nouvelle session », M2 §9), and returns it. Throws `PhoneLaunchRefused`
    * for a request the PC turns down (a folder gone, too wide, an option the agent does not take); anything else is a failure.
    */
-  launch?: (req: { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval }) => Promise<{ id: string }>;
+  launch?: (req: { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval; name?: string }) => Promise<{ id: string }>;
   /**
    * The daemon's own update and restart, for the phone only (spec 2026-10-28 mobile daemon update): never a `ClientMessage`.
    * Each runs on its own; its progress and refusals are broadcast, and `reply` gets a refusal meant for the asker alone (busy).
@@ -626,7 +626,7 @@ export function createPhoneGateway(deps: {
     const [cwd, ...dirs] = l.folders as [string, ...string[]];
     try {
       const { id } = await deps.launch({ tool: l.tool, cwd, ...(dirs.length ? { dirs } : {}), prompt: l.prompt,
-        ...(l.model ? { model: l.model } : {}), ...(l.effort ? { effort: l.effort } : {}), ...(l.approval ? { approval: l.approval } : {}) });
+        ...(l.model ? { model: l.model } : {}), ...(l.effort ? { effort: l.effort } : {}), ...(l.approval ? { approval: l.approval } : {}), ...(l.name !== undefined ? { name: l.name } : {}) });
       return { status: 'applied', launched: id };
     } catch (e) {
       if (e instanceof PhoneLaunchRefused) return { status: 'rejected', reason: e.reason };

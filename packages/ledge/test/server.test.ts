@@ -2082,7 +2082,7 @@ describe('server', () => {
       expect(store.get(resumed.id)!.transcriptPath).toBeUndefined();
       c.close();
     });
-    it('picks a free name when none is given or the wanted one is live, and never a live id', async () => {
+    it('picks a free name when none is given, and never a live id; a name given and live is refused (#15)', async () => {
       mkdirSync(join(home(), 'p'));
       store.upsert(mk('a', { name: 'Otto' })); store.upsert(mk('b', { name: 'Pim', state: 'exited' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
@@ -2090,9 +2090,12 @@ describe('server', () => {
       const first = await c.next('session.launched');
       expect(store.get(first.id)!.name).toBe('Pim'); // exited sessions free their name
       expect(['a', 'b']).not.toContain(first.id);
-      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'Otto' });
+      // #15: the name given is the user's choice: taken (whatever its case), it is refused, never turned into « Otto-2 ».
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'otto' });
+      expect(await c.next('error')).toEqual({ type: 'error', message: 'le nom Otto est déjà pris : Otto porte ce nom', request: 'session.launch', code: 'name_taken' });
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'p'), name: 'Ida' });
       const second = await c.next('session.launched');
-      expect(store.get(second.id)!.name).toBe('Otto-2');
+      expect(store.get(second.id)!.name).toBe('Ida');
       expect(tmux.created.map(x => x.command[0])).toEqual(['codex', 'cursor-agent']);
       // Codex hooks run in a shared daemon: the session id reaches them through a per-thread config override.
       // Its key goes the same way (#93): the daemon checks the `by` of its commands against it.
@@ -2103,14 +2106,35 @@ describe('server', () => {
       expect(tmux.created[1]!.env.LEDGE_CODEX_SESSION).toBeUndefined();
       c.close();
     });
-    it('skips a base name a numbered session holds, and reuses a name once that session is archived', async () => {
+    it('refuses a base name a numbered session holds and « ledge »; reuses a name once its session is archived; a name that cleans to nothing is no name (#15)', async () => {
       mkdirSync(join(home(), 'q'));
       store.upsert(mk('a', { name: 'Otto-2' }));
       store.upsert(mk('old', { name: 'Pim', state: 'idle', archivedAt: T0 }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
       c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'Otto' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Otto est déjà pris : Otto-2 porte ce nom' });
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'Ledge' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Ledge est déjà pris' });
+      expect(tmux.created).toHaveLength(0);
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: 'pim' });
+      expect(store.get((await c.next('session.launched')).id)!.name).toBe('Pim');
+      c.send({ type: 'session.launch', tool: 'cursor', cwd: join(home(), 'q'), name: ' @!, ' });
+      expect(store.get((await c.next('session.launched')).id)!.name).toBe('Nova');
+      c.close();
+    });
+    it('two launches of one name at once (the PC and the phone, a double send): one starts, the other is refused, never « Rex-2 » (#15)', async () => {
+      mkdirSync(join(home(), 'race'));
+      const c = await connect({ port: srv.port }); await c.next('snapshot');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'rex' });
       const launched = await c.next('session.launched');
-      expect(store.get(launched.id)!.name).toBe('Pim');
+      expect(await c.next('error')).toMatchObject({ request: 'session.launch', code: 'name_taken' });
+      expect(store.all().map(x => x.name)).toEqual(['Rex']);
+      expect(tmux.created).toHaveLength(1);
+      // Once recorded, the name is the session's, and the hold is gone: another launch of it is refused by the store itself.
+      expect(store.get(launched.id)!.name).toBe('Rex');
+      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'race'), name: 'Rex' });
+      expect(await c.next('error')).toMatchObject({ code: 'name_taken', message: 'le nom Rex est déjà pris : Rex porte ce nom' });
       c.close();
     });
     it('expands ~ and refuses a missing folder or a file with an error for the requester', async () => {

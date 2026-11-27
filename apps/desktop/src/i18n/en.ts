@@ -1230,7 +1230,7 @@ export const en: Messages = {
     agentName: 'Agent name', agentNameAuto: (n) => `${n} (random)`, agentNameHint: 'It is its address: other agents write to it by this name. Letters, digits, - and _; a name already taken gets a suffix.',
     pastNames: 'Used in this project before',
     newAgent: 'A new agent', joins: (n, t) => `${n} will join the ${t} table`, seat: (n, m, r) => `Seat ${n} · ${m} · ${r}`, noRepo: 'no folder or repository',
-    missing: { prompt: 'Write the instruction', machine: 'No machine online', repos: 'Choose at least one folder or repository' },
+    missing: { prompt: 'Write the instruction', machine: 'No machine online', repos: 'Choose at least one folder or repository', name: 'Choose another name for the session' },
     cancel: 'Cancel', launch: 'Launch', launching: 'Launching…',
     started: (n, t) => `${n} is starting at the ${t} table.`, startedNoTable: (n) => `${n} is starting, with no project.`, refused: (m) => `Launch refused: ${m}`,
     timeout: 'The launch did not answer. Check the machine, then try again.',
@@ -1254,7 +1254,13 @@ export const en: Messages = {
       open: 'Open', openActive: 'In the active group', openRight: 'On the right',
       limit: (pct, reset) => `5 h limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitMonth: (pct, reset) => `Monthly limit ${pct}${reset ? ` · resets ${reset}` : ''}`,
       limitWeek: (pct, reset) => `Weekly limit ${pct}${reset ? ` · resets ${reset}` : ''}`, limitUnread: 'Limit not read',
-      offline: 'offline', launch: 'Launch', launchKeys: 'Ctrl Enter', cancel: 'Cancel'
+      offline: 'offline', launch: 'Launch', launchKeys: 'Ctrl Enter', cancel: 'Cancel',
+      nameToggle: 'Set a name?', name: 'Name', namePlaceholder: (n) => `Leave empty for ${n}`,
+      nameHint: 'It is its address: other sessions write to it under this name (ledge who, SendMessage). Letters, digits, - and _.',
+      cleaned: (n) => `The session will be called ${n}: spaces and punctuation are removed.`,
+      nameTaken: (n, p) => `${n} is already the name of a session in ${p}. Choose another name, or leave it empty.`,
+      nameTakenBy: (n, o) => `${n} is already taken: ${o} has it.`,
+      nameReserved: 'ledge is reserved for Ledge itself. Choose another name.'
     }
   },
   projects: {

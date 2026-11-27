@@ -100,6 +100,8 @@ export interface FakeDaemon {
   projectFolders: { recents: string[]; home: string; listings: Record<string, string[]>; folders: Record<string, { machine: string; path: string; label?: string }[]> } | null;
   /** True: the snapshot says `daemon.broadcast`, and the PC takes « Écrire au groupe ». */
   broadcast: boolean;
+  /** True: the snapshot says `daemon.launch` (« Nouvelle session » may launch); the launch itself is not played. */
+  launch: boolean;
   /** The broadcasts the PC took: the sessions and the text. */
   broadcasts: { sessions: string[]; text: string }[];
   /** Each session's thread, as `session.thread` answers it (none: an empty thread). */
@@ -131,7 +133,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   let seen = 0;
   let busy = false;
   const d: FakeDaemon = {
-    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
+    sessions: [waiting()], typed: [], answer: true, device: null, push: null, subscription: null, chat: false, hold: false, turns: [], launched: [], closeCard: false, closed: [], sessionClose: false, ended: [], resumed: [], terminal: false, termTyped: [], projects: null, projectFolders: null, broadcast: false, launch: false, broadcasts: [], threads: {}, usage: null, openrig: null, rigActs: [], forge: null, forgeActs: [], routines: null, tasks: [], routineCmds: [],
     finishChat() { d.turns = d.turns.map((t) => (t.answer === undefined ? finished(t) : t)); },
     async update(s) {
       d.sessions = [...d.sessions.filter((x) => x.id !== s.id), s];
@@ -141,7 +143,7 @@ function runDaemon(pc: FakePc): FakeDaemon {
   };
   const snapshot = (): PhoneServerMessage => ({
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: d.sessions,
-    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}) },
+    capabilities: { claude: CAPS, codex: CAPS, cursor: CAPS, omp: { freeTextAnswer: false } }, daemon: { version: '0.0.0-e2e', name: PC_NAME, boot, ...(d.sessionClose ? { sessionClose: true as const } : {}), ...(d.terminal ? { terminal: true as const, terminalInput: true as const } : {}), ...(d.projects ? { atelier: true as const } : {}), ...(d.projectFolders ? { projectEdit: true as const, projectFolders: true as const } : {}), ...(d.broadcast ? { broadcast: true as const } : {}), ...(d.launch ? { launch: true as const } : {}), ...(d.usage ? { usage: true as const } : {}), ...(d.openrig ? { rigs: true as const } : {}), ...(d.forge ? { forge: true as const } : {}) },
     ...(d.projects ? { projects: d.projects } : {}),
     ...(d.device || d.push || d.chat ? { device: { confirm: d.device ? d.device.registered : true, ...(d.push ? { push: d.push } : {}), ...(d.chat ? { chat: true as const } : {}) } } : {})
   });
